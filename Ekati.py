@@ -3,7 +3,7 @@
 #
 #===============================================================================
 
-from datetime import datetime
+import ERA_Interim
 
 # set parameters
 date      = {'beg' : datetime(1979, 1, 1), 'end' : datetime(2016, 9, 1)}
