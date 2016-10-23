@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# (C) Copyright Stephan Gruber
+# (C) Copyright Stephan Gruber (2013–2016)
+#
+# Contributions:
+#     Bin Cao: Tested and improved the interpolation of data between
+#              locations and pressure levels (2015–2016). 
+#              
 #
 # This software is licensed under the terms of the Apache Licence Version 2.0
 # which can be obtained at http://www.apache.org/licenses/LICENSE-2.0. 
@@ -31,7 +36,8 @@ import csv
 
 
 class ERAgeneric(object):
-    """Parent class for other ERA-Interim classes.
+    """
+    Parent class for other ERA-Interim classes.
     """
         
     def areaString(self, area):
@@ -69,7 +75,9 @@ class ERAgeneric(object):
         return levs
 
     def getDictionaryGen(self, area, date):
-        """Makes dictionary of generic variables for a server call"""
+        """
+        Makes dictionary of generic variables for a server call
+        """
         dictionary_gen = {
           'area'    : self.areaString(area),
           'date'    : self.dateString(date),
@@ -79,10 +87,9 @@ class ERAgeneric(object):
           'grid'    : "0.75/0.75"}
         return dictionary_gen
  
- #TODO change to %Y
     def getDstring(self):
-        return ('_' + self.date['beg'].strftime("%y%m%d") + "_to_" +
-                      self.date['end'].strftime("%y%m%d")) 
+        return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
+                      self.date['end'].strftime("%Y%m%d"))
     
     def download(self):
         #TODO test for file existence
@@ -148,9 +155,9 @@ class ERApl(ERAgeneric):
         self.area       = area
         self.elevation  = elevation
         self.directory  = directory
-        self.file_grib  = path.join(self.directory,'ecmwf_erai_pl'+
+        self.file_grib  = path.join(self.directory,'era_pl'+
                                     self.getDstring()+'.grib')
-        self.file_ncdf  = path.join(self.directory,'ecmwf_erai_pl'+
+        self.file_ncdf  = path.join(self.directory,'era_pl'+
                                     self.getDstring()+'.nc')
         dpar = {'airt' : '130.128',           # [K]
                 'rh'   : '157.128',           # [%]
@@ -210,9 +217,9 @@ class ERAsa(ERAgeneric):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        self.file_grib  = path.join(self.directory,'ecmwf_erai_sa'+
+        self.file_grib  = path.join(self.directory,'era_sa'+
                                     self.getDstring()+'.grib')
-        self.file_ncdf  = path.join(self.directory,'ecmwf_erai_sa'+
+        self.file_ncdf  = path.join(self.directory,'era_sa'+
                                     self.getDstring()+'.nc')
         dpar = {'airt2'  : '167.128',           # [K] 2m values
                 'dewp2'  : '168.128',           # [K] 2m values
@@ -276,9 +283,9 @@ class ERAsf(ERAgeneric):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        self.file_grib  = path.join(self.directory,'ecmwf_erai_sf'+
+        self.file_grib  = path.join(self.directory,'era_sf'+
                                     self.getDstring()+'.grib')
-        self.file_ncdf  = path.join(self.directory,'ecmwf_erai_sf'+
+        self.file_ncdf  = path.join(self.directory,'era_sf'+
                                     self.getDstring()+'.nc')
         dpar = {'prec'   : '228.128',   # [m] total precipitation
                 'swin'   : '169.128',   # [J m-2] short-wave downward
@@ -309,8 +316,9 @@ class ERAsf(ERAgeneric):
 
                 
 class ERAto(ERAgeneric):
-    """Returns an object for ERA-Interim data that has methods for querying the
-    ECMWF server, for converting grib to ncdf.
+    """
+    Returns an object for downloading and handling ERA-Interim 
+    topography (invariant).
        
     Args:
 
@@ -331,8 +339,8 @@ class ERAto(ERAgeneric):
         self.date       = {'beg' : datetime(1979, 1, 1),
                            'end' : datetime(1979, 1, 1)}
         self.directory  = directory
-        self.file_grib  = path.join(self.directory,'ecmwf_erai_to.grib')
-        self.file_ncdf  = path.join(self.directory,'ecmwf_erai_to.nc')
+        self.file_grib  = path.join(self.directory,'era_to.grib')
+        self.file_ncdf  = path.join(self.directory,'era_to.nc')
 
     def getDictionary(self):
         self.dictionary = {
@@ -354,7 +362,8 @@ class ERAto(ERAgeneric):
                                          
       
 class gribFile(object):
-    """Wrapper for ECMWF grib files with ERA-Interim data. Provides list of 
+    """
+    Wrapper for ECMWF grib files with ERA-Interim data. Provides list of 
     contents and converts them into ncdf file.
        
     Args:
@@ -571,29 +580,37 @@ class eraData(object):
     def split_seq(self, seq, size):
         '''Split a list into chunks of defined size'''  
         newseq = []
-        splitsize = 1.0/size*len(seq)
+
+        splitsize = 1.0 / size * len(seq)
         for i in range(size):
                 newseq.append(seq[int(round(i*splitsize)):int(round((i+1)*splitsize))])
         return newseq
 
     def DateFile(self, filename, get='beg'):
-        if get == 'beg': res = filename[-19:-13]
-        if get == 'end': res = filename[ -9: -3]
+        if get == 'beg': res = filename[-23:-15]
+        if get == 'end': res = filename[-11: -3]
         return res
                         
-    def NCDFmergeWildcard(self, files, n_to_combine):
-        '''Merge multiple netCDF files with identical structure but differing
-        times together into one netCDF file'''       
-        #get directory list and split
-        all_list = self.split_seq(sorted(gl.glob(files)), n_to_combine)
+    def NCDFmergeWildcard(self, files, n_outfile=1, delete=True):
+        '''
+        Merge multiple netCDF files with identical structure but differing
+        times together into one netCDF file
         
+        n_outfile: Number of output files to distribute data over
+        
+        '''       
+        #get directory list and split
+        all_list = self.split_seq(sorted(gl.glob(files)), n_outfile)
+
         for file_list in all_list:
             sbeg = self.DateFile(file_list[ 0], get='beg')
             send = self.DateFile(file_list[-1], get='end')
-            file_new = file_list[0][:-19] + 'm' + '_' + sbeg + '_' + send + '.nc'
-            print file_list
-            print file_new
+            file_new = file_list[0][:-23] + 'm' + '_' + sbeg + '_' + send + '.nc'
             self.NCDFmerge(file_list, file_new)
+            #remove input files after merging
+            if delete:
+				for myfile in file_list:
+					  os.remove(myfile)
     
     def __interp(self, ncf, out_xyz, ind_time, variable):
         '''
@@ -738,7 +755,9 @@ class eraData(object):
 
         res[0]   = out_valu
         return res
-        
+
+
+	#		
                         
     def extractStationDataCSV(self, stations, daterange, variables, file_out):
         '''
@@ -759,7 +778,7 @@ class eraData(object):
 
         Run code:
         file_out = 'stationdata_.csv'
-        era = eraData('ecmwf_erai_pl_940101_to_950101.nc')
+        era = eraData('era_pl_940101_to_950101.nc')
         era.extractStationData(stations, daterange, variables, file_out)
         '''
         #make out_xyz
@@ -788,8 +807,9 @@ class eraData(object):
 
         
 class ERAbatch(object):
-    """Returns an object for ERA-Interim data that has methods for querying the
-    ECMWF server, for converting grib to ncdf.
+    """
+    Returns an object for ERA-Interim data that has methods for querying 
+    the ECMWF server, for converting grib to ncdf.
        
     Args:
         date: A dictionary specifying the time period desired with a begin 
@@ -801,11 +821,16 @@ class ERAbatch(object):
         elevation: A dictionary specifying the min/max elevation of the area of
                    interest. This is used to determine the pressure levels 
                    needed. Unit: [m].
-        
-        variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['airt', 'rh', 'geop', 'wind'].
-        
+                
         directory: Directory to hold output files
+        
+        increment_days: How many days should be requested from ECMWF 
+                        server per increment? This helps to keep the 
+                        processing faster.
+        
+        n_outfile: Over how many nc files should the final output be
+                   distributed? The dafault is 1, but for very large
+                   areas it may be better to use several files. 
               
     Example:
         from datetime import datetime
@@ -822,13 +847,16 @@ class ERAbatch(object):
         ts.retrieve()
         ts.deleteGrib()
     """
-    def __init__(self, date, area, elevation, directory, increment_days):
+    
+    def __init__(self, date, area, elevation, directory, 
+                 increment_days, n_outfile=1):
         self.date      = date
         self.area      = area
         self.elevation = elevation
         self.directory = directory
         self.increment = increment_days
         self.nc_files  = ''
+        self.n_outfile = n_outfile
         #TODO ensure increments is smaller or equal than chosen time window
 
     def getFileNames(self):  
@@ -837,15 +865,12 @@ class ERAbatch(object):
               
     def retrieve(self):
         #define variables
-        """
+
         var_pl = ['airt', 'rh', 'wind', 'geop']  
         var_sa = ['airt2', 'dewp2', 'wind10']
-        var_sf = ['prec', 'swin', 'lwin'] 
-        """
-        var_pl = ['airt', 'geop']  
-        var_sa = ['airt2']
-        var_sf = ['prec'] 
-        #enter time loop
+        var_sf = ['prec', 'swin', 'lwin']
+
+        #enter time loop, assign dummy date_i to start with
         date_i = {'beg' : datetime(1994, 1, 1), 'end' : datetime(1999, 1, 2)}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
                        self.increment)+1
@@ -870,11 +895,18 @@ class ERAbatch(object):
             for era in self.ERAli:
                 era.download()
                 era.toNCDF()
-                
+               
         #topography
         top = ERAto(self.area, self.directory)
         top.download()
-        top.toNCDF()                                       
+        top.toNCDF()
+        
+        #combine and cleanup
+        ed=eraData("")
+        ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
+        ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
+        ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
+                                             
         
     def __str__(self):
         return "Object for toposcale data download and conversion"                
