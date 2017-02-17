@@ -15,6 +15,7 @@ Created on Wed Feb  1 08:21:28 2017
 from datetime import datetime
 from os import path
 
+
 ##### HOW TO RUN THIS #########################################################
 #
 # (1) Register to ECMWF (free) https://apps.ecmwf.int/registration/
@@ -26,15 +27,32 @@ from os import path
 #
 ###############################################################################
 
-import ERA_Interim
+#settings
+dir_data = '/Users/xquan/data'
+dir_src  = '/Users/xquan/src/globsim'
 
-# set parameters
-date      = {'beg' : datetime(2016, 1, 1), 'end' : datetime(2016, 2, 1)}
-area      = {'north':  40.0, 'south': 50.0, 'west': -70.0, 'east': -80.0}
-elevation = {'min': 0, 'max': 1000}           
-directory = '/home/xquan/data'             
+execfile(path.join(dir_src, 'download.py'))
 
-# run
-ts = ERAbatch(date, area, elevation, directory, 15) 
+
+#location: alps
+date  = {'beg' : datetime(2016,1,1),
+         'end' : datetime(2016,2,1)}
+         
+area  = {'north' : 40.00,
+         'south' : 50.00,
+         'west'  : -70.00, 
+         'east'  : -80.00}
+         
+elevation = {'min' : 0, 
+             'max' : 2000}
+#run                                    
+ts = toposcale(date, area, elevation, dir_data, 5) 
 ts.retrieve()
-ts.deleteGrib()
+
+
+eraDownload = eraData()
+eraDownload.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_sa_*'),1)
+eraDownload.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_pl_*'),1)
+
+
+
