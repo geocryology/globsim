@@ -1,11 +1,11 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Feb  1 08:21:28 2017
-
-@author: xquan
-"""
-
+#
+# (C) Copyright Xiaojing Quan & Stephan Gruber
+#
+# For variable codes and units of ERA-Interim, see: 
+#     http://www.ecmwf.int/publications/manuals/d/gribapi/param/
+#
 #==============================================================================
 # An example for downloading and manipulating ERA-Interim data
 # Location: OTTAWA AREA (Latitude:45.4, Longitude:-75.7)
