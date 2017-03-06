@@ -31,7 +31,7 @@ dir_data = '/Users/xquan/data'
 dir_src  = '/Users/xquan/src/globsim'
 
 #execfile(path.join(dir_src, 'download.py'))
-execfile(path.join(dir_src, 'ERA_Interim.py'))
+execfile(path.join(dir_src, 'ERA_Interim_Download.py'))
 
 # Location: OTTAWA AREA (Latitude:45.4, Longitude:-75.7)
 date  = {'beg' : datetime(2016,1,1),
@@ -49,10 +49,10 @@ elevation = {'min' : 0,
 ts = ERAbatch(date, area, elevation, dir_data, 5)  
 ts.retrieve()
 
-
 eraDownload = eraData()
 eraDownload.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_sa_*'),1)
 eraDownload.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_pl_*'),1)
+eraDownload.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_sf_*'),1)
 
 
 
