@@ -844,15 +844,14 @@ class ERAbatch(object):
         ts.deleteGrib()
     """
     
-    def __init__(self, date, area, elevation, directory, 
-                 increment_days, n_outfile=1):
+    def __init__(self, date, area, elevation, directory,increment_days):
         self.date      = date
         self.area      = area
         self.elevation = elevation
         self.directory = directory
         self.increment = increment_days
         self.nc_files  = ''
-        self.n_outfile = n_outfile
+#        self.n_outfile = n_outfile
         #TODO ensure increments is smaller or equal than chosen time window
 
     def getFileNames(self):  
@@ -898,10 +897,10 @@ class ERAbatch(object):
         top.toNCDF()
         
         #combine and cleanup
-        ed=eraData("")
-        ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
-        ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
-        ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
+#      ed=eraData("")
+#      ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
+#      ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
+#      ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
                                              
         
     def __str__(self):
