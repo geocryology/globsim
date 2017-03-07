@@ -509,6 +509,7 @@ class eraData(object):
     def __init__(self, file_ncdf):
         self.file_ncdf  = file_ncdf
         self.g          = 9.80665 #m s-2
+#        self.absZero    = 273.15
         
     def describe(self):
         '''
@@ -608,10 +609,10 @@ class eraData(object):
             file_new = file_list[0][:-23] + 'm' + '_' + sbeg + '_' + send + '.nc'
             self.NCDFmerge(file_list, file_new)
             #remove input files after merging
-            if delete:
-				for myfile in file_list:
-					  os.remove(myfile)
-    
+#           if delete:
+#				for myfile in file_list:
+#					  os.remove(myfile)
+#   
     def __interp(self, ncf, out_xyz, ind_time, variable):
         '''
         Interpolate values during one time step. This function is called from 
@@ -902,10 +903,10 @@ class ERAbatch(object):
         top.toNCDF()
         
         #combine and cleanup
-        ed=eraData("")
-        ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
-        ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
-        ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
+ #       ed=eraData("")
+ #       ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
+ #       ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
+ #       ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
                                              
         
     def __str__(self):
