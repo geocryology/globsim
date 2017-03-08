@@ -30,29 +30,28 @@ from os import path
 dir_data = '/Users/xquan/data'
 dir_src  = '/Users/xquan/src/globsim'
 
-execfile(path.join(dir_src, 'download.py'))
-#execfile(path.join(dir_src, 'ERA_Interim.py'))
+execfile(path.join(dir_src, 'ERA_Interim.py'))
 
 # Location: OTTAWA AREA (Latitude:45.4, Longitude:-75.7)
 date  = {'beg' : datetime(2016,1,1),
          'end' : datetime(2016,2,1)}
          
-area  = {'north' : 40.00,
-         'south' : 50.00,
-         'west'  : -70.00, 
-         'east'  : -80.00}
+area  = {'north' : 46.00,
+         'south' : 45.00,
+         'west'  : -76.00, 
+         'east'  : -75.00}
          
 elevation = {'min' : 0, 
              'max' : 2000}
 #run                                    
-ts = toposcale(date, area, elevation, dir_data, 5)
-#ts = ERAbatch(date, area, elevation, dir_data, 5)
+
+ts = ERAbatch(date, area, elevation, dir_data, 5)
 ts.retrieve()
 
 
-Ottawa = eraData()
-Ottawa.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_pl_*'),1)
-Ottawa.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_sa_*'),1)
+#Ottawa = eraData()
+#Ottawa.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_pl_*'),1)
+#Ottawa.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_sa_*'),1)
 #Ottawa.NCDFmergeWildcard(path.join(dir_data, 'ecmwf_erai_sf_*'),1)
 
 

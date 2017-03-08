@@ -903,10 +903,10 @@ class ERAbatch(object):
         top.toNCDF()
         
         #combine and cleanup
- #       ed=eraData("")
- #       ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
- #       ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
- #       ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
+        ed=eraData("")
+        ed.NCDFmergeWildcard(self.directory + "/era_pl*", self.n_outfile)
+        ed.NCDFmergeWildcard(self.directory + "/era_sa*", self.n_outfile)
+        ed.NCDFmergeWildcard(self.directory + "/era_sf*", self.n_outfile) 
                                              
         
     def __str__(self):
