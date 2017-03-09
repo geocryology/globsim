@@ -28,9 +28,24 @@
 #
 #==============================================================================
 
+from datetime import datetime # Python standard library datetime module 
+from netCDF4  import Dataset # http://code.google.com/p/netcdf4-python/
+from os       import path, remove
+from mpl_toolkits.basemap import Basemap,shiftgrid,shiftgrid
+from scipy.interpolate import griddata
+
+import datetime as dt
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib as mpl
 
 # Reading in variables
 
+#nc_f='User/xquan/data/era_pl_20160101_to_20160105.nc' #file name 
+#nc_fid=Dataset(nc_f,'r') # open the file
+
+#root_grp= Dataset ('User/xquan/data/era_pl_20160101_to_20160105.nc')
 
 
 
@@ -48,6 +63,15 @@
 
 
 #Populate a gridded array for plotting 
+
+
+
+
+
+
+
+
+# Creat and customize plot
 
 
 
