@@ -36,10 +36,15 @@ execfile(path.join(dir_src, 'ERA_Interim.py'))
 date  = {'beg' : datetime(2016,1,1),
          'end' : datetime(2016,2,1)}
          
+#area  = {'north' : 46.00,
+#         'south' : 45.00,
+#         'west'  : -76.00, 
+#         'east'  : -75.00}
+
 area  = {'north' : 46.00,
          'south' : 45.00,
-         'west'  : -76.00, 
-         'east'  : -75.00}
+         'west'  : -70.00, 
+         'east'  : -80.00}    # test range
          
 elevation = {'min' : 0, 
              'max' : 2000}
