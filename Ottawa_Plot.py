@@ -55,7 +55,7 @@ t=nc.variables['Temperature'][:]
 u=nc.variables['U component of wind'][:]
 v=nc.variables['V component of wind'][:]
 
-time_idx=1
+#time_idx=1
 
 
 #=====Plot of Georeferenced Temperature at Specific Time and Level=============
@@ -124,12 +124,27 @@ cb.set_label('Temperature (K)')
 #cb.set_label('Temperature (K)')
 #------------------------------------------------------------------------------
 
-
-#Save figure
-plt.show()
-#plt.savefig('temp.png')
+plt.show() #show result on screen
+#plt.savefig('temp_1.png') # save figure
 
 #========Plot of Temperature Profile at Specific Time and Location=============
+time_idx=1                                                                     # Q: 1.how to convert time formate to standard type?
+lat_idx=1   #45.75                                                                  2. how to reset the beginnig values for X and Y (removing the extra space of ticks)
+lon_idx=1   #103.5                                                                  3.                                                                  
+fig=plt.figure()                                                                   
+plt.plot(t[time_idx,:,lat_idx,lon_idx], mslp, c='red', linewidth=1.5, linestyle='--')
+plt.xlim=(255.0,275.0)                         # set X limits
+#plt.xticks(np.arange(260,275))                # set X ticks
+plt.ylim=(750.0,1000.0)                        # set Y limits
+#plt.yticks(np.arange(750,1000))               # set Y ticks
+plt.grid()
+fig.autofmt_xdate()
 
+plt.xlabel('Temperature (K)')                  # set lable for X axis
+plt.ylabel('Pressue Level')                    # set lable for Y axis
+plt.title('Temperature')                       # set title for figure
 
+plt.show()
+#plt.savefig('temp_2.png') # save figure
 
+#==============================================================================
