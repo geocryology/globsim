@@ -50,29 +50,52 @@ lat=nc.variables['lat'][:]
 lon=nc.variables['lon'][:]
 time=nc.variables['time'][:]
 mslp=nc.variables['level'][:]
-RH=nc.variables['Relative humidity'][:]
+rh=nc.variables['Relative humidity'][:]
 t=nc.variables['Temperature'][:]
 u=nc.variables['U component of wind'][:]
 v=nc.variables['V component of wind'][:]
 
-time_idx=20
-#Fix the problem of Python and the renalaysis are slightly off in time
-#offset=dt.timedelta(hour=48)
-#List of all times in the file as datetime objects
-#dt_time = [dt.date(1, 1, 1) + dt.timedelta(hours=t) - offset\
-#           for t in time]
-#cur_time = dt_time[time_idx]
+time_idx=1
 
-#Plot of Georeferenced Temperature 
+
+#=====Plot of Georeferenced Temperature at Specific Time and Level=============
+
 #Setup the map. (See http://matplotlib.org/basemap/users/mapsetup.html)
-map=Basemap(projection='moll', llcrnrlat=-90, urcrnrlat=90,\
-            llcrnrlon=0, urcrnrlon=360, resolution='c', lon_0=0)# projection, lat/lon extents and resolution of polygons to draw
+#map = Basemap(projection='moll', llcrnrlat=-90, urcrnrlat=90,\
+#            llcrnrlon=0, urcrnrlon=360, resolution='c', lon_0=0)# projection, lat/lon extents and resolution of polygons to draw
                                                                # resolutions: c - crude, l - low, i - intermediate, h - high, f - full
+
+map = Basemap(projection='merc',llcrnrlon=-80.,llcrnrlat=40.,urcrnrlon=-70.,urcrnrlat=50.,resolution='i')
+
 #Others
 map.drawcoastlines()
+map.drawstates()
 map.drawmapboundary()
 map.drawcountries()
+#map.drawlsmask(land_color='Linen', ocean_color='CCFFF')
 
+
+# Add Lat/Lon
+parallels=np.arange(40,50,5.) # make latitude lines every 5 degree from 
+meridians=np.arange(-80,-70,5.)  # make longitude lines every 5 degree from
+map.drawparallels(parallels, lables=[1,0,0,0],fontsize=10)
+map.drawmeridians(meridians, lables=[0,0,0,1],fontsize=10)
+
+# Transforming the lat/lon data to map coordinates
+
+lons,lats=np.meshgrid(lon-180,lat) # for the dataset, longitude is 0 through 360, 
+                                    # Subtracting 180 to properly display on map
+x,y=map(lons,lats)                                  
+
+
+# Plotting the Temperature on the map
+
+temp=map.contourf(x,y,t[1,1,:,:])
+cb=map.colorbar(temp, "bottom", size="5%", pad="2%")
+plt.title('Temperature')
+cb.set_label('Temperature (K)')
+
+#------------------------------------------------------------------------------
 # Make the plot continuous
 #air_cyclic, lons_cyclic = addcyclic(t[time_idx, :, :], lon)
 
@@ -83,10 +106,10 @@ map.drawcountries()
 #air_cyclic, lons_cyclic=shiftgrid(180., air_cyclic, lons_cyclic, start=False)
 
 #Creat 2D lat/lon/ arrays for Basemap
-lons, lats=np.meshgrid(lon-180, lat)
+#lons, lats=np.meshgrid(lon-180, lat)
 
 # Transofrm lat/lon into plotting coordinates for projection
-x,y=map(lons, lats)
+#x,y=map(lons, lats)
 
 # Plot of air temperature with 11 contour intervals
 
@@ -95,19 +118,18 @@ x,y=map(lons, lats)
 #                            nc.variables['Temperature'].units))
 #plt.title("%s on %s" % (nc.variables['Temeprature'].var_desc, cur_time))
 
-temp=map.contourf(x,y,t[1,1,:,:])
-cb = map.colorbar(temp,"bottom", size="5%", pad="2%")
-plt.title('Temperature')
-cb.set_label('Temperature (K)')
-
+#temp=map.contourf(x,y,t[1,1,:,:])
+#cb = map.colorbar(temp,"bottom", size="5%", pad="2%")
+#plt.title('Temperature')
+#cb.set_label('Temperature (K)')
+#------------------------------------------------------------------------------
 
 
 #Save figure
 plt.show()
-plt.savefig('temp.png')
+#plt.savefig('temp.png')
 
-
-
+#========Plot of Temperature Profile at Specific Time and Location=============
 
 
 
