@@ -89,7 +89,7 @@ x,y=map(lons,lats)
 
 
 # Plotting the Temperature on the map
-
+print t[1,1,:,:]
 temp=map.contourf(x,y,t[1,1,:,:])
 cb=map.colorbar(temp, "bottom", size="5%", pad="2%")
 plt.title('Temperature')
