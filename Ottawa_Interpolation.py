@@ -41,9 +41,11 @@
 
 #==============================================================================
 
-from datetime import datetime
-from netCDF4  import Dataset as NetCDFFile
+from datetime import datetime, timedelta
+from netCDF4  import Dataset as NetCDFFile 
+
 from os import path
+from scipy.ndimage import gaussian_filter,generic_filter,convolve,minimum_filter,maximum_filter
 
 import datetime as dt
 import numpy as np
@@ -51,8 +53,6 @@ import matplotlib.pyplot as plt
 
 # Reading in variables
 
-#dir_data= '/Users/xquan/data'
-#dir_src= '/Users/xquan/src/globsim'
 
 nc=NetCDFFile('/Users/xquan/data/era_pl_20160101_to_20160105.nc') #open the file
 
@@ -67,13 +67,65 @@ temp=nc.variables['Temperature'][:]
 u=nc.variables['U component of wind'][:]
 v=nc.variables['V component of wind'][:]
 
-#time_idx=1
 
 
-#-----------------------Step 1-------------------------------------------------
+
+#==========================Step 1==============================================
+
+dir_data= '/Users/xquan/data'
+dir_src= '/Users/xquan/src/globsim'
+
+execfile(path.join(dir_src, 'redcapp_XQ.py'))
+
+#-----Option 1(Utilizing Classes from redcapp)---------------------------------
+
+#get the raw data from directory containing all raw data and output data
+dataImport=rawData(dir_data)
+sa=dataImport.saf_get() #get da file in the given directory 
+pl=dataImport.plf_get() #get pl file in the given directory
+geop=dataImport.geopf_get()  # geopotential file
 
 
-#execfile()
+# 2D interpolation 
+
+#dem='example_Ottawa.nc'
+##geop='era_to.nc'
+##sa='era_sa_20160101_to_20160105.nc'
+##pl='era_pl_20160101_to_20160105.nc'
+#
+#downscaling=downscaling(dem,geop,sa,pl)
+#
+#out_xyz_dem, lats, lons, shape= downscaling.demGrid()
+#out_xyz_sur= downscaling.surGrid(lats, lons, None)
+#
+## interpolate 2-meter temperature
+#surTa=downscaling.surTa(0, out_xyz_sur)
+#
+## original ERA-I values
+#gridT, gridZ, gridLat, gridLon= downscaling. gridValue(variable,0)
+#
+##interpolate temperatures and geopotential of different pressue levels
+#t_interp, z_interp=downscaling.inLevelInterp(gridT, gridZ, gridLat, gridLon, out_xyz_dem) 
+
+
+#---Option 2(interploting variables at one single pixel at given time index----
+
+time_idx=1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -94,28 +146,28 @@ v=nc.variables['V component of wind'][:]
 
 # Saved result as netCDF file
 
-f=NetCDFFile('Sample_Result_1.nc', 'w', format='NETCDF4')    # creat a netCDF file
+#f=NetCDFFile('Sample_Result_1.nc', 'w', format='NETCDF4')    # creat a netCDF file
 
-tempgrp=f.creatGroup('Temp_data')                            # creat a data group for temperature result output
+#tempgrp=f.creatGroup('Temp_data')                            # creat a data group for temperature result output
 
-tempgrp.creatDimension ('lon',len(lon))                      # Specify the dimension of data                   
-tempgrp.creatDimension('lat', len(lat))        
-tempgrp.creatDimension('time',None)                          
+#tempgrp.creatDimension ('lon',len(lon))                      # Specify the dimension of data                   
+#tempgrp.creatDimension('lat', len(lat))        
+#tempgrp.creatDimension('time',None)                          
 
-longitude=tempgrp.creatVariable('Longitude', 'f4', 'lon')    # Building output variables    f4:32 bit float
-latitude=tempgrp.creatVariable('Latitude','f4', 'lat')       #                              i4: 32 bit integer
-levels=tempgrp.creatVariable('Temperature', 'f4', ('time', 'lon', 'lat'))
-time= tempgrp.creatVariable('Time','i4', 'time')
+#longitude=tempgrp.creatVariable('Longitude', 'f4', 'lon')    # Building output variables    f4:32 bit float
+#latitude=tempgrp.creatVariable('Latitude','f4', 'lat')       #                              i4: 32 bit integer
+#levels=tempgrp.creatVariable('Temperature', 'f4', ('time', 'lon', 'lat'))
+#time= tempgrp.creatVariable('Time','i4', 'time')
 
-longitude[:]= lon                                            # Pass the values of interpolated results to the output variables
-latitude[:]= lat
-temp[:,:,:]= temp_data
+#longitude[:]= lon                                            # Pass the values of interpolated results to the output variables
+#latitude[:]= lat
+#temp[:,:,:]= temp_data
 
-longitude.units = 'degrees east'                             # Add local attributes to variable instances
-latitude.units = 'degrees north'
-time.units = 'days since Jan 01, 0001'
-temp.units = 'Kelvin'
+#longitude.units = 'degrees east'                             # Add local attributes to variable instances
+#latitude.units = 'degrees north'
+#time.units = 'days since Jan 01, 0001'
+#temp.units = 'Kelvin'
 
-f.close()                                                    # Close the dataset                                                  
+#f.close()                                                    # Close the dataset                                                  
 
 
