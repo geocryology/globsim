@@ -77,7 +77,7 @@ dir_src= '/Users/xquan/src/globsim'
 
 execfile(path.join(dir_src, 'redcapp_XQ.py'))
 
-#-----Option 1(Utilizing Classes from redcapp)---------------------------------
+#-----Option 1(Utilizing Classes from redcapp)---------------------------------Q: Option 1 or 2, which one is a right way to conduct the 2D interpolation?
 
 #get the raw data from directory containing all raw data and output data
 dataImport=rawData(dir_data)
@@ -88,27 +88,28 @@ geop=dataImport.geopf_get()  # geopotential file
 
 # 2D interpolation 
 
-#dem='example_Ottawa.nc'
-##geop='era_to.nc'
-##sa='era_sa_20160101_to_20160105.nc'
-##pl='era_pl_20160101_to_20160105.nc'
-#
-#downscaling=downscaling(dem,geop,sa,pl)
-#
-#out_xyz_dem, lats, lons, shape= downscaling.demGrid()
-#out_xyz_sur= downscaling.surGrid(lats, lons, None)
-#
-## interpolate 2-meter temperature
-#surTa=downscaling.surTa(0, out_xyz_sur)
-#
-## original ERA-I values
-#gridT, gridZ, gridLat, gridLon= downscaling. gridValue(variable,0)
-#
-##interpolate temperatures and geopotential of different pressue levels
-#t_interp, z_interp=downscaling.inLevelInterp(gridT, gridZ, gridLat, gridLon, out_xyz_dem) 
+dem='example_Ottawa.nc'                                                        #Q: what is the conception to generate the file? Input or output variable?
+geop ='era_to.nc'                                                              #Q: geop: era_to.nc? if it wasn't, how to generate this data file?
+a='era_sa_20160101_to_20160105.nc'                                          
+pl='era_pl_20160101_to_20160105.nc'
+
+downscaling=downscaling(dem,geop,sa,pl)
+
+out_xyz_dem, lats, lons, shape= downscaling.demGrid()
+out_xyz_sur = downscaling.surGrid(lats, lons, None)
+
+# interpolate 2-meter temperature
+surTa=downscaling.surTa(0, out_xyz_sur)
+
+# original ERA-I values
+gridT, gridZ, gridLat, gridLon= downscaling. gridValue(variable,0)
+
+#interpolate temperatures and geopotential of different pressue levels
+t_interp, z_interp=downscaling.inLevelInterp(gridT, gridZ, gridLat, gridLon, out_xyz_dem) 
 
 
 #---Option 2(interploting variables at one single pixel at given time index----
+
 
 time_idx=1
 
