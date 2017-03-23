@@ -41,91 +41,42 @@
 
 #==============================================================================
 
-from datetime import datetime, timedelta
-from netCDF4  import Dataset as NetCDFFile 
 
 from os import path
-from scipy.ndimage import gaussian_filter,generic_filter,convolve,minimum_filter,maximum_filter
+from netCDF4  import Dataset as NetCDFFile 
 
-import datetime as dt
-import numpy as np
-import matplotlib.pyplot as plt
+dir_data= '/Users/xquan/data'
+dir_src= '/Users/xquan/src/globsim'
 
-# Reading in variables
+execfile(path.join(dir_src, 'globsim.py'))
 
 
-nc=NetCDFFile('/Users/xquan/data/era_pl_20160101_to_20160105.nc') #open the file
+# Get in raw data
 
-# Read the variables from the netCDF file and assign them to Python variables
+dem  = 'example_Ottawa.nc'
+#geop = 'era_to.nc'
+#sa   = '/Users/xquan/data/era_sa_20160101_to_20160105.nc'
+pl   = '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
 
-lat=nc.variables['lat'][:]
-lon=nc.variables['lon'][:]
-time=nc.variables['time'][:]
-mslp=nc.variables['level'][:]
-rh=nc.variables['Relative humidity'][:]
-temp=nc.variables['Temperature'][:]
-u=nc.variables['U component of wind'][:]
-v=nc.variables['V component of wind'][:]
+Interp2d = Interp2d(dem, pl)     
+
+# Read in interpoalted variable at specific time and pressue level indexs
+
+ind_time=1
+ind_lev=1
+
+temp=Interp2d.gridVariable('Temperature',ind_time, ind_lev)
+rh=Interp2d.gridVariable('Relative humidity',ind_time, ind_lev)
+u=Interp2d.gridVariable('U component of wind',ind_time, ind_lev)
+v=Interp2d.gridVariable('V component of wind',ind_time, ind_lev)
+gp=Interp2d.gridVariable('Geopotential',ind_time, ind_lev)
 
 
 
 
 #==========================Step 1==============================================
 
-dir_data= '/Users/xquan/data'
-dir_src= '/Users/xquan/src/globsim'
-
-execfile(path.join(dir_src, 'redcapp_XQ.py'))
-
-#-----Option 1(Utilizing Classes from redcapp)---------------------------------Q: Option 1 or 2, which one is a right way to conduct the 2D interpolation?
-
-#get the raw data from directory containing all raw data and output data
-dataImport=rawData(dir_data)
-sa=dataImport.saf_get() #get da file in the given directory 
-pl=dataImport.plf_get() #get pl file in the given directory
-geop=dataImport.geopf_get()  # geopotential file
-
-
-# 2D interpolation 
-
-dem='example_Ottawa.nc'                                                        #Q: what is the conception to generate the file? Input or output variable?
-geop ='era_to.nc'                                                              #Q: geop: era_to.nc? if it wasn't, how to generate this data file?
-a='era_sa_20160101_to_20160105.nc'                                          
-pl='era_pl_20160101_to_20160105.nc'
-
-downscaling=downscaling(dem,geop,sa,pl)
-
-out_xyz_dem, lats, lons, shape= downscaling.demGrid()
-out_xyz_sur = downscaling.surGrid(lats, lons, None)
-
-# interpolate 2-meter temperature
-surTa=downscaling.surTa(0, out_xyz_sur)
-
-# original ERA-I values
-gridT, gridZ, gridLat, gridLon= downscaling. gridValue(variable,0)
-
-#interpolate temperatures and geopotential of different pressue levels
-t_interp, z_interp=downscaling.inLevelInterp(gridT, gridZ, gridLat, gridLon, out_xyz_dem) 
-
-
-#---Option 2(interploting variables at one single pixel at given time index----
-
-
-time_idx=1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#
 
 
 

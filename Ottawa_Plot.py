@@ -54,6 +54,7 @@ rh=nc.variables['Relative humidity'][:]
 t=nc.variables['Temperature'][:]
 u=nc.variables['U component of wind'][:]
 v=nc.variables['V component of wind'][:]
+gp=nc.variables['Geopotential'][:]
 
 #time_idx=1
 

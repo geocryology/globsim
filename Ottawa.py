@@ -32,6 +32,7 @@ dir_src  = '/Users/xquan/src/globsim'
 
 execfile(path.join(dir_src, 'ERA_Interim.py'))
 
+
 # Location: OTTAWA AREA (Latitude:45.4, Longitude:-75.7)
 date  = {'beg' : datetime(2016,1,1),
          'end' : datetime(2016,2,1)}

@@ -789,7 +789,7 @@ class downscaling(object):
     Example:
         dem  = 'example_alps.nc'
         geop = 'alps_geop.nc'
-        sa   = 'alps_sa_79_15.nc'
+        sa   = 'alps_sa_79_15
         pl   = 'alps_pl_79_15.nc'
         
         downscaling = downscaling(dem, geop, sa, pl)
