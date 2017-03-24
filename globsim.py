@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 from ecmwfapi import ECMWFDataServer
 from math     import exp, floor, radians
 from os       import path, remove
-from scipy.interpolate import griddata,RegularGridInterpolator
+from scipy.interpolate import griddata,RegularGridInterpolator, NearestNDInterpolator
 from scipy.ndimage import gaussian_filter,generic_filter,convolve,minimum_filter,maximum_filter
 from itertools import izip
 from bisect import bisect_left
@@ -104,7 +104,7 @@ class Interp2d(object):
             Interp2d = Interp2d(dem, pl)  
             
             ind_time=1
-            ind+lev=1
+            ind_lev=1
             
             Temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
             
@@ -119,18 +119,18 @@ class Interp2d(object):
         return variable, lat, lon, lev
         
 
-    def interVariable(self, lats, lons, interp_Va):
-            """
+    def interVariable(self, variable, lats, lons):
+        """
         Return interpolated variable in one specific pressure level at given 
-        location
+        pixel
         
         Args: 
             variable: Given interpolated climate variable
-            lats: The latitude at given location 
-            lons: The longitude at given location
+            lats: The latitude at given pixel 
+            lons: The longitude at given pixel
         
         Returns: 
-            interp_Va: interpolated variable at given location(lats, lons)
+            interp_va: interpolated variable at given pixel(lats, lons)
             
         
         Example:
@@ -145,15 +145,27 @@ class Interp2d(object):
             ind_time=1
             ind_lev=1
             
-            Temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
+            temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
             
             lats= 45.4
             lons= -75.7
             
-            intep_temp=Interp2d.interVariable(lats,lons,interp_Va)
+            intep_temp=Interp2d.interVariable(temp,lats,lons)
           
             
         """
+
+        lat=self.pl.variables['lat'][:]
+        lon=self.pl.variables['lon'][:]
         
+        # arrange the dimension of variable 
+        lat=np.array(lat)
+        lon=np.array(lon)
+        variable=np.array(variable)
         
-    
+ #      f_va = RegularGridInterpolator((lat, lon),variable, 'nearest')
+        f_va = NearestNDInterpolator((lat, lon), variable, 'nearest')
+ 
+        interp_va=f_va(lats,lons)
+        
+        return interp_va
