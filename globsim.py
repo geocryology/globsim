@@ -71,7 +71,7 @@ class Interp2d(object):
   #      self.sa     = NetCDFFile(sa)
         self.pl     = NetCDFFile(pl)
         self.g       = 9.80665 # Gravitational acceleration [m/s2]
-        self.absZero = 273.15  #
+        self.absZero = 273.15  
         if not (dem is None):
             self.dem = NetCDFFile(dem) 
      
@@ -96,8 +96,17 @@ class Interp2d(object):
         
         Example:
             
+            dem  = 'example_Ottawa.nc'
+            geop = 'era_to.nc'
+            sa   = '/Users/xquan/data/era_sa_20160101_to_20160105.nc'
+            pl   = '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
+           
+            Interp2d = Interp2d(dem, pl)  
             
-            Temp,lat,lon =Interp2d.gridVariable('Temperature',ind_time, ind_lev)
+            ind_time=1
+            ind+lev=1
+            
+            Temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
             
         """
         
@@ -110,4 +119,41 @@ class Interp2d(object):
         return variable, lat, lon, lev
         
 
+    def interVariable(self, lats, lons, interp_Va):
+            """
+        Return interpolated variable in one specific pressure level at given 
+        location
         
+        Args: 
+            variable: Given interpolated climate variable
+            lats: The latitude at given location 
+            lons: The longitude at given location
+        
+        Returns: 
+            interp_Va: interpolated variable at given location(lats, lons)
+            
+        
+        Example:
+            
+            dem  = 'example_Ottawa.nc'
+            geop = 'era_to.nc'
+            sa   = '/Users/xquan/data/era_sa_20160101_to_20160105.nc'
+            pl   = '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
+           
+            Interp2d = Interp2d(dem, pl)  
+            
+            ind_time=1
+            ind_lev=1
+            
+            Temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
+            
+            lats= 45.4
+            lons= -75.7
+            
+            intep_temp=Interp2d.interVariable(lats,lons,interp_Va)
+          
+            
+        """
+        
+        
+    

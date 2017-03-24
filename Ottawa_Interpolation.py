@@ -41,9 +41,14 @@
 
 #==============================================================================
 
+from datetime import datetime # Python standard library datetime module 
+from netCDF4  import Dataset as NetCDFFile # http://code.google.com/p/netcdf4-python/
+from os       import path, remove
+from scipy.interpolate import griddata
 
-from os import path
-from netCDF4  import Dataset as NetCDFFile 
+import datetime as dt
+import numpy as np
+
 
 dir_data= '/Users/xquan/data'
 dir_src= '/Users/xquan/src/globsim'
@@ -56,11 +61,18 @@ execfile(path.join(dir_src, 'globsim.py'))
 dem  = 'example_Ottawa.nc'
 #geop = 'era_to.nc'
 #sa   = '/Users/xquan/data/era_sa_20160101_to_20160105.nc'
-pl   = '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
+geop  = NetCDFFile('/Users/xquan/data/era_pl_20160101_to_20160105.nc')
+pl= '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
 
 Interp2d = Interp2d(dem, pl)     
 
+
 # Read in interpoalted variable at specific time and pressue level indexs
+
+lat=geop.variables['lat'][:]
+lon=geop.variables['lon'][:]
+lev=geop.variables['level'][:]
+
 
 ind_time=1
 ind_lev=1
@@ -70,6 +82,7 @@ rh=Interp2d.gridVariable('Relative humidity',ind_time, ind_lev)
 u=Interp2d.gridVariable('U component of wind',ind_time, ind_lev)
 v=Interp2d.gridVariable('V component of wind',ind_time, ind_lev)
 gp=Interp2d.gridVariable('Geopotential',ind_time, ind_lev)
+
 
 
 
