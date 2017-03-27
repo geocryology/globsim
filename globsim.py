@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 from ecmwfapi import ECMWFDataServer
 from math     import exp, floor, radians
 from os       import path, remove
-from scipy.interpolate import griddata,RegularGridInterpolator, NearestNDInterpolator
+from scipy.interpolate import griddata,RegularGridInterpolator, NearestNDInterpolator,LinearNDInterpolator
 from scipy.ndimage import gaussian_filter,generic_filter,convolve,minimum_filter,maximum_filter
 from itertools import izip
 from bisect import bisect_left
@@ -163,8 +163,9 @@ class Interp2d(object):
         lon=np.array(lon)
         variable=np.array(variable)
         
- #      f_va = RegularGridInterpolator((lat, lon),variable, 'nearest')
+ #       f_va = RegularGridInterpolator((lat, lon),variable, 'nearest')
         f_va = NearestNDInterpolator((lat, lon), variable, 'nearest')
+ #       f_va = LinearNDInterpolator ((lat, lon), variable)
  
         interp_va=f_va(lats,lons)
         
