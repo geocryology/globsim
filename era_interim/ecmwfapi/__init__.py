@@ -17,7 +17,6 @@ __all__ = [
     "ECMWFService",
 ]
 
-
 __version__ = api.VERSION
 
 ECMWFDataServer = api.ECMWFDataServer
