@@ -58,7 +58,7 @@ execfile(path.join(dir_src, 'globsim.py'))
 
 # Get in raw data
 
-dem  = 'example_Ottawa.nc'
+dem  = 'User/xquan/data/example_Ottawa.nc'
 #geop = 'era_to.nc'
 #sa   = '/Users/xquan/data/era_sa_20160101_to_20160105.nc'
 nc  = NetCDFFile('/Users/xquan/data/era_pl_20160101_to_20160105.nc')
@@ -69,9 +69,9 @@ Interp2d = Interp2d(dem, pl)
 
 # Read in interpoalted variable at specific time and pressue level indexs
 
-lat=nc.variables['lat'][:]
-lon=nc.variables['lon'][:]
-lev=nc.variables['level'][:]
+#lat=nc.variables['lat'][:]
+#lon=nc.variables['lon'][:]
+#lev=nc.variables['level'][:]
 
 
 ind_time=1

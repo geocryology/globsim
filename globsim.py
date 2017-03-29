@@ -157,16 +157,19 @@ class Interp2d(object):
 
         lat=self.pl.variables['lat'][:]
         lon=self.pl.variables['lon'][:]
+     
+        f_va=RegularGridInterpolator((lat, lon), variable, 'linear')        
+        out_xy = np.array([lats, lons]).T
+        interp_va = f_va(out_xy)
+        out_variable= np.array([lats,lons, interp_va]).T
+
+
+        print str(lat)
+        print str(lon)
+        print str(variable)
+        print out_variable
+        #tmp = (lat, lon)
+        #print str(tmp)
+
         
-        # arrange the dimension of variable 
-        lat=np.array(lat)
-        lon=np.array(lon)
-        variable=np.array(variable)
-        
- #       f_va = RegularGridInterpolator((lat, lon),variable, 'nearest')
-        f_va = NearestNDInterpolator((lat, lon), variable, 'nearest')
- #       f_va = LinearNDInterpolator ((lat, lon), variable)
- 
-        interp_va=f_va(lats,lons)
-        
-        return interp_va
+        return out_variable
