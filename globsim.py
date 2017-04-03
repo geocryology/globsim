@@ -46,29 +46,29 @@ import re
 
 class Interp2d(object):
     """
-        This is a 2D interpolatation, and returns interpolated variables
-        at one specific location
+    This is a 2D interpolatation, and returns interpolated variables in 
+    specific time and pressure level at required single and multipil locations 
         
-        Args:
+    Args:
+        sa: ERA_Interim raw metadata in surface level   
+        pl: ERA_Interim raw metadata in pressure levels 
+        dem: A required fine-scale dem in netcdf format
             
-            
-            
-        Returns:
-            
-            
+    Returns:
+        Interpolated variables in the format of [lats, lons, values] at gives locations
         
-        Example:
+    Example:
             
-            dem  = 'example_Ottawa.nc'
-            sa   = 'era_sa_20160101_to_20160105.nc'
-            pl   = 'era_pl_20160101_to_20160105.nc'
+        dem  = 'example_Ottawa.nc'
+        sa   = 'era_sa_20160101_to_20160105.nc'
+        pl   = 'era_pl_20160101_to_20160105.nc'
         
-        Interp2d = Interp2d(dem, sa, pl)
+        Interp2d = Interp2d(dem, pl)
         
     """             
     
-    def __init__(self,sa, pl, dem =None):
-  #      self.sa     = NetCDFFile(sa)
+    def __init__(self, sa, pl, dem =None):      
+#        self.sa     = NetCDFFile(sa)
         self.pl     = NetCDFFile(pl)
         self.g       = 9.80665 # Gravitational acceleration [m/s2]
         self.absZero = 273.15  
@@ -106,9 +106,12 @@ class Interp2d(object):
             ind_time=1
             ind_lev=1
             
-            Temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
+            Temp = Interp2d.gridVariable('Temperature',ind_time,ind_lev)
             
         """
+        
+        ind_time=0
+        ind_lev=0
         
         variable= self.pl.variables[variable][ind_time,ind_lev,:,:]
         
@@ -126,12 +129,12 @@ class Interp2d(object):
         
         Args: 
             variable: Given interpolated climate variable
-            lats: The latitude at given pixel 
-            lons: The longitude at given pixel
+            lats: The latitude at given locations
+            lons: The longitude at given locations
         
         Returns: 
-            interp_va: interpolated variable at given pixel(lats, lons)
-            
+            interp_va: interpolated variable at given locations in the format of
+            [lats, lons, values]           
         
         Example:
             
@@ -147,8 +150,8 @@ class Interp2d(object):
             
             temp = Interp2d.gridVariable('Temperature',ind_time, ind_lev)
             
-            lats= 45.4
-            lons= -75.7
+            lats= [45.4, 45.45]
+            lons= [284.30,284.35] # convert from: +360
             
             intep_temp=Interp2d.interVariable(temp,lats,lons)
           
@@ -161,15 +164,10 @@ class Interp2d(object):
         f_va=RegularGridInterpolator((lat, lon), variable, 'linear')        
         out_xy = np.array([lats, lons]).T
         interp_va = f_va(out_xy)
-        out_variable= np.array([lats,lons, interp_va]).T
+        out_variable= np.array([lats,lons,interp_va]).T
 
 
-        print str(lat)
-        print str(lon)
-        print str(variable)
         print out_variable
-        #tmp = (lat, lon)
-        #print str(tmp)
-
+     
         
         return out_variable

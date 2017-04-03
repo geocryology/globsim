@@ -56,29 +56,23 @@ dir_src= '/Users/xquan/src/globsim'
 execfile(path.join(dir_src, 'globsim.py'))
 
 
-# Get in raw data
+# Get in ERA_Interim raw data at pressure levels
 
 dem  = 'User/xquan/data/example_Ottawa.nc'
-#geop = 'era_to.nc'
-#sa   = '/Users/xquan/data/era_sa_20160101_to_20160105.nc'
+pl = '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
+
 nc  = NetCDFFile('/Users/xquan/data/era_pl_20160101_to_20160105.nc')
-pl= '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
 
 Interp2d = Interp2d(dem, pl)     
 
-
 # Read in interpoalted variable at specific time and pressue level indexs
 
-#lat=nc.variables['lat'][:]
-#lon=nc.variables['lon'][:]
-#lev=nc.variables['level'][:]
-
-
-ind_time=1
-ind_lev=1
+ind_time=0
+ind_lev=0
 
 
 temp=nc.variables['Temperature'][ind_time,ind_lev,:,:]
+
 #temp=Interp2d.gridVariable('Temperature',ind_time, ind_lev)
 rh=Interp2d.gridVariable('Relative humidity',ind_time, ind_lev)
 u=Interp2d.gridVariable('U component of wind',ind_time, ind_lev)
@@ -92,8 +86,9 @@ gp=Interp2d.gridVariable('Geopotential',ind_time, ind_lev)
 #==========================Step 1==============================================
 #Interpolated Tempreture at given pixel in one given time index and pressure level
 
-lats= 45.4
-lons= 284.3       # convert from: 360+(-75.7)=284.3
+lats= [45.40, 45.45]
+lons= [284.30,284.35]       # convert from: +360
+
 
 interpTemp=Interp2d.interVariable(temp,lats,lons)
 
