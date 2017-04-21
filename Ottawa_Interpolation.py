@@ -42,10 +42,10 @@
 #==============================================================================
 
 from datetime import datetime # Python standard library datetime module 
-from netCDF4  import Dataset as NetCDFFile # http://code.google.com/p/netcdf4-python/
 from os       import path, remove
 from scipy.interpolate import griddata
 
+import netCDF4 as nc
 import datetime as dt
 import numpy as np
 
@@ -61,7 +61,7 @@ execfile(path.join(dir_src, 'globsim.py'))
 dem  = 'User/xquan/data/example_Ottawa.nc'
 pl = '/Users/xquan/data/era_pl_20160101_to_20160105.nc'
 
-nc  = NetCDFFile('/Users/xquan/data/era_pl_20160101_to_20160105.nc')
+num  = nc.Dataset('/Users/xquan/data/era_pl_20160101_to_20160105.nc')
 
 Interp2d = Interp2d(dem, pl)     
 
@@ -71,9 +71,12 @@ ind_time=0
 ind_lev=0
 
 
-temp=nc.variables['Temperature'][ind_time,ind_lev,:,:]
+temp=num.variables['Temperature'][ind_time,ind_lev,:,:]
+
 
 #temp=Interp2d.gridVariable('Temperature',ind_time, ind_lev)
+#print temp
+
 rh=Interp2d.gridVariable('Relative humidity',ind_time, ind_lev)
 u=Interp2d.gridVariable('U component of wind',ind_time, ind_lev)
 v=Interp2d.gridVariable('V component of wind',ind_time, ind_lev)
@@ -84,10 +87,10 @@ gp=Interp2d.gridVariable('Geopotential',ind_time, ind_lev)
 
 
 #==========================Step 1==============================================
-#Interpolated Tempreture at given pixel in one given time index and pressure level
+#Interpolated Tempreture at given pixels in one given time index and pressure level
 
-lats= [45.40, 45.45]
-lons= [284.30,284.35]       # convert from: +360
+lats= [45.35, 45.40, 45.45]
+lons= [284.25,284.30,284.35]       # convert from: +360
 
 
 interpTemp=Interp2d.interVariable(temp,lats,lons)

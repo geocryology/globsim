@@ -110,16 +110,16 @@ class Interp2d(object):
             
         """
         
-        ind_time=0
-        ind_lev=0
+      #  ind_time=0
+      #  ind_lev=0
         
-        variable= self.pl.variables[variable][ind_time,ind_lev,:,:]
+        va= self.pl.variables[variable][ind_time,ind_lev,:,:]
         
         lat=self.pl.variables['lat'][:]
         lon=self.pl.variables['lon'][:]
         lev=self.pl.variables['level'][:]
         
-        return variable, lat, lon, lev
+        return va, lat, lon, lev
         
 
     def interVariable(self, variable, lats, lons):
