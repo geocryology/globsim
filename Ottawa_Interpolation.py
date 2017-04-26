@@ -12,8 +12,8 @@
 # --Relative Humidity [time*level*lat*lon]
 # --Wind Speed/Direction [time*level*lat*lon]
 # --Air Temperature at 2 meter [time*level*lat*lon]
-# --Suface Solar Radiation Downwards [time*level*lat*lon] (level=1)
-# --Suface Thermal radiation Downwards [time*level*lat*lon] (level=1)
+# --Surface Solar Radiation Downwards [time*level*lat*lon] (level=1)
+# --Surface Thermal Radiation Downwards [time*level*lat*lon] (level=1)
 # --Total Precipitation [time*level*lat*lon] (level=1)
 # --Others
 #

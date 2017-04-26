@@ -10,6 +10,13 @@
 #==============================================================================
 # A script for downloading MERRA data 
 # Saved as netCDF 4
+#==============================================================================
+# REFERENCE:
+#
+# The code is referenced from the sample code provided at NASA Earthdata website:
+# HOW TO Access Data With Python:
+# https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
+#
 #====================HOW TO RUN THIS ==========================================
 #
 # (1) Register a New User in Earthdata Login: 
@@ -68,7 +75,7 @@ urllib2.install_opener(opener)
  
 request = urllib2.Request(url)
 
-#response = urllib2.urlopen(request)
+response = urllib2.urlopen(request, verify=False)
  
  
 # Print out the result (not a good idea with binary data!)
