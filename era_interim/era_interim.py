@@ -712,8 +712,8 @@ class ERAbatch(object):
     Example:
         import era_download as ed
         from datetime import datetime
-        date  = {'beg' : datetime(1994, 1, 1),
-                 'end' : datetime(1999, 1, 2)}
+        date  = {'beg' : datetime(1980, 1, 1),
+                 'end' : datetime(2015, 1, 2)}
         area  = {'north' :  40.0,
                  'south' :  41.0,
                  'west'  :  60.0,
@@ -791,7 +791,7 @@ class ERAbatch(object):
         inter = ERAinterp()
         
         #read station points      
-        stations = inter.csv_stations("points.csv")      
+        stations = inter.csv_stations(stations_csv)      
         
         #interpolation
         inter.int2Dpoint(path.join(self.directory,'era_pl.nc'), 
