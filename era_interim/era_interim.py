@@ -694,8 +694,8 @@ class ERAinterp(object):
         #interpolation
         self.ERA2station(path.join(directory,'era_pl.nc'), 
                          path.join(directory,'era_pl_stations.nc'), stations)
-        self.pl2elevation(path.join(directory,'era_pl_stations.nc'), 
-                          path.join(directory,'era_pl_stations_surface.nc'))
+        self.levels2elevation(path.join(directory,'era_pl_stations.nc'), 
+                              path.join(directory,'era_pl_stations_surface.nc'))
         self.ERA2station(path.join(directory,'era_sa.nc'), 
                          path.join(directory,'era_sa_stations.nc'), stations)
         self.ERA2station(path.join(directory,'era_sf.nc'), 
