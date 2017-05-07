@@ -21,14 +21,6 @@
 
 """ Python tools for downloading ERA-Interim data from ECMWF web services."""
 
-from era_interim import ERAgeneric, ERApl, ERAsa, ERAsf, ERAto, ERAbatch  
+from ecmwfapi import * 
 
-__all__ = [
-    "ERAgeneric",
-    "ERApl",
-    "ERAsa",
-    "ERAsf",
-    "ERAto",
-    "ERAbatch",
-    "ecmwfapi"        
-]
+
