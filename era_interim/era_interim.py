@@ -681,7 +681,28 @@ class ERAinterp(object):
     
         rootgrp.close()
         # closed file ==========================================================    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+
+    def all_files(self, directory, stations_csv):
+        #TODO
+        """
+        Interpolate point time series from downloaded data.
+        """
+        
+        #read station points      
+        stations = self.csv_stations(stations_csv)      
+        
+        #interpolation
+        self.int2Dpoint(path.join(directory,'era_pl.nc'), 
+                        path.join(directory,'era_pl_stations.nc'), stations)
+        self.pl2elevation(path.join(directory,'era_pl_stations.nc'), 
+                          path.join(directory,'era_pl_stations_surface.nc'))
+        self.int2Dpoint(path.join(directory,'era_sa.nc'), 
+                        path.join(directory,'era_sa_stations.nc'), stations)
+        self.int2Dpoint(path.join(directory,'era_sf.nc'), 
+                        path.join(directory,'era_sf_stations.nc'), stations)
+        self.int2Dpoint(path.join(directory,'era_to.nc'), 
+                        path.join(directory,'era_to_stations.nc'), stations)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+        
         
 class ERAbatch(object):
     """
@@ -781,29 +802,7 @@ class ERAbatch(object):
         #TODO
         '''
         Append data to files in a directory.
-        '''
-
-    def interpolate_stations(self, stations_csv):
-        #TODO
-        """
-        Interpolate point time series from downloaded data.
-        """
-        inter = ERAinterp()
-        
-        #read station points      
-        stations = inter.csv_stations(stations_csv)      
-        
-        #interpolation
-        inter.int2Dpoint(path.join(self.directory,'era_pl.nc'), 
-                         path.join(self.directory,'era_pl_stations.nc'), stations)
-        inter.pl2elevation(path.join(self.directory,'era_pl_stations.nc'), 
-                           path.join(self.directory,'era_pl_stations_surface.nc'))
-        inter.int2Dpoint(path.join(self.directory,'era_sa.nc'), 
-                         path.join(self.directory,'era_sa_stations.nc'), stations)
-        inter.int2Dpoint(path.join(self.directory,'era_sf.nc'), 
-                         path.join(self.directory,'era_sf_stations.nc'), stations)
-        inter.int2Dpoint(path.join(self.directory,'era_to.nc'), 
-                         path.join(self.directory,'era_to_stations.nc'), stations)                                                  
+        '''                                               
                     
     def __str__(self):
         return "Object for ERA-Interim data download and conversion"                
