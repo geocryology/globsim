@@ -34,7 +34,7 @@
 #===============================================================================
 
 from datetime import datetime, timedelta
-from ecmwfapi import ECMWFDataServer
+from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path
 import numpy   as np
