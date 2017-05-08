@@ -1,8 +1,15 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 #
-# (C) Copyright Xiaojing Quan & Stephan Gruber
+# (C) Copyright 2007-2008 Xiaojing Quan & Stephan Gruber
 #
+#==============================================================================
+#CONTRIBUTIONS:
+# 1. Original is generated: 01/05/2017
+# 2. The First draft for downloading single dataset is tested: 05/05/2017-08/05/2017
+# 3. The Second draft for downloading specific dataset is continued (updated by 08/05/2017)
+#
+#==============================================================================
 # For variable codes and units of MERRA AND MERRA-2, see: 
 #  MERRA: https://gmao.gsfc.nasa.gov/products/documents/MERRA_File_Specification.pdf
 #  MERRA-2: https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/M2C0NXLND.5.12.4/doc/MERRA2.README.pdf
@@ -25,7 +32,19 @@
 # (2) Authorize NASA GESDISC DATA ARCHIVE in Earthdata Login
 # https://disc.gsfc.nasa.gov/registration/authorizing-gesdisc-data-access-in-earthdata_login
 #
-# (3) Adapt the script below with authrized USERNAME and PASSWROD, then run it
+# (3) Adapt the script below with authrized USERNAME and PASSWROD
+# 
+# (4) Obtaining the URL address of the objected single dataset at:
+#     https://disc.sci.gsfc.nasa.gov/daac-bin/FTPSubset2.pl
+# 
+# (5) Obtianing the mutiple dataset with spefici spacial and temporal(Continued to work on it) 
+# 
+# 
+# IMPORTANT Notes: 
+# For downloading dataset as .nc4 file, extend the related URL address with double .nc4.nc4 in the end as following examples:
+# url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4" TO
+# url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.nc4" 
+#
 #
 #==============================================================================
 
@@ -45,8 +64,8 @@ password = "Qxj17carleton"
 # The url of the file we wish to retrieve
 
 #url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4"
-#url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.nc4"
-url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.ascii"
+url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.nc4"
+#url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.ascii"
 
 
 # Create a password manager to deal with the 401 reponse that is returned from
@@ -84,11 +103,11 @@ response = urllib2.urlopen(request)
  
 # Print out the result (not a good idea with binary data!)
  
-body = response.read()
-#print body
+dataset = response.read()
+#print dataset
 
 # Save the result 
 
-file = open("/Users/xquan/data/out.nc4", "w")
-file.write(body)
+file = open("/Users/xquan/data/output.nc4", "w")
+file.write(dataset)
 file.close()
