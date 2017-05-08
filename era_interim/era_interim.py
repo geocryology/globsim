@@ -20,7 +20,29 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # 
+#  OVERALL WORKFLOW
+# 
+#  from era_interim import *
+#  from datetime import datetime
 #
+#  date  = {'beg' : datetime(1979, 1, 1),
+#           'end' : datetime(2017, 1, 1)}
+#  area  = {'north' :  40.0,
+#           'south' :  41.0,
+#           'west'  :  60.0,
+#           'east'  :  61.0}
+#  elevation = {'min' :   50, 
+#               'max' : 2000}           
+#  directory = '/home/sgruber/storage/Workplace/Stephan/Ekati'   
+#          
+#  ERAbat = ERAbatch(date, area, elevation, directory, 5) 
+#  ERAbat.retrieve()
+#
+#  station_file = '/home/sgruber/storage/Workplace/Stephan/ESMF/points.csv'
+#  ERAint = ERAinterp()
+#  ERAint.all_files(directory, station_file)
+#
+# ECMWF and netCDF information:
 # https://software.ecmwf.int/wiki/display/WEBAPI/Python+ERA-interim+examples
 #
 # For variable codes and units, see: 
@@ -352,7 +374,7 @@ class ERAto(ERAgeneric):
 class ERAinterp(object):
     """
     Collection of methods to interpolate ERA-Interim netCDF files to station
-    coordinates.
+    coordinates. All variables retain theit original units and time stepping.
     """
     
     def csv_stations(self, filename):
@@ -746,15 +768,15 @@ class ERAbatch(object):
         batch.retrieve()
     """
         
-    def __init__(self, date, area, elevation, directory, 
-                 increment_days, n_outfile=1):
+    def __init__(self, date, area, elevation, directory):#, 
+#                 increment_days, n_outfile=1):
         self.date      = date
         self.area      = area
         self.elevation = elevation
         self.directory = directory
         self.increment = increment_days
         self.nc_files  = ''
-        self.n_outfile = n_outfile
+ #       self.n_outfile = n_outfile
         #TODO: check directory
         #TODO ensure increments is smaller or equal than chosen time window
 
@@ -769,31 +791,43 @@ class ERAbatch(object):
         var_sa = ['airt2', 'dewp2', 'wind10']
         var_sf = ['prec', 'swin', 'lwin']
 
-        #enter time loop, assign dummy date_i to start with
-        date_i = {'beg' : datetime(1994, 1, 1), 'end' : datetime(1999, 1, 2)}
-        slices = floor(float((self.date['end'] - self.date['beg']).days)/
-                       self.increment)+1
+#        #enter time loop, assign dummy date_i to start with
+#        date_i = {'beg' : datetime(1994, 1, 1), 'end' : datetime(1999, 1, 2)}
+#        slices = floor(float((self.date['end'] - self.date['beg']).days)/
+#                       self.increment)+1
+#
+#        for ind in range (0, int(slices)): 
+#            #prepare time slices   
+#            date_i['beg'] = self.date['beg'] + timedelta(days = 
+#                            self.increment * ind)
+#            date_i['end'] = self.date['beg'] + timedelta(days = 
+#                            self.increment * (ind+1) - 1)
+#            if ind == (slices -1):
+#                date_i['end'] = self.date['end']
+#            
+#            #actual functions                                                                           
+#            pl = ERApl(date_i, self.area, self.elevation, 
+#                       var_pl, self.directory) 
+#            sa = ERAsa(date_i, self.area, var_sa, self.directory) 
+#            sf = ERAsf(date_i, self.area, var_sf, self.directory) 
+#            self.ERAli   = [pl, sa, sf] #combine in list
+#        
+#            #download from ECMWF server convert to netCDF  
+#            for era in self.ERAli:
+#                era.download()
 
-        for ind in range (0, int(slices)): 
-            #prepare time slices   
-            date_i['beg'] = self.date['beg'] + timedelta(days = 
-                            self.increment * ind)
-            date_i['end'] = self.date['beg'] + timedelta(days = 
-                            self.increment * (ind+1) - 1)
-            if ind == (slices -1):
-                date_i['end'] = self.date['end']
             
-            #actual functions                                                                           
-            pl = ERApl(date_i, self.area, self.elevation, 
-                       var_pl, self.directory) 
-            sa = ERAsa(date_i, self.area, var_sa, self.directory) 
-            sf = ERAsf(date_i, self.area, var_sf, self.directory) 
-            self.ERAli   = [pl, sa, sf] #combine in list
+        #actual functions                                                                           
+        pl = ERApl(self.date, self.area, self.elevation, 
+                   var_pl, self.directory) 
+        sa = ERAsa(self.date, self.area, var_sa, self.directory) 
+        sf = ERAsf(self.date, self.area, var_sf, self.directory) 
+        self.ERAli   = [pl, sa, sf] #combine in list
         
-            #download from ECMWF server convert to netCDF  
-            for era in self.ERAli:
-                era.download()
-               
+        #download from ECMWF server convert to netCDF  
+        for era in self.ERAli:
+            era.download()            
+                                         
         #topography
         top = ERAto(self.area, self.directory)
         top.download()
