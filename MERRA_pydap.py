@@ -38,15 +38,48 @@
 
 from pydap.client import open_url
 from pydap.cas.urs import setup_session
+from pydap.handlers import netcdf
+from pydap.model import DatasetType
+from netCDF4 import Dataset
+
+import urllib
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 username = "<quanxj17>"
 password = "<Qxj17carleton>"
 
 session=setup_session(username, password)
 
-dataset = open_url('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXSLV.5.12.4/2016/06/MERRA2_400.tavg1_2d_slv_Nx.20160601.nc4')
- 
- 
+#dataset = open_url('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXSLV.5.12.4/2016/06/MERRA2_400.tavg1_2d_slv_Nx.20160601.nc4')
+dataset = open_url('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4')
+
+print type(dataset)
+print dataset.keys()
+
+tem = dataset['T2M']
+
+print type(tem)
+
+
+lats = dataset['lat']
+lons = dataset['lon']
+time = dataset['time']
+
+
+#print Tem.shape
+
+
+#print dataset
+
+#save the result
+
+file = open("/Users/xquan/data/out.nc4", "w")
+#content = dataset.read()
+#file.write(dataset)
+#file.close()
+
 
 
 

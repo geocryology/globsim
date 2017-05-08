@@ -35,15 +35,19 @@ from urllib import urlencode
 
 import urllib2
 
+#import ssl
 
 # The user credentials that will be used to authenticate access to the data
 
-username = "<quanxj17>"
-password = "<Qxj17carleton>"
+username = "quanxj17"
+password = "Qxj17carleton"
 
 # The url of the file we wish to retrieve
 
-url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXSLV.5.12.4/2016/06/MERRA2_400.tavg1_2d_slv_Nx.20160601.nc4"
+#url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4"
+#url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.nc4"
+url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.ascii"
+
 
 # Create a password manager to deal with the 401 reponse that is returned from
 # Earthdata Login
@@ -75,10 +79,16 @@ urllib2.install_opener(opener)
  
 request = urllib2.Request(url)
 
-response = urllib2.urlopen(request, verify=False)
+response = urllib2.urlopen(request)
  
  
 # Print out the result (not a good idea with binary data!)
  
-#body = response.read()
+body = response.read()
 #print body
+
+# Save the result 
+
+file = open("/Users/xquan/data/out.nc4", "w")
+file.write(body)
+file.close()
