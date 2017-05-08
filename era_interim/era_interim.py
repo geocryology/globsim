@@ -774,7 +774,7 @@ class ERAbatch(object):
         self.area      = area
         self.elevation = elevation
         self.directory = directory
-        self.increment = increment_days
+#        self.increment = increment_days
         self.nc_files  = ''
  #       self.n_outfile = n_outfile
         #TODO: check directory
