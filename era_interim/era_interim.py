@@ -490,9 +490,9 @@ class ERAinterp(object):
         # assign data from ncdf: (variale, time, latitude, longitude) 
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
-                sfield.data[n,:,:,:,:] = ncf.variables[var][tmask,:,:,:] 
+                sfield.data[n,:,:,:,:] = ncf.variables[var][tmask,:,:,:].transpose((0,1,3,2)) 
             else:
-                sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:] 
+                sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1)) 
 
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(points), coord_sys=ESMF.CoordSys.SPH_DEG)
