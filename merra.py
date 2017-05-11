@@ -1,29 +1,22 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 #
-# (C) Copyright 2007-2008 Xiaojing Quan & Stephan Gruber
+# Copyright Xiaojing Quan & Stephan Gruber
+# =============================================================================    
+# REVISION HISTORY 
+# 20170510 -- Initial version created 
 #
 #==============================================================================
-#CONTRIBUTIONS:
-# 1. Original is generated: 01/05/2017
-# 2. The First draft for downloading single dataset is tested: 05/05/2017-08/05/2017
-# 3. The Second draft for downloading specific dataset is continued (updated by 08/05/2017)
-#
-#==============================================================================
-# For variable codes and units of MERRA AND MERRA-2, see: 
-#  MERRA: https://gmao.gsfc.nasa.gov/products/documents/MERRA_File_Specification.pdf
-#  MERRA-2: https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/M2C0NXLND.5.12.4/doc/MERRA2.README.pdf
-#
-#==============================================================================
-# A script for downloading MERRA data 
+# A scripts for downloading MERRA-2 reanalysis data:
+# --Air Temperature at pressure levels [time*level*lat*lon]
+# --Relative Humidity [time*level*lat*lon]
+# --Wind Speed/Direction [time*level*lat*lon]
+# --Air Temperature at 2 meter [time*level*lat*lon]
+# --Surface Solar Radiation Downwards [time*level*lat*lon] (level=1)
+# --Surface Thermal Radiation Downwards [time*level*lat*lon] (level=1)
+# --Total Precipitation [time*level*lat*lon] (level=1)
+# --Others
 # Saved as netCDF 4
-#==============================================================================
-# REFERENCE:
-#
-# The code is referenced from the sample code provided at NASA Earthdata website:
-# HOW TO Access Data With Python:
-# https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
-#
 #====================HOW TO RUN THIS ==========================================
 #
 # (1) Register a New User in Earthdata Login: 
@@ -37,77 +30,87 @@
 # (4) Obtaining the URL address of the objected single dataset at:
 #     https://disc.sci.gsfc.nasa.gov/daac-bin/FTPSubset2.pl
 # 
-# (5) Obtianing the mutiple dataset with spefici spacial and temporal(Continued to work on it) 
-# 
-# 
+# (5) Obtianing the mutiple dataset with spefici spacial and temporal)
+#==============================================================================
 # IMPORTANT Notes: 
-# For downloading dataset as .nc4 file, extend the related URL address with double .nc4.nc4 in the end as following examples:
-# url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4" TO
-# url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.nc4" 
-#
-#
+# Selected URLs list:
+# url1 = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
+#       '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                     # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
+
+# url2 = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
+#       '/2016/02/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
+                                                                               
+                                                                               
+# url3 = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXRAD.5.12.4'
+#        '/2016/02/MERRA2_400.tavg1_2d_rad_Nx.20160202.nc4')                    # 2d, 1-Hourly, Time-Averaged, Single-Level, Assimilation, Radiation Diagnostics 
+                                                                               
+
 #==============================================================================
 
-from cookielib import CookieJar
+from pydap.client import open_url
+from pydap.cas.urs import setup_session
+from datetime import datetime, timedelta
+from os import path
 
-from urllib import urlencode
-
-import urllib2
-
-#import ssl
-
-# The user credentials that will be used to authenticate access to the data
+import numpy as np
+import csv
+import netCDF4 as nc
 
 username = "quanxj17"
 password = "Qxj17carleton"
 
-# The url of the file we wish to retrieve
+url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
+       '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                     # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
 
-#url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4"
-url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.nc4"
-#url = "https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4.ascii"
+#== Read in dataset============================================================
+session = setup_session(username, password, check_url=url)
+ds = open_url(url, session=session)
 
+#===========get variable keys==================================================
+print ds.keys
 
-# Create a password manager to deal with the 401 reponse that is returned from
-# Earthdata Login
-
-password_manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
-password_manager.add_password(None, "https://urs.earthdata.nasa.gov", username, password)
+#===========get latitudes,longitude,Level======================================
+lat = ds.lat[:]
+lon = ds.lon[:]
+#lev = ds.lev[:]
+#===========find shape of variables============================================
+print lat.shape
+print lon.shape
+#==============================================================================
+class MERRAgeneric(object):
+    """
+    Parent class for other merra classes.
+    """
+     
+    def areaget(self,lat, lon):
+        """Gets the specific area with given latitude and longitude"""
+        # get the index of lat, lon 
+        id_lat = lat.size
+        id_lon = lon.size
+         
+        for i in range(0,(id_lat-1)):
+            if lat[i] > 40.0: 
+               id_south = i
+               print id_south  
+            elif lat[i] < 41.0: 
+               id_north = i
+               print id_north
+            else: 
+               print "Got the range of latitude" 
+        for j in range(0,(id_lon-1)):
+            if lon[j] > 60.0:
+               id_west = j
+               print id_west
+            elif lon[j] < 61.0:
+               id_east = j 
+            else:
+               print "Got the range of longitude"
+                 
+        return(id_south, id_north,id_west,i)
  
 
-# Create a cookie jar for storing cookies. This is used to store and return
-# the session cookie given to use by the data server (otherwise it will just
-# keep sending us back to Earthdata Login to authenticate).  Ideally, we
-# should use a file based cookie jar to preserve cookies between runs. This
-# will make it much more efficient.
 
-cookie_jar = CookieJar()
 
-# Install all the handlers.
- 
-opener = urllib2.build_opener(
-urllib2.HTTPBasicAuthHandler(password_manager),
-    #urllib2.HTTPHandler(debuglevel=1),    # Uncomment these two lines to see
-    #urllib2.HTTPSHandler(debuglevel=1),   # details of the requests/responses
-     urllib2.HTTPCookieProcessor(cookie_jar))
-urllib2.install_opener(opener)
 
-# Create and submit the request. There are a wide range of exceptions that
-# can be thrown here, including HTTPError and URLError. These should be
-# caught and handled.
- 
-request = urllib2.Request(url)
 
-response = urllib2.urlopen(request)
- 
- 
-# Print out the result (not a good idea with binary data!)
- 
-dataset = response.read()
-#print dataset
 
-# Save the result 
-
-file = open("/Users/xquan/data/output.nc4", "w")
-file.write(dataset)
-file.close()

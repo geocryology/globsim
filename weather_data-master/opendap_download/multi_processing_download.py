@@ -1,4 +1,4 @@
-__author__ = "Jan Urbansky"
+#__author__ = "Jan Urbansky"
 
 # TODO: Change and describe structure of the links that have to be provided.
 # TODO: Proper readme with examples.
@@ -17,17 +17,15 @@ import re
 log = logging.getLogger('opendap_download')
 
 
-
-
 class DownloadManager(object):
     __AUTHENTICATION_URL = 'https://urs.earthdata.nasa.gov/oauth/authorize'
-    __username = ''
-    __password = ''
-    __download_urls = []
-    __download_path = ''
+    __username = 'quanxj17'
+    __password = 'Qxj17carleton'
+    __download_urls = 'https://goldsmr4.sci.gsfc.nasa.gov:443/opendap/MERRA2/M2T1NXRAD.5.12.4/2016/01/MERRA2_400.tavg1_2d_rad_Nx.20160101.nc4'
+    __download_path = '/Users/xquan/data'
     _authenticated_session = None
 
-    def __init__(self, username='', password='', links=None, download_path='download'):
+    def __init__(self, username='quanxj17', password='Qxj17carleton', links=None, download_path='download'):
         self.set_username_and_password(username, password)
         self.download_urls = links
         self.download_path = download_path
@@ -38,7 +36,7 @@ class DownloadManager(object):
         
         log.debug('Init DownloadManager')
 
-    @property
+    #property
     def download_urls(self):
         return self.__download_urls
 

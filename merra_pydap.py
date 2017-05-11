@@ -47,8 +47,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-username = "<quanxj17>"
-password = "<Qxj17carleton>"
+username = "quanxj17"
+password = "Qxj17carleton"
 
 session=setup_session(username, password)
 
