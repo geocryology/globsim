@@ -522,7 +522,8 @@ class ERAinterp(object):
                                dst_mask_values=None)
                           
         # regrid operation, create destination field (variables, times, points)
-        dfield = regrid2D(sfield, dfield)                          
+        dfield = regrid2D(sfield, dfield)        
+        sfield.destroy() #f ree memory                  
     
         # === write output netCDF file =========================================
         # dimensions: station, time OR station, time, level
@@ -579,7 +580,8 @@ class ERAinterp(object):
                 tmp   = rootgrp.createVariable(vname,
                                                'f4',('time', 'level', 'station'))
             else:
-                tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
+                tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
+                 
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
             # assign values
@@ -589,6 +591,8 @@ class ERAinterp(object):
                 tmp[:] = dfield.data[n,:,:]    
     
         rootgrp.close()
+        ncf.close()
+        
         # closed file ==========================================================
         
     def levels2elevation(self, ncfile_in, ncfile_out):    
