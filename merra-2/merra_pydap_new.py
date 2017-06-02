@@ -13,41 +13,56 @@
 
 from pydap.client import open_url
 from pydap.cas.urs import setup_session
+from datetime import datetime, timedelta
+from os import path
 
-#=====Account for Database Access==============================================
+import numpy as np
+import csv
+import netCDF4 as nc
+
+
+#Account for Database Access
 username = "quanxj17"
 password = "Qxj17carleton"
 
-#=====Set up urls==============================================================
+#settings directory 
+dir_data = '/Users/xquan/data'
+dir_src  = '/Users/xquan/src/globsim/merra-2'
+
+
+#Set up urls
 #url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/'
 #       'M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4')          # test url 
 
 #url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
 #       '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                     # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
 
-#url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
-#       '/2016/02/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
+url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
+       '/2016/02/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
                                                                                
                                                                                
 #url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXRAD.5.12.4'
 #        '/2016/02/MERRA2_400.tavg1_2d_rad_Nx.20160202.nc4')                    # 2d, 1-Hourly, Time-Averaged, Single-Level, Assimilation, Radiation Diagnostics 
                                                                                
 
-url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T3NPRAD.5.12.4'
-      '/2016/01/MERRA2_400.tavg3_3d_rad_Np.20160102.nc4')                      # 3d, 3-Hourly, Time-Averaged, Pressure-Level, Assimilation, Radiation Diagnostics
+#url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T3NPRAD.5.12.4'
+#      '/2016/01/MERRA2_400.tavg3_3d_rad_Np.20160102.nc4')                      # 3d, 3-Hourly, Time-Averaged, Pressure-Level, Assimilation, Radiation Diagnostics
 
 
-#== Read in dataset============================================================
+#Read in dataset
 session = setup_session(username, password, check_url=url)
 ds = open_url(url, session=session)
 
-#===========get variable keys==================================================
+#get variable keys
 print ds.keys
 
-#===========get latitudes,longitude,Level======================================
-# lat = ds.lat[:]
-# lon = ds.lon[:]
-# lev = ds.lev[:]
+#get latitudes,longitude,Level
+lat = ds.lat[:]
+lon = ds.lon[:]
+lev = ds.lev[:]
+
+print lat.size
+print lon.size
 
 
 #===========find shape of variables============================================
@@ -62,13 +77,13 @@ print ds.keys
 # ds.LWGAB.shape
 # ds.LWGNT.shape
 # ds.SWGDN.shape
-ds.DTDTSWR.shape
-ds.DTDTLWR.shape
+#ds.DTDTSWR.shape
+#ds.DTDTLWR.shape
 
 #===========get subset of one variable=========================================
 # need to set up the spatial subset indices
 #
-# t2m = ds.T2M[:,0:2,0:2]                                                      # 2m Surface Temperature (Unit:K) [time*lat*lon]
+# t2m = ds.T2M[:,0:2,0:2]                                                        # 2m Surface Temperature (Unit:K) [time*lat*lon]
 # v10m = ds.V10M[:,:,:]                                                        # 10-meter_northward_wind 
 # u10m = ds.U10M[:,:,:]                                                        # 10-meter_eastward_wind      
 # temp = ds.T[:,:,0:2,0:2]                                                     # Air Temperatuere at Pressure Levels (42) (Unit:K) [time*lev*lat*lon]
@@ -79,8 +94,8 @@ ds.DTDTLWR.shape
 #lwgab = ds.LWGAB[:,:,:]                                                       # Surface absorbed longwave radiation (unit:W m-2) [time*lat*lon] 
 #lwgnt = ds.LWGNT[:,:,:]                                                       # Surface net downward longwave flux (units: W m-2) [time*lat*lon]
 #swgdn = ds.SWGDN[:,:,:]                                                       # Surface incoming shortwave flux (units: W m-2) [time*lat*lon]
-dtdtswr = ds.DTDTSWR[:,:,:,:]                                                  # Air temperature tendency due to shortwave (units:Ks-1) [time*lev*lat*lon]
-dtdtlwr = ds.DTDTLWR[:,:,:,:]                                                  # Air temperature tendency due to longwave (units:Ks-1 ) [time*lev*lat*lon]
+#dtdtswr = ds.DTDTSWR[:,:,:,:]                                                  # Air temperature tendency due to shortwave (units:Ks-1) [time*lev*lat*lon]
+#dtdtlwr = ds.DTDTLWR[:,:,:,:]                                                  # Air temperature tendency due to longwave (units:Ks-1 ) [time*lev*lat*lon]
 
 
 #==================write out abstracted variables==============================
