@@ -65,7 +65,7 @@ class MERRAgeneric():
     Parent class for other merra classes.
     """
     
-    def getURL(self, mydate, data_type):                                                                                                                                          
+    def getURL(self, date, data_type):                                                                                                                                          
         """Converts datetime objects into string &
             get objected url address (2d, 3d meterological fields and radiation datasets)
             url_2dm: 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
@@ -73,15 +73,15 @@ class MERRAgeneric():
             url_2dr: 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
             
             Example:
-            mydate = datetime(2016, 1, 1) 
+            date = datetime(2016,1,1) 
             data_type = '2dm' # get type of url for 2d meterological data
             data_type = '3dm' # get type of url for 3d meterological data
             data_type = '2dr' # get type of url for 2d radiation data
         """
 
         format = ('.nc4')
-        res1 = mydate.strftime("%Y/%m") 
-        res2 = mydate.strftime("%Y%m%d")  
+        res1 = date.strftime("%Y/%m") 
+        res2 = date.strftime("%Y%m%d")  
         baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 2d dataset
         baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 3d dataset
         baseurl1 = ('M2I1NXASM.5.12.4/','/MERRA2_400.inst1_2d_asm_Nx.')            # sub url of 2d meteorological data     
@@ -123,7 +123,6 @@ class MERRAgeneric():
         id_lat = list(itertools.chain(*id_lat))
         id_lon = list(itertools.chain(*id_lon))    
 
-    #?? needed to revised furtherly (updated on 2rd June)
     def getPressure(self, elevation):                     
         """Convert elevation into air pressure using barometric formula"""
         g  = 9.80665   #Gravitational acceleration [m/s2]
@@ -170,25 +169,24 @@ class MERRApl(MERRAgeneric):
               
     Example:
         from datetime import datetime
-        mydate = datetime(2016, 01, 01)   
+        date = datetime(2016, 01, 01)   
         area  = [40.0, 45.0, 60.0, 65.0]
         elevation = {'min' :    0, 
                      'max' : 8850}
-        variable  = ['PHIS','RH','V','T','U']             
-        directory = '/Users/xquan/data'             
-        MERRApl = MERRApl(mydate, area, elevation, variable, directory) 
+        dir_data = '/Users/xquan/data'             
+        MERRApl = MERRApl(mydate, area, elevation, variable, dir_data) 
         MERRApl.download()
     """
 
-    def __init__(self, date, area, elevation, variable, directory):
-        self.date       = date
+    def __init__(self, date, area, elevation, dir_data):
+        self.date     = date
         self.area       = area
         self.elevation  = elevation
-        self.directory  = directory
-        self.file_ncdf  = path.join(self.directory,'merra_pl.nc')
+        self.dir_data  = dir_data
+        self.file_ncdf  = path.join(self.dir_data,'merra_pl.nc')
 
     
-    def getVariables(self, variable, ds):
+    def getVariables(self, variable):
         """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
            variable = ['PHIS','RH','T','V','U','lat','lon','lev','time']
         """
@@ -199,18 +197,14 @@ class MERRApl(MERRAgeneric):
                for j in range(len(var)):
                    if foundVariable != True:
                         if var[j] == variable[i]:
-                            temp = "" + var[j]        #? why ""
+                            temp = "" + var[j]        
                             variable[i] = ds[temp]
                             foundVariable = True
      
         # # Make sure it works loop              
         # for i in range(len(variable)):
         #    print variable[i]
-        sgp  = variable[0]
-        RH   = variable[1]
-        airt = variable[2]
-        V    = variable[3]
-        U    = variable[4]
+ 
         lat  = variable[5]
         lon  = variable[6]
         lev  = variable[7]
@@ -225,7 +219,7 @@ class MERRApl(MERRAgeneric):
                        V component of wind(time,lev,lat,lon), time, level, lat, lon.
         """   
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
-        rootgrp = Dataset('/Users/xquan/data/merra_pl.nc', 'w', format='NETCDF4')
+        rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
         print(rootgrp.file_format)
         rootgrp.source      = 'Merra, abstrated variables from metadata at pressure levels'
         rootgrp.featureType = "3_Dimension"
