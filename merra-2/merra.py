@@ -231,56 +231,78 @@ class MERRApl(MERRAgeneric):
         lons   = rootgrp.createDimension('lons', len(lon))
         
         #variables
-        phis = rootgrp.createVariable('PHIS', 'f4', ('times', 'lats', 'lons'))
+        phis = rootgrp.createVariable('PHIS', 'f4', ('times', 'lats', 'lons'),fill_value=9.9999999E14)
         phis.standard_name = "surface geopotential height"
         phis.units         = "m+2 s-2" 
-        rh               = rootgrp.createVariable('Relative_humidity', 'f4', ('times','levels', 'lats', 'lons'))
+        phis.missing_value = 9.9999999E14
+        phis.fmissing_value = (9.9999999E14,'f')
+        phis.vmax = (9.9999999E14, 'f')
+        phis.vmin = (-9.9999999E14, 'f')
+        
+        rh               = rootgrp.createVariable('Relative_humidity', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
         rh.standard_name = "relative humidity after moist"
-        rh.units       = "1"     
-        t               = rootgrp.createVariable('Temperature', 'f4', ('times','levels','lats', 'lons'))
+        rh.units       = "1"  
+        rh.missing_value = 9.9999999E14
+        rh.fmissing_value = (9.9999999E14, 'f')
+        rh.vmax = (9.9999999E14, 'f')
+        rh.vmin = (-9.9999999E14, 'f')
+        
+        t               = rootgrp.createVariable('Temperature', 'f4', ('times','levels','lats', 'lons'),fill_value=9.9999999E14)
         t.standard_name = "air_temperature"
-        t.units         = "K"      
-        v               = rootgrp.createVariable('V_component_of_wind','f4', ('times','levels', 'lats', 'lons'))
+        t.units         = "K" 
+        t.missing_value = 9.9999999E14
+        t.fmissing_value = (9.9999999E14, 'f')
+        t.vmax = (9.9999999E14, 'f')
+        t.vmin = (-9.9999999E14, 'f')
+    
+        v               = rootgrp.createVariable('V_component_of_wind','f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
         v.standard_name = "northward_wind"
-        v.unit          = "m s-1"                      
-        u               = rootgrp.createVariable('U_component_of_wind', 'f4', ('times','levels', 'lats', 'lons'))
+        v.unit          = "m s-1" 
+        v.missing_value = 9.9999999E14
+        v.fmissing_value = 9.9999999E14, 'f'
+        v.vmax = 9.9999999E14, 'f'
+        v.vmin = -9.9999999E14, 'f'
+                            
+        u               = rootgrp.createVariable('U_component_of_wind', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
         u.standard_name = "eastward_wind"
         u.unit          = "m s-1" 
+        u.missing_value = 9.9999999E14
+        u.fmissing_value = (9.9999999E14, 'f')
+        u.vmax = (9.9999999E14, 'f')
+        u.vmin = (-9.9999999E14, 'f')
+
         time               = rootgrp.createVariable('time', 'i4', ('times'))
         time.standard_name = "time"
-        time.units         = "minutes since 1980-01-01 00:00:00"
+        time.units         = "minutes since" + date.strftime("%Y-%m-%d 00:00:00")
         time.calendar      = "standard"
+ 
         level               = rootgrp.createVariable('level','i4', ('levels'))
         level.standard_name = "air_pressure"
         level.units         = "hPa"
+
         latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
         latitudes.standard_name = "latitude"
         latitudes.units         = "degrees_north"
         latitudes.axis          = 'Y'
+
         longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
         longitudes.standard_name = "longitude"
         longitudes.units         = "degrees_east"
         longitudes.axis          = 'X'
         
         # assign values
-        i = 0
-        for i in range(len(variable[8])):
-            phis[i,:,:] = variable[0][i,:,:]        # pass the values of surface geopotential height      
-            rh[i,:,:,:] = variable[1][i,:,:,:]      # pass the values of relative humidity 
-            t[i,:,:,:]  = variable[2][i,:,:,:]      # pass the values of temperature
-            v[i,:,:,:]  = variable[3][i,:,:,:]      # pass the values of northward wind
-            u[i,:,:,:]  = variable[4][i,:,:,:]      # pass the values of eastward wind
-            time[i]     = variable[8][i]            # pass the values of time
-      
-        level[:] = lev[:]             # pass the values of pressure level
-        latitudes[:] = lat[:]         # pass the values of latitude
-        longitudes[:] = lon[:]        # pass the values of longitudes
+  
+        phis[:,:,:]   = variable[0][:,:,:]        # pass the values of surface geopotential height      
+        rh[:,:,:,:]   = variable[1][:,:,:,:]      # pass the values of relative humidity 
+        t[:,:,:,:]    = variable[2][:,:,:,:]      # pass the values of temperature
+        v[:,:,:,:]    = variable[3][:,:,:,:]      # pass the values of northward wind
+        u[:,:,:,:]    = variable[4][:,:,:,:]      # pass the values of eastward wind
+        level[:]      = lev[:]                    # pass the values of pressure level
+        latitudes[:]  = lat[:]                    # pass the values of latitude
+        longitudes[:] = lon[:]                    # pass the values of longitudes
         
         #close the root group
-        rootgrp.close()
-                
-                  
-                         
+        rootgrp.close()          
 
  
  
