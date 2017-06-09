@@ -121,7 +121,8 @@ class MERRAgeneric():
         
         # convert id_lat, id_lon from tuples to string
         id_lat = list(itertools.chain(*id_lat))
-        id_lon = list(itertools.chain(*id_lon))    
+        id_lon = list(itertools.chain(*id_lon))   
+        
 
     def getPressure(self, elevation):                     
         """Convert elevation into air pressure using barometric formula"""
@@ -204,19 +205,66 @@ class MERRApl(MERRAgeneric):
         # # Make sure it works loop              
         # for i in range(len(variable)):
         #    print variable[i]
- 
-        lat  = variable[5]
-        lon  = variable[6]
-        lev  = variable[7]
-        Time = variable[8]
         
-    def saveNCDF(self, variable):
+        out_variable = variable
+
+    def restrictArea(self,id_lat, id_lon, out_variable):
+        """Define the outputs ones &
+           pass the values of abstrated varialbles to the output ones and 
+           restrict the area          
+        """
+
+        # pass the values
+        
+        PHIS  = out_variable[0][:]
+        RH    = out_variable[1][:]
+        T     = out_variable[2][:]
+        V     = out_variable[3][:]
+        U     = out_variable[4][:]
+        Lat   = out_variable[5][:]
+        Lon   = out_variable[6][:]
+        Lev   = out_variable[7][:]
+        Time  = out_variable[8][:]
+        
+        # for i, v in enumerate(['PHIS1','RH1', 'T1', 'V1', 'U1','Lat1','Lon1', 'Lev1','Time1']):
+        #     print i, v[i]
+        #     v[i]= out_variable[i][:]
+             
+        # restrict the area
+        # for latitude
+        PHIS = PHIS[:,id_lat,:]
+        RH = RH[:,:,id_lat,:]
+        T = T[:,:,id_lat,:]
+        V = V[:,:,id_lat,:]
+        U = U[:,:,id_lat,:]
+        Lat = Lat[id_lat]
+        #for longitude        
+        PHIS = PHIS[:,:,id_lon]
+        RH = RH[:,:,:, id_lon]      
+        T = T[:,:,:,id_lon]      
+        V = V[:,:,:,id_lon]      
+        U = U[:,:,:,id_lon]       
+        Lon = Lon[id_lon]       
+        
+    def saveNCDF(self, file_ncdf, PHIS, RH, T, V, U, Time, Lev, Lat, Lon):
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
             demension: time, level, lat, lon
             variables: surface geopotential(time,lat, lon), relative humidity(time,lev,lat,lon), 
                        temperature(time,lev,lat,lon), U component of wind(time,lev,lat,lon), 
                        V component of wind(time,lev,lat,lon), time, level, lat, lon.
+            Args:
+            dir_data  = '/Users/xquan/data'  
+            file_ncdf  = path.join(dir_data,'merra_pl.nc')
+            PHIS = restrictArea.PHIS
+            RH = restrictArea.RH
+            T = restrictArea.T
+            V = restrictArea.V
+            U = restrictArea.U
+            Time = restrictArea.Time
+            Lev = restrictArea.Lev
+            Lat = restrictArea.Lat
+            Lon = restrictArea.Lon                    
         """   
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
@@ -226,9 +274,9 @@ class MERRApl(MERRAgeneric):
         
         #dimensions
         times  = rootgrp.createDimension('times', len(Time))
-        levels = rootgrp.createDimension('levels', len(lev))
-        lats   = rootgrp.createDimension('lats', len(lat))
-        lons   = rootgrp.createDimension('lons', len(lon))
+        levels = rootgrp.createDimension('levels', len(Lev))
+        lats   = rootgrp.createDimension('lats', len(Lat))
+        lons   = rootgrp.createDimension('lons', len(Lon))
         
         #variables
         phis = rootgrp.createVariable('PHIS', 'f4', ('times', 'lats', 'lons'),fill_value=9.9999999E14)
@@ -292,14 +340,15 @@ class MERRApl(MERRAgeneric):
         
         # assign values
   
-        phis[:,:,:]   = variable[0][:,:,:]        # pass the values of surface geopotential height      
-        rh[:,:,:,:]   = variable[1][:,:,:,:]      # pass the values of relative humidity 
-        t[:,:,:,:]    = variable[2][:,:,:,:]      # pass the values of temperature
-        v[:,:,:,:]    = variable[3][:,:,:,:]      # pass the values of northward wind
-        u[:,:,:,:]    = variable[4][:,:,:,:]      # pass the values of eastward wind
-        level[:]      = lev[:]                    # pass the values of pressure level
-        latitudes[:]  = lat[:]                    # pass the values of latitude
-        longitudes[:] = lon[:]                    # pass the values of longitudes
+        phis[:,:,:]   = PHIS[:,:,:]               # pass the values of surface geopotential height      
+        rh[:,:,:,:]   = RH[:,:,:,:]                # pass the values of relative humidity 
+        t[:,:,:,:]    = T[:,:,:,:]                # pass the values of temperature
+        v[:,:,:,:]    = V[:,:,:,:]                # pass the values of northward wind
+        u[:,:,:,:]    = U[:,:,:,:]                # pass the values of eastward wind
+        time[:]       = Time[:]
+        level[:]      = Lev[:]                    # pass the values of pressure level
+        latitudes[:]  = Lat[:]                    # pass the values of latitude
+        longitudes[:] = Lon[:]                    # pass the values of longitudes
         
         #close the root group
         rootgrp.close()          
