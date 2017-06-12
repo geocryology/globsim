@@ -32,8 +32,9 @@ dir_src  = '/Users/xquan/src/globsim/merra-2'
 
 #Given wanted datatype, mydate, area, elevation
 
+date_start = "2016-01-01"
+date_end   = "2016-02-01" 
 data_type = '3dm' # options: '2dm', '3dm' and '2dr'
-date = datetime(2016, 1, 1)
 area = [ 40.0, 45.0, 60.0, 65.0]
  
 elevation = {'min' : 50, 'max' : 2000}  # needed to be test furtherly 

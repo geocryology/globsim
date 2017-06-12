@@ -65,6 +65,20 @@ class MERRAgeneric():
     Parent class for other merra classes.
     """
     
+    def getDate(self, start_date, end_date):                                                                                                                                          
+        """set up time range 
+        date_start = "2016-01-01"
+        date_end   = "2016-12-31"
+        """
+        
+        start = datetime.strptime(date_start, '%Y-%m-%d')
+        end  = datetime.strptime(date, "%Y-%m-%d")
+        time_diff = end - start
+        print time_diff.days
+        # get list of wanted date
+        date = [start + timedelta(days=x) for x in range(time_diff.days + 1)]
+
+   
     def getURL(self, date, data_type):                                                                                                                                          
         """Converts datetime objects into string &
             get objected url address (2d, 3d meterological fields and radiation datasets)
@@ -73,12 +87,13 @@ class MERRAgeneric():
             url_2dr: 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
             
             Example:
-            date = datetime(2016,1,1) 
+            date = date[:] 
             data_type = '2dm' # get type of url for 2d meterological data
             data_type = '3dm' # get type of url for 3d meterological data
             data_type = '2dr' # get type of url for 2d radiation data
         """
 
+        
         format = ('.nc4')
         res1 = date.strftime("%Y/%m") 
         res2 = date.strftime("%Y%m%d")  
@@ -97,18 +112,25 @@ class MERRAgeneric():
            # return (url)
  
     def download(self, username, password, url):
-        """ Access the MERRA server by account information and defiend urls"""
+        """ Access the MERRA server by account information and defiend urls
+            Args:
+            username = "xxxxxx"
+            password = "xxxxxx"                  
+        """
+        
         session = setup_session(username, password, check_url=url)        
         print ('=== MERRA: START ====')
         ds = open_url(url, session=session)
+        print ('TIME TO GET A COFFEE')
         print ('=== MERRA: STOP =====')
         print type(ds)
         print ds.keys()
 
-    def getArea(self, area): 
+    def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
            For example: 
-           area = [ 40.0, 45.0, 60.0, 65.0] 
+           area = [ 40.0, 45.0, 60.0, 65.0]
+           ds: original dataset from def download 
         """
         
         # get the row lat and lon
@@ -124,7 +146,7 @@ class MERRAgeneric():
         id_lon = list(itertools.chain(*id_lon))   
         
 
-    def getPressure(self, elevation):                     
+    def getPressure(self, elevation):                                          # ??thinking of it more
         """Convert elevation into air pressure using barometric formula"""
         g  = 9.80665   #Gravitational acceleration [m/s2]
         R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
@@ -134,18 +156,18 @@ class MERRAgeneric():
         #http://en.wikipedia.org/wiki/Barometric_formula
         return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
     
-    def getPressureLevels(self, elevation):
+    def getPressureLevels(self, elevation):                                    #?? thinking of it more
         """Restrict list of MERRA pressure levels to be downloaded"""
         Pmax = self.getPressure(elevation['min']) + 55
         Pmin = self.getPressure(elevation['max']) - 55 
-        levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 
-                         800, 825, 850, 875, 900, 925, 950, 975, 1000])        # replace by MERRA pressure levels
+        levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775,
+                         800, 825, 850, 875, 900, 925, 950, 975, 1000])     
         mask = (levs > Pmin) * (levs <= Pmax) #select
         levs = '/'.join(map(str, levs[mask]))
         return levs
 
 
-    def getNCDF(self):
+    def getNCDF(self):                                                         #?? thinking of it more
         return self.file_ncdf   
         
 
@@ -154,10 +176,11 @@ class MERRApl(MERRAgeneric):
        of Goddard Earth Sciences Data and Information Services Center.
        
     Args:
-        mydate: A dictionary specifying the specific date desired as a datetime.datetime object.
+        date: A dictionary specifying the specific date desired as a datetime.datetime object.
               
         area: A dictionary delimiting the area to be queried with the latitudes
-              north and south, and the longitudes west and east [decimal deg].  
+              north and south, and the longitudes west and east [decimal deg],to get 
+              the indies of defined latitudes and longitudes.  
               
         elevation: A dictionary specifying the min/max elevation of the area of
                    interest. This is used to determine the pressure levels 
@@ -359,13 +382,7 @@ class MERRApl(MERRAgeneric):
  
  
  
- 
- 
- 
- 
- 
- 
- 
+
 # class MERRAsa(MERRAgeneric)      # for downloading 2d surface variables
  
 # class MERRAsf(MERRAgeneric)      # for downloading 2d radiation variables
