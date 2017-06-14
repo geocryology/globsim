@@ -57,6 +57,7 @@ import numpy as np
 import csv
 import netCDF4
 import itertools
+import pandas
 
 
 
@@ -72,44 +73,54 @@ class MERRAgeneric():
         """
         
         start = datetime.strptime(date_start, '%Y-%m-%d')
-        end  = datetime.strptime(date, "%Y-%m-%d")
+        end  = datetime.strptime(date_end, "%Y-%m-%d")
         time_diff = end - start
         print time_diff.days
         # get list of wanted date
         date = [start + timedelta(days=x) for x in range(time_diff.days + 1)]
 
    
-    def getURL(self, date, data_type):                                                                                                                                          
-        """Converts datetime objects into string &
-            get objected url address (2d, 3d meterological fields and radiation datasets)
+    def getURLs(self, date_start, date_end, data_type):                                                                                                                                          
+        """ Set up urls by given range of date and type of data
+            to getobjected url address (2d, 3d meterological fields and radiation datasets)
             url_2dm: 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
             url_3dm: 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
             url_2dr: 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
             
-            Example:
-            date = date[:] 
+            Args:
+            date_start = "2016-01-01"
+            date_end   = "2016-12-31"
+
             data_type = '2dm' # get type of url for 2d meterological data
             data_type = '3dm' # get type of url for 3d meterological data
             data_type = '2dr' # get type of url for 2d radiation data
         """
-
-        
-        format = ('.nc4')
-        res1 = date.strftime("%Y/%m") 
-        res2 = date.strftime("%Y%m%d")  
+        #setup the based url strings    
         baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 2d dataset
         baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 3d dataset
         baseurl1 = ('M2I1NXASM.5.12.4/','/MERRA2_400.inst1_2d_asm_Nx.')            # sub url of 2d meteorological data     
         baseurl2 = ('M2I3NPASM.5.12.4/','/MERRA2_400.inst3_3d_asm_Np.')            # sub url of 3d meteorological data           
         baseurl3 = ('M2T1NXRAD.5.12.4/','/MERRA2_400.tavg1_2d_rad_Nx.')            # sub url of 2d radiation data
+        format = ('.nc4')
 
-        if data_type == '2dm':        
-           url = baseurl_2d + baseurl1[0] + res1 + baseurl1[1] + res2 + format
-        elif data_type == '3dm':
-           url = baseurl_3d + baseurl2[0] + res1 + baseurl2[1] + res2 + format
-        elif data_type == '2dr':
-           url = baseurl_2d + baseurl3[0] + res1 + baseurl3[1] + res2 + format        
-           # return (url)
+        #Setup the start and end of dates
+        start = datetime.strptime(date_start, '%Y-%m-%d')
+        end  = datetime.strptime(date_end, "%Y-%m-%d")
+
+        #Setup the based string of dates for urls 
+        res1 = [d.strftime("%Y/%m") for d in pandas.date_range(start,end)]
+        res2 = [d.strftime("%Y%m%d") for d in pandas.date_range(start,end)]        
+        
+       # get the urls list
+        urls = []
+        for i in range(0,len(res1)):
+              if data_type == '2dm':        
+                 urls.append(baseurl_2d + baseurl1[0] + res1[i] + baseurl1[1] + res2[i] + format)
+              elif data_type == '3dm':
+                 urls.append(baseurl_3d + baseurl2[0] + res1[i] + baseurl2[1] + res2[i] + format)
+              elif data_type == '2dr':
+                 urls.append(baseurl_2d + baseurl3[0] + res1[i] + baseurl3[1] + res2[i] + format)        
+
  
     def download(self, username, password, url):
         """ Access the MERRA server by account information and defiend urls
