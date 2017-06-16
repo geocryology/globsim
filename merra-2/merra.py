@@ -129,13 +129,25 @@ class MERRAgeneric():
             password = "xxxxxx"                  
         """
         
-        session = setup_session(username, password, check_url=url)        
-        print ('=== MERRA: START ====')
-        ds = open_url(url, session=session)
-        print ('TIME TO GET A COFFEE')
-        print ('=== MERRA: STOP =====')
+        # session = setup_session(username, password, check_url=url)        
+        # print ('=== MERRA: START ====')
+        # ds = open_url(url, session=session)
+        # print ('TIME TO GET A COFFEE')
+        # print ('=== MERRA: STOP =====')
+        # print type(ds)
+        # print ds.keys()
+        
+        print ('===== MERRA: START ======')
+        print ('TIME TO GET A COFFEE')        
+        ds = {}
+        for i in range(0, len(urls)): 
+            session = setup_session(username, password, check_url=urls[i])        
+            ds[i] = open_url(urls[i], session=session) 
+        print ('===== MERRA: STOP =======')
         print type(ds)
-        print ds.keys()
+        print ds[0].keys
+        
+
 
     def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
@@ -157,7 +169,7 @@ class MERRAgeneric():
         id_lon = list(itertools.chain(*id_lon))   
         
 
-    def getPressure(self, elevation):                                          # ??thinking of it more
+    def getPressure(self, elevation):                                          #
         """Convert elevation into air pressure using barometric formula"""
         g  = 9.80665   #Gravitational acceleration [m/s2]
         R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
@@ -167,7 +179,7 @@ class MERRAgeneric():
         #http://en.wikipedia.org/wiki/Barometric_formula
         return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
     
-    def getPressureLevels(self, elevation):                                    #?? thinking of it more
+    def getPressureLevels(self, elevation):                                    #
         """Restrict list of MERRA pressure levels to be downloaded"""
         Pmax = self.getPressure(elevation['min']) + 55
         Pmin = self.getPressure(elevation['max']) - 55 
@@ -178,7 +190,7 @@ class MERRAgeneric():
         return levs
 
 
-    def getNCDF(self):                                                         #?? thinking of it more
+    def getNCDF(self):                                                         #
         return self.file_ncdf   
         
 
