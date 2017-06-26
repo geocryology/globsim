@@ -60,10 +60,10 @@ url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.
 
 #Read in dataset
 session = setup_session(username, password, check_url=url)
-ds = open_url(url, session=session)
+ds1 = open_url(url, session=session)
 
 #get variable keys
-print ds.keys
+print ds1.keys
 
 #get latitudes,longitude,Level
 # lat = ds.lat[:]

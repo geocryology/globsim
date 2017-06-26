@@ -129,40 +129,27 @@ class MERRAgeneric():
             password = "xxxxxx"                  
         """
         
-        # session = setup_session(username, password, check_url=url)        
-        # print ('=== MERRA: START ====')
-        # ds = open_url(url, session=session)
-        # print ('TIME TO GET A COFFEE')
-        # print ('=== MERRA: STOP =====')
-        # print type(ds)
-        # print ds.keys()
-        
-        print ('===== MERRA: START ======')
-        print ('TIME TO GET A COFFEE')        
-        ds = {}
-        for i in range(0, len(urls)): 
-            session = setup_session(username, password, check_url=urls[i])        
-            ds[i] = open_url(urls[i], session=session) 
-        print ('===== MERRA: STOP =======')
-        print type(ds)
-        print ds[0].keys
-        
-
 
     def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
            For example: 
            area = [ 40.0, 45.0, 60.0, 65.0]
-           ds: original dataset from def download 
+           ds: original dataset from def download()
         """
         
-        # get the row lat and lon
-        lat = ds.lat[:]
-        lon = ds.lon[:]
-        
+        # get the row lat and lon      
+        lat = {}
+        lon = {}      
+        for i in range(len(ds)):
+            lat[i] = ds[i].lat[:]
+            lon[i] = ds[i].lon[:]
+             
+        Lat = lat[0]
+        Lon = lon[0]
+                        
         # get the indices of selected range of lat,lon
-        id_lat = np.where((lat[:] > area[0]) & (lat[:] < area[1])) 
-        id_lon = np.where((lon[:] > area[2]) & (lon[:] < area[3])) 
+        id_lat = np.where((Lat[:] > area[0]) & (Lat[:] < area[1])) 
+        id_lon = np.where((Lon[:] > area[2]) & (Lon[:] < area[3])) 
         
         # convert id_lat, id_lon from tuples to string
         id_lat = list(itertools.chain(*id_lat))
@@ -233,49 +220,69 @@ class MERRApl(MERRAgeneric):
         self.file_ncdf  = path.join(self.dir_data,'merra_pl.nc')
 
     
-    def getVariables(self, variable):
+    def getVariables(self, variable, ds):
         """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
            variable = ['PHIS','RH','T','V','U','lat','lon','lev','time']
         """
-        var = ds.keys()
-        for i in range(len(variable)):
-            foundVariable = False
-            if variable[i] in var:
-               for j in range(len(var)):
-                   if foundVariable != True:
-                        if var[j] == variable[i]:
-                            temp = "" + var[j]        
-                            variable[i] = ds[temp]
-                            foundVariable = True
-     
-        # # Make sure it works loop              
-        # for i in range(len(variable)):
-        #    print variable[i]
         
-        out_variable = variable
+        out_varialbe = {}
+        for i in range(0, len(ds)):
+            print "run", i
+            outputVar = []
+            for x in range(0,len(variable)):
+                outputVar.append(variable[x])
 
-    def restrictArea(self,id_lat, id_lon, out_variable):
+            var = ds[i].keys()
+            for j in range(len(outputVar)):
+                foundVariable = False
+                if outputVar[j] in var:
+                    for l in range(len(var)):
+                        if foundVariable != True:
+                           if var[l] == outputVar[j]:
+                               temp = "" + var[l]
+                               outputVar[j] = ds[i][temp]
+                               foundVariable = True
+        
+        out_variable[i] = outputVar
+
+
+    def restrictArea(self, id_lat, id_lon, out_variable):
         """Define the outputs ones &
-           pass the values of abstrated varialbles to the output ones and 
+           pass the values of abstrated variables to the output ones and 
            restrict the area          
         """
 
         # pass the values
         
-        PHIS  = out_variable[0][:]
-        RH    = out_variable[1][:]
-        T     = out_variable[2][:]
-        V     = out_variable[3][:]
-        U     = out_variable[4][:]
-        Lat   = out_variable[5][:]
-        Lon   = out_variable[6][:]
-        Lev   = out_variable[7][:]
-        Time  = out_variable[8][:]
+        PHIS = {}
+        RH   = {}
+        T    = {}
+        V    = {}
+        U    = {}
+        Lat  = {}
+        Lon  = {}
+        Lev  = {}
+        Time = {}
         
+        for i in range(0, len(out_variable)):
+            print "run", i
+            PHIS[i] = out_variable[i][0][:]
+            RH[i]   = out_variable[i][1][:]
+            T[i]    = out_variable[i][2][:]
+            V[i]    = out_variable[i][3][:]
+            U[i]    = out_variable[i][4][:]
+            Lat[i]   = out_variable[i][5][:]
+            Lon[i]   = out_variable[i][6][:]
+            Lev[i]   = out_variable[i][7][:]
+            Time[i]  = out_variable[i][8][:]
+            
+              
+       
         # for i, v in enumerate(['PHIS1','RH1', 'T1', 'V1', 'U1','Lat1','Lon1', 'Lev1','Time1']):
         #     print i, v[i]
         #     v[i]= out_variable[i][:]
              
+        
         # restrict the area
         # for latitude
         PHIS = PHIS[:,id_lat,:]
