@@ -122,19 +122,29 @@ class MERRAgeneric():
                  urls.append(baseurl_2d + baseurl3[0] + res1[i] + baseurl3[1] + res2[i] + format)        
 
  
-    def download(self, username, password, url):
+    def download(self, username, password, urls):
         """ Access the MERRA server by account information and defiend urls
             Args:
             username = "xxxxxx"
             password = "xxxxxx"                  
         """
         
+        print ('===== MERRA: START ======')
+        print ('TIME TO GET A COFFEE')        
+        ds = {}
+        for i in range(0, len(urls)): 
+            session = setup_session(username, password, check_url=urls[i])        
+            ds[i] = open_url(urls[i], session=session) 
+        print ('===== MERRA: STOP =======')
+        print type(ds)
+        print ds[0].keys
+        
 
     def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
            For example: 
            area = [ 40.0, 45.0, 60.0, 65.0]
-           ds: original dataset from def download()
+           ds: original datasets from def download()
         """
         
         # get the row lat and lon      
@@ -225,25 +235,24 @@ class MERRApl(MERRAgeneric):
            variable = ['PHIS','RH','T','V','U','lat','lon','lev','time']
         """
         
-        out_varialbe = {}
+        out_variable = {}
         for i in range(0, len(ds)):
             print "run", i
             outputVar = []
             for x in range(0,len(variable)):
                 outputVar.append(variable[x])
-
+            
             var = ds[i].keys()
             for j in range(len(outputVar)):
                 foundVariable = False
                 if outputVar[j] in var:
                     for l in range(len(var)):
                         if foundVariable != True:
-                           if var[l] == outputVar[j]:
-                               temp = "" + var[l]
-                               outputVar[j] = ds[i][temp]
-                               foundVariable = True
-        
-        out_variable[i] = outputVar
+                            if var[l] == outputVar[j]:
+                                temp = "" + var[l]
+                                outputVar[j] = ds[i][temp]
+                                foundVariable = True
+            out_variable[i] = outputVar
 
 
     def restrictArea(self, id_lat, id_lon, out_variable):
@@ -253,53 +262,90 @@ class MERRApl(MERRAgeneric):
         """
 
         # pass the values
-        
+        # For Surface Geopotential     
         PHIS = {}
+        for i in range(0, len(out_variable)):
+            print "run", i
+            PHIS[i] = out_variable[i][0][:]
+        # For Relative Humidity
         RH   = {}
+        for i in range(0, len(out_variable)):
+            print "run", i    
+            RH[i]   = out_variable[i][1][:]
+        # For Air Temperature
         T    = {}
+        for i in range(0, len(out_variable)):
+            print "run", i
+            T[i]    = out_variable[i][2][:]
+        # For Wind Component 
         V    = {}
         U    = {}
+        for i in range(0, len(out_variable)):
+            print "run", i    
+            V[i]    = out_variable[i][3][:]
+            U[i]    = out_variable[i][4][:]
+        # For Latitude, Longitude, Levels, and Time
         Lat  = {}
         Lon  = {}
         Lev  = {}
         Time = {}
-        
         for i in range(0, len(out_variable)):
             print "run", i
-            PHIS[i] = out_variable[i][0][:]
-            RH[i]   = out_variable[i][1][:]
-            T[i]    = out_variable[i][2][:]
-            V[i]    = out_variable[i][3][:]
-            U[i]    = out_variable[i][4][:]
             Lat[i]   = out_variable[i][5][:]
             Lon[i]   = out_variable[i][6][:]
             Lev[i]   = out_variable[i][7][:]
             Time[i]  = out_variable[i][8][:]
-            
-              
-       
-        # for i, v in enumerate(['PHIS1','RH1', 'T1', 'V1', 'U1','Lat1','Lon1', 'Lev1','Time1']):
-        #     print i, v[i]
-        #     v[i]= out_variable[i][:]
-             
+
+        # Restrict the area
+        # For Surface Geopotential 
+        phis = {}
+        for i in range(0, len(PHIS)):
+            print "run", i
+            phis[i] = PHIS[i][:,id_lat,:]
+        for i in range(0, len(phis)):
+            phis[i] = phis[i][:,:,id_lon]
+
+        # For Relative Humidity
+        rh = {}
+        for i in range(0, len(RH)):
+            print "run", i
+            rh[i] = RH[i][:,:,id_lat,:]
+        for i in range(0, len(rh)):
+            rh[i] = rh[i][:,:,:,id_lon]
+
+        # For Air Temperature
+        t = {}
+        for i in range(0, len(T)):
+            print "run", i
+            t[i] = T[i][:,:,id_lat,:]
+        for i in range(0, len(t)):
+            t[i] = t[i][:,:,:,id_lon]
+
+        # For Wind Component V
+        v = {}
+        for i in range(0, len(V)):
+            print "run", i
+            v[i] = V[i][:,:,id_lat,:]
+        for i in range(0, len(v)):
+            v[i] = v[i][:,:,:,id_lon]
         
-        # restrict the area
-        # for latitude
-        PHIS = PHIS[:,id_lat,:]
-        RH = RH[:,:,id_lat,:]
-        T = T[:,:,id_lat,:]
-        V = V[:,:,id_lat,:]
-        U = U[:,:,id_lat,:]
-        Lat = Lat[id_lat]
-        #for longitude        
-        PHIS = PHIS[:,:,id_lon]
-        RH = RH[:,:,:, id_lon]      
-        T = T[:,:,:,id_lon]      
-        V = V[:,:,:,id_lon]      
-        U = U[:,:,:,id_lon]       
-        Lon = Lon[id_lon]       
+        # For Wind Componnet U
+        u = {}
+        for i in range(0, len(U)):
+            print "run", i
+            u[i] = U[i][:,:,id_lat,:]
+        for i in range(0, len(u)):
+            u[i] =u[i][:,:,:,id_lon]
+
+        #For Latitude and Longitude 
+        lat = {}
+        lon = {}        
+        for i in range(len(Lat & Lon)):
+            lat[i] = Lat[i][id_lat]
+            lon[i] = Lon[i][id_lon]
+      
         
-    def saveNCDF(self, file_ncdf, PHIS, RH, T, V, U, Time, Lev, Lat, Lon):
+    def saveNCDF(self, file_ncdf, phis, rh, t, v, v, time, lev, lat, lon):
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
             demension: time, level, lat, lon
