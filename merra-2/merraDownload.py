@@ -34,7 +34,7 @@ dir_src  = '/Users/xquan/src/globsim/merra-2'
 
 date_start = "2016-01-01"
 date_end   = "2016-02-01" 
-data_type = '3dm' # options: '2dm', '3dm' and '2dr'
+data_type = '3dm_ana'                                                          # options: '2dm', '3dm_ana','3dm_asm' and '2dr'
 area = [ 40.0, 45.0, 60.0, 65.0]
  
 elevation = {'min' : 50, 'max' : 2000}  # needed to be test furtherly 
@@ -44,15 +44,18 @@ elevation = {'min' : 50, 'max' : 2000}  # needed to be test furtherly
 #==============================================================================
 
 #Downloading test sample
-#url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/hyrax/MERRA2_DIURNAL/'
-#       'M2IUNXASM.5.12.4/2016/MERRA2_400.instU_2d_asm_Nx.201601.nc4')          # test url 
 
 # url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
-#        '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                     # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
+#         '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                     # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
 
-url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
-       '/2016/02/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
-                                                                                                                                 
+# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
+#        '/2016/01/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
+
+# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4'
+#        '/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4')                      # 3d,3-hourly,Instantaneous,Pressure-Level, Analyzed Meteorological Fields                                                                                                                                                                                                                                                               
+                                                     
+url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXFLX.5.12.4'
+       '/2016/01/MERRA2_400.tavg1_2d_flx_Nx.20160101.nc4')                      # 2d, 1-hourly, 2D, single-level, full horizontal resolution, Surface Flux Diagnostics
 
 #url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T3NPRAD.5.12.4'
 #      '/2016/01/MERRA2_400.tavg3_3d_rad_Np.20160102.nc4')                      # 3d, 3-Hourly, Time-Averaged, Pressure-Level, Assimilation, Radiation Diagnostics
