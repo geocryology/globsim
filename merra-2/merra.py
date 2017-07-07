@@ -289,10 +289,8 @@ class MERRApl_ana(MERRAgeneric):
             V[i] = out_variable[i][1][:]
             U[i] = out_variable[i][2][:]
        # For Geopotential Height
-        H = {}
         for i in range(0, len(out_variable)):
             print "run", i
-            T[i] = out_variable[i][3][:]
         
         # Latitude, Longitude, Levels, and Time
         Lat  = {}
@@ -346,112 +344,6 @@ class MERRApl_ana(MERRAgeneric):
             lat[i] = Lat[i][id_lat]
             lon[i] = Lon[i][id_lon]
         return t, v, u, h, lat, lon, lev, time
-        
-    def saveNCDF(self, file_ncdf, t, v, u, h, time, lev, lat, lon):
-        """ write output netCDF file for abstracted variables from original meteorological data 
-            at pressure levels
-            demension: time, level, lat, lon
-            variables: surface geopotential(time,lat, lon), relative humidity(time,lev,lat,lon), 
-                       temperature(time,lev,lat,lon), U component of wind(time,lev,lat,lon), 
-                       V component of wind(time,lev,lat,lon), time, level, lat, lon.
-            Args:
-            dir_data  = '/Users/xquan/data'  
-            file_ncdf  = path.join(dir_data,'merra_pl.nc')
-            T = restrictArea.T
-            V = restrictArea.V
-            U = restrictArea.U
-            H = restrictArea.H
-            Time = restrictArea.Time
-            Lev = restrictArea.Lev
-            Lat = restrictArea.Lat
-            Lon = restrictArea.Lon                    
-        """   
-        # creat a NetCDF file for saving output variables (Dataset object, also the root group).
-        rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
-        print(rootgrp.file_format)
-        rootgrp.source      = 'Merra, abstrated variables from metadata at pressure levels'
-        rootgrp.featureType = "3_Dimension"
-        
-        #Arrange the format of dimensions for time, levels, latitude and longitude
-        
-        # For time : convert the time (len(time)*8) to series (one demension)
-        # Time = 
-        Lev = lev[0]
-        Lat = lat[0]
-        Lon = lon[0]
-
-        #dimensions
-        times  = rootgrp.createDimension('times', len(Time))
-#       times = rootgrp.createDimension('times', None)
-        levels = rootgrp.createDimension('levels', len(Lev))
-        lats   = rootgrp.createDimension('lats', len(Lat))
-        lons   = rootgrp.createDimension('lons', len(Lon))
-        
-        #variables             
-        t               = rootgrp.createVariable('Temperature', 'f4', ('times','levels','lats', 'lons'),fill_value=9.9999999E14)
-        t.standard_name = "air_temperature"
-        t.units         = "K" 
-        t.missing_value = 9.9999999E14
-        t.fmissing_value = (9.9999999E14, 'f')
-        t.vmax = (9.9999999E14, 'f')
-        t.vmin = (-9.9999999E14, 'f')
-    
-        v               = rootgrp.createVariable('V_component_of_wind','f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-        v.standard_name = "northward_wind"
-        v.unit          = "m s-1" 
-        v.missing_value = 9.9999999E14
-        v.fmissing_value = 9.9999999E14, 'f'
-        v.vmax = 9.9999999E14, 'f'
-        v.vmin = -9.9999999E14, 'f'
-                            
-        u               = rootgrp.createVariable('U_component_of_wind', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-        u.standard_name = "eastward_wind"
-        u.unit          = "m s-1" 
-        u.missing_value = 9.9999999E14
-        u.fmissing_value = (9.9999999E14, 'f')
-        u.vmax = (9.9999999E14, 'f')
-        u.vmin = (-9.9999999E14, 'f')
-        
-        h = rootgrp.createVariable('H', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-        h.standard_name = "geopotential height"
-        h.units         = "m+2 s-2" 
-        h.missing_value = 9.9999999E14
-        h.fmissing_value = (9.9999999E14,'f')
-        h.vmax = (9.9999999E14, 'f')
-        h.vmin = (-9.9999999E14, 'f')
-
-        time               = rootgrp.createVariable('time', 'i4', ('times'))
-        time.standard_name = "time"
-        time.units         = "minutes since" + date.strftime("%Y-%m-%d 00:00:00")
-        time.calendar      = "standard"
- 
-        level               = rootgrp.createVariable('level','i4', ('levels'))
-        level.standard_name = "air_pressure"
-        level.units         = "hPa"
-
-        latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
-        latitudes.standard_name = "latitude"
-        latitudes.units         = "degrees_north"
-        latitudes.axis          = 'Y'
-
-        longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
-        longitudes.standard_name = "longitude"
-        longitudes.units         = "degrees_east"
-        longitudes.axis          = 'X'
-        
-        # assign values
-        t[:,:,:,:]    = T[:,:,:,:]                # pass the values of temperature
-        v[:,:,:,:]    = V[:,:,:,:]                # pass the values of northward wind
-        u[:,:,:,:]    = U[:,:,:,:]                # pass the values of eastward wind
-        h[:,:,:,:]    = H[:,:,:,:]               # pass the values of surface geopotential height      
-
-        time[:]       = Time[:]
-        level[:]      = Lev[:]                    # pass the values of pressure level
-        latitudes[:]  = Lat[:]                    # pass the values of latitude
-        longitudes[:] = Lon[:]                    # pass the values of longitudes
-        
-        #close the root group
-        rootgrp.close()          
 
 class MERRApl_asm(MERRAgeneric):
     """Returns an object for MERRA data that has methods for querying the server  
@@ -469,19 +361,10 @@ class MERRApl_asm(MERRAgeneric):
                    needed. Unit: [m].
         
         variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['PHIS','RH','lat','lon','lev','time']
         
         directory: Directory to hold output files
               
     Example:
-        from datetime import datetime
-        date = datetime(2016, 01, 01)   
-        area  = [40.0, 45.0, 60.0, 65.0]
-        elevation = {'min' :    0, 
-                     'max' : 8850}
-        dir_data = '/Users/xquan/data'             
-        MERRApl = MERRApl(mydate, area, elevation, variable, dir_data) 
-        MERRApl.download()
     """
 
     def __init__(self, date, area, elevation, dir_data):
@@ -494,7 +377,6 @@ class MERRApl_asm(MERRAgeneric):
     
     def getVariables(self, variable, ds):
         """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
-           variable = ['PHIS','RH','lat','lon','lev','time']
         """
         
         out_variable = {}
@@ -522,39 +404,12 @@ class MERRApl_asm(MERRAgeneric):
            pass the values of abstrated variables to the output ones and 
            restrict the area          
         """
-
         # pass the values
-        # For Surface Geopotential     
-        PHIS = {}
-        for i in range(0, len(out_variable)):
-            print "run", i
-            PHIS[i] = out_variable[i][0][:]
-        # For Relative Humidity
         RH   = {}
         for i in range(0, len(out_variable)):
             print "run", i    
-            RH[i]   = out_variable[i][1][:]
-       # For Latitude, Longitude, Levels, and Time
-        Lat  = {}
-        Lon  = {}
-        lev  = {}
-        time = {}
-        for i in range(0, len(out_variable)):
-            print "run", i
-            Lat[i]   = out_variable[i][2][:]
-            Lon[i]   = out_variable[i][3][:]
-            lev[i]   = out_variable[i][4][:]
-            time[i]  = out_variable[i][5][:]
 
         # Restrict the area
-        # For Surface Geopotential 
-        phis = {}
-        for i in range(0, len(PHIS)):
-            print "run", i
-            phis[i] = PHIS[i][:,id_lat,:]
-        for i in range(0, len(phis)):
-            phis[i] = phis[i][:,:,id_lon]
-
         # For Relative Humidity
         rh = {}
         for i in range(0, len(RH)):
@@ -569,20 +424,12 @@ class MERRApl_asm(MERRAgeneric):
         for i in range(len(Lat)):
             lat[i] = Lat[i][id_lat]
             lon[i] = Lon[i][id_lon]
-        return phis, rh, t, v, u, lat, lon, lev, time
         
-    def saveNCDF(self, file_ncdf, phis, rh, time, lev, lat, lon):
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
             demension: time, level, lat, lon
-            variables: surface geopotential(time,lat, lon), relative humidity(time,lev,lat,lon), 
-                       temperature(time,lev,lat,lon), U component of wind(time,lev,lat,lon), 
-                       V component of wind(time,lev,lat,lon), time, level, lat, lon.
-            Args:
             dir_data  = '/Users/xquan/data'  
             file_ncdf  = path.join(dir_data,'merra_pl.nc')
-            PHIS = restrictArea.PHIS
-            RH = restrictArea.RH
             T = restrictArea.T
             V = restrictArea.V
             U = restrictArea.U
@@ -612,14 +459,6 @@ class MERRApl_asm(MERRAgeneric):
         lats   = rootgrp.createDimension('lats', len(Lat))
         lons   = rootgrp.createDimension('lons', len(Lon))
         
-        #variables
-        phis = rootgrp.createVariable('PHIS', 'f4', ('times', 'lats', 'lons'),fill_value=9.9999999E14)
-        phis.standard_name = "surface geopotential height"
-        phis.units         = "m+2 s-2" 
-        phis.missing_value = 9.9999999E14
-        phis.fmissing_value = (9.9999999E14,'f')
-        phis.vmax = (9.9999999E14, 'f')
-        phis.vmin = (-9.9999999E14, 'f')
         
         rh               = rootgrp.createVariable('Relative_humidity', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
         rh.standard_name = "relative humidity after moist"
@@ -628,7 +467,6 @@ class MERRApl_asm(MERRAgeneric):
         rh.fmissing_value = (9.9999999E14, 'f')
         rh.vmax = (9.9999999E14, 'f')
         rh.vmin = (-9.9999999E14, 'f')
-                            
         time               = rootgrp.createVariable('time', 'i4', ('times'))
         time.standard_name = "time"
         time.units         = "minutes since" + date.strftime("%Y-%m-%d 00:00:00")
@@ -649,7 +487,6 @@ class MERRApl_asm(MERRAgeneric):
         longitudes.axis          = 'X'
         
         # assign values
-        phis[:,:,:]   = PHIS[:,:,:]               # pass the values of surface geopotential height      
         rh[:,:,:,:]   = RH[:,:,:,:]               # pass the values of relative humidity 
         time[:]       = Time[:]
         level[:]      = Lev[:]                    # pass the values of pressure level
