@@ -33,19 +33,22 @@
 # (5) Obtianing the mutiple dataset with spefici spacial and temporal)
 #==============================================================================
 # IMPORTANT Notes: 
-# Selected URLs list:
-# url1 = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
-#       '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                     # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
+# Samples of Selected URLs list:
 
-# url2 = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
-#       '/2016/02/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
-                                                                               
-url3 = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4'
-       '/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4')                      # 3d,6-hourly,Instantaneous,Pressure-Level,Analyzed Meteorological Fields                                                                                                                                                                                                                                         
-                                                                               
-# url4 = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXRAD.5.12.4'
-#        '/2016/02/MERRA2_400.tavg1_2d_rad_Nx.20160202.nc4')                    # 2d, 1-Hourly, Time-Averaged, Single-Level, Assimilation, Radiation Diagnostics 
-                                                                               
+# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4'
+#        '/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4')                     # 3d,6-hourly,Instantaneous,Pressure-Level, Analyzed Meteorological Fields                                                                                                                                                                                                                                                               
+
+# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
+#        '/2016/01/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')                     # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
+                                                     
+# url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
+#         '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')                    # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics,meteorological Diagnostics data 
+
+# url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXFLX.5.12.4'
+#       '/2016/01/MERRA2_400.tavg1_2d_flx_Nx.20160101.nc4')                      # 2d,1-hourly, single-level, full horizontal resolution, Surface Flux Diagnostics
+
+# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T3NPRAD.5.12.4'
+#      '/2016/01/MERRA2_400.tavg3_3d_rad_Np.20160102.nc4')                       # 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
 
 #==============================================================================
 
@@ -76,10 +79,11 @@ class MERRAgeneric():
         
         start = datetime.strptime(date_start, '%Y-%m-%d')
         end  = datetime.strptime(date_end, "%Y-%m-%d")
-        time_diff = end - start
+        time_diff = end - startdate
         print time_diff.days
         # get list of wanted date
         date = [start + timedelta(days=x) for x in range(time_diff.days + 1)]
+
         return date
    
     def getURLs(self, date_start, date_end, data_type):                                                                                                                                          
@@ -95,7 +99,7 @@ class MERRAgeneric():
             date_end   = "2016-12-31"
 
             data_type = '3dm_ana' # get type of url for 3d Analyzed Meteorological Fields data
-            data_type = '3dm_asm' # get type of url for 3d Assimilated Meteorological Fields dara
+            data_type = '3dm_asm' # get type of url for 3d Assimilated Meteorological Fields data
             data_type = '2dm' # get type of url for 2d meterological data
             data_type = '2dr' # get type of url for 2d radiation data
             data_type = '2ds' # get type of url for 2d surface flux data
@@ -134,31 +138,43 @@ class MERRAgeneric():
                  urls.append(baseurl_2d + baseurl_2dr[0] + res1[i] + baseurl_2dr[1] + res2[i] + format)
               elif data_type == '2ds':
                  urls.append(baseurl_2d + baseurl_2ds[0] + res1[i] + baseurl_2ds[1] + res2[i] + format)      
+
         return urls
  
-    def download(self, username, password, urls):
+    def download(self, username, password, urls, size):
         """ Access the MERRA server by account information and defiend urls
             Args:
             username = "xxxxxx"
-            password = "xxxxxx"                  
+            password = "xxxxxx"
+            urls: a full list of urls by specific date range of wanted dataset
+            size: the wanted size of urls list for each chunk
+                              
         """
-        
+        size = 5
+        urls_chunks = [urls[x:x+size] for x in xrange(0, len(urls), size)]      
+
         print ('===== MERRA: START ======')
         print ('TIME TO GET A COFFEE')        
-        ds = {}
-        for i in range(0, len(urls)): 
-            session = setup_session(username, password, check_url=urls[i])        
-            ds[i] = open_url(urls[i], session=session) 
-        print ('===== MERRA: STOP =======')
-        print type(ds)
-        print ds[0].keys
+
+        for i in range(len(urls_chunks)):
+            ds[i] = {}
+            url = urls_chunks[i]
+            for j in range(len(url)): 
+                session = setup_session(username, password, check_url=url[j])        
+                ds[i][j] = open_url(url[j], session=session) 
+                print ('------COMPLETED------','CHUNK', i, 'URL', j )
+                print url[j]
+            print ds[i][j].keys
+        
+        print ('===== MERRA: COMPLETED =======')
+        print type(ds)      
         
         return ds        
 
     def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
            For example: 
-           area = [ 40.0, 45.0, 60.0, 65.0]
+           area = {'lat':[40.0, 45.0], 'lon':[60.0, 65.0]}
            ds: original datasets from def download()
         """
         
@@ -173,12 +189,13 @@ class MERRAgeneric():
         Lon = lon[0]
                         
         # get the indices of selected range of lat,lon
-        id_lat = np.where((Lat[:] > area[0]) & (Lat[:] < area[1])) 
-        id_lon = np.where((Lon[:] > area[2]) & (Lon[:] < area[3])) 
-        
+        id_lon = np.where((Lon[:] > area['lon'][0]) & (Lon[:] < area['lon'][1])) 
+        id_lat = np.where((Lat[:] > area['lat'][0]) & (Lat[:] < area['lat'][1])) 
+       
         # convert id_lat, id_lon from tuples to string
         id_lat = list(itertools.chain(*id_lat))
         id_lon = list(itertools.chain(*id_lon))   
+        
         return id_lat, id_lon
 
     def getPressure(self, elevation):                                          #
@@ -206,8 +223,8 @@ class MERRAgeneric():
         return self.file_ncdf   
         
 class MERRApl_ana(MERRAgeneric):
-    """Returns an object for MERRA data that has methods for querying the server  
-       of Goddard Earth Sciences Data and Information Services Center.
+    """Returns variables from downloaded MERRA 3d Analyzed Meteorological Fields data, 
+       which are abstracted with specific temporal and spatial range  
        
     Args:
         date: A dictionary specifying the specific date desired as a datetime.datetime object.
@@ -228,12 +245,11 @@ class MERRApl_ana(MERRAgeneric):
     Example:
         from datetime import datetime
         date = datetime(2016, 01, 01)   
-        area  = [40.0, 45.0, 60.0, 65.0]
+        area = {'lat':[40.0,45.0], 'lon':[60.0,65.0]}
         elevation = {'min' :    0, 
                      'max' : 8850}
         dir_data = '/Users/xquan/data'             
-        MERRApl = MERRApl(mydate, area, elevation, variable, dir_data) 
-        MERRApl.download()
+        MERRApl_ana = MERRApl_ana(date, area, elevation, variable, dir_data) 
     """
 
     def __init__(self, date, area, elevation, dir_data):
@@ -245,7 +261,7 @@ class MERRApl_ana(MERRAgeneric):
 
     
     def getVariables(self, variable, ds):
-        """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
+        """Return the objected variables from the specific MERRA-2 3D datasets        
            variable = ['T','V','U','H','lat','lon','lev','time']
         """
         
@@ -267,6 +283,8 @@ class MERRApl_ana(MERRAgeneric):
                                 outputVar[j] = ds[i][temp]
                                 foundVariable = True
             out_variable[i] = outputVar
+ 
+        
         return out_variable 
 
     def restrictArea(self, id_lat, id_lon, out_variable):
@@ -274,9 +292,8 @@ class MERRApl_ana(MERRAgeneric):
            pass the values of abstrated variables to the output ones and 
            restrict the area          
         """
-
-        # pass the values
-        # For Air Temperature   
+        # pass the values        
+        # For Air Temperature
         T = {}
         for i in range(0, len(out_variable)):
             print "run", i
@@ -289,9 +306,11 @@ class MERRApl_ana(MERRAgeneric):
             V[i] = out_variable[i][1][:]
             U[i] = out_variable[i][2][:]
        # For Geopotential Height
+        H = {}        
         for i in range(0, len(out_variable)):
             print "run", i
-        
+            H[i] = out_variable[i][3][:]
+           
         # Latitude, Longitude, Levels, and Time
         Lat  = {}
         Lon  = {}
@@ -346,9 +365,9 @@ class MERRApl_ana(MERRAgeneric):
         return t, v, u, h, lat, lon, lev, time
 
 class MERRApl_asm(MERRAgeneric):
-    """Returns an object for MERRA data that has methods for querying the server  
-       of Goddard Earth Sciences Data and Information Services Center.
-       
+    """Returns variables from downloaded MERRA 3d Assimilated Meteorological Fields data, 
+       which are abstracted with specific temporal and spatial range        
+    
     Args:
         date: A dictionary specifying the specific date desired as a datetime.datetime object.
               
@@ -361,10 +380,12 @@ class MERRApl_asm(MERRAgeneric):
                    needed. Unit: [m].
         
         variable:  List of variable(s) to download that can include one, several
+                   , or all of these: ['RH','lat','lon','lev','time']
         
         directory: Directory to hold output files
               
     Example:
+
     """
 
     def __init__(self, date, area, elevation, dir_data):
@@ -377,6 +398,7 @@ class MERRApl_asm(MERRAgeneric):
     
     def getVariables(self, variable, ds):
         """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
+           variable = ['RH','lat','lon','lev','time']
         """
         
         out_variable = {}
@@ -405,9 +427,23 @@ class MERRApl_asm(MERRAgeneric):
            restrict the area          
         """
         # pass the values
+
+       # For Relative Humidity
         RH   = {}
         for i in range(0, len(out_variable)):
             print "run", i    
+            RH[i]   = out_variable[i][0][:]
+       # For Latitude, Longitude, Levels, and Time
+        Lat  = {}
+        Lon  = {}
+        lev  = {}
+        time = {}
+        for i in range(0, len(out_variable)):
+             print "run", i
+             Lat[i]   = out_variable[i][1][:]
+             Lon[i]   = out_variable[i][2][:]
+             lev[i]   = out_variable[i][3][:]
+             time[i]  = out_variable[i][4][:]
 
         # Restrict the area
         # For Relative Humidity
@@ -424,15 +460,24 @@ class MERRApl_asm(MERRAgeneric):
         for i in range(len(Lat)):
             lat[i] = Lat[i][id_lat]
             lon[i] = Lon[i][id_lon]
+        return rh, lat, lon, lev, time
         
+        
+class saveNCDF_pl(self, file_ncdf, t, v, u, h, rh, time, lev, lat, lon):        # for saving abstracted pressure-levels variables
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
             demension: time, level, lat, lon
+            variables: temperature(time,lev,lat,lon), U component of wind(time,lev,lat,lon), 
+                       V component of wind(time,lev,lat,lon),
+                       geopotential heights(time,lev,lat,lon)
+                       relative humidity(time,lev,lat,lon), time, level, lat, lon.
+            Args: 
             dir_data  = '/Users/xquan/data'  
             file_ncdf  = path.join(dir_data,'merra_pl.nc')
             T = restrictArea.T
             V = restrictArea.V
             U = restrictArea.U
+            H = restrictArea.H
             Time = restrictArea.Time
             Lev = restrictArea.Lev
             Lat = restrictArea.Lat
@@ -459,7 +504,39 @@ class MERRApl_asm(MERRAgeneric):
         lats   = rootgrp.createDimension('lats', len(Lat))
         lons   = rootgrp.createDimension('lons', len(Lon))
         
+        #variables             
+        t               = rootgrp.createVariable('Temperature', 'f4', ('times','levels','lats', 'lons'),fill_value=9.9999999E14)
+        t.standard_name = "air_temperature"
+        t.units         = "K" 
+        t.missing_value = 9.9999999E14
+        t.fmissing_value = (9.9999999E14, 'f')
+        t.vmax = (9.9999999E14, 'f')
+        t.vmin = (-9.9999999E14, 'f')
+    
+        v               = rootgrp.createVariable('V_component_of_wind','f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+        v.standard_name = "northward_wind"
+        v.unit          = "m s-1" 
+        v.missing_value = 9.9999999E14
+        v.fmissing_value = 9.9999999E14, 'f'
+        v.vmax = 9.9999999E14, 'f'
+        v.vmin = -9.9999999E14, 'f'
+                            
+        u               = rootgrp.createVariable('U_component_of_wind', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+        u.standard_name = "eastward_wind"
+        u.unit          = "m s-1" 
+        u.missing_value = 9.9999999E14
+        u.fmissing_value = (9.9999999E14, 'f')
+        u.vmax = (9.9999999E14, 'f')
+        u.vmin = (-9.9999999E14, 'f')
         
+        h = rootgrp.createVariable('H', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+        h.standard_name = "geopotential height"
+        h.units         = "m+2 s-2" 
+        h.missing_value = 9.9999999E14
+        h.fmissing_value = (9.9999999E14,'f')
+        h.vmax = (9.9999999E14, 'f')
+        h.vmin = (-9.9999999E14, 'f')
+
         rh               = rootgrp.createVariable('Relative_humidity', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
         rh.standard_name = "relative humidity after moist"
         rh.units       = "1"  
@@ -467,6 +544,7 @@ class MERRApl_asm(MERRAgeneric):
         rh.fmissing_value = (9.9999999E14, 'f')
         rh.vmax = (9.9999999E14, 'f')
         rh.vmin = (-9.9999999E14, 'f')
+        
         time               = rootgrp.createVariable('time', 'i4', ('times'))
         time.standard_name = "time"
         time.units         = "minutes since" + date.strftime("%Y-%m-%d 00:00:00")
@@ -487,7 +565,13 @@ class MERRApl_asm(MERRAgeneric):
         longitudes.axis          = 'X'
         
         # assign values
+        t[:,:,:,:]    = T[:,:,:,:]                # pass the values of temperature
+        v[:,:,:,:]    = V[:,:,:,:]                # pass the values of northward wind
+        u[:,:,:,:]    = U[:,:,:,:]                # pass the values of eastward wind
+        h[:,:,:,:]    = H[:,:,:,:]               # pass the values of geopotential height
         rh[:,:,:,:]   = RH[:,:,:,:]               # pass the values of relative humidity 
+      
+
         time[:]       = Time[:]
         level[:]      = Lev[:]                    # pass the values of pressure level
         latitudes[:]  = Lat[:]                    # pass the values of latitude
@@ -496,9 +580,10 @@ class MERRApl_asm(MERRAgeneric):
         #close the root group
         rootgrp.close()          
 
-class MERRAsa(MERRAgeneric):
-    """Returns an object for MERRA data that has methods for querying the server  
-       of Goddard Earth Sciences Data and Information Services Center.
+
+class MERRAsm(MERRAgeneric):
+    """Returns variables from downloaded MERRA 2d meteorological Diagnostics data, 
+       which are abstracted with specific temporal and spatial range        
        
     Args:
         date: A dictionary specifying the specific date desired as a datetime.datetime object.
@@ -512,7 +597,7 @@ class MERRAsa(MERRAgeneric):
                    needed. Unit: [m].
         
         variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['T2M','U2M','V2M','U10M','V10M','lon','lev','time'].
+                   , or all of these: ['T2M','U2M','V2M','U10M','V10M','lat','lon','time'].
                    T2M: 2-meter_air_temperature
                    U2M: 2-meter_eastward_wind
                    V2M: 2-meter_northward_wind
@@ -524,12 +609,12 @@ class MERRAsa(MERRAgeneric):
     Example:
         from datetime import datetime
         date = datetime(2016, 01, 01)   
-        area  = [40.0, 45.0, 60.0, 65.0]
+        area = {'lat':[40.0,45.0], 'lon':[60.0,65.0]}
         elevation = {'min' :    0, 
                      'max' : 8850}
         dir_data = '/Users/xquan/data'             
-        MERRAsa = MERRApl(mydate, area, elevation, variable, dir_data) 
-        MERRAsa.download()
+        MERRAsm = MERRAsm(mydate, area, elevation, variable, dir_data) 
+        MERRAsm.download()
     """
 
     def __init__(self, date, area, elevation, dir_data):
@@ -537,19 +622,171 @@ class MERRAsa(MERRAgeneric):
         self.area       = area
         self.elevation  = elevation
         self.dir_data  = dir_data
-        self.file_ncdf  = path.join(self.dir_data,'merra_sa.nc')
+        self.file_ncdf  = path.join(self.dir_data,'merra_sa.nc') # needed to changer later
 
     
     def getVariables(self, variable, ds):
         """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
-           variable = ['U2M','T2M','TQL','V2M','V10M','U10M','QV2M','lon','lev','time']
+           variable = ['U2M','T2M','TQL','V2M','V10M','U10M','QV2M','lat','lon','time']
         """
-        
- 
-# class MERRAsr(MERRAgeneric)      # for downloading 2d radiation variables
+        out_variable = {}
+        for i in range(0, len(ds)):
+            print "run", i
+            outputVar = []
+            for x in range(0,len(variable)):
+                outputVar.append(variable[x])
+            
+            var = ds[i].keys()
+            for j in range(len(outputVar)):
+                foundVariable = False
+                if outputVar[j] in var:
+                    for l in range(len(var)):
+                        if foundVariable != True:
+                            if var[l] == outputVar[j]:
+                                temp = "" + var[l]
+                                outputVar[j] = ds[i][temp]
+                                foundVariable = True
+            out_variable[i] = outputVar
+        return out_variable 
 
-# class MERRAsf(MERRAgeneric)      # for downloading 2d surface flux variables
+class MERRAsf(MERRAgeneric):
+    """Returns variables from downloaded MERRA 2d suface flux Diagnostics data, 
+       which are abstracted with specific temporal and spatial range        
+       
+    Args:
+        date: A dictionary specifying the specific date desired as a datetime.datetime object.
+              
+        area: A dictionary delimiting the area to be queried with the latitudes
+              north and south, and the longitudes west and east [decimal deg],to get 
+              the indies of defined latitudes and longitudes.  
+              
+        elevation: A dictionary specifying the min/max elevation of the area of
+                   interest. This is used to determine the pressure levels 
+                   needed. Unit: [m].
+        
+        variable:  List of variable(s) to download that can include one, several
+                   , or all of these: ['PRECTOT','lat','lon','time'].
+
+        directory: Directory to hold output files
+              
+    Example:
+        from datetime import datetime
+        date = datetime(2016, 01, 01)   
+        area = {'lat':[40.0,45.0], 'lon':[60.0,65.0]}
+        elevation = {'min' :    0, 
+                     'max' : 8850}
+        dir_data = '/Users/xquan/data'             
+        MERRAsf = MERRAsf(mydate, area, elevation, variable, dir_data) 
+        MERRAsf.download()
+    """
+
+    def __init__(self, date, area, elevation, dir_data):
+        self.date     = date
+        self.area       = area
+        self.elevation  = elevation
+        self.dir_data  = dir_data
+        self.file_ncdf  = path.join(self.dir_data,'merra_sf.nc') #needed to change later
+
+    
+    def getVariables(self, variable, ds):
+        """Return the objected variables from the specific MERRA-2 2D      
+           variable = ['PRECTOT','lat','lon','time']
+        """        
+        out_variable = {}
+        for i in range(0, len(ds)):
+            print "run", i
+            outputVar = []
+            for x in range(0,len(variable)):
+                outputVar.append(variable[x])
+            
+            var = ds[i].keys()
+            for j in range(len(outputVar)):
+                foundVariable = False
+                if outputVar[j] in var:
+                    for l in range(len(var)):
+                        if foundVariable != True:
+                            if var[l] == outputVar[j]:
+                                temp = "" + var[l]
+                                outputVar[j] = ds[i][temp]
+                                foundVariable = True
+            out_variable[i] = outputVar
+        return out_variable 
  
+
+# class saveNCDF_sa():   # for saving abstracted surface variables
+
+
+class MERRAsr(MERRAgeneric):
+    """Returns variables from downloaded MERRA 2d radiation Diagnostics data, 
+       which are abstracted with specific temporal and spatial range        
+       
+    Args:
+        date: A dictionary specifying the specific date desired as a datetime.datetime object.
+              
+        area: A dictionary delimiting the area to be queried with the latitudes
+              north and south, and the longitudes west and east [decimal deg],to get 
+              the indies of defined latitudes and longitudes.  
+              
+        elevation: A dictionary specifying the min/max elevation of the area of
+                   interest. This is used to determine the pressure levels 
+                   needed. Unit: [m].
+        
+        variable:  List of variable(s) to download that can include one, several
+                   , or all of these: ['SWGNT','LWGNT''lat','lon','time'].
+                   SWGNT:surface net downward shortwave flux(time*lat*lon)
+                   LWGNT:surface net downward longwave flux(time*lat*lon)
+        
+        directory: Directory to hold output files
+              
+    Example:
+        from datetime import datetime
+        date = datetime(2016, 01, 01)   
+        area = {'lat':[40.0,45.0], 'lon':[60.0,65.0]}
+        elevation = {'min' :    0, 
+                     'max' : 8850}
+        dir_data = '/Users/xquan/data'             
+        MERRAsr = MERRAsr(mydate, area, elevation, variable, dir_data) 
+        MERRAsr.download()
+    """
+
+    def __init__(self, date, area, elevation, dir_data):
+        self.date     = date
+        self.area       = area
+        self.elevation  = elevation
+        self.dir_data  = dir_data
+        self.file_ncdf  = path.join(self.dir_data,'merra_sa.nc') # needed to change later
+
+    
+    def getVariables(self, variable, ds):
+        """Return the objected variables from the specific MERRA-2 2D and 3D datasets        
+           variable = ['SWGNT','LWGNT','lat','lon','time']
+        """
+        out_variable = {}
+        for i in range(0, len(ds)):
+            print "run", i
+            outputVar = []
+            for x in range(0,len(variable)):
+                outputVar.append(variable[x])
+            
+            var = ds[i].keys()
+            for j in range(len(outputVar)):
+                foundVariable = False
+                if outputVar[j] in var:
+                    for l in range(len(var)):
+                        if foundVariable != True:
+                            if var[l] == outputVar[j]:
+                                temp = "" + var[l]
+                                outputVar[j] = ds[i][temp]
+                                foundVariable = True
+            out_variable[i] = outputVar
+        return out_variable 
+
+
+# class saveNCDF_sr():  # for saving abstracted radiation variables
+ 
+
+
+
 # class MERRAinterp(object)        # for interpolating the abstracted variables at required pressure levels at each station
  
 
