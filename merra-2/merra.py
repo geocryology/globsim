@@ -150,6 +150,7 @@ class MERRAgeneric():
             size: the wanted size of urls list for each chunk
                               
         """
+        
         size = 5
         urls_chunks = [urls[x:x+size] for x in xrange(0, len(urls), size)]      
 
