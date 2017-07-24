@@ -35,7 +35,7 @@ dir_src  = '/Users/xquan/src/globsim/merra-2'
 date_start = "2016-01-01"
 date_end   = "2016-02-01" 
 data_type = '3dm_ana'                                                          # options: '2dm', '3dm_ana','3dm_asm' and '2dr'
-area = [ 40.0, 45.0, 60.0, 65.0]
+area = {'lat':[40.0, 45.0], 'lon':[60.0, 65.0]}
  
 elevation = {'min' : 50, 'max' : 2000}  # needed to be test furtherly 
 
@@ -78,7 +78,6 @@ print ds1.keys
 
 #execfile(path.join(dir_src, 'merra.py'))
 
-area = [40.0, 45.0, 60.0, 65.0]
 
 #tmp = MERRAgeneric()
 #lat_id, lon_id = tmp.areaGET(lat, lon, area)
