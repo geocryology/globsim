@@ -72,6 +72,9 @@ class MERRAgeneric():
     Parent class for other merra classes.
     """
     
+    def Chris(self):
+        
+    
     def getDate(self, start_date, end_date):                                                                                                                                          
         """set up time range 
         date_start = "2016-01-01"
@@ -159,19 +162,23 @@ class MERRAgeneric():
         print ('TIME TO GET A COFFEE')        
         ds = {}
         for i in range(len(urls_chunks)):
-            ds[i] = {}
+            #ds[i] = {}
+            ds[1] = {}
             url = urls_chunks[i]
             for j in range(len(url)): 
                 session = setup_session(username, password, check_url=url[j])        
-                ds[i][j] = open_url(url[j], session=session) 
+                #ds[i][j] = open_url(url[j], session=session) 
+                ds[1][j] = open_url(url[j], session=session)  #chris
                 print ('------COMPLETED------','CHUNK', i, 'URL', j )
                 print url[j]
-            print ds[i][j].keys
+            #######print ds[i][j].keys
+            return ds #Chris
+            
         
         print ('===== MERRA: COMPLETED =======')
         print type(ds)      
         
-        return ds        
+        #######return ds        
     
     def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
