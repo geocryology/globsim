@@ -72,7 +72,7 @@ class MERRAgeneric():
     Parent class for other merra classes.
     """
            
-    def getURLs(self, date_start, date_end):                                                                                                                                          
+    def getURLs(self, beg, end):                                                                                                                                          
         """ Set up urls by given range of date and type of data
             to getobjected url address (2d, 3d meterological fields and radiation datasets)
             url_2dm: 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
@@ -81,8 +81,8 @@ class MERRAgeneric():
             url_2dr: 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
             
             Args:
-            date_start = "2016-01-01"
-            date_end   = "2016-12-31"
+            beg = "2016-01-01"
+            end = "2016-12-31"
 
             urls_3dmana: get type of url for 3d Analyzed Meteorological Fields data
             urls_3dmasm: get type of url for 3d Assimilated Meteorological Fields data
@@ -103,12 +103,12 @@ class MERRAgeneric():
         format = ('.nc4')
 
         #Setup the start and end of dates
-        start = datetime.strptime(date_start, '%Y-%m-%d')
-        end  = datetime.strptime(date_end, "%Y-%m-%d")
+        begin = datetime.strptime(beg, '%Y-%m-%d')
+        end  = datetime.strptime(end, "%Y-%m-%d")
 
         #Setup the based string of dates for urls 
-        res1 = [d.strftime("%Y/%m") for d in pandas.date_range(start,end)]
-        res2 = [d.strftime("%Y%m%d") for d in pandas.date_range(start,end)]        
+        res1 = [d.strftime("%Y/%m") for d in pandas.date_range(begin,end)]
+        res2 = [d.strftime("%Y%m%d") for d in pandas.date_range(begin,end)]        
         
        # get the urls list
        
@@ -135,8 +135,8 @@ class MERRAgeneric():
             size: the wanted size of urls list for each chunk
                               
         """
-        size = 5
-        urls_chunks = [urls[x:x+size] for x in xrange(0, len(urls), size)]      
+        chunk_size = 5
+        urls_chunks = [urls[x:x+chunk_size] for x in xrange(0, len(urls), chunk_size)]      
 
         print ('===== MERRA: START ======')
         print ('TIME TO GET A COFFEE')        
@@ -197,7 +197,7 @@ class MERRAgeneric():
     def getArea(self, area, ds): 
         """Gets the specific area with given latitude and longitude
            For example: 
-           area = {'lat':[40.0, 45.0], 'lon':[60.0, 65.0]}
+           area = {'bbN': 40.0,'bbS':45.0, 'bbW':60.0, 'bbE': 65.0}
            ds = MERRAgeneric().download(username, password, urls_3dmana, urls_3dmasm, urls_2dm, urls_2dr, urls_2ds, size)
         """
              
@@ -206,8 +206,8 @@ class MERRAgeneric():
         Lon = ds[0][0].lon[:]
                         
         # get the indices of selected range of Lat,Lon
-        id_lon = np.where((Lon[:] > area['lon'][0]) & (Lon[:] < area['lon'][1])) 
-        id_lat = np.where((Lat[:] > area['lat'][0]) & (Lat[:] < area['lat'][1])) 
+        id_lon = np.where((Lon[:] > area['bbW']) & (Lon[:] < area['bbE'])) 
+        id_lat = np.where((Lat[:] > area['bbN']) & (Lat[:] < area['bbS'])) 
        
         # convert id_lat, id_lon from tuples to string
         id_lat = list(itertools.chain(*id_lat))
@@ -254,7 +254,7 @@ class MERRAgeneric():
                 lat[i][j] = Lat[i][j][id_lat]                
                 lon[i][j] = Lon[i][j][id_lon]
         
-        del Lat, Lon          
+         
         return lat, lon, lev, time    
 
 
@@ -263,7 +263,7 @@ class MERRAgeneric():
            pass the values of abstrated variables to the output ones and 
            restrict the area 
          Args:
-           lat, lon, lev, time = latLon()
+           lat, lon, lev, time = latLon() c 
            id_lat, id_lon =  MERRAgeneric().getArea(area, ds) 
            temp = dataStuff(0, lat, lon, lev, time, id_lat, id_lon, out_variable)
            v = dataStuff(1, lat, lon, lev, time, id_lat, id_lon, out_variable)
@@ -475,102 +475,131 @@ class saveNCDF_pl(MERRApl_ana, MERRApl_asm):        # for saving abstracted pres
             file_ncdf  = path.join(dir_data,'merra_pl.nc')                     # edit the name of saving nc file with specific date later, to save the data by each chunk
 
             """
-            dir_data  = '/Users/xquan/data' 
+            
             file_ncdf  = path.join(dir_data,'merra_pl.nc') 
             rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
             print(rootgrp.file_format)
             rootgrp.source      = 'Merra, abstrated variables from metadata at pressure levels'
             rootgrp.featureType = "3_Dimension"
         
-            #Arrange the format of dimensions for time, levels, latitude and longitude
-        
-            # For time : convert the time (len(time)*8) to series (one demension)
-            TIME1 = time1[0][0]/60
+            #Arrange the format of dimensions for time, levels, latitude and longitude for dimension setup 
+            TIME1 = time1[0][0]/60           # unit conversion minutues to hours
             TIME2 = time2[0][0]/60
             LEV = lev[0][0]
             LAT = lat[0][0]
             LON = lon[0][0]
 
             #dimensions
-            times  = rootgrp.createDimension('times', len(TIME1))
-     #       titmes2  = rootgrp.createDimension('times', len(TIME2))  
+            times  = rootgrp.createDimension('times', len(TIME2)*size)
     #       times = rootgrp.createDimension('times', None)
             levels = rootgrp.createDimension('levels', len(LEV))
             lats   = rootgrp.createDimension('lats', len(LAT))
             lons   = rootgrp.createDimension('lons', len(LON))
         
             #variables             
-            t               = rootgrp.createVariable('Temperature', 'f4', ('t1','levels','lats', 'lons'),fill_value=9.9999999E14)
-            t.standard_name = "air_temperature"
-            t.units         = "K" 
-            t.missing_value = 9.9999999E14
-            t.fmissing_value = (9.9999999E14, 'f')
-            t.vmax = (9.9999999E14, 'f')
-            t.vmin = (-9.9999999E14, 'f')
-    
-            v               = rootgrp.createVariable('V_component_of_wind','f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-            v.standard_name = "northward_wind"
-            v.unit          = "m s-1" 
-            v.missing_value = 9.9999999E14
-            v.fmissing_value = 9.9999999E14, 'f'
-            v.vmax = 9.9999999E14, 'f'
-            v.vmin = -9.9999999E14, 'f'
+            
+            Temp            = rootgrp.createVariable('Temperature', 'f4', ('times','levels','lats', 'lons'),fill_value=9.9999999E14)
+            Temp.standard_name = "air_temperature"
+            Temp.units         = "K" 
+            Temp.missing_value = 9.9999999E14
+            Temp.fmissing_value = (9.9999999E14, 'f')
+            Temp.vmax = (9.9999999E14, 'f')
+            Temp.vmin = (-9.9999999E14, 'f')
+
+            # get the data with subset of area
+            temp = MERRAgeneric().dataStuff(0, lat, lon, lev, time, id_lat, id_lon, out_variable)
+            
+
+            
+            V               = rootgrp.createVariable('V_component_of_wind','f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+            V.standard_name = "northward_wind"
+            V.unit          = "m s-1" 
+            V.missing_value = 9.9999999E14
+            V.fmissing_value = 9.9999999E14, 'f'
+            V.vmax = 9.9999999E14, 'f'
+            V.vmin = -9.9999999E14, 'f'
+            
+            # get the data wtih subset of area
+            v = MERRAgeneric().dataStuff(1, lat, lon, lev, time, id_lat, id_lon, out_variable)
                             
-            u               = rootgrp.createVariable('U_component_of_wind', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-            u.standard_name = "eastward_wind"
-            u.unit          = "m s-1" 
-            u.missing_value = 9.9999999E14
-            u.fmissing_value = (9.9999999E14, 'f')
-            u.vmax = (9.9999999E14, 'f')
-            u.vmin = (-9.9999999E14, 'f')
-        
-            h = rootgrp.createVariable('H', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-            h.standard_name = "geopotential height"
-            h.units         = "m+2 s-2" 
-            h.missing_value = 9.9999999E14
-            h.fmissing_value = (9.9999999E14,'f')
-            h.vmax = (9.9999999E14, 'f')
-            h.vmin = (-9.9999999E14, 'f')
 
-            rh               = rootgrp.createVariable('Relative_humidity', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
-            rh.standard_name = "relative humidity after moist"
-            rh.units       = "1"  
-            rh.missing_value = 9.9999999E14
-            rh.fmissing_value = (9.9999999E14, 'f')
-            rh.vmax = (9.9999999E14, 'f')
-            rh.vmin = (-9.9999999E14, 'f')
+            U               = rootgrp.createVariable('U_component_of_wind', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+            U.standard_name = "eastward_wind"
+            U.unit          = "m s-1" 
+            U.missing_value = 9.9999999E14
+            U.fmissing_value = (9.9999999E14, 'f')
+            U.vmax = (9.9999999E14, 'f')
+            U.vmin = (-9.9999999E14, 'f')
+
+            #get the data with subset of area
+            u = MERRAgeneric().dataStuff(2, lat, lon, lev, time, id_lat, id_lon, out_variable)
         
-            time               = rootgrp.createVariable('time', 'i4', ('times'))
-            time.standard_name = "time"
-            time.units         = "hour since" + date.strftime("%Y-%m-%d 00:00:00")
-            time.calendar      = "standard"
+            H = rootgrp.createVariable('H', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+            H.standard_name = "geopotential height"
+            H.units         = "m+2 s-2" 
+            H.missing_value = 9.9999999E14
+            H.fmissing_value = (9.9999999E14,'f')
+            H.vmax = (9.9999999E14, 'f')
+            H.vmin = (-9.9999999E14, 'f')
+            #get the data with subset of area
+            h = MERRAgeneric().dataStuff(3, lat, lon, lev, time, id_lat, id_lon, out_variable)
+
+            RH               = rootgrp.createVariable('Relative_humidity', 'f4', ('times','levels', 'lats', 'lons'),fill_value=9.9999999E14)
+            RH.standard_name = "relative humidity after moist"
+            RH.units       = "1"  
+            RH.missing_value = 9.9999999E14
+            RH.fmissing_value = (9.9999999E14, 'f')
+            RH.vmax = (9.9999999E14, 'f')
+            RH.vmin = (-9.9999999E14, 'f')
+
+            
+            #get the data with subset of area
+            rh = MERRAgeneric().dataStuff(0, lat, lon, lev, time2, id_lat, id_lon, out_variable_3dmasm)
+            #restructing the shape 
+            rh_temp = []
+            for i in range(0, len(rh)):
+                for j in range(0,len(rh[i])):
+                    for k in range(0,len(rh[i][j])):
+                        rh_temp.append(rh[i][j][k][:])
  
-            level               = rootgrp.createVariable('level','i4', ('levels'))
-            level.standard_name = "air_pressure"
-            level.units         = "hPa"
+            rh_temp = np.asarray(rh_temp, dtype = float)
+            # pass the values
+            RH[:,:,:,:] = rh_temp[0:40,:,:,:]             
+        
+            Time               = rootgrp.createVariable('time', 'i4', ('times'))
+            Time.standard_name = "time"
+            Time.units         = "hour since" + date.strftime("%Y-%m-%d 00:00:00") # needed to add the beging date into it
+            Time.calendar      = "standard"
+ 
+            Level               = rootgrp.createVariable('level','i4', ('levels'))
+            Level.standard_name = "air_pressure"
+            Level.units         = "hPa"
 
-            latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
-            latitudes.standard_name = "latitude"
-            latitudes.units         = "degrees_north"
-            latitudes.axis          = 'Y'
+            Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
+            Latitudes.standard_name = "latitude"
+            Latitudes.units         = "degrees_north"
+            Latitudes.axis          = 'Y'
 
-            longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
-            longitudes.standard_name = "longitude"
-            longitudes.units         = "degrees_east"
-            longitudes.axis          = 'X'
+            Longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
+            Longitudes.standard_name = "longitude"
+            Longitudes.units         = "degrees_east"
+            Longitudes.axis          = 'X'
         
             # assign values
             t[:,:,:,:]    = T[:,:,:,:]                # pass the values of temperature
             v[:,:,:,:]    = V[:,:,:,:]                # pass the values of northward wind
             u[:,:,:,:]    = U[:,:,:,:]                # pass the values of eastward wind
             h[:,:,:,:]    = H[:,:,:,:]               # pass the values of geopotential height
-            rh[:,:,:,:]   = RH[:,:,:,:]               # pass the values of relative humidity 
-      
+ 
+            RH[:,:,:,:] = rh_temp[0:40,:,:,:]        # pass the values of relative humidity 
+                                                     # fix the loop for every 40 hours                                                     
 
-            time[:]       = Time[:]
-            level[:]      = Lev[:]                    # pass the values of pressure level
-            latitudes[:]  = Lat[:]                    # pass the values of latitude
-            longitudes[:] = Lon[:]                    # pass the values of longitudes
+            Time[:]       = Time[:]                   # need to set up the time seris with 3-hourly time step (for RH), 
+                                                      # 6-hourly time step (for Temp, U, V, H)
+
+            Level[:]      = lev[:]                    # pass the values of pressure level
+            Latitudes[:]  = lat[:]                    # pass the values of latitude
+            Longitudes[:] = lon[:]                    # pass the values of longitudes
         
             #close the root group
 
