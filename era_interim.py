@@ -55,16 +55,14 @@
 #
 #===============================================================================
 
-from datetime import datetime, timedelta
+from datetime import datetime #, timedelta
 from ecmwfapi.api import ECMWFDataServer
-from math     import exp, floor
+from math     import exp #, floor
 from os       import path
 import numpy   as np
 import csv
 import ESMF
 import netCDF4 as nc
-
-
 
 class ERAgeneric(object):
     """

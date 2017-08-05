@@ -1,0 +1,28 @@
+# This is an example of a Globsim download parameter file
+# Use extension like this: 'project_a.globsim_download'
+
+# logistics
+data_directory = /home/stgruber/storage/project_a/
+credentials_directory = ~/.
+
+# chunk size for splitting files and download [days]
+chunk_size = 5
+
+# area bounding box [decimal degrees]
+bbN = 65.0
+bbS = 64.0 
+bbW = -111.0
+bbE = -110.0
+
+# ground elevation range within area [m]
+ele_min = 0
+ele_max = 2000
+
+# time slice [YYYY/MM/DD]
+beg = 2015/07/01
+end = 2015/07/02
+
+# variables to download [CF Standard Name Table]
+variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, wind_from_direction, wind_speed
+
+test = 1,2,3,4  ,5 ,   6
