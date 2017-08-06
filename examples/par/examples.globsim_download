@@ -6,7 +6,7 @@ data_directory = /Users/stgruber/src/globsim/examples/
 credentials_directory = ~/.
 
 # chunk size for splitting files and download [days]
-chunk_size = 10000
+chunk_size = 1
 
 # area bounding box [decimal degrees]
 bbN = 65.0
@@ -20,7 +20,7 @@ ele_max = 2000
 
 # time slice [YYYY/MM/DD]
 beg = 1980/01/01
-end = 1980/01/02
+end = 1980/01/03
 
 # variables to download [CF Standard Name Table]
 variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, wind_from_direction, wind_speed

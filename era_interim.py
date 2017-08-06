@@ -427,7 +427,9 @@ class ERAinterp(object):
         surface and for pressure level files (all ERA-Interim files).
           
         Args:
-            ncfile_in: Full path to am ERA-Interim derived netCDF file.
+            ncfile_in: Full path to am ERA-Interim derived netCDF file. This can
+                       contain wildcards to point to multiple files if temporal
+                       chunking was used.
               
             ncfile_out: Full path to the output netCDF file to write.  
               
@@ -451,8 +453,8 @@ class ERAinterp(object):
                        variables=variables, date=date)        
         """   
         
-        # open netcdf file handle
-        ncf = nc.Dataset(ncfile_in, 'r')
+        # open netcdf file handle, can be one file of several with wildcards
+        ncf = nc.MFDataset(ncfile_in, 'r')
         # is it a file with pressure levels?
         pl = 'level' in ncf.dimensions.keys()
 
@@ -628,7 +630,7 @@ class ERAinterp(object):
         
         """
         # open file 
-        ncf = nc.Dataset(ncfile_in, 'r')
+        ncf = nc.MFDataset(ncfile_in, 'r')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
@@ -754,7 +756,7 @@ class ERAinterp(object):
                          path.join(directory,'era_to_stations.nc'), stations)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
         
         
-class ERAbatch(object):
+class ERAdata(object):
     """
     Class for ERA-Interim data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
@@ -763,8 +765,8 @@ class ERAbatch(object):
         pfile: Full path to a Globsim Download Parameter file. 
               
     Example:          
-        batch = ERAbatch(pfile) 
-        batch.retrieve()
+        ERAd = ERAdata(pfile) 
+        ERAd.retrieve()
     """
         
     def __init__(self, pfile):
@@ -889,4 +891,5 @@ class ERAbatch(object):
         
     def __str__(self):
         return "Object for ERA-Interim data download and conversion"                
+
 
