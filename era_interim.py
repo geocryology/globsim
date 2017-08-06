@@ -55,14 +55,23 @@
 #
 #===============================================================================
 
-from datetime import datetime #, timedelta
+from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
-from math     import exp #, floor
-from os       import path
+from math     import exp, floor
+from os       import path, listdir
+from generic import ParameterIO
+from fnmatch import filter
+
 import numpy   as np
-import csv
-import ESMF
+import csv 
 import netCDF4 as nc
+
+try:
+    import ESMF
+except ImportError:
+    print("*** ESMF not imported, interpolation not possibe. ***")
+    pass   
+            
 
 class ERAgeneric(object):
     """
@@ -126,10 +135,19 @@ class ERAgeneric(object):
         server = ECMWFDataServer()
         print server.trace('=== ERA Interim: START ====')
         server.retrieve(self.getDictionary())
-        print server.trace('=== ERA Interim: STOP =====')
+        print server.trace('=== ERA Interim: STOP =====')  
 
-    def getNCDF(self):
-        return self.file_ncdf                       
+    def TranslateCF2ERA(self, variables, dpar):
+        """
+        Translate CF Standard Names into ERA-Interim code numbers.
+        """
+        self.param = ''
+        for var in variables:
+            try:
+                self.param += dpar.get(var)+'/'
+            except TypeError:
+                pass    
+        self.param = self.param.rstrip('/') #fix last                                        
         
     def __str__(self):
         string = ("List of generic variables to query ECMWF server for "
@@ -152,8 +170,7 @@ class ERApl(ERAgeneric):
                    interest. This is used to determine the pressure levels 
                    needed. Unit: [m].
         
-        variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['airt', 'rh', 'geop', 'wind'].
+        variables:  List of variable(s) to download based on CF Standard Names.
         
         directory: Directory to hold output files
               
@@ -167,25 +184,28 @@ class ERApl(ERAgeneric):
                  'east'  : 105.0}
         elevation = {'min' :    0, 
                      'max' : 8850}
-        variable  = ['airt','rh','wind','geop']             
+        variables  = ['air_temperature', 'relative_humidity']             
         directory = '/Users/stgruber/Desktop'             
-        ERApl = ERApl(date, area, elevation, variable, directory) 
+        ERApl = ERApl(date, area, elevation, variables, directory) 
         ERApl.download()
     """
-    def __init__(self, date, area, elevation, variable, directory):
+    def __init__(self, date, area, elevation, variables, directory):
         self.date       = date
         self.area       = area
         self.elevation  = elevation
         self.directory  = directory
-        self.file_ncdf  = path.join(self.directory,'era_pl.nc')
-        dpar = {'airt' : '130.128',           # [K]
-                'rh'   : '157.128',           # [%]
-                'geop' : '129.128',           # [m2 s-2]
-                'wind' : '131.128/132.128'}   # [m s-1]
-        self.param = ''        
-        for var in variable:
-            self.param += dpar.get(var)+'/'
-        self.param = self.param.rstrip('/') #fix last  
+        outfile = 'era_pl' + self.getDstring() + '.nc'
+        self.file_ncdf  = path.join(self.directory, outfile)
+ 
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable names. 
+        dpar = {'air_temperature'   : '130.128',           # [K]
+                'relative_humidity' : '157.128',           # [%]
+                'wind_speed'        : '131.128/132.128'}   # [m s-1]
+                
+        # translate variables into those present in ERA pl data        
+        self.TranslateCF2ERA(variables, dpar)
+        self.param += '/129.128' # geopotential always needed [m2 s-2] 
     
     def getDictionary(self):
         self.dictionary = {
@@ -202,7 +222,7 @@ class ERApl(ERAgeneric):
         
     def __str__(self):
         string = ("List of variables to query ECMWF server for "
-                  "ERA-Interim air tenperature data: {0}")
+                  "ERA-Interim data: {0}")
         return string.format(self.getDictionary) 
         
         
@@ -217,8 +237,7 @@ class ERAsa(ERAgeneric):
         
         target:    File name of the netcdf file to be created.
         
-        variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['airt', 'rh', 'geop', 'wind']
+        variable:  List of variable(s) to download based on CF Standard Names 
               
     Example:
         from datetime import datetime
@@ -228,25 +247,30 @@ class ERAsa(ERAgeneric):
                  'south' :  15.0,
                  'west'  :  60.0,
                  'east'  : 105.0}
-        variable  = ['airt2', 'dewp2', 'wind10', 'ozone', 'vapor']             
+        variables  = ['air_temperature', 'relative_humidity']             
         directory = '/Users/stgruber/Desktop'             
-        ERAsa = ERAsa(date, area, variable, directory) 
+        ERAsa = ERAsa(date, area, variables, directory) 
         ERAsa.download()      
     """
-    def __init__(self, date, area, variable, directory):
+    def __init__(self, date, area, variables, directory):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        self.file_ncdf  = path.join(self.directory,'era_sa.nc')
-        dpar = {'airt2'  : '167.128',           # [K] 2m values
-                'dewp2'  : '168.128',           # [K] 2m values
-                'ozone'  : '206.128',           # [kg m-2] Total column ozone
-                'vapor'  : '137.128',           # [kg m-2] Total column W vapor                                                                
-                'wind10' : '165.128/166.128'}   # [m s-1] 10m values
-        self.param = ''        
-        for var in variable:
-            self.param += dpar.get(var)+'/'
-        self.param = self.param.rstrip('/') #fix last
+        outfile = 'era_sa' + self.getDstring() + '.nc'
+        self.file_ncdf  = path.join(self.directory, outfile)
+        
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable names. 
+        dpar = {'air_temperature'   : '167.128',  # [K] 2m values
+                'relative_humidity' : '168.128',  # [K] 2m values
+                'downwelling_shortwave_flux_in_air_assuming_clear_sky' : 
+                    '206.128/137.128',  # [kg m-2] Total column ozone 
+                                        # [kg m-2] Total column W vapor                                                             
+                'wind_speed' : '165.128/166.128'}   # [m s-1] 10m values
+                
+        # translate variables into those present in ERA pl data        
+        self.TranslateCF2ERA(variables, dpar)
+        print(self.param)
 
 
     def getDictionary(self):
@@ -276,7 +300,7 @@ class ERAsf(ERAgeneric):
     Args:        
         target:    File name of the netcdf file to be created.
         
-        variable:  List of variable(s) to download that can include one, several
+        variables:  List of variable(s) to download that can include one, several
                    , or all of these: ['airt', 'rh', 'geop', 'wind'].
         
         ERAgen:    ERAgeneric() object with generic information on the area and
@@ -290,23 +314,27 @@ class ERAsf(ERAgeneric):
                  'south' :  40.0,
                  'west'  :  60.0,
                  'east'  :  60.0}
-        variable  = ['prec','swin','lwin']             
+        variables  = ['prec','swin','lwin']             
         directory = '/Users/stgruber/Desktop'             
-        ERAsf = ERAsf(date, area, variable, directory) 
+        ERAsf = ERAsf(date, area, variables, directory) 
         ERAsf.download()   
     """
-    def __init__(self, date, area, variable, directory):
+    def __init__(self, date, area, variables, directory):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        self.file_ncdf  = path.join(self.directory,'era_sf.nc')
-        dpar = {'prec'   : '228.128',   # [m] total precipitation
-                'swin'   : '169.128',   # [J m-2] short-wave downward
-                'lwin'   : '175.128'}   # [J m-2] long-wave downward
-        self.param = ''        
-        for var in variable:
-            self.param += dpar.get(var)+'/'
-        self.param = self.param.rstrip('/') #fix last
+        outfile = 'era_sf' + self.getDstring() + '.nc'
+        self.file_ncdf  = path.join(self.directory, outfile)
+
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable names. 
+        dpar = {'precipitation_amount'              : '228.128',   # [m] total precipitation
+                'downwelling_shortwave_flux_in_air' : '169.128',   # [J m-2] short-wave downward
+                'downwelling_longwave_flux_in_air'  : '175.128'}   # [J m-2] long-wave downward
+                
+        # translate variables into those present in ERA pl data        
+        self.TranslateCF2ERA(variables, dpar)
+        print(self.param)
 
 
     def getDictionary(self):
@@ -325,8 +353,6 @@ class ERAsf(ERAgeneric):
         string = ("List of variables to query ECMWF server for "
                   "ERA-Interim air tenperature data: {0}")
         return string.format(self.getDictionary)      
-
-
                 
 class ERAto(ERAgeneric):
     """
@@ -357,7 +383,7 @@ class ERAto(ERAgeneric):
            'time'     : "12",
            'step'     : "0",
            'type'     : "an",
-           'param'    : "129.128",
+           'param'    : "129.128/172.128", # geopotential and land-sea mask
            'target'   : self.file_ncdf
            } 
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
@@ -730,116 +756,137 @@ class ERAinterp(object):
         
 class ERAbatch(object):
     """
-    Returns an object for ERA-Interim data that has methods for querying 
+    Class for ERA-Interim data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
        
     Args:
-        date: A dictionary specifying the time period desired with a begin 
-              and an end date given as a datetime.datetime object.
+        pfile: Full path to a Globsim Download Parameter file. 
               
-        area: A dictionary delimiting the area to be queried with the latitudes
-              north and south, and the longitudes west and east.  
-              
-        elevation: A dictionary specifying the min/max elevation of the area of
-                   interest. This is used to determine the pressure levels 
-                   needed. Unit: [m].
-                
-        directory: Directory to hold output files
-        
-        increment_days: How many days should be requested from ECMWF 
-                        server per increment? This helps to keep the 
-                        processing faster.
-        
-        n_outfile: Over how many nc files should the final output be
-                   distributed? The dafault is 1, but for very large
-                   areas it may be better to use several files. 
-              
-    Example:
-        import era_download as ed
-        from datetime import datetime
-        date  = {'beg' : datetime(1980, 1, 1),
-                 'end' : datetime(2015, 1, 2)}
-        area  = {'north' :  40.0,
-                 'south' :  41.0,
-                 'west'  :  60.0,
-                 'east'  :  61.0}
-        elevation = {'min' :   50, 
-                     'max' : 2000}           
-        directory = '/Users/stgruber/Desktop/aaa'             
-        batch = ed.ERAbatch(date, area, elevation, directory, 5) 
+    Example:          
+        batch = ERAbatch(pfile) 
         batch.retrieve()
     """
         
-    def __init__(self, date, area, elevation, directory):#, 
-#                 increment_days, n_outfile=1):
-        self.date      = date
-        self.area      = area
-        self.elevation = elevation
-        self.directory = directory
-#        self.increment = increment_days
-        self.nc_files  = ''
- #       self.n_outfile = n_outfile
-        #TODO: check directory
-        #TODO ensure increments is smaller or equal than chosen time window
+    def __init__(self, pfile):
+        # read parameter file
+        self.pfile = pfile
+        par = ParameterIO(self.pfile)
+        
+        # assign bounding box
+        self.area  = {'north':  par.bbN,
+                      'south':  par.bbS,
+                      'west' :  par.bbW,
+                      'east' :  par.bbE}
+                 
+        # time bounds
+        self.date  = {'beg' : par.beg,
+                      'end' : par.end}
 
-    def getFileNames(self):  
-        return self.nc_files
-        #TODO: add methods to get file names with * in them
+        # elevation
+        self.elevation = {'min' : par.ele_min, 
+                          'max' : par.ele_max}
+        
+        # data directory for ERA-Interim  
+        self.directory = path.join(par.data_directory, "eraint")  
+        if path.isdir(self.directory) == False:
+            raise ValueError("Directory does not exist: " + self.directory)   
+     
+        # variables
+        self.variables = par.variables
+            
+        # chunk size for downloading and storing data [days]        
+        self.chunk_size = par.chunk_size            
               
     def retrieve(self):
-        #define variables
-
-        var_pl = ['airt', 'rh', 'wind', 'geop']  
-        var_sa = ['airt2', 'dewp2', 'wind10']
-        var_sf = ['prec', 'swin', 'lwin']
-
-#        #enter time loop, assign dummy date_i to start with
-#        date_i = {'beg' : datetime(1994, 1, 1), 'end' : datetime(1999, 1, 2)}
-#        slices = floor(float((self.date['end'] - self.date['beg']).days)/
-#                       self.increment)+1
-#
-#        for ind in range (0, int(slices)): 
-#            #prepare time slices   
-#            date_i['beg'] = self.date['beg'] + timedelta(days = 
-#                            self.increment * ind)
-#            date_i['end'] = self.date['beg'] + timedelta(days = 
-#                            self.increment * (ind+1) - 1)
-#            if ind == (slices -1):
-#                date_i['end'] = self.date['end']
-#            
-#            #actual functions                                                                           
-#            pl = ERApl(date_i, self.area, self.elevation, 
-#                       var_pl, self.directory) 
-#            sa = ERAsa(date_i, self.area, var_sa, self.directory) 
-#            sf = ERAsf(date_i, self.area, var_sf, self.directory) 
-#            self.ERAli   = [pl, sa, sf] #combine in list
-#        
-#            #download from ECMWF server convert to netCDF  
-#            for era in self.ERAli:
-#                era.download()
-
-            
-        #actual functions                                                                           
-        pl = ERApl(self.date, self.area, self.elevation, 
-                   var_pl, self.directory) 
-        sa = ERAsa(self.date, self.area, var_sa, self.directory) 
-        sf = ERAsf(self.date, self.area, var_sf, self.directory) 
-        self.ERAli   = [pl, sa, sf] #combine in list
+        """
+        Retrieve all required ERA-Interim data from MARS server.
+        """
+        #TODO: append to dataset while keeping chunk size
         
-        #download from ECMWF server convert to netCDF  
-        for era in self.ERAli:
-            era.download()            
+        # prepare time loop
+        date_i = {}
+        slices = floor(float((self.date['end'] - self.date['beg']).days)/
+                       self.chunk_size)+1
+
+        for ind in range (0, int(slices)): 
+            #prepare time slices   
+            date_i['beg'] = self.date['beg'] + timedelta(days = 
+                            self.chunk_size * ind)
+            date_i['end'] = self.date['beg'] + timedelta(days = 
+                            self.chunk_size * (ind+1) - 1)
+            if ind == (slices-1):
+                date_i['end'] = self.date['end']
+            
+            #actual functions                                                                           
+            pl = ERApl(date_i, self.area, self.elevation, 
+                       self.variables, self.directory) 
+            sa = ERAsa(date_i, self.area, self.variables, self.directory) 
+            sf = ERAsf(date_i, self.area, self.variables, self.directory) 
+        
+            #download from ECMWF server convert to netCDF  
+            ERAli = [pl, sa, sf]
+            for era in ERAli:
+                era.download()          
                                          
-        #topography
+        # topography
         top = ERAto(self.area, self.directory)
         top.download()
-                                       
-    def append(self):
-        #TODO
-        '''
-        Append data to files in a directory.
-        '''                                               
-                    
+        
+        # report inventory
+        self.inventory()     
+                                                                                                                                                                                                     
+    def inventory(self):
+        """
+        Report on data avaialbe in directory: time slice, variables, area 
+        """
+        print("\n\n\n")
+        print("=== INVENTORY FOR GLOBSIM ERA-INTERIM DATA === \n")
+        print("Download parameter file: \n" + self.pfile + "\n")
+        # loop over filetypes, read, report
+        file_type = ['era_pl_*.nc', 'era_sa_*.nc', 'era_sf_*.nc', 'era_t*.nc']
+        for ft in file_type:
+            infile = path.join(self.directory, ft)
+            nf = len(filter(listdir(self.directory), ft))
+            print(str(nf) + " FILE(S): " + infile)
+            
+            if nf > 0:
+                # open dataset
+                ncf = nc.MFDataset(infile, 'r')
+                
+                # list variables
+                keylist = [x.encode('UTF8') for x in ncf.variables.keys()]
+                print("    VARIABLES:")
+                print("        " + str(len(keylist)) + 
+                      " variables, inclusing dimensions")
+                for key in keylist:
+                    print("        " + ncf.variables[key].long_name)
+                
+                # time slice
+                time = ncf.variables['time']
+                tmin = '{:%Y/%m/%d}'.format(nc.num2date(min(time[:]), 
+                                     time.units, calendar=time.calendar))
+                tmax = '{:%Y/%m/%d}'.format(nc.num2date(max(time[:]), 
+                                     time.units, calendar=time.calendar))
+                print("    TIME SLICE")                     
+                print("        " + str(len(time[:])) + " time steps")
+                print("        " + tmin + " to " + tmax)
+                      
+                # area
+                lon = ncf.variables['longitude']
+                lat = ncf.variables['latitude']
+                nlat = str(len(lat))
+                nlon = str(len(lon))
+                ncel = str(len(lat) * len(lon))
+                print("    BOUNDING BOX / AREA")
+                print("        " + ncel + " cells, " + nlon + 
+                      " W-E and " + nlat + " S-N")
+                print("        N: " + str(max(lat)))
+                print("        S: " + str(min(lat)))
+                print("        W: " + str(min(lon)))
+                print("        E: " + str(max(lon)))
+                            
+                ncf.close()
+        
     def __str__(self):
         return "Object for ERA-Interim data download and conversion"                
 
