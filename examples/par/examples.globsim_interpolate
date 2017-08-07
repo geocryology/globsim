@@ -1,11 +1,11 @@
 # logistics
-project_directory = /Users/stgruber/src/globsim/examples
+project_directory = /home/sgruber/src/globsim/examples
 station_list = mylist.csv
 list_name = mylist
 
-# time slice [YYYY/MM/DD]
+# time slice [YYYY/MM/DD] assuming 00:00 hours
 beg = 1980/01/01
-end = 1980/01/02
+end = 1980/01/10
 
 # variables to interpolate [CF Standard Name Table]
 variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, wind_from_direction, wind_speed

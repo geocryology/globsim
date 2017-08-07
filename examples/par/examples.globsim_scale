@@ -1,5 +1,5 @@
 # logistics
-project_directory = /home/sgruber/src/globsim/examples/
+project_directory = /home/sgruber/src/globsim/examples
 output_directory = /home/sgruber/src/globsim/examples/station
 
 # processing kernels to be used
