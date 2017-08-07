@@ -22,7 +22,7 @@
 #===============================================================================
 from datetime import datetime
 import pandas as pd
-from era_interim import * 
+from globsim.era_interim import *
 
 
 class ParameterIO(object):
