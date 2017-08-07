@@ -731,11 +731,7 @@ class ERAinterpolate(object):
         # drop none
         varlist = [item for item in varlist if item is not None]      
         # flatten
-        varlist = [item for sublist in varlist for item in sublist]  
-            
-        print(self.variables)
-        print(varlist)        
-                
+        varlist = [item for sublist in varlist for item in sublist]         
         return(varlist) 
     
     def process(self):
@@ -751,8 +747,6 @@ class ERAinterpolate(object):
                 'relative_humidity' : 'r',           # [%]
                 'wind_speed'        : ['u', 'v']}    # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        
-        print(varlist)
         self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
                          path.join(self.dir_out,'era_pl_' + 
                                    self.list_name + '.nc'), self.stations,
@@ -767,8 +761,7 @@ class ERAinterpolate(object):
                     ['tco3', 'tcwv'],   # [kg m-2] Total column ozone 
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
-        varlist = self.TranslateCF2short(dpar)
-        print(varlist)                       
+        varlist = self.TranslateCF2short(dpar)                      
         self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
                          path.join(self.dir_out,'era_sa_' + 
                                    self.list_name + '.nc'), self.stations,
@@ -780,8 +773,7 @@ class ERAinterpolate(object):
         dpar = {'precipitation_amount'              : 'tp',   # [m] total precipitation
                 'downwelling_shortwave_flux_in_air' : 'ssrd', # [J m-2] short-wave downward
                 'downwelling_longwave_flux_in_air'  : 'strd'} # [J m-2] long-wave downward
-        varlist = self.TranslateCF2short(dpar)
-        print(varlist)                                 
+        varlist = self.TranslateCF2short(dpar)                              
         self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
