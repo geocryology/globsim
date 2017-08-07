@@ -486,6 +486,7 @@ class ERAinterpolate(object):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
+        ncsingle = path.join(self.dir_inp, ncsingle)
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
         # create source field on source grid
