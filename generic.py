@@ -22,8 +22,6 @@
 #===============================================================================
 from datetime import datetime
 import pandas as pd
-from globsim.era_interim import *
-
 
 class ParameterIO(object):
     """
@@ -133,69 +131,3 @@ class ParameterIO(object):
 
         # Make dictionary and return
         return {name: valu}
-
-
-def StationListRead(sfile):  
-    '''
-    Reads ASCII station list and returns a pandas dataframe.
-    
-    # read station list
-    stations = StationListRead('examples/par/examples_list1.globsim_interpolate')
-    print(stations['station_number'])
-    '''
-    # read file
-    raw = pd.read_csv(sfile)    
-    raw = raw.rename(columns=lambda x: x.strip())
-    return(raw)
-            
-
-def GlobsimDownload(pfile):
-    """
-    Download data from multiple re-analyses.
-    """
-    #TODO: make each re-analysis one sub-process
-    
-    # === ERA-Interim ===
-    ERAdownl = ERAdownload(pfile)
-    ERAdownl.retrieve()
-    
-    # === MERRA-2 ===
-    #TODO
-    
-    # === JRA-55 ===
-    #TODO
-
-def GlobsimInterpolateStation(ifile):
-    """
-    Interpolate re-analysis data to individual stations (points: lat, lon, ele).
-    The temporal granularity and variables of each re-analysis are preserved. 
-    The resulting data is saved in netCDF format.
-    """
-    
-    # === ERA-Interim ===
-    ERAinterp = ERAinterpolate(ifile)
-    ERAinterp.process()
-    
-    # === MERRA-2 ===
-    #TODO
-    
-    # === JRA-55 ===
-    #TODO
-    
-            
-def GlobsimScale(sfile):
-    """
-    Use re-analysis data that has been interpolated to station locations to 
-    derive fluxes scaled / converted / adjusted to drive point-scale 
-    near-surface models. The resulting data has coherent variables for all 
-    reanalyses, optionally coherent temporal granularity, and is saved as netCDF.
-    """
-       # === ERA-Interim ===
-    ERAsc = ERAscale(sfile)
-    ERAsc.process()
-    
-    # === MERRA-2 ===
-    #TODO
-    
-    # === JRA-55 ===
-    #TODO                   

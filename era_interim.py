@@ -42,7 +42,7 @@ from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path, listdir
-from globsim.generic import *
+#from generic import StationListRead, ParameterIO
 from fnmatch import filter
 
 import numpy   as np
