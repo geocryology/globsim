@@ -22,25 +22,8 @@
 # 
 #  OVERALL WORKFLOW
 # 
-#  from era_interim import *
-#  from datetime import datetime
-#
-#  date  = {'beg' : datetime(1979, 1, 1),
-#           'end' : datetime(2017, 1, 1)}
-#  area  = {'north' :  40.0,
-#           'south' :  41.0,
-#           'west'  :  60.0,
-#           'east'  :  61.0}
-#  elevation = {'min' :   50, 
-#               'max' : 2000}           
-#  directory = '/home/sgruber/storage/Workplace/Stephan/Ekati'   
-#          
-#  ERAbat = ERAbatch(date, area, elevation, directory, 5) 
-#  ERAbat.retrieve()
-#
-#  station_file = '/home/sgruber/storage/Workplace/Stephan/ESMF/points.csv'
-#  ERAint = ERAinterp()
-#  ERAint.all_files(directory, station_file)
+#  See: https://github.com/geocryology/globsim/wiki/Globsim
+#       and the examples directory on github
 #
 # ECMWF and netCDF information:
 # https://software.ecmwf.int/wiki/display/WEBAPI/Python+ERA-interim+examples
@@ -59,7 +42,7 @@ from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path, listdir
-from generic import ParameterIO
+from generic import ParameterIO, StationListRead
 from fnmatch import filter
 
 import numpy   as np
@@ -69,7 +52,7 @@ import netCDF4 as nc
 try:
     import ESMF
 except ImportError:
-    print("*** ESMF not imported, interpolation not possibe. ***")
+    print("*** ESMF not imported, interpolation not possible. ***")
     pass   
             
 
@@ -148,7 +131,7 @@ class ERAgeneric(object):
             except TypeError:
                 pass    
         self.param = self.param.rstrip('/') #fix last                                        
-        
+                
     def __str__(self):
         string = ("List of generic variables to query ECMWF server for "
                   "ERA-Interim data: {0}")
@@ -395,31 +378,33 @@ class ERAto(ERAgeneric):
         return string.format(self.getDictionary) 
                  
 
-class ERAinterp(object):
+class ERAinterpolate(object):
     """
     Collection of methods to interpolate ERA-Interim netCDF files to station
     coordinates. All variables retain theit original units and time stepping.
     """
+        
+    def __init__(self, ifile):
+        #read parameter file
+        self.ifile = ifile
+        par = ParameterIO(self.ifile)
+        self.dir_inp = path.join(par.project_directory,'eraint') 
+        self.dir_out = path.join(par.project_directory,'station')
+        self.variables = par.variables
+        self.list_name = par.list_name
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        
+        #read station points 
+        self.stations = StationListRead(self.stations_csv)  
+        #convert longitude to ERA notation if using negative numbers  
+        self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360             
+        
+        # time bounds
+        self.date  = {'beg' : par.beg,
+                      'end' : par.end}
     
-    def csv_stations(self, filename):
-        """
-        Read point data from csv following template below. Returns list of dictionaries.
-        ---------------    
-        station_number,longitude_deg,latitude_deg,elevation_m
-        1,249.32,64.12,278.1
-        2,249.95,64.92,318.8
-        ---------------     
-        """
-        # as list of dictionaries
-        with open(filename, 'rb') as f:
-	   reader = csv.DictReader(f)
-	   points = []
-	   for row in reader:
-	       points.append(row)    
-	   return points
-    
-    
-    def ERA2station(self, ncfile_in, ncfile_out, points, 
+    def ERA2station(self, ncfile_in, ncfile_out, points,
                     variables=None, date=None):    
         """
         Biliner interpolation from fields on regular grid (latitude, longitude) 
@@ -433,8 +418,8 @@ class ERAinterp(object):
               
             ncfile_out: Full path to the output netCDF file to write.  
               
-            points: A dictionary of locations. See method csv_stations for more
-                    details.
+            points: A dictionary of locations. See method StationListRead in
+                    generic.py for more details.
         
             variables:  List of variable(s) to interpolate such as 
                         ['airt', 'rh', 'geop', 'wind'].
@@ -448,11 +433,10 @@ class ERAinterp(object):
             date  = {'beg' : datetime(2008, 1, 1),
                      'end' : datetime(2008,12,31)}
             variables  = ['ssrd','tp']       
-            stations = csv_stations("points.csv")      
+            stations = StationListRead("points.csv")      
             int2Dpoint('era_sa.nc', 'era_sa_inter.nc', stations, 
                        variables=variables, date=date)        
         """   
-        
         # open netcdf file handle, can be one file of several with wildcards
         ncf = nc.MFDataset(ncfile_in, 'r')
         # is it a file with pressure levels?
@@ -461,7 +445,7 @@ class ERAinterp(object):
         # get spatial dimensions
         lat  = ncf.variables['latitude'][:]
         lon  = ncf.variables['longitude'][:]
-        if pl: #only for pressure level files
+        if pl: # only for pressure level files
             lev  = ncf.variables['level'][:]
             nlev = len(lev)
     
@@ -500,8 +484,10 @@ class ERAinterp(object):
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
         
-        # create source grid from a SCRIP formatted file
-        sgrid = ESMF.Grid(filename=ncfile_in, filetype=ESMF.FileFormat.GRIDSPEC)
+        # Create source grid from a SCRIP formatted file. As ESMF needs one
+        # file rather than an MFDataset, give first file in directory.
+        ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
+        sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
         # create source field on source grid
         if pl: #only for pressure level files
@@ -521,9 +507,9 @@ class ERAinterp(object):
                 sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1)) 
 
         # create locstream, CANNOT have third dimension!!!
-        locstream = ESMF.LocStream(len(points), coord_sys=ESMF.CoordSys.SPH_DEG)
-        locstream["ESMF:Lon"] = [float(e['longitude_deg']) for e in points]
-        locstream["ESMF:Lat"] = [float(e['latitude_deg']) for  e in points]
+        locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
+        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
+        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
     
         # test if points are inside netCDF file grid
         geom = (min(locstream["ESMF:Lon"]) < min(lon) +
@@ -549,7 +535,7 @@ class ERAinterp(object):
                           
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
-        sfield.destroy() #f ree memory                  
+        sfield.destroy() #free memory                  
     
         # === write output netCDF file =========================================
         # dimensions: station, time OR station, time, level
@@ -563,7 +549,7 @@ class ERAinterp(object):
         rootgrp.featureType = "timeSeries"
 
         # dimensions
-        station = rootgrp.createDimension('station', len(points))
+        station = rootgrp.createDimension('station', len(self.stations))
         time    = rootgrp.createDimension('time', nt)
         if pl: # only for pressure level files
             level = rootgrp.createDimension('level', nlev)
@@ -594,10 +580,10 @@ class ERAinterp(object):
         time[:] = nctime[tmask]
         if pl: # only for pressure level files
             level[:] = lev
-        station[:]   = [float(e['station_number']) for e in points]
-        latitude[:]  = [float(e['latitude_deg'])   for e in points]
-        longitude[:] = [float(e['longitude_deg'])  for e in points]
-        height[:]    = [float(e['elevation_m'])    for e in points]
+        station[:]   = list(self.stations['station_number'])
+        latitude[:]  = list(self.stations['latitude_dd'])
+        longitude[:] = list(self.stations['longitude_dd'])
+        height[:]    = list(self.stations['elevation_m'])
     
         # create and assign variables from input file
         for n, var in enumerate(variables):
@@ -734,29 +720,88 @@ class ERAinterp(object):
         rootgrp.close()
         # closed file ==========================================================    
 
-    def all_files(self, directory, stations_csv):
-        #TODO
+
+    def TranslateCF2short(self, dpar):
         """
-        Interpolate point time series from downloaded data.
+        Map CF Standard Names into short codes used in ERA-Interim netCDF files.
         """
+        varlist = [] 
+        for var in self.variables:
+            varlist.append(dpar.get(var))
+        # drop none
+        varlist = [item for item in varlist if item is not None]      
+        # flatten
+        varlist = [item for sublist in varlist for item in sublist]  
+            
+        print(self.variables)
+        print(varlist)        
+                
+        return(varlist) 
+    
+    def process(self):
+        """
+        Interpolate point time series from downloaded data. Provides access to 
+        the more generically ERA-like interpolation functions.
+        """
+
+        # === 2D Interpolation for Pressure Level Data ===
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys. 
+        dpar = {'air_temperature'   : 't',           # [K]
+                'relative_humidity' : 'r',           # [%]
+                'wind_speed'        : ['u', 'v']}    # [m s-1]
+        varlist = self.TranslateCF2short(dpar).append('z')
         
-        #read station points      
-        stations = self.csv_stations(stations_csv)      
+        print(varlist)
+        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
+                         path.join(self.dir_out,'era_pl_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   varlist, date = self.date)                         
+
+        # === 2D Interpolation for Surface Analysis Data ===    
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys. 
+        dpar = {'air_temperature'   : 't2m',  # [K] 2m values
+                'relative_humidity' : 'd2m',  # [K] 2m values
+                'downwelling_shortwave_flux_in_air_assuming_clear_sky' : 
+                    ['tco3', 'tcwv'],   # [kg m-2] Total column ozone 
+                                        # [kg m-2] Total column W vapor                                                             
+                'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
+        varlist = self.TranslateCF2short(dpar)
+        print(varlist)                       
+        self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
+                         path.join(self.dir_out,'era_sa_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   varlist, date = self.date)          
         
-        #interpolation
-        self.ERA2station(path.join(directory,'era_pl.nc'), 
-                         path.join(directory,'era_pl_stations.nc'), stations)
-        self.levels2elevation(path.join(directory,'era_pl_stations.nc'), 
-                              path.join(directory,'era_pl_stations_surface.nc'))
-        self.ERA2station(path.join(directory,'era_sa.nc'), 
-                         path.join(directory,'era_sa_stations.nc'), stations)
-        self.ERA2station(path.join(directory,'era_sf.nc'), 
-                        path.join(directory,'era_sf_stations.nc'), stations)
-        self.ERA2station(path.join(directory,'era_to.nc'), 
-                         path.join(directory,'era_to_stations.nc'), stations)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+        # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd' 
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys.       
+        dpar = {'precipitation_amount'              : 'tp',   # [m] total precipitation
+                'downwelling_shortwave_flux_in_air' : 'ssrd', # [J m-2] short-wave downward
+                'downwelling_longwave_flux_in_air'  : 'strd'} # [J m-2] long-wave downward
+        varlist = self.TranslateCF2short(dpar)
+        print(varlist)                                 
+        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
+                        path.join(self.dir_out,'era_sf_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   varlist, date = self.date)          
+                        
+        # 2D Interpolation for Invariant Data      
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys.                 
+        self.ERA2station(path.join(self.dir_inp,'era_to.nc'), 
+                         path.join(self.dir_out,'era_to_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   ['z', 'lsm'], date = self.date)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
         
+        # 1D Interpolation for Pressure Level Data
+        self.levels2elevation(path.join(self.dir_out,'era_pl_' + 
+                                        self.list_name + '.nc'), 
+                              path.join(self.dir_out,'era_pl_' + 
+                                        self.list_name + '_surface.nc'))
         
-class ERAdata(object):
+class ERAdownload(object):
     """
     Class for ERA-Interim data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
@@ -765,7 +810,7 @@ class ERAdata(object):
         pfile: Full path to a Globsim Download Parameter file. 
               
     Example:          
-        ERAd = ERAdata(pfile) 
+        ERAd = ERAdownload(pfile) 
         ERAd.retrieve()
     """
         
@@ -789,7 +834,7 @@ class ERAdata(object):
                           'max' : par.ele_max}
         
         # data directory for ERA-Interim  
-        self.directory = path.join(par.data_directory, "eraint")  
+        self.directory = path.join(par.project_directory, "eraint")  
         if path.isdir(self.directory) == False:
             raise ValueError("Directory does not exist: " + self.directory)   
      
@@ -861,7 +906,8 @@ class ERAdata(object):
                 print("        " + str(len(keylist)) + 
                       " variables, inclusing dimensions")
                 for key in keylist:
-                    print("        " + ncf.variables[key].long_name)
+                    print("        " + ncf.variables[key].long_name + "(" +
+                          ncf.variables[key].name + ")")
                 
                 # time slice
                 time = ncf.variables['time']
@@ -893,3 +939,56 @@ class ERAdata(object):
         return "Object for ERA-Interim data download and conversion"                
 
 
+class ERAscale(object):
+    """
+    Class for ERA-Interim data that has methods for scaling station data to
+    better resemble near-surface fluxes.
+    
+    Processing kernels have names in UPPER CASE.
+       
+    Args:
+        sfile: Full path to a Globsim Scaling Parameter file. 
+              
+    Example:          
+        ERAd = ERAscale(sfile) 
+        ERAd.process()
+    """
+        
+    def __init__(self, sfile):
+        # read parameter file
+        self.sfile = sfile
+        par = ParameterIO(self.sfile)
+        self.kernels = par.kernels
+        
+    def process(self):
+        """
+        Run all relevant processes and save data
+        """    
+        # make netCDF outfile, allocate variables based on kerne
+        #TODO
+        
+        # iterate thorugh kernels and start process
+        for kernel_name in self.kernels:
+            getattr(self, kernel_name)()
+            
+        # close netCDF file   
+        #TODO 
+        
+    def ERA_AIRT_pl(self):
+        """
+        Air temperature derived from pressure levels, exclusively.
+        """        
+        print("ERA_AIRT_pl")
+        
+    def ERA_AIRT_sur(self):
+        """
+        Air temperature derived from surface data, exclusively.
+        """   
+        print("ERA_AIRT_sur")
+        
+    def ERA_AIRT_redcapp(self):
+        """
+        Air temperature derived from surface data and pressure level data as
+        shown by the method REDCAPP.
+        """       
+        print("ERA_AIRT_redcapp")            

@@ -1,0 +1,6 @@
+# logistics
+project_directory = /home/sgruber/src/globsim/examples/
+output_directory = /home/sgruber/src/globsim/examples/station
+
+# processing kernels to be used
+kernels = ERA_AIRT_pl, ERA_AIRT_sur, ERA_AIRT_redcapp

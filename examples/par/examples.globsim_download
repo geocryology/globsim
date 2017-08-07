@@ -2,7 +2,7 @@
 # Use extension like this: 'project_a.globsim_download'
 
 # logistics
-data_directory = /Users/stgruber/src/globsim/examples/
+project_directory = /Users/stgruber/src/globsim/examples/
 credentials_directory = ~/.
 
 # chunk size for splitting files and download [days]
