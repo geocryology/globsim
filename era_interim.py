@@ -433,11 +433,12 @@ class ERAinterpolate(object):
                      'end' : datetime(2008,12,31)}
             variables  = ['ssrd','tp']       
             stations = StationListRead("points.csv")      
-            int2Dpoint('era_sa.nc', 'era_sa_inter.nc', stations, 
+            ERA2station('era_sa.nc', 'era_sa_inter.nc', stations, 
                        variables=variables, date=date)        
         """   
         # open netcdf file handle, can be one file of several with wildcards
         ncf = nc.MFDataset(ncfile_in, 'r')
+        
         # is it a file with pressure levels?
         pl = 'level' in ncf.dimensions.keys()
 
@@ -456,13 +457,13 @@ class ERAinterpolate(object):
         except AttributeError : # Attribute doesn't exist
             t_cal = u"gregorian" # or standard
         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
-
+        
         # restrict to date/time range if given
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
             tmask = (time <= date['end']) * (time >= date['beg'])
-
+         
         # test if time steps to interpolate remain
         nt = sum(tmask)
         if nt == 0:
@@ -510,14 +511,6 @@ class ERAinterpolate(object):
         locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
         locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
         locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
-    
-        # test if points are inside netCDF file grid
-        geom = (min(locstream["ESMF:Lon"]) < min(lon) +
-                max(locstream["ESMF:Lon"]) > max(lon) +
-                min(locstream["ESMF:Lat"]) < min(lat) +
-                max(locstream["ESMF:Lat"]) > max(lat))
-        if geom > 0:
-            raise ValueError('Points outside netCDF file.')
 
         # create destination field
         if pl: # only for pressure level files
@@ -527,23 +520,23 @@ class ERAinterpolate(object):
             dfield = ESMF.Field(locstream, name='dfield', 
                                 ndbounds=[len(variables), nt])    
 
-        # regridding function
+        # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
                                regrid_method=ESMF.RegridMethod.BILINEAR,
-                               unmapped_action=ESMF.UnmappedAction.ERROR,
+                               unmapped_action=ESMF.UnmappedAction.IGNORE,
                                dst_mask_values=None)
                           
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-    
+		
         # === write output netCDF file =========================================
         # dimensions: station, time OR station, time, level
         # variables: latitude(station), longitude(station), elevation(station)
         #            others: ...(time, level, station) or (time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
         rootgrp.Conventions = 'CF-1.6'
         rootgrp.source      = 'ERA-Interim, interpolated bilinearly to stations'
         rootgrp.featureType = "timeSeries"
@@ -587,7 +580,7 @@ class ERAinterpolate(object):
     
         # create and assign variables from input file
         for n, var in enumerate(variables):
-            vname = ncf.variables[var].name.encode('UTF8')
+            vname = ncf.variables[var].long_name.encode('UTF8')
             if pl: # only for pressure level files
                 tmp   = rootgrp.createVariable(vname,
                                                'f4',('time', 'level', 'station'))
@@ -616,7 +609,7 @@ class ERAinterpolate(object):
         
         """
         # open file 
-        ncf = nc.MFDataset(ncfile_in, 'r')
+        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
@@ -629,7 +622,7 @@ class ERAinterpolate(object):
         varlist.remove('longitude')
         varlist.remove('level')
         varlist.remove('height')
-        varlist.remove('z')
+        varlist.remove('Geopotential')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -673,7 +666,7 @@ class ERAinterpolate(object):
         
         # create and assign variables from input file
         for var in varlist:
-            vname = ncf.variables[var].name.encode('UTF8')
+            vname = ncf.variables[var].long_name.encode('UTF8')
             tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
@@ -684,7 +677,7 @@ class ERAinterpolate(object):
         for n, h in enumerate(height): 
             # convert geopotential [millibar] to height [m]
             # shape: (time, level)
-            ele = ncf.variables['z'][:,:,n] / 9.80665
+            ele = ncf.variables['Geopotential'][:,:,n] / 9.80665
             # TODO: check if height of stations in data range (+50m at top, lapse r.)
             
             # difference in elevation. 
@@ -738,25 +731,13 @@ class ERAinterpolate(object):
         """
         Interpolate point time series from downloaded data. Provides access to 
         the more generically ERA-like interpolation functions.
-        """
-
-        # === 2D Interpolation for Pressure Level Data ===
-        # dictionary to translate CF Standard Names into ERA-Interim
-        # pressure level variable keys. 
-        dpar = {'air_temperature'   : 't',           # [K]
-                'relative_humidity' : 'r',           # [%]
-                'wind_speed'        : ['u', 'v']}    # [m s-1]
-        varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
-                         path.join(self.dir_out,'era_pl_' + 
-                                   self.list_name + '.nc'), self.stations,
-                                   varlist, date = self.date)                         
+        """                       
 
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into ERA-Interim
         # pressure level variable keys. 
-        dpar = {'air_temperature'   : 't2m',  # [K] 2m values
-                'relative_humidity' : 'd2m',  # [K] 2m values
+        dpar = {'air_temperature'   : ['t2m'],  # [K] 2m values
+                'relative_humidity' : ['d2m'],  # [K] 2m values
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky' : 
                     ['tco3', 'tcwv'],   # [kg m-2] Total column ozone 
                                         # [kg m-2] Total column W vapor                                                             
@@ -770,10 +751,10 @@ class ERAinterpolate(object):
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd' 
         # dictionary to translate CF Standard Names into ERA-Interim
         # pressure level variable keys.       
-        dpar = {'precipitation_amount'              : 'tp',   # [m] total precipitation
-                'downwelling_shortwave_flux_in_air' : 'ssrd', # [J m-2] short-wave downward
-                'downwelling_longwave_flux_in_air'  : 'strd'} # [J m-2] long-wave downward
-        varlist = self.TranslateCF2short(dpar)                              
+        dpar = {'precipitation_amount'              : ['tp'],   # [m] total precipitation
+                'downwelling_shortwave_flux_in_air' : ['ssrd'], # [J m-2] short-wave downward
+                'downwelling_longwave_flux_in_air'  : ['strd']} # [J m-2] long-wave downward
+        varlist = self.TranslateCF2short(dpar)                           
         self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
@@ -781,12 +762,27 @@ class ERAinterpolate(object):
                         
         # 2D Interpolation for Invariant Data      
         # dictionary to translate CF Standard Names into ERA-Interim
-        # pressure level variable keys.                 
+        # pressure level variable keys.            
+        dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
+                       'end' : datetime(1979, 1, 1, 12, 0)}        
         self.ERA2station(path.join(self.dir_inp,'era_to.nc'), 
                          path.join(self.dir_out,'era_to_' + 
                                    self.list_name + '.nc'), self.stations,
-                                   ['z', 'lsm'], date = self.date)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                                   ['z', 'lsm'], date = dummy_date)    
         
+        
+        # === 2D Interpolation for Pressure Level Data ===
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys. 
+        dpar = {'air_temperature'   : ['t'],           # [K]
+                'relative_humidity' : ['r'],           # [%]
+                'wind_speed'        : ['u', 'v']}    # [m s-1]
+        varlist = self.TranslateCF2short(dpar).append('z')
+        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
+                         path.join(self.dir_out,'era_pl_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   varlist, date = self.date)  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
         # 1D Interpolation for Pressure Level Data
         self.levels2elevation(path.join(self.dir_out,'era_pl_' + 
                                         self.list_name + '.nc'), 
@@ -898,8 +894,7 @@ class ERAdownload(object):
                 print("        " + str(len(keylist)) + 
                       " variables, inclusing dimensions")
                 for key in keylist:
-                    print("        " + ncf.variables[key].long_name + "(" +
-                          ncf.variables[key].name + ")")
+                    print("        " + ncf.variables[key].long_name)
                 
                 # time slice
                 time = ncf.variables['time']

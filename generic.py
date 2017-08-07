@@ -144,3 +144,4 @@ def StationListRead(sfile):
     raw = pd.read_csv(sfile)    
     raw = raw.rename(columns=lambda x: x.strip())
     return(raw)
+
