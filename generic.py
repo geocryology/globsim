@@ -131,3 +131,16 @@ class ParameterIO(object):
 
         # Make dictionary and return
         return {name: valu}
+
+def StationListRead(sfile):  
+    '''
+    Reads ASCII station list and returns a pandas dataframe.
+    
+    # read station list
+    stations = StationListRead('examples/par/examples_list1.globsim_interpolate')
+    print(stations['station_number'])
+    '''
+    # read file
+    raw = pd.read_csv(sfile)    
+    raw = raw.rename(columns=lambda x: x.strip())
+    return(raw)
