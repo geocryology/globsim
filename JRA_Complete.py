@@ -890,9 +890,8 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay): # Loop through the d
         Idate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
       
     if (x == timeSize or currentDay == finalDay): # If time size reached or last day reached send data chuncks to there respective classes
-        print "here"
-       #fcst_phy2m().Main(Fdate[0], Fdate[x-1], x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, fcst_list)
-        #anl_surf().Main(Adate[0], Adate[x-1], x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, surf_list)
+        fcst_phy2m().Main(Fdate[0], Fdate[x-1], x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, fcst_list)
+        anl_surf().Main(Adate[0], Adate[x-1], x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, surf_list)
         Isobaric().Main(Idate[0], Idate[x-1], x, Idate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, isobaric_list, elevationMinRange, elevationMaxRange)
         x = 0
         Fdate = []
