@@ -20,8 +20,12 @@ Data available from 1958 to present date (give 1 or 2 days for upload)
 class JRA_Download:
       
     """
+    Take the string containg the YYYY-MM_DD HH:MM:SS and convert it to a datetime.date tuple containg YYYY-MM-DD
     Get the time sets that you want to download (start day to final day)
-    returns:
+    Parameters:
+    -start: A string containing the start day in YYYY-MM-DD HH:MM:SS
+    -end: A string containing the end day in YYYY-MM-DD HH:MM:SS
+    Returns:
     -start_date: A tuple containing the start year, month and day
     -end_date: A tuple containing the end year, month and day
     """  
@@ -58,6 +62,11 @@ class JRA_Download:
     -topLat: Top latitude coordinate
     -leftLon: Left longitude coordinate
     -rightLon: Right longitude coordinate
+    Returns:
+    -latTopPosition: The position of the top latitude position
+    -latBottomPosition: The position of the bottom latitude position
+    -lonLeftPosition: The position of the left longitude position
+    -lonRightPosition: The position of the right longitude position
     """
     def ConvertLatLon(self, bottomLat, topLat, leftLon, rightLon):
         try:          
@@ -70,6 +79,7 @@ class JRA_Download:
                 run1 = False
             else:
                 print "\nThe bounds must be  between -90 and 90 (inclusively)"
+                sys.exit(0)
           
         except:
             print "\nInvalid Entry"
@@ -86,6 +96,7 @@ class JRA_Download:
                 run2 = False
             else:
                 print "\nThe bounds must be  between 0 and 358.75 (inclusively)"
+                sys.exit(0)
        
         except:
             print "\nInvalid Entry"
@@ -96,14 +107,19 @@ class JRA_Download:
     
     
     """
+    Takes the minimum and maximum elevation and finds their position in the total_elevation list
+    Parameters:
+    -elevationMin: An int of the minimum elevation
+    -elevationMax: An int of the maximum elevation
+    Returns:
+    -elevationMinRange: The position of the minimum elevation from the total_elevation list
+    -elevationMaxRange: The position of the maximum elevation from the total_elevation list
     """
     def ElevationCalculator(self, elevationMin, elevationMax):
         total_elevations = [1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 800, 825, 850, 875, 900, 925, 950, 975, 1000]
 
         minNum = min(total_elevations, key=lambda x:abs(x-elevationMin))
         maxNum = min(total_elevations, key=lambda x:abs(x-elevationMax))
-        
-        print "YEAH"
         
         if (minNum > elevationMin and total_elevations.index(minNum) > 0 ):
         	elevationMinRange = total_elevations.index(minNum) - 1
@@ -118,7 +134,6 @@ class JRA_Download:
         return (elevationMinRange, elevationMaxRange)
     
     
-    
     """
     Download the files from the server
     Parameters:
@@ -127,6 +142,7 @@ class JRA_Download:
     -data_type: The file that is being downloaded
     -hourly_increment: The hour increments used to record the data
     -middle: Extra text in the middle of the filename needed for downloading certain files
+    -savePath: The directory to save the GRIB files from the JRA server
     """
     def ftp_Download(self, start_day, end_day, data_type, hourly_increment, middle, savePath):         
         tries = 1
@@ -366,6 +382,22 @@ class Grib2CDF:
                       
         return(date)
    
+    """
+    Creates the elevation series for the netCDF file
+    Parameters:
+    -elevationMin: The minimum elevation
+    -elevationMax: The maximum elevation
+    Returns:
+    -elevation: A list of all the elvations
+    """
+    def ElevationSeries(self, elevationMin, elevationMax): 
+        total_elevations = [1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 800, 825, 850, 875, 900, 925, 950, 975, 1000]
+        elevation = []
+        for e in range(elevationMin, elevationMax + 1):
+            elevation.append(total_elevations[e])
+                      
+        return(elevation)
+        
     
     """
     Subsets the data in to the desired Latitude and Longitude coordinates
@@ -432,6 +464,8 @@ class fcst_phy2m:
     -leftLon: The left longitude coordinate
     -rightLon: The right longitude coordinate
     -savePath: The directory with the GRIB and netCDF folders 
+    -JRA_Dictionary: A dictionary containing all of the JRA variables with there short_name, file, units, and elevations
+    -fcst_data: A list of all the fcst variables that need to be downloaded
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, fcst_data):    
         
@@ -499,6 +533,8 @@ class anl_surf:
     -leftLon: The left longitude coordinate
     -rightLon: The right longitude coordinate
     -savePath: The directory with the GRIB and netCDF folders 
+    -JRA_Dictionary: A dictionary containing all of the JRA variables with there short_name, file, units, and elevations
+    -surf_data: A list of all the surf variables that need to be downloaded
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, surf_data):   
         
@@ -594,6 +630,8 @@ class Isobaric:
     -latTop: The top latitude coordinate
     -lonLeft: The left longitude coordinate
     -lonRight: The right longitude coordinate
+    -elevationMinRange: The minimum elevation needed to be downloaded
+    -elevationMaxRange: The maximum elevation needed to be downloaded
     Returns:
     -ssDay: The subseted data set
     """
@@ -622,12 +660,12 @@ class Isobaric:
         ssDay = []
         for a in range(0,numDays):
           ssDay.append([])
-          for b in range(elevationMinRange,elevationMaxRange + 1):
+          for b in range(0, elevationMaxRange - elevationMinRange + 1):
             ssDay[a].append([])
             for c in range(0,145):
               ssDay[a][b].append([])
               for d in range(0,288):
-                if ((lat1 <= c <= lat2 or lat3 <= c <= lat4) and (lon1 <= d <= lon2 or lon3 <= d <= lon4)):
+                if ((lat1 <= c <= lat2 or lat3 <= c <= lat4) and (lon1 <= d <= lon2 or lon3 <= d <= lon4)): 
                   ssDay[a][b][c].append(dataValues[a][b][c][d])
                 else:
                   ssDay[a][b][c].append(None)
@@ -646,6 +684,10 @@ class Isobaric:
     -leftLon: The left longitude coordinate
     -rightLon: The right longitude coordinate
     -savePath: The directory with the GRIB and netCDF folders 
+    -JRA_Dictionary: A dictionary containing all of the JRA variables with there short_name, file, units, and elevations
+    -isobaric_data: A list of all the isobaric variables that need to be downloaded
+    -elevationMinRange: The lower bound of the elevation
+    -elevationMaxRange: The upper bound of the elevation
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, isobaric_data, elevationMinRange, elevationMaxRange):
         
@@ -654,7 +696,7 @@ class Isobaric:
         f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
         
         # Create the Latitude and Longitude
-        lats, lons = Grib2CDF().GetLatLon("anl_p125_hgt." + startDay + "00", savePath) 
+        lats, lons = Grib2CDF().GetLatLon(JRA_Dictionary[isobaric_data[0]][1] + startDay + "00", savePath) 
         latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f)
         latitudes[:] = lats
         longitudes[:] = lons
@@ -671,34 +713,38 @@ class Isobaric:
         
         x=0
         for dataName in isobaric_data:
-        
+
             # Create netCDF Variable
             data, level = self.ExtractData(JRA_Dictionary[dataName][1], date, savePath)
             
+            # *Special Case: Relative Humidity only has 27 levels 
             if (dataName == "Relative Humidity" and elevationMaxRange >= 9):
-                Levels =f.createDimension("Levels", elevationMaxRange - 9)
-                dataVariable = f.createVariable(dataName, "f4", ("time", "Levels", "latitude", "longitude"))
-                dataVariable.standard_name = dataName
-                dataVariable.units = JRA_Dictionary[dataName][3]
                 if (elevationMinRange < 9):
                     tempMinRange = 0
                 else:
                     tempMinRange = elevationMinRange - 9
-                  
-                print tempMinRange
-                print elevationMaxRange - 10
+                Levels = level
+                Levels =f.createDimension("Levels", elevationMaxRange - 9 - tempMinRange)
+                Levels = f.createVariable("Levels", "i4", "Levels")
+                Levels.units = "hPa"   
+                Levels[:] = Grib2CDF().ElevationSeries(tempMinRange + 10, elevationMaxRange)
+                dataVariable = f.createVariable(dataName, "f4", ("time", "Levels", "latitude", "longitude"))
+                dataVariable.standard_name = dataName
+                dataVariable.units = JRA_Dictionary[dataName][3]
                 dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, tempMinRange, elevationMaxRange - 10)
             
             elif (dataName != "Relative Humidity"):
                 if (x==0):
-                    levels = f.createDimension("level", elevationMaxRange + 1)
+                    levels = f.createDimension("level", elevationMaxRange - elevationMinRange + 1)
+                    levels = f.createVariable("level", "i4", "level")
+                    levels.units = "hPa"
+                    levels[:] = Grib2CDF().ElevationSeries(elevationMinRange, elevationMaxRange)
                     x =1
                 dataVariable = f.createVariable(dataName, "f4", ("time","level", "latitude", "longitude"))
                 dataVariable.standard_name = dataName
                 dataVariable.units = JRA_Dictionary[dataName][3]
                 dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, elevationMinRange, elevationMaxRange)
-                
-           print "Converted:", dataName
+            print "Converted:", dataName
         # Descriptions
         f.description = "Geography example"
         f.history = "Created today"
@@ -708,21 +754,16 @@ class Isobaric:
 
 
 """
-From Dr. Grubers ERA file
+*From Dr. Grubers ERA file
+Class for accessing the parameter file for downloading specified variables, latitude and longitude coordinates, start to end date and the chunk size
 """
-class ERAdownload(object):
+class JRAdownload(object):
+
     """
-    Class for ERA-Interim data that has methods for querying 
-    the ECMWF server, returning all variables usually needed.
-       
-    Args:
-        pfile: Full path to a Globsim Download Parameter file. 
-              
-    Example:          
-        ERAd = ERAdownload(pfile) 
-        ERAd.retrieve()
+    Initialize the JRAdownload class
+    Parameters:
+    -pfile: Full path to a Globsim Download Parameter file. 
     """
-        
     def __init__(self, pfile):
         # read parameter file
         self.pfile = pfile
@@ -754,154 +795,163 @@ class ERAdownload(object):
         self.chunk_size = par.chunk_size           
 
 
-###################################
-# Run the program
-t0 = time.time()  
-
-jra = ERAdownload("Parameter_Stuff.txt")
-
-# Area data 
-try:
-    latBottom = float(jra.area["south"])
-    latTop = float(jra.area["north"])
-    lonLeft = float(jra.area["west"])
-    lonRight = float(jra.area["east"])
+"""
+Run the JRA program
+-Call the JRAdownload class to build a jra object with the parameters(area, date, elevation, directory, varianles, and chunk_size)
+-Convert the area data into latitude and longitude positions
+-Get the chunk size
+-Convert the start and end date into datetime.date tuples containing the YYYY-MM-DD
+-Convert the min and max elevation into there positions in the elevation_list
+-Get the directory
+-Extract the needed variables
+-Download the needed GRIB files
+-Use all of the retrieved information to convert the downloaded GRIB files into netCDF with the proper area resitrictions, dates, elevation, and chunk_size
+"""
+def main():
+    # Run the program
+    t0 = time.time()  
     
-    if (lonLeft < 0):
-        lonLeft = 180 + abs(lonLeft)
+    jra = JRAdownload("Parameter_Stuff.txt")
+    
+    # Area data 
+    try:
+        latBottom = float(jra.area["south"])
+        latTop = float(jra.area["north"])
+        lonLeft = float(jra.area["west"])
+        lonRight = float(jra.area["east"])
         
-    if (lonRight < 0):
-        lonRight = 180 + abs(lonRight)
+        if (lonLeft < 0):
+            lonLeft = 180 + abs(lonLeft)
+            
+        if (lonRight < 0):
+            lonRight = 180 + abs(lonRight)
+            
+        latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition = JRA_Download().ConvertLatLon(latBottom, latTop, lonLeft,lonRight)
+    except:
+        print "Invalid area format"
+        sys.exit(0)
+    
+    # Chunk data
+    try:
+        chunk_size = int(jra.chunk_size)
+    except:
+        print "Invalid chunk size"
+        sys.exit(0)
+    
+    # Date data
+    try:
+        start = str(jra.date["beg"])
+        end = str(jra.date["end"])
         
-    latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition = JRA_Download().ConvertLatLon(latBottom, latTop, lonLeft,lonRight)
-except:
-    print "Invalid area format"
-    sys.exit(0)
-
-# Chunk data
-try:
-    chunk_size = int(jra.chunk_size)
-except:
-    print "Invalid chunk size"
-    sys.exit(0)
-
-# Date data
-try:
-    start = str(jra.date["beg"])
-    end = str(jra.date["end"])
+        startDay, endDay = JRA_Download().TimeSet(start, end) # Get the time period for the data
+        
+    except:
+        print "Invalid date"
+        print "Please make sure your date is in YYYY-MM-DD format"
+        sys.exit(0)
     
-    startDay, endDay = JRA_Download().TimeSet(start, end) # Get the time period for the data
+    # Elevation data 
+    try:
+        elevationMin = jra.elevation["min"]
+        elevationMax = jra.elevation["max"]
     
-except:
-    print "Invalid date"
-    print "Please make sure your date is in YYYY-MM-DD format"
-    sys.exit(0)
+        elevationMinRange, elevationMaxRange = JRA_Download().ElevationCalculator(elevationMin, elevationMax) 
+        
+    except:
+        print "Invalid elevation entered"
+        sys.exit(0)
 
-# Elevation data 
-try:
-    elevationMin = jra.elevation["min"]
-    elevationMax = jra.elevation["max"]
-
-    elevationMinRange, elevationMaxRange = JRA_Download().ElevationCalculator(elevationMin, elevationMax)
-
-except:
-    print "Invalid elevation entered"
-    sys.exit(0)
-
-elevationMinRange = 0
-elevationMaxRange = 8
-
-
-# Directory Information
-directory = jra.directory
-print directory
-# TO FINISH
-
-# List of Variables
-variables = jra.variables
-
-
-shared_data = {
-              "air_temperature"                                      : ["Temperature", "Temperature 2D"],
-              "relative_humidity"                                    : ["Relative Humidity", "Relative Humidity 2D"],
-              "precipitation_amount"                                 : ["Total Precipitation"],
-              "downwelling_longwave_flux_in_air"                     : ["Downward Long Wave Radiation Flux"],
-              "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["Clear Sky Downward Long Wave Radiation Flux"],
-              "downwelling_shortwave_flux_in_air"                    : ["Downward Solar Radiation Flux"],
-              "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["Clear Sky Downward Solar Radiation Flux"],
-              "wind_from_direction"                                  : ["U-Component of Wind", "V-Component of Wind" ],
-              "wind_speed"                                           : ["U-Component of Wind 2D", "V-Component of Wind 2D"],
-              "geopotential_height"                                  : ["Geopotential Height"]
-              }
-              
-variable_data = []
-for x in variables:
-    if (x in shared_data):
-        for y in range(0, len(shared_data[x])):
-            variable_data.append(shared_data[x][y])
-
-
-JRA_Dictionary = {
-                  "Geopotential Height"                         : ["gh", "anl_p125_hgt.", 37, "gpm"],
-                  "Temperature"                                 : ["t", "anl_p125_tmp.", 37, "K"],
-                  "U-Component of Wind"                         : ["u", "anl_p125_ugrd.", 37, "m/s"],
-                  "V-Component of Wind"                         : ["v", "anl_p125_vgrd.", 37, "m/s"],
-                  "Relative Humidity"                           : ["r", "anl_p125_rh.", 27, "%"],
-                  "Temperature 2D"                              : ["t", "anl_surf125.", 1, "K"],
-                  "Relative Humidity 2D"                        : ["r", "anl_surf125.", 1, "%"],
-                  "U-Component of Wind 2D"                      : ["u", "anl_surf125.", 1, "m/s"],
-                  "V-Component of Wind 2D"                      : ["v", "anl_surf125.", 1, "m/s"],
-                  "Total Precipitation"                         : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
-                  "Clear Sky Downward Solar Radiation Flux"     : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                  "Clear Sky Downward Long Wave Radiation Flux" : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                  "Downward Solar Radiation Flux"               : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                  "Downward Long Wave Radiation Flux"           : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"],
+    # Directory Information
+    directory = jra.directory
+    ######### TO FINISH
+    
+    # List of Variables
+    variables = jra.variables
+    
+    
+    shared_data = {
+                  "air_temperature"                                      : ["Temperature", "Temperature 2D"],
+                  "relative_humidity"                                    : ["Relative Humidity", "Relative Humidity 2D"],
+                  "precipitation_amount"                                 : ["Total Precipitation"],
+                  "downwelling_longwave_flux_in_air"                     : ["Downward Long Wave Radiation Flux"],
+                  "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["Clear Sky Downward Long Wave Radiation Flux"],
+                  "downwelling_shortwave_flux_in_air"                    : ["Downward Solar Radiation Flux"],
+                  "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["Clear Sky Downward Solar Radiation Flux"],
+                  "wind_from_direction"                                  : ["U-Component of Wind", "V-Component of Wind" ],
+                  "wind_speed"                                           : ["U-Component of Wind 2D", "V-Component of Wind 2D"],
+                  "geopotential_height"                                  : ["Geopotential Height"]
                   }
+                  
+    variable_data = []
+    for x in variables:
+        if (x in shared_data):
+            for y in range(0, len(shared_data[x])):
+                variable_data.append(shared_data[x][y])
+    
+    
+    JRA_Dictionary = {
+                      "Geopotential Height"                         : ["gh", "anl_p125_hgt.", 37, "gpm"],
+                      "Temperature"                                 : ["t", "anl_p125_tmp.", 37, "K"],
+                      "U-Component of Wind"                         : ["u", "anl_p125_ugrd.", 37, "m/s"],
+                      "V-Component of Wind"                         : ["v", "anl_p125_vgrd.", 37, "m/s"],
+                      "Relative Humidity"                           : ["r", "anl_p125_rh.", 27, "%"],
+                      "Temperature 2D"                              : ["t", "anl_surf125.", 1, "K"],
+                      "Relative Humidity 2D"                        : ["r", "anl_surf125.", 1, "%"],
+                      "U-Component of Wind 2D"                      : ["u", "anl_surf125.", 1, "m/s"],
+                      "V-Component of Wind 2D"                      : ["v", "anl_surf125.", 1, "m/s"],
+                      "Total Precipitation"                         : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
+                      "Clear Sky Downward Solar Radiation Flux"     : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "Clear Sky Downward Long Wave Radiation Flux" : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "Downward Solar Radiation Flux"               : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "Downward Long Wave Radiation Flux"           : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      }
+    
+    
+    fcst_variables = ["Total Precipitation" , "Clear Sky Downward Solar Radiation Flux", "Clear Sky Downward Long Wave Radiation Flux", "Downward Solar Radiation Flux", "Downward Long Wave Radiation Flux"]
+    
+    surf_variables = ["Temperature 2D", "Relative Humidity 2D", "U-Component of Wind 2D", "V-Component of Wind 2D"]
+    
+    isobaric_variables = ["Geopotential Height", "Temperature", "U-Component of Wind", "V-Component of Wind", "Relative Humidity"]
+    
+    # Check to see which variables data need to be downloaded for fcst, surf, and isobaric list
+    fcst_list = list(set(variable_data) & set(fcst_variables))
+    surf_list = list(set(variable_data) & set(surf_variables))
+    isobaric_list = list(set(variable_data) & set(isobaric_variables))
+    
+    save_path = '/home/cmolnar/FinishedCode/' # The current directory
+    
+    JRA_Download().DownloadGribFile(startDay, endDay, save_path, variable_data, fcst_list, surf_list)
+    
+    timeSize = chunk_size # The number of days you want saved together
+    Fdate = []
+    Adate = []
+    Idate = []
+    x = 0
+    finalDay = str(endDay)
+    
+    for dt in rrule(DAILY, dtstart = startDay, until = endDay): # Loop through the days to create netCDF files
+        currentDay = str(dt.strftime("%Y") + "-" + dt.strftime("%m") + "-" + dt.strftime("%d"))
+        if (x < timeSize): # If x is less than timeSize append the current day to the date lists
+            x += 1
+            Fdate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
+            Adate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
+            Idate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
+          
+        if (x == timeSize or currentDay == finalDay): # If time size reached or last day reached send data chuncks to there respective classes
+            fcst_phy2m().Main(Fdate[0], Fdate[x-1], x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, fcst_list)
+            anl_surf().Main(Adate[0], Adate[x-1], x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, surf_list)
+            Isobaric().Main(Idate[0], Idate[x-1], x, Idate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, isobaric_list, elevationMinRange, elevationMaxRange)
+            x = 0
+            Fdate = []
+            Adate = []
+            Idate = []   
+    
+    
+    print "\nAll Conversions Finished!"
+    print "Have a nice day! "  
+    t1 = time.time()
+    total = t1 - t0
+    print "Total run time:", total  
 
 
-fcst_variables = ["Total Precipitation" , "Clear Sky Downward Solar Radiation Flux", "Clear Sky Downward Long Wave Radiation Flux", "Downward Solar Radiation Flux", "Downward Long Wave Radiation Flux"]
-
-surf_variables = ["Temperature 2D", "Relative Humidity 2D", "U-Component of Wind 2D", "V-Component of Wind 2D"]
-
-isobaric_variables = ["Geopotential Height", "Temperature", "U-Component of Wind", "V-Component of Wind", "Relative Humidity"]
-
-fcst_list = list(set(variable_data) & set(fcst_variables))
-surf_list = list(set(variable_data) & set(surf_variables))
-isobaric_list = list(set(variable_data) & set(isobaric_variables))
-
-save_path = '/home/cmolnar/Test/' # The current directory
-
-#JRA_Download().DownloadGribFile(startDay, endDay, save_path, variable_data, fcst_list, surf_list)
-
-timeSize = chunk_size # The number of days you want saved together
-Fdate = []
-Adate = []
-Idate = []
-x = 0
-finalDay = str(endDay)
-print finalDay
-
-for dt in rrule(DAILY, dtstart = startDay, until = endDay): # Loop through the days to create netCDF files
-    currentDay = str(dt.strftime("%Y") + "-" + dt.strftime("%m") + "-" + dt.strftime("%d"))
-    if (x < timeSize): # If x is less than timeSize append the current day to the date lists
-        x += 1
-        Fdate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
-        Adate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
-        Idate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
-      
-    if (x == timeSize or currentDay == finalDay): # If time size reached or last day reached send data chuncks to there respective classes
-        fcst_phy2m().Main(Fdate[0], Fdate[x-1], x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, fcst_list)
-        anl_surf().Main(Adate[0], Adate[x-1], x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, surf_list)
-        Isobaric().Main(Idate[0], Idate[x-1], x, Idate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, isobaric_list, elevationMinRange, elevationMaxRange)
-        x = 0
-        Fdate = []
-        Adate = []
-        Idate = []   
-
-
-print "\nAll Conversions Finished!"
-print "Have a nice day! "  
-t1 = time.time()
-total = t1 - t0
-print "Total run time:", total  
-
+if __name__ == "__main__": main()
