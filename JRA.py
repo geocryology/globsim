@@ -178,7 +178,12 @@ class JRA_Download:
                             ending = str(x)  
                            
                         filename = data_type + middle + "." +  dt.strftime("%Y") + dt.strftime("%m") + dt.strftime("%d") + ending
-                        completeName = os.path.join(savePath, filename) # Generate the filename and save it to the proper folder
+                        
+                        try:
+                            completeName = os.path.join(savePath, filename) # Generate the filename and save it to the proper folder
+                        except:
+                            print "Make sure you have a Grib and netCDF folder in your directory"
+                            sys.exit(0)
                    
                         localfile = open(completeName, 'wb')
                    
@@ -471,9 +476,13 @@ class fcst_phy2m:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, fcst_data):    
         
-        completeName = os.path.join(savePath + 'netCDF', "Finalfcst_" + startDay + "-" + endDay + ".nc") 
-    
-        f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
+        try:
+            completeName = os.path.join(savePath + 'netCDF', "Finalfcst_" + startDay + "-" + endDay + ".nc")
+            f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created  
+        except:
+            print "Make sure you have a netCDF folder in your directory"
+            print "Once the netCDF files are created they will be stored in there"
+            sys.exit(0)
         
         # Create the Latitude and Longitude
         lats, lons = Grib2CDF().GetLatLon("fcst_phy2m125." + startDay + "00", savePath)
@@ -540,9 +549,14 @@ class anl_surf:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, surf_data):   
         
-        completeName = os.path.join(savePath + 'netCDF', "Finalsurf_" + startDay + "-" + endDay + ".nc") 
-    
-        f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
+        try:
+            completeName = os.path.join(savePath + 'netCDF', "Finalsurf_" + startDay + "-" + endDay + ".nc") 
+            f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
+        except:
+            print "Make sure you have a netCDF folder in your directory"
+            print "Once the netCDF files are created they will be stored in there"
+            sys.exit(0)
+        
         
         # Create the Latitude and Longitude
         lats, lons = Grib2CDF().GetLatLon("anl_surf125." + startDay + "00", savePath)
@@ -692,9 +706,14 @@ class Isobaric:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, isobaric_data, elevationMinRange, elevationMaxRange):
         
-        completeName = os.path.join(savePath + 'netCDF', "FinalIsobaric_" + startDay + "-" + endDay + ".nc") 
-         
-        f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
+        try:
+            completeName = os.path.join(savePath + 'netCDF', "FinalIsobaric_" + startDay + "-" + endDay + ".nc") 
+            f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created
+        except:
+            print "Make sure you have a netCDF folder in your directory"
+            print "Once the netCDF files are created they will be stored in there"
+            sys.exit(0) 
+        
         
         # Create the Latitude and Longitude
         lats, lons = Grib2CDF().GetLatLon(JRA_Dictionary[isobaric_data[0]][1] + startDay + "00", savePath) 
