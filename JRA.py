@@ -15,7 +15,7 @@ import os.path
 Download ranges of data from the JRA-55 server
 Data available from 1958 to present date (give 1 or 2 days for upload)
 ~Author: Christopher Molnar
-~Date: August 08, 2017
+~Date: August 15, 2017
 """
 class JRA_Download:
       
@@ -199,6 +199,7 @@ class JRA_Download:
                 print "Please retry later"
                 sys.exit(0)            
   
+  
     """
     Download the necessary Grib Files
     Parameters:
@@ -381,6 +382,7 @@ class Grib2CDF:
                 date.insert(size + h, YMD + end)
                       
         return(date)
+
    
     """
     Creates the elevation series for the netCDF file
@@ -558,7 +560,6 @@ class anl_surf:
         time.calendar = "gregorian"
         time[:] = dateTimes
         
-        #########
         x=0
         for dataName in surf_data:
         
@@ -821,10 +822,10 @@ def main():
         lonRight = float(jra.area["east"])
         
         if (lonLeft < 0):
-            lonLeft = 180 + abs(lonLeft)
+            lonLeft = 360.0 + lonLeft
             
         if (lonRight < 0):
-            lonRight = 180 + abs(lonRight)
+            lonRight = 360.0 + lonRight
             
         latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition = JRA_Download().ConvertLatLon(latBottom, latTop, lonLeft,lonRight)
     except:
@@ -868,7 +869,6 @@ def main():
     # List of Variables
     variables = jra.variables
     
-    
     shared_data = {
                   "air_temperature"                                      : ["Temperature", "Temperature 2D"],
                   "relative_humidity"                                    : ["Relative Humidity", "Relative Humidity 2D"],
@@ -888,7 +888,6 @@ def main():
             for y in range(0, len(shared_data[x])):
                 variable_data.append(shared_data[x][y])
     
-    
     JRA_Dictionary = {
                       "Geopotential Height"                         : ["gh", "anl_p125_hgt.", 37, "gpm"],
                       "Temperature"                                 : ["t", "anl_p125_tmp.", 37, "K"],
@@ -905,7 +904,6 @@ def main():
                       "Downward Solar Radiation Flux"               : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
                       "Downward Long Wave Radiation Flux"           : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"],
                       }
-    
     
     fcst_variables = ["Total Precipitation" , "Clear Sky Downward Solar Radiation Flux", "Clear Sky Downward Long Wave Radiation Flux", "Downward Solar Radiation Flux", "Downward Long Wave Radiation Flux"]
     
@@ -945,7 +943,6 @@ def main():
             Fdate = []
             Adate = []
             Idate = []   
-    
     
     print "\nAll Conversions Finished!"
     print "Have a nice day! "  
