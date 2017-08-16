@@ -79,8 +79,7 @@ class JRA_Download:
                 run1 = False
             else:
                 print "\nThe bounds must be  between -90 and 90 (inclusively)"
-                sys.exit(0)
-          
+                sys.exit(0)  
         except:
             print "\nInvalid Entry"
             print "Please make sure your latitude position is between -90 and 90 (inclusively)"
@@ -97,13 +96,12 @@ class JRA_Download:
             else:
                 print "\nThe bounds must be  between 0 and 358.75 (inclusively)"
                 sys.exit(0)
-       
         except:
             print "\nInvalid Entry"
             print "Please make sure your longitude position is between 0 and 358.75 (inclusively)"
             sys.exit(0)
     
-        return (latTopPosition, latBottomPosition, lonLeftPosition, lonRightPosition)      
+        return (latTopPosition, latBottomPosition, lonLeftPosition, lonRightPosition) # Return latTopPosition before latBottomPosition because JRA goes from 90 to -90   
     
     
     """
@@ -139,15 +137,56 @@ class JRA_Download:
     Parameters:
     -start_day: The first day to start downloading from
     -end_day: The last day that you want to download
-    -data_type: The file that is being downloaded
-    -hourly_increment: The hour increments used to record the data
-    -middle: Extra text in the middle of the filename needed for downloading certain files
+    -download_list: A list of all the variables that need to be donwload, with data_type and hour increment
     -savePath: The directory to save the GRIB files from the JRA server
+    -ftp: The ftp connection for the JRA website
     """
-    def ftp_Download(self, start_day, end_day, data_type, hourly_increment, middle, savePath):         
+    def ftp_Download(self, start_day, end_day, download_list, savePath, ftp):         
+          
+        for dt in rrule(DAILY, dtstart = start_day, until = end_day): # Loop from start day to end day                    
+            for var in range(0,len(download_list)):
+                path = "/JRA-55/Hist/Daily/" + download_list[var][0] + "/" + dt.strftime("%Y") + dt.strftime("%m") # Generate the path  
+                ftp.cwd(path) # Change Working Directory
+              
+                for x in range(0, 24, download_list[var][2]): # Loop through the hourly increments
+                    if (x <10): # Add a 0 infront any of the hour times that are less 10
+                        ending = "0" + str(x)
+                    else:
+                        ending = str(x)  
+                       
+                    filename = download_list[var][0] + download_list[var][1] + "." +  dt.strftime("%Y") + dt.strftime("%m") + dt.strftime("%d") + ending
+                    
+                    try:
+                        completeName = os.path.join(savePath, filename) # Generate the filename and save it to the proper folder
+                    except:
+                        print "Make sure you have a Grib and netCDF folder in your directory"
+                        sys.exit(0)
+               
+                    localfile = open(completeName, 'wb')
+               
+                    try: # try to download the file
+                        ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
+                    except:
+                        print "Error downloading file: " + filename
+                    
+                    localfile.close() # Close File 
+            
+        print "\nAll Downloads Finished :) \n"
+            
+                         
+    """
+    Connect to server and download the necessary Grib Files
+    Parameters:
+    -startDay: The starting download day
+    -endDay: The ending download day
+    -save_path: The save path
+    -variable_data: All of the data that we want to download
+    -fcst_list: The forcast data that we need to download
+    -surf_list: The surf data that we need to download
+    """  
+    def DownloadGribFile(self, startDay, endDay, save_path, variable_data, fcst_list, surf_list):
         tries = 1
         server = False
-        
         while (tries <= 5 and server == False): # Try to connect to server (try 5 times)
             try: # Try to connect to JRA Site
                 ftp = FTP("ds.data.jma.go.jp")
@@ -161,95 +200,47 @@ class JRA_Download:
             if (server == True): # If the connection works download files
                 username = "jra04266"
                 password = "xUhVnbjT"
-                # print "\nEnter your JRA-55 Data"
-                # username = raw_input("Enter your JRA-55 username: ")
-                # password = raw_input("Enter your JRA-55 password: ")
+                ##### TODO
+                # ADD A FILE WITH LOGIN INFORMATION
                 ftp.login(username, password) # Login (username, password)
                 
-                for dt in rrule(DAILY, dtstart = start_day, until = end_day): # Loop from start day to end day                    
-                    path = "/JRA-55/Hist/Daily/" + data_type + "/" + dt.strftime("%Y") + dt.strftime("%m") # Generate the path  
-                    ftp.cwd(path) # Change Working Directory
-                  
-                    for x in range(0, 24, hourly_increment): # Loop through the hourly increments
-                        
-                        if (x <10): # Add a 0 infront any of the hour times that are less 10
-                            ending = "0" + str(x)
-                        else:
-                            ending = str(x)  
-                           
-                        filename = data_type + middle + "." +  dt.strftime("%Y") + dt.strftime("%m") + dt.strftime("%d") + ending
-                        
-                        try:
-                            completeName = os.path.join(savePath, filename) # Generate the filename and save it to the proper folder
-                        except:
-                            print "Make sure you have a Grib and netCDF folder in your directory"
-                            sys.exit(0)
-                   
-                        localfile = open(completeName, 'wb')
-                   
-                        try: # try to download the file
-                            ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
-                        except:
-                            print "Error downloading file: " + filename
-                        
-                        localfile.close() # Close File 
+                download_list = []
+
+                if ("Geopotential Height" in variable_data): # Add hgt info
+                    download_list.append(["anl_p125", "_hgt", 6])
+                
+                if ("Temperature" in variable_data): # Add tmp info
+                    download_list.append(["anl_p125", "_tmp", 6])
+                
+                if ("U-Component of Wind" in variable_data): # Add ugrd info
+                    download_list.append(["anl_p125", "_ugrd", 6])
+                
+                if ("V-Component of Wind" in variable_data): # Add vgrd info
+                    download_list.append(["anl_p125", "_vgrd", 6]) 
+                
+                if ("Relative Humidity" in variable_data):  # Add RH info
+                    download_list.append(["anl_p125", "_rh", 6])
+                
+                if (len(surf_list) > 0): # Add anl_surf info
+                    download_list.append(["anl_surf125", "", 6])
+                
+                if (len(fcst_list) > 0):  # Add fcst_phy2m info
+                    download_list.append(["fcst_phy2m125", "", 3])
                     
-                print data_type + middle + " Downloaded" # Download complete
+                if (len(download_list) > 0):
+                    # Download all the files needed for convertion
+                    self.ftp_Download(startDay, endDay, download_list, save_path + 'Grib', ftp) 
                     
                 ftp.quit() # Close Connection   
               
-            else:
+            else:     
                 print "\nAttempted to download" + data_type + middle
                 print "Tried to connect 5 times but failed"   
                 print "Please retry later"
-                sys.exit(0)            
-  
-  
-    """
-    Download the necessary Grib Files
-    Parameters:
-    -startDay: The starting download day
-    -endDay: The ending download day
-    -save_path: The save path
-    -variable_data: All of the data that we want to download
-    -fcst_list: The forcast data that we need to download
-    -surf_list: The surf data that we need to download
-    """  
-    def DownloadGribFile(self, startDay, endDay, save_path, variable_data, fcst_list, surf_list):
-
-        if ("Geopotential Height" in variable_data):
-            # Download anl_p125 for geopotential height (6 hour increments) 
-            self.ftp_Download(startDay, endDay, "anl_p125", 6, "_hgt", save_path + 'Grib') 
-        
-        if ("Temperature" in variable_data):
-            # Download anl_p125 for temperatures (6 hour increments) 
-            self.ftp_Download(startDay, endDay, "anl_p125", 6, "_tmp", save_path + 'Grib')
-        
-        if ("U-Component of Wind" in variable_data):
-            # Download anl_p125 for u-component of wind (6 hour increments)
-            self.ftp_Download(startDay, endDay, "anl_p125", 6, "_ugrd", save_path + 'Grib') 
-        
-        if ("V-Component of Wind" in variable_data):
-            # Download anl_p125 for v-component of wind (6 hour increments)
-            self.ftp_Download(startDay, endDay, "anl_p125", 6, "_vgrd", save_path + 'Grib') 
-        
-        if ("Relative Humidity" in variable_data):
-            # Download anl_p125 for relative humidity (6 hour increments)
-            self.ftp_Download(startDay, endDay, "anl_p125", 6, "_rh", save_path + 'Grib') 
-        
-        if (len(surf_list) > 0):
-            # Download anl_surf125 (6 hour increments) 
-            self.ftp_Download(startDay, endDay, "anl_surf125", 6, "", save_path + 'Grib') 
-        
-        if (len(fcst_list) > 0):
-            # Download fcst_phy2m125 (3 hour increments) 
-            self.ftp_Download(startDay, endDay, "fcst_phy2m125", 3, "", save_path + 'Grib') 
-        
-        print "\nAll Downloads Finished :)"
-
+                sys.exit(0)   
 
 """
-Convert the grib files downloaded from the JRA-55 into netCDF formats
+Convert the grib files downloaded from the JRA-55 into netCDF format
 """
 class Grib2CDF:
 
@@ -265,7 +256,7 @@ class Grib2CDF:
     def ConvertLatLon(self, lat, lon):
         lats = []
         lons = []
-  
+        
         for x in range (0,145):
             for y in range (0,288):
                 if (x == 1):
@@ -323,13 +314,12 @@ class Grib2CDF:
                 print "Quiting program"
                 sys.exit(0)
                         
-              # Loop through the Grib file and extract the data you need
+            # Loop through the Grib file and extract the data you need
             for g in grbs:
                 if (g.shortName == dataName):
                     value.append(g.values)
                     level = g.level
-                    break
-              
+                    break 
             grbs.close()
           
         return (value, level)
@@ -429,7 +419,7 @@ class Grib2CDF:
             lat1 = latBottom
             lat2 = latTop
             lat3 = latBottom
-            lat4 = latTop
+            lat4 = latTop  
         if (lonLeft > lonRight):
             lon1 = 0
             lon2 = lonRight
@@ -500,12 +490,8 @@ class fcst_phy2m:
         time.calendar = "gregorian"
         time[:] = dateTimes
         
-        #########
         x=0
-        for dataName in fcst_data:
-        
-            # Create netCDF Variable
-            
+        for dataName in fcst_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], date, JRA_Dictionary[dataName][0], savePath)
 
             if (x == 0):
@@ -516,13 +502,10 @@ class fcst_phy2m:
             dataVariable.standard_name = dataName
             dataVariable.units = JRA_Dictionary[dataName][3]
             dataVariable[:,:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
-
             print "Converted:", dataName
 
-        # Descriptions
-        f.description = "fcst example"
-        f.history = "Created today"
-        f.source = "netCDF4 practice"
+        # Description
+        f.source = "JRA converted data"
  
         f.close() 
 
@@ -575,9 +558,7 @@ class anl_surf:
         time[:] = dateTimes
         
         x=0
-        for dataName in surf_data:
-        
-            # Create netCDF Variable
+        for dataName in surf_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], date, JRA_Dictionary[dataName][0], savePath)
             if (x==0):
               levels = f.createDimension("level", JRA_Dictionary[dataName][2])
@@ -586,13 +567,10 @@ class anl_surf:
             dataVariable.standard_name = dataName
             dataVariable.units = JRA_Dictionary[dataName][3]
             dataVariable[:,:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
-        
             print "Converted:", dataName
         
-        # Descriptions
-        f.description = "anl_surf125 temp example"
-        f.history = "Created today"
-        f.source = "netCDF4 practice"
+        # Description
+        f.source = "JRA converted data"
         
         f.close() 
 
@@ -630,7 +608,6 @@ class Isobaric:
                 levels.append(g.level)
                 data.append(g.values)
             allData.append(data)
-             
             grbs.close()
           
         return (allData, levels)
@@ -732,9 +709,7 @@ class Isobaric:
         time[:] = dateTimes
         
         x=0
-        for dataName in isobaric_data:
-
-            # Create netCDF Variable
+        for dataName in isobaric_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = self.ExtractData(JRA_Dictionary[dataName][1], date, savePath)
             
             # *Special Case: Relative Humidity only has 27 levels 
@@ -765,10 +740,9 @@ class Isobaric:
                 dataVariable.units = JRA_Dictionary[dataName][3]
                 dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, elevationMinRange, elevationMaxRange)
             print "Converted:", dataName
-        # Descriptions
-        f.description = "Geography example"
-        f.history = "Created today"
-        f.source = "netCDF4 practice"
+        
+        # Description
+        f.source = "JRA converted data"
         
         f.close()
 
@@ -862,9 +836,7 @@ def main():
     try:
         start = str(jra.date["beg"])
         end = str(jra.date["end"])
-        
         startDay, endDay = JRA_Download().TimeSet(start, end) # Get the time period for the data
-        
     except:
         print "Invalid date"
         print "Please make sure your date is in YYYY-MM-DD format"
@@ -874,15 +846,15 @@ def main():
     try:
         elevationMin = jra.elevation["min"]
         elevationMax = jra.elevation["max"]
-    
         elevationMinRange, elevationMaxRange = JRA_Download().ElevationCalculator(elevationMin, elevationMax) 
-        
     except:
         print "Invalid elevation entered"
         sys.exit(0)
 
     # Directory Information
     directory = jra.directory
+    #savePath = directory + "/"
+    save_path = '/home/cmolnar/FinishedCode/'
     ######### TO FINISH
     
     # List of Variables
@@ -907,6 +879,7 @@ def main():
             for y in range(0, len(shared_data[x])):
                 variable_data.append(shared_data[x][y])
     
+    # A dictionary of all the variables available for donwloadint with there short-name, filename, number of levels and units
     JRA_Dictionary = {
                       "Geopotential Height"                         : ["gh", "anl_p125_hgt.", 37, "gpm"],
                       "Temperature"                                 : ["t", "anl_p125_tmp.", 37, "K"],
@@ -934,9 +907,7 @@ def main():
     fcst_list = list(set(variable_data) & set(fcst_variables))
     surf_list = list(set(variable_data) & set(surf_variables))
     isobaric_list = list(set(variable_data) & set(isobaric_variables))
-    
-    save_path = '/home/cmolnar/FinishedCode/' # The current directory
-    
+        
     JRA_Download().DownloadGribFile(startDay, endDay, save_path, variable_data, fcst_list, surf_list)
     
     timeSize = chunk_size # The number of days you want saved together
