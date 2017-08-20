@@ -3,4 +3,7 @@ project_directory = /home/sgruber/src/globsim/examples
 output_directory = /home/sgruber/src/globsim/examples/station
 
 # processing kernels to be used
-kernels = ERA_AIRT_pl, ERA_AIRT_sur, ERA_AIRT_redcapp
+kernels = AIRT_ERA_pl, AIRT_ERA_sur, AIRT_ERA_redcapp
+
+# desired time step [hours]
+time_step = 1
