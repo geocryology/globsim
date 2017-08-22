@@ -149,7 +149,7 @@ class MERRAgeneric():
         chunk_size = 5
         urls_chunks = [urls[x:x+chunk_size] for x in xrange(0, len(urls), chunk_size)]      
 
-        print ('================ MERRA-2: START ===============')
+        print ('================ MERRA-2 SERVER ACCESS: START ================')
         print ('TIME TO GET A COFFEE')        
         ds = {}
         for i in range(len(urls_chunks)):
@@ -164,7 +164,7 @@ class MERRAgeneric():
                 print url[j]
             print ds[i][j].keys
             ###return ds #Chris     
-        print ('=============== MERRA-2: COMPLETED ================')
+        print ('================ MERRA-2 SERVER ACCESS: COMPLETED ================')
         infor = urls[0].split('/')
         print 'Dataset:', infor[2], infor[3],infor[4], infor[8]
         print 'Type:', type(ds)
@@ -675,24 +675,29 @@ class SaveNCDF_pl_3dmana():                                                     
                 size_type = [chunk_size*hour_size]*int_size           
             
             # get the data with subset of area for t
+            print ("------Get Subset of Air Temperature at Pressure Levels------")
             t = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmana)
             #restructing the shape 
             t_total = MERRAgeneric().restruDatastuff(t)
             del t
 
+            
             # get the data wtih subset of area for V
+            print ("------Get Subset of V Component of Wind at Pressure Levels------")
             v = MERRAgeneric().dataStuff_3d(1, id_lat, id_lon, out_variable_3dmana)
             #restructing the shape 
             v_total = MERRAgeneric().restruDatastuff(v)
             del v
             
             #get the data with subset of area for U
+            print ("------Get Subset of U Component of Wind at Pressure Levels------")
             u = MERRAgeneric().dataStuff_3d(2, id_lat, id_lon, out_variable_3dmana)
             #restructing the shape 
             u_total = MERRAgeneric().restruDatastuff(u)
             del u
             
             #get the data with subset of area
+            print ("------Get Subset of Geopotential Height at Pressure Levels------")
             h = MERRAgeneric().dataStuff_3d(3, id_lat, id_lon, out_variable_3dmana)
             #restructing the shape 
             h_total = MERRAgeneric().restruDatastuff(h)
@@ -810,6 +815,7 @@ class SaveNCDF_pl_3dmasm():                                                     
                 size_type = [chunk_size*hour_size]*int_size           
 
             #get the data with subset of area for rh
+            print ("------Get Subset of Relative Humidity at Pressure Levels------")
             rh = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmasm)
             #restructing the shape 
             rh_total = MERRAgeneric().restruDatastuff(rh)
@@ -1071,36 +1077,42 @@ class SaveNCDF_sa():
                 size_type = [chunk_size*hour_size]*int_size           
     
             # get the data with subset of area for t2m
+            print ("------Get Subset of Air Temperature at 2-meters------")
             t2m = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2dm)
             #restructing the shape 
             t2m_total = MERRAgeneric().restruDatastuff(t2m)
             del t2m
 
             # get the data wtih subset of area for u2m
+            print ("------Get Subset of Eastward Wind at 2-meters------")
             u2m = MERRAgeneric().dataStuff_2d(1, id_lat, id_lon, out_variable_2dm)
             #restructing the shape 
             u2m_total = MERRAgeneric().restruDatastuff(u2m)
             del u2m
 
             # get the data wtih subset of area
+            print ("------Get Subset of Northward Wind at 2-meters------")
             v2m = MERRAgeneric().dataStuff_2d(2, id_lat, id_lon, out_variable_2dm)
             #restructing the shape 
             v2m_total = MERRAgeneric().restruDatastuff(v2m)
             del v2m
 
             # get the data wtih subset of area
+            print ("------Get Subset of Eastward Wind at 10-meters------")
             u10m = MERRAgeneric().dataStuff_2d(3, id_lat, id_lon, out_variable_2dm)
             #restructing the shape 
             u10m_total = MERRAgeneric().restruDatastuff(u10m)
             del u10m
             
             # get the data wtih subset of area
+            print ("------Get Subset of Northward_Wind at 10-meters------")
             v10m = MERRAgeneric().dataStuff_2d(4, id_lat, id_lon, out_variable_2dm)
             #restructing the shape 
             v10m_total = MERRAgeneric().restruDatastuff(v10m)
             del v10m
              
             # get the data with subset of area
+            print ("------Get Subset of Total Precipitation------")
             prectot = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2ds)
             #restructing the shape 
             prectot_total = MERRAgeneric().restruDatastuff(prectot)
@@ -1281,12 +1293,14 @@ class SaveNCDF_sr():
 
 
             # get the data with subset of area
+            print ("------Get Subset of Surface Net Downward Shortwave Flux------")
             swgnt = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2dr)
             #restructing the shape 
             swgnt_total = MERRAgeneric().restruDatastuff(swgnt)
             del swgnt
             
             # get the data with subset of area
+            print ("------Get Subset of Surface Net Downward Longwave Flux------")
             lwgnt = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2dr)
             #restructing the shape 
             lwgnt_total = MERRAgeneric().restruDatastuff(lwgnt)
@@ -1378,7 +1392,10 @@ import csv
 import netCDF4 as nc
 import itertools
 import pandas
+import time
 
+
+t_start = time.time()
 
 #Account for Database Access
 username = "quanxj17"
@@ -1394,7 +1411,7 @@ dir_src  = '/Users/xquan/src/globsim/'
 #Given wanted datatype, mydate, area, elevation
 
 beg   = "2016/01/01"
-end   = "2016/02/01" 
+end   = "2016/01/08" 
                                                                                
 area = {'bbS':50.0, 'bbN': 70.0, 'bbW':-120.0, 'bbE': -100.0}
  
@@ -1403,11 +1420,7 @@ elevation = {'min' : 50, 'max' : 2000}
 chunk_size = 5
 
 # Get merra-2 3d meteorological analysis variables at pressure levels
-beg   = "2016/01/01"
-end   = "2016/01/12" 
 
-# startDay = date(2016, 01, 01)
-# endDay   = date(2016, 01, 10)
 startDay = datetime.strptime(beg, '%Y/%m/%d')
 endDay   = datetime.strptime(end, '%Y/%m/%d')
 
@@ -1418,7 +1431,7 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
         if (x == 1):
             beg = currentDay
     
-        if (x == chunk_size or currentDay == endDay):
+        if (x == chunk_size or dt == endDay):#might need to make this a str
             x = 0
             end = currentDay
             
@@ -1474,7 +1487,7 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
 
             #get merra-2 radiation varaibles
             # Get merra-2 2d radiation variables
-            print ("-----Get wanted variables from Merra-2 2d,1-Hourly,Time-Averaged,Single-Level, Radiation Diagnostics -----")
+            print ("-----Get wanted variables from Merra-2 2d,1-Hourly,Time-Averaged,Single-Level, Radiation Diagnostics-----")
             ds_2dr = MERRAsr().getDs(beg, end, username, password, chunk_size)
 
             out_variable_2dr = MERRAsr().getVariables(ds_2dr)
@@ -1485,4 +1498,6 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             SaveNCDF_sr().saveData(out_variable_2dr, time, lat, lon)
             print ("----------------------------------------Result NO.4: Completed----------------------------------------")
 
-    
+t_end = time.time()
+t_total = (t_end - t_start)/60
+print ("Total Time (Minutes):", t_total)
