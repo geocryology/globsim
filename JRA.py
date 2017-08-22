@@ -1,4 +1,4 @@
-from datetime        import date, datetime
+from datetime        import date, datetime, timedelta
 from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
 from netCDF4         import Dataset
@@ -15,7 +15,7 @@ import os.path
 Download ranges of data from the JRA-55 server
 Data available from 1958 to present date (give 1 or 2 days for upload)
 ~Author: Christopher Molnar
-~Date: August 15, 2017
+~Date: August 22, 2017
 """
 class JRA_Download:
       
@@ -141,9 +141,10 @@ class JRA_Download:
     -savePath: The directory to save the GRIB files from the JRA server
     -ftp: The ftp connection for the JRA website
     """
-    def ftp_Download(self, start_day, end_day, download_list, savePath, ftp):         
+    def ftp_Download(self, start_day, end_day, download_list, savePath, ftp):   
           
-        for dt in rrule(DAILY, dtstart = start_day, until = end_day): # Loop from start day to end day                    
+        print "Downloading GRIB Files....."  
+        for dt in rrule(DAILY, dtstart = start_day, until = end_day): # Loop from start day to end day
             for var in range(0,len(download_list)):
                 path = "/JRA-55/Hist/Daily/" + download_list[var][0] + "/" + dt.strftime("%Y") + dt.strftime("%m") # Generate the path  
                 ftp.cwd(path) # Change Working Directory
@@ -184,7 +185,7 @@ class JRA_Download:
     -fcst_list: The forcast data that we need to download
     -surf_list: The surf data that we need to download
     """  
-    def DownloadGribFile(self, startDay, endDay, save_path, variable_data, fcst_list, surf_list):
+    def DownloadGribFile(self, startDay, endDay, save_path, isobaric_list, fcst_list, surf_list):
         tries = 1
         server = False
         while (tries <= 5 and server == False): # Try to connect to server (try 5 times)
@@ -206,24 +207,18 @@ class JRA_Download:
                 
                 download_list = []
 
-                if ("Geopotential Height" in variable_data): # Add hgt info
+                if ("geopotential_height" in isobaric_list): # Add hgt info
                     download_list.append(["anl_p125", "_hgt", 6])
-                
-                if ("Temperature" in variable_data): # Add tmp info
+                if ("air_temperature" in isobaric_list): # Add tmp info
                     download_list.append(["anl_p125", "_tmp", 6])
-                
-                if ("U-Component of Wind" in variable_data): # Add ugrd info
+                if ("eastward_wind" in isobaric_list): # Add ugrd info
                     download_list.append(["anl_p125", "_ugrd", 6])
-                
-                if ("V-Component of Wind" in variable_data): # Add vgrd info
+                if ("northward_wind" in isobaric_list): # Add vgrd info
                     download_list.append(["anl_p125", "_vgrd", 6]) 
-                
-                if ("Relative Humidity" in variable_data):  # Add RH info
+                if ("relative_humidity" in isobaric_list):  # Add RH info
                     download_list.append(["anl_p125", "_rh", 6])
-                
                 if (len(surf_list) > 0): # Add anl_surf info
                     download_list.append(["anl_surf125", "", 6])
-                
                 if (len(fcst_list) > 0):  # Add fcst_phy2m info
                     download_list.append(["fcst_phy2m125", "", 3])
                     
@@ -238,6 +233,7 @@ class JRA_Download:
                 print "Tried to connect 5 times but failed"   
                 print "Please retry later"
                 sys.exit(0)   
+
 
 """
 Convert the grib files downloaded from the JRA-55 into netCDF format
@@ -267,29 +263,26 @@ class Grib2CDF:
 
 
     """
-    Extracts the needed latitudes and longitudes from a Grib file
+    Set up the needed lattitude and longitude range
     Parameters:
-    -filename: The name of the Grib file that the latitude and longitude are being extracted from
-    -filePath: The direcory where you will find the folder with the GRIB files
+    -latLow: Lower bound of the latitude
+    -latHigh: Upper bound of the latitude
+    -lonLow: Lower bound of the longitude
+    -lonHigh: Upper bound of the longitude
     Returns:
-    -The result from the ConvertLatLon function
+    -lat: Latitude range
+    -lon: Longitude range
     """
-    def GetLatLon(self, filename, filePath):
-        fileLocation = filePath+ 'Grib/'
-        try:
-            grbs = pygrib.open(fileLocation + filename)
-        except:
-            print "file: " + fileLocation + filename +  " not found :("
-            print "Quiting program3"
-            sys.exit(0)
+    def GetLatLon(self, latLow, latHigh, lonLow, lonHigh):
         
-        for g in grbs:
-            lat, lon = g.latlons() # Get Latitude and Longitutde
-            break
-          
-        grbs.close()
+        lat = []
+        lon = []
+        for x in range(latLow, latHigh + 1):
+            lat.append( 90 - (x * 1.25))
+        for y in range(lonLow, lonHigh + 1):
+            lon.append(y * 1.25)
         
-        return (self.ConvertLatLon(lat,lon))
+        return (lat, lon)
       
     
     """
@@ -308,9 +301,10 @@ class Grib2CDF:
         fileLocation = filePath + 'Grib/' 
         for z in range(0, len(date)):
             try:
-                grbs = pygrib.open(fileLocation + filename + date[z])
+                name =(str(date[z].strftime("%Y")) + str(date[z].strftime("%m")) + str(date[z].strftime("%d")) + str(date[z].strftime("%H")))
+                grbs = pygrib.open(fileLocation + filename + name)
             except:
-                print "file: " + filename +  " not found :("
+                print "file: " + filename + name +  " not found :("
                 print "Quiting program"
                 sys.exit(0)
                         
@@ -335,10 +329,10 @@ class Grib2CDF:
     -latitudes: The variable latitude
     -longitudes: The variable longitude
     """ 
-    def CreateLatLon(self, f):
+    def CreateLatLon(self, f, latSize, lonSize):
         # Create Dimensions for variables 
-        latitude = f.createDimension("latitude", 145)
-        longitude = f.createDimension("longitude", 288)
+        latitude = f.createDimension("latitude", latSize + 1)
+        longitude = f.createDimension("longitude", lonSize + 1)
         # Create Variables
         latitudes = f.createVariable("latitude", "f4", "latitude")
         longitudes = f.createVariable("longitude", "f4", "longitude")
@@ -364,19 +358,17 @@ class Grib2CDF:
     -date: The updates array with all of the dates and hours
     """
     def TimeSeries(self, date, timeSize, hours, numSegments): 
-        for size in range(0, timeSize, numSegments):
-            YMD = date[size]
-            date[size] = YMD + "00"
-  
-            for h in range(1, numSegments):
-                end = h * hours
-                if (end < 10):
-                    end = "0" + str(end)
-                else:
-                    end = str(end)
-                date.insert(size + h, YMD + end)
-                      
-        return(date)
+        
+        days = []
+        
+        for d in range(0, len(date)):
+          for h in range(0, 24, hours):
+              tempDate = date[d] + timedelta(hours = h)
+              days.append(tempDate)
+        
+        #print "All the days:"
+        #print days
+        return days
 
    
     """
@@ -409,38 +401,14 @@ class Grib2CDF:
     -ssDay: The subseted data set
     """
     def SubsetTheData(self, dataValues, numDays, latBottom, latTop, lonLeft, lonRight):
-        # Subset the data into boxes for easy transfer
-        if (latBottom > latTop):
-            lat1 = 0
-            lat2 = latTop
-            lat3 = latBottom
-            lat4 = 145
-        else:
-            lat1 = latBottom
-            lat2 = latTop
-            lat3 = latBottom
-            lat4 = latTop  
-        if (lonLeft > lonRight):
-            lon1 = 0
-            lon2 = lonRight
-            lon3 = lonLeft
-            lon4 = 288
-        else:
-            lon1 = lonLeft
-            lon2 = lonRight
-            lon3 = lonLeft
-            lon4 = lonRight
         ssDay = []
         for a in range(0,numDays):
           ssDay.append([])
-          for b in range(0,145):
+          for b in range(latBottom, latTop + 1):
             ssDay[a].append([])
-            for c in range(0,288):
-              if ((lat1 <= b <= lat2 or lat3 <= b <= lat4) and (lon1 <= c <= lon2 or lon3 <= c <= lon4)):
-                ssDay[a][b].append(dataValues[a][b][c])
-              else:
-                ssDay[a][b].append(None)
-        
+            for c in range(lonLeft, lonRight + 1):
+              ssDay[a][b - latBottom].append(dataValues[a][b][c])
+
         return (ssDay)
 
    
@@ -466,8 +434,11 @@ class fcst_phy2m:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, fcst_data):    
         
+        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
+        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        
         try:
-            completeName = os.path.join(savePath + 'netCDF', "Finalfcst_" + startDay + "-" + endDay + ".nc")
+            completeName = os.path.join(savePath + 'netCDF', "JRA_fcst_" + startName + "-" + endName + ".nc")
             f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created  
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -475,8 +446,8 @@ class fcst_phy2m:
             sys.exit(0)
         
         # Create the Latitude and Longitude
-        lats, lons = Grib2CDF().GetLatLon("fcst_phy2m125." + startDay + "00", savePath)
-        latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f)
+        lats, lons = Grib2CDF().GetLatLon(bottomLat, topLat, leftLon, rightLon)
+        latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f, topLat - bottomLat, rightLon - leftLon)
         latitudes[:] = lats
         longitudes[:] = lons
         
@@ -486,22 +457,15 @@ class fcst_phy2m:
         time = f.createDimension("time", timeSize)
         time = f.createVariable("time", "i4", "time")
         time.standard_name = "time"
-        time.units = "Y/M/D/H"
-        time.calendar = "gregorian"
-        time[:] = dateTimes
-        
-        x=0
+        time[:] = nc.date2num(dateTimes, units = "hours since 1900-01-01 00:00:00", calendar = "gregorian")
+
         for dataName in fcst_data: # Loop through all the needed varibales and make netCDF variables 
-            data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], date, JRA_Dictionary[dataName][0], savePath)
+            data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
 
-            if (x == 0):
-                levels = f.createDimension("level", JRA_Dictionary[dataName][2])
-                x = 1
-
-            dataVariable = f.createVariable(dataName, "f4", ("time","level", "latitude", "longitude"))
+            dataVariable = f.createVariable(dataName, "f4", ("time", "latitude", "longitude"))
             dataVariable.standard_name = dataName
             dataVariable.units = JRA_Dictionary[dataName][3]
-            dataVariable[:,:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
+            dataVariable[:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
             print "Converted:", dataName
 
         # Description
@@ -532,8 +496,11 @@ class anl_surf:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, surf_data):   
         
+        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
+        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        
         try:
-            completeName = os.path.join(savePath + 'netCDF', "Finalsurf_" + startDay + "-" + endDay + ".nc") 
+            completeName = os.path.join(savePath + 'netCDF', "JRA_surf_" + startName + "-" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -542,8 +509,8 @@ class anl_surf:
         
         
         # Create the Latitude and Longitude
-        lats, lons = Grib2CDF().GetLatLon("anl_surf125." + startDay + "00", savePath)
-        latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f)
+        lats, lons = Grib2CDF().GetLatLon(bottomLat, topLat, leftLon, rightLon)
+        latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f, topLat - bottomLat, rightLon - leftLon)
         latitudes[:] = lats
         longitudes[:] = lons
 
@@ -553,20 +520,16 @@ class anl_surf:
         time = f.createDimension("time", timeSize)
         time = f.createVariable("time", "i4", "time")
         time.standard_name = "time"
-        time.units = "Y/M/D/H"
-        time.calendar = "gregorian"
-        time[:] = dateTimes
+        time[:] = nc.date2num(dateTimes, units = "hours since 1900-01-01 00:00:00", calendar = "gregorian")
         
         x=0
         for dataName in surf_data: # Loop through all the needed varibales and make netCDF variables 
-            data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], date, JRA_Dictionary[dataName][0], savePath)
-            if (x==0):
-              levels = f.createDimension("level", JRA_Dictionary[dataName][2])
-              x =1
-            dataVariable = f.createVariable(dataName, "f4", ("time","level", "latitude", "longitude"))
+            data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
+
+            dataVariable = f.createVariable(dataName, "f4", ("time", "latitude", "longitude"))
             dataVariable.standard_name = dataName
             dataVariable.units = JRA_Dictionary[dataName][3]
-            dataVariable[:,:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
+            dataVariable[:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
             print "Converted:", dataName
         
         # Description
@@ -597,9 +560,10 @@ class Isobaric:
             levels = []
             data = []
             try:
-                grbs = pygrib.open(fileLocation + filename + date[z])
+                name =(str(date[z].strftime("%Y")) + str(date[z].strftime("%m")) + str(date[z].strftime("%d")) + str(date[z].strftime("%H")))
+                grbs = pygrib.open(fileLocation + filename + name)
             except:
-                print "file: " + filename +  " not found :("
+                print "file: " + filename + name +  " not found :("
                 print "Quiting program"
                 sys.exit(0)
                         
@@ -628,39 +592,15 @@ class Isobaric:
     -ssDay: The subseted data set
     """
     def SubsetTheData(self, dataValues, numDays, latBottom, latTop, lonLeft, lonRight, elevationMinRange, elevationMaxRange):
-        # Subset the data into boxes for easy transfer
-        if (latBottom > latTop):
-            lat1 = 0
-            lat2 = latTop
-            lat3 = latBottom
-            lat4 = 145
-        else:
-            lat1 = latBottom
-            lat2 = latTop
-            lat3 = latBottom
-            lat4 = latTop
-        if (lonLeft > lonRight):
-            lon1 = 0
-            lon2 = lonRight
-            lon3 = lonLeft
-            lon4 = 288
-        else:
-            lon1 = lonLeft
-            lon2 = lonRight
-            lon3 = lonLeft
-            lon4 = lonRight
         ssDay = []
         for a in range(0,numDays):
           ssDay.append([])
-          for b in range(0, elevationMaxRange - elevationMinRange + 1):
+          for b in range(0, elevationMaxRange - elevationMinRange + 1): ###REMOVED A +1
             ssDay[a].append([])
-            for c in range(0,145):
+            for c in range(latBottom, latTop + 1):
               ssDay[a][b].append([])
-              for d in range(0,288):
-                if ((lat1 <= c <= lat2 or lat3 <= c <= lat4) and (lon1 <= d <= lon2 or lon3 <= d <= lon4)): 
-                  ssDay[a][b][c].append(dataValues[a][b][c][d])
-                else:
-                  ssDay[a][b][c].append(None)
+              for d in range(lonLeft, lonRight + 1):
+                ssDay[a][b][c - latBottom].append(dataValues[a][b][c][d])      
         return (ssDay)
        
        
@@ -683,8 +623,11 @@ class Isobaric:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, isobaric_data, elevationMinRange, elevationMaxRange):
         
+        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
+        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        
         try:
-            completeName = os.path.join(savePath + 'netCDF', "FinalIsobaric_" + startDay + "-" + endDay + ".nc") 
+            completeName = os.path.join(savePath + 'netCDF', "JRA_Isobaric_" + startName + "-" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -693,8 +636,8 @@ class Isobaric:
         
         
         # Create the Latitude and Longitude
-        lats, lons = Grib2CDF().GetLatLon(JRA_Dictionary[isobaric_data[0]][1] + startDay + "00", savePath) 
-        latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f)
+        lats, lons = Grib2CDF().GetLatLon(bottomLat, topLat, leftLon, rightLon)
+        latitude, longitude, latitudes, longitudes = Grib2CDF().CreateLatLon(f, topLat - bottomLat, rightLon - leftLon)
         latitudes[:] = lats
         longitudes[:] = lons
                 
@@ -704,13 +647,11 @@ class Isobaric:
         time = f.createDimension("time", timeSize)
         time = f.createVariable("time", "i4", "time")
         time.standard_name = "time"
-        time.units = "Y/M/D/H"
-        time.calendar = "gregorian"
-        time[:] = dateTimes
+        time[:] = nc.date2num(dateTimes, units = "hours since 1900-01-01 00:00:00", calendar = "gregorian")
         
         x=0
         for dataName in isobaric_data: # Loop through all the needed varibales and make netCDF variables 
-            data, level = self.ExtractData(JRA_Dictionary[dataName][1], date, savePath)
+            data, level = self.ExtractData(JRA_Dictionary[dataName][1], dateTimes, savePath)
             
             # *Special Case: Relative Humidity only has 27 levels 
             if (dataName == "Relative Humidity" and elevationMaxRange >= 9):
@@ -728,7 +669,7 @@ class Isobaric:
                 dataVariable.units = JRA_Dictionary[dataName][3]
                 dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, tempMinRange, elevationMaxRange - 10)
             
-            elif (dataName != "Relative Humidity"):
+            elif (dataName != "relative_humidity"):
                 if (x==0):
                     levels = f.createDimension("level", elevationMaxRange - elevationMinRange + 1)
                     levels = f.createVariable("level", "i4", "level")
@@ -861,16 +802,16 @@ def main():
     variables = jra.variables
     
     shared_data = {
-                  "air_temperature"                                      : ["Temperature", "Temperature 2D"],
-                  "relative_humidity"                                    : ["Relative Humidity", "Relative Humidity 2D"],
-                  "precipitation_amount"                                 : ["Total Precipitation"],
-                  "downwelling_longwave_flux_in_air"                     : ["Downward Long Wave Radiation Flux"],
-                  "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["Clear Sky Downward Long Wave Radiation Flux"],
-                  "downwelling_shortwave_flux_in_air"                    : ["Downward Solar Radiation Flux"],
-                  "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["Clear Sky Downward Solar Radiation Flux"],
-                  "wind_from_direction"                                  : ["U-Component of Wind", "V-Component of Wind" ],
-                  "wind_speed"                                           : ["U-Component of Wind 2D", "V-Component of Wind 2D"],
-                  "geopotential_height"                                  : ["Geopotential Height"]
+                  "air_temperature"                                      : ["air_temperature", "surface_temperature", "geopotential_height"],
+                  "relative_humidity"                                    : ["relative_humidity", "geopotential_height"],
+                  "precipitation_amount"                                 : ["total_precipitation"],
+                  "downwelling_longwave_flux_in_air"                     : ["net_downward_longwave_flux_in_air"],
+                  "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["net_downward_longwave_flux_in_air_assuming_clear_sky"],
+                  "downwelling_shortwave_flux_in_air"                    : ["net_downward_shortwave_flux_in_air" ],
+                  "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["net_downward_shortwave_flux_in_air_assuming_clear_sky"],
+                  "wind_from_direction"                                  : ["eastward_wind","geopotential_height"],
+                  "wind_speed"                                           : ["northward_wind","geopotential_height"],
+                  "geopotential_height"                                  : ["geopotential_height"]
                   }
                   
     variable_data = []
@@ -879,36 +820,36 @@ def main():
             for y in range(0, len(shared_data[x])):
                 variable_data.append(shared_data[x][y])
     
-    # A dictionary of all the variables available for donwloadint with there short-name, filename, number of levels and units
-    JRA_Dictionary = {
-                      "Geopotential Height"                         : ["gh", "anl_p125_hgt.", 37, "gpm"],
-                      "Temperature"                                 : ["t", "anl_p125_tmp.", 37, "K"],
-                      "U-Component of Wind"                         : ["u", "anl_p125_ugrd.", 37, "m/s"],
-                      "V-Component of Wind"                         : ["v", "anl_p125_vgrd.", 37, "m/s"],
-                      "Relative Humidity"                           : ["r", "anl_p125_rh.", 27, "%"],
-                      "Temperature 2D"                              : ["t", "anl_surf125.", 1, "K"],
-                      "Relative Humidity 2D"                        : ["r", "anl_surf125.", 1, "%"],
-                      "U-Component of Wind 2D"                      : ["u", "anl_surf125.", 1, "m/s"],
-                      "V-Component of Wind 2D"                      : ["v", "anl_surf125.", 1, "m/s"],
-                      "Total Precipitation"                         : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
-                      "Clear Sky Downward Solar Radiation Flux"     : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                      "Clear Sky Downward Long Wave Radiation Flux" : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                      "Downward Solar Radiation Flux"               : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                      "Downward Long Wave Radiation Flux"           : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"],
+    # A dictionary for each file with all the variables available for donwloading with there standard name as the key and the values being a list of short-name, filename, number of levels and units                
+    fcst_dictionary = {
+                      "precipitation_amount"                                   : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
+                      "net_downward_shortwave_flux_in_air_assuming_clear_sky"  : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "net_downward_longwave_flux_in_air_assuming_clear_sky"   : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "net_downward_shortwave_flux_in_air"                     : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "net_downward_longwave_flux_in_air"                      : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"]
+                      }  
+                      
+    surf_dictionary = {
+                      "surface_temperature"  : ["t", "anl_surf125.", 1, "K"],
+                      "relative_humidity"    : ["r", "anl_surf125.", 1, "%"],
+                      "eastward_wind"        : ["u", "anl_surf125.", 1, "m/s"],
+                      "northward_wind"       : ["v", "anl_surf125.", 1, "m/s"]
                       }
-    
-    fcst_variables = ["Total Precipitation" , "Clear Sky Downward Solar Radiation Flux", "Clear Sky Downward Long Wave Radiation Flux", "Downward Solar Radiation Flux", "Downward Long Wave Radiation Flux"]
-    
-    surf_variables = ["Temperature 2D", "Relative Humidity 2D", "U-Component of Wind 2D", "V-Component of Wind 2D"]
-    
-    isobaric_variables = ["Geopotential Height", "Temperature", "U-Component of Wind", "V-Component of Wind", "Relative Humidity"]
+  
+    isobaric_dictionary = { 
+                          "geopotential_height"  : ["gh", "anl_p125_hgt.", 37, "gpm"],
+                          "air _temperature"     : ["t", "anl_p125_tmp.", 37, "K"],
+                          "eastward_wind"        : ["u", "anl_p125_ugrd.", 37, "m/s"],
+                          "northward_wind"       : ["v", "anl_p125_vgrd.", 37, "m/s"],
+                          "relative_humidity"    : ["r", "anl_p125_rh.", 27, "%"]
+                          }
     
     # Check to see which variables data need to be downloaded for fcst, surf, and isobaric list
-    fcst_list = list(set(variable_data) & set(fcst_variables))
-    surf_list = list(set(variable_data) & set(surf_variables))
-    isobaric_list = list(set(variable_data) & set(isobaric_variables))
+    fcst_list = list(set(variable_data) & set(fcst_dictionary))
+    surf_list = list(set(variable_data) & set(surf_dictionary))
+    isobaric_list = list(set(variable_data) & set(isobaric_dictionary))
         
-    JRA_Download().DownloadGribFile(startDay, endDay, save_path, variable_data, fcst_list, surf_list)
+    #JRA_Download().DownloadGribFile(startDay, endDay, save_path, isobaric_list, fcst_list, surf_list)
     
     timeSize = chunk_size # The number of days you want saved together
     Fdate = []
@@ -918,17 +859,18 @@ def main():
     finalDay = str(endDay)
     
     for dt in rrule(DAILY, dtstart = startDay, until = endDay): # Loop through the days to create netCDF files
+        
         currentDay = str(dt.strftime("%Y") + "-" + dt.strftime("%m") + "-" + dt.strftime("%d"))
         if (x < timeSize): # If x is less than timeSize append the current day to the date lists
             x += 1
-            Fdate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
-            Adate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
-            Idate.append(str(dt.strftime("%Y")) + str(dt.strftime("%m")) + str(dt.strftime("%d")))
+            Fdate.append(dt)
+            Adate.append(dt)
+            Idate.append(dt)
           
         if (x == timeSize or currentDay == finalDay): # If time size reached or last day reached send data chuncks to there respective classes
-            fcst_phy2m().Main(Fdate[0], Fdate[x-1], x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, fcst_list)
-            anl_surf().Main(Adate[0], Adate[x-1], x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, surf_list)
-            Isobaric().Main(Idate[0], Idate[x-1], x, Idate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, JRA_Dictionary, isobaric_list, elevationMinRange, elevationMaxRange)
+            fcst_phy2m().Main(Fdate[0], Fdate[x-1] + timedelta(hours = 21), x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, fcst_dictionary, fcst_list)
+            anl_surf().Main(Adate[0], Adate[x-1] + timedelta(hours = 18), x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, surf_dictionary, surf_list)
+            Isobaric().Main(Idate[0], Idate[x-1] + timedelta(hours = 18), x, Idate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, isobaric_dictionary, isobaric_list, elevationMinRange, elevationMaxRange)
             x = 0
             Fdate = []
             Adate = []
