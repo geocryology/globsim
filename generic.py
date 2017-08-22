@@ -21,7 +21,8 @@
 #
 #===============================================================================
 from datetime import datetime
-import pandas as pd
+import pandas  as pd
+import netCDF4 as nc
 
 class ParameterIO(object):
     """
@@ -145,3 +146,55 @@ def StationListRead(sfile):
     raw = raw.rename(columns=lambda x: x.strip())
     return(raw)
 
+
+def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
+    '''
+    Open netCDF file for scaled results (same for all reanalyses) or create it 
+    if it does not exist. Returns the file object so that kernel functions can 
+    successively write variables to it.
+    
+    '''
+    try:
+        # read file if it exists
+        rootgrp = nc.Dataset(ncfile_out, 'a')
+        
+        #TODO: make sure the times and stations match if file exists
+    
+    except: 
+        # make netCDF outfile, variables are written in kernels
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
+        rootgrp.featureType = "timeSeries"
+
+        # dimensions
+        station = rootgrp.createDimension('station', 
+                     len(nc_interpol.variables['station'][:]))
+        time    = rootgrp.createDimension('time', len(times_out))
+
+        # base variables
+        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time.long_name = 'time'
+        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.calendar  = 'gregorian'
+        station             = rootgrp.createVariable('station', 'i4',('station'))
+        station.long_name   = 'station for time series data'
+        station.units       = '1'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east'  
+        height           = rootgrp.createVariable('height','f4',('station'))
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm'  
+        
+        # assign base variables
+        time[:]      = times_out
+        station[:]   = nc_interpol.variables['station'][:]
+        latitude[:]  = nc_interpol.variables['latitude'][:]
+        longitude[:] = nc_interpol.variables['longitude'][:]
+        height[:]    = nc_interpol.variables['height'][:]
+
+    return rootgrp
