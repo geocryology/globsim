@@ -170,8 +170,9 @@ class JRA_Download:
                     except:
                         print "Error downloading file: " + filename
                     
-                    localfile.close() # Close File 
-            
+                    localfile.close() # Close File
+                     
+            print "Downloaded all the data for:", str(dt.strftime("%Y")) + "-" + str(dt.strftime("%m")) + "-" + str(dt.strftime("%d"))  
         print "\nAll Downloads Finished :) \n"
             
                          
@@ -221,7 +222,7 @@ class JRA_Download:
                     download_list.append(["anl_surf125", "", 6])
                 if (len(fcst_list) > 0):  # Add fcst_phy2m info
                     download_list.append(["fcst_phy2m125", "", 3])
-                    
+            
                 if (len(download_list) > 0):
                     # Download all the files needed for convertion
                     self.ftp_Download(startDay, endDay, download_list, save_path + 'Grib', ftp) 
@@ -366,8 +367,6 @@ class Grib2CDF:
               tempDate = date[d] + timedelta(hours = h)
               days.append(tempDate)
         
-        #print "All the days:"
-        #print days
         return days
 
    
@@ -457,7 +456,14 @@ class fcst_phy2m:
         time = f.createDimension("time", timeSize)
         time = f.createVariable("time", "i4", "time")
         time.standard_name = "time"
-        time[:] = nc.date2num(dateTimes, units = "hours since 1900-01-01 00:00:00", calendar = "gregorian")
+        time.units =  "hours since 1900-01-01 00:00:00"
+        time.calendar = "gregorian"
+        
+        # Convert datetime object using the netCDF4 date2num function
+        t = []
+        for tt in range(0,len(dateTimes)):
+          t.append(nc.date2num(dateTimes[tt], units = time.units, calendar = time.calendar))  
+        time[:] = t
 
         for dataName in fcst_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
@@ -520,9 +526,15 @@ class anl_surf:
         time = f.createDimension("time", timeSize)
         time = f.createVariable("time", "i4", "time")
         time.standard_name = "time"
-        time[:] = nc.date2num(dateTimes, units = "hours since 1900-01-01 00:00:00", calendar = "gregorian")
+        time.units =  "hours since 1900-01-01 00:00:00"
+        time.calendar = "gregorian"
         
-        x=0
+        # Convert datetime object using the netCDF4 date2num function
+        t = []
+        for tt in range(0,len(dateTimes)):
+          t.append(nc.date2num(dateTimes[tt], units = time.units, calendar = time.calendar))  
+        time[:] = t
+        
         for dataName in surf_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
 
@@ -595,7 +607,7 @@ class Isobaric:
         ssDay = []
         for a in range(0,numDays):
           ssDay.append([])
-          for b in range(0, elevationMaxRange - elevationMinRange + 1): ###REMOVED A +1
+          for b in range(0, elevationMaxRange - elevationMinRange + 1): 
             ssDay[a].append([])
             for c in range(latBottom, latTop + 1):
               ssDay[a][b].append([])
@@ -647,14 +659,22 @@ class Isobaric:
         time = f.createDimension("time", timeSize)
         time = f.createVariable("time", "i4", "time")
         time.standard_name = "time"
-        time[:] = nc.date2num(dateTimes, units = "hours since 1900-01-01 00:00:00", calendar = "gregorian")
+        time.units =  "hours since 1900-01-01 00:00:00"
+        time.calendar = "gregorian"
+       
+        # Convert datetime object using the netCDF4 date2num function
+        t = []
+        for tt in range(0,len(dateTimes)):
+          t.append(nc.date2num(dateTimes[tt], units = time.units, calendar = time.calendar))
+          
+        time[:] = t
         
         x=0
         for dataName in isobaric_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = self.ExtractData(JRA_Dictionary[dataName][1], dateTimes, savePath)
             
             # *Special Case: Relative Humidity only has 27 levels 
-            if (dataName == "Relative Humidity" and elevationMaxRange >= 9):
+            if (dataName == "relative_humidity" and elevationMaxRange >= 9):
                 if (elevationMinRange < 9):
                     tempMinRange = 0
                 else:
@@ -849,7 +869,7 @@ def main():
     surf_list = list(set(variable_data) & set(surf_dictionary))
     isobaric_list = list(set(variable_data) & set(isobaric_dictionary))
         
-    #JRA_Download().DownloadGribFile(startDay, endDay, save_path, isobaric_list, fcst_list, surf_list)
+    JRA_Download().DownloadGribFile(startDay, endDay, save_path, isobaric_list, fcst_list, surf_list)
     
     timeSize = chunk_size # The number of days you want saved together
     Fdate = []
@@ -867,7 +887,7 @@ def main():
             Adate.append(dt)
             Idate.append(dt)
           
-        if (x == timeSize or currentDay == finalDay): # If time size reached or last day reached send data chuncks to there respective classes
+        if (x == timeSize or currentDay == finalDay): # If time size reached or last day reached build netCDF files
             fcst_phy2m().Main(Fdate[0], Fdate[x-1] + timedelta(hours = 21), x, Fdate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, fcst_dictionary, fcst_list)
             anl_surf().Main(Adate[0], Adate[x-1] + timedelta(hours = 18), x, Adate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, surf_dictionary, surf_list)
             Isobaric().Main(Idate[0], Idate[x-1] + timedelta(hours = 18), x, Idate, latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition, save_path, isobaric_dictionary, isobaric_list, elevationMinRange, elevationMaxRange)
