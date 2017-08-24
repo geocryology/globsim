@@ -1,9 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*- 
+
 from datetime        import date, datetime, timedelta
 from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
 from netCDF4         import Dataset
 from generic         import ParameterIO, StationListRead
 from os              import path, listdir
+from math            import exp
 import netCDF4       as nc
 import pygrib
 import time
@@ -105,6 +109,22 @@ class JRA_Download:
     
     
     """
+    Convert elevation into air pressure using barometric formula
+    Paramters:
+    -elevation: the height in m 
+    Returns:
+    -The elevation hight in air pressure
+    """
+    def getPressure(self, elevation):
+        g  = 9.80665   #Gravitational acceleration [m/s2]
+        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
+        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
+        P0 = 101325    #Pressure at sea level [Pa]
+        T0 = 288.15    #Temperature at sea level [K]
+        #http://en.wikipedia.org/wiki/Barometric_formula
+        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
+    
+    """
     Takes the minimum and maximum elevation and finds their position in the total_elevation list
     Parameters:
     -elevationMin: An int of the minimum elevation
@@ -113,9 +133,13 @@ class JRA_Download:
     -elevationMinRange: The position of the minimum elevation from the total_elevation list
     -elevationMaxRange: The position of the maximum elevation from the total_elevation list
     """
-    def ElevationCalculator(self, elevationMin, elevationMax):
+    def ElevationCalculator(self, eMin, eMax):
         total_elevations = [1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 800, 825, 850, 875, 900, 925, 950, 975, 1000]
-
+        
+        # flip max and min because 1000 is the bottom and 0 is the top
+        elevationMax = self.getPressure(eMin)
+        elevationMin = self.getPressure(eMax)
+        
         minNum = min(total_elevations, key=lambda x:abs(x-elevationMin))
         maxNum = min(total_elevations, key=lambda x:abs(x-elevationMax))
         
@@ -607,12 +631,12 @@ class Isobaric:
         ssDay = []
         for a in range(0,numDays):
           ssDay.append([])
-          for b in range(0, elevationMaxRange - elevationMinRange + 1): 
+          for b in range(elevationMinRange, elevationMaxRange + 1): 
             ssDay[a].append([])
             for c in range(latBottom, latTop + 1):
-              ssDay[a][b].append([])
+              ssDay[a][b - elevationMinRange].append([])
               for d in range(lonLeft, lonRight + 1):
-                ssDay[a][b][c - latBottom].append(dataValues[a][b][c][d])      
+                ssDay[a][b - elevationMinRange][c - latBottom].append(dataValues[a][b][c][d])      
         return (ssDay)
        
        
@@ -673,8 +697,8 @@ class Isobaric:
         for dataName in isobaric_data: # Loop through all the needed varibales and make netCDF variables 
             data, level = self.ExtractData(JRA_Dictionary[dataName][1], dateTimes, savePath)
             
-            # *Special Case: Relative Humidity only has 27 levels 
-            if (dataName == "relative_humidity" and elevationMaxRange >= 9):
+            # *Special Case: Relative Humidity only has 27 levels (if data from 1 - 99 hPa is needed make a seperate level for relative humidity 
+            if (dataName == "relative_humidity" and elevationMinRange <= 9):
                 if (elevationMinRange < 9):
                     tempMinRange = 0
                 else:
@@ -682,24 +706,33 @@ class Isobaric:
                 Levels = level
                 Levels =f.createDimension("Levels", elevationMaxRange - 9 - tempMinRange)
                 Levels = f.createVariable("Levels", "i4", "Levels")
-                Levels.units = "hPa"   
+                Levels.long_name = "pressure_level"
+                Levels.units = "mbar"   
                 Levels[:] = Grib2CDF().ElevationSeries(tempMinRange + 10, elevationMaxRange)
                 dataVariable = f.createVariable(dataName, "f4", ("time", "Levels", "latitude", "longitude"))
                 dataVariable.standard_name = dataName
                 dataVariable.units = JRA_Dictionary[dataName][3]
                 dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, tempMinRange, elevationMaxRange - 10)
             
-            elif (dataName != "relative_humidity"):
+            else:
                 if (x==0):
                     levels = f.createDimension("level", elevationMaxRange - elevationMinRange + 1)
                     levels = f.createVariable("level", "i4", "level")
-                    levels.units = "hPa"
+                    levels.long_name = "pressure_level"
+                    levels.units = "mbar"
                     levels[:] = Grib2CDF().ElevationSeries(elevationMinRange, elevationMaxRange)
                     x =1
+                if (dataName == "relative_humidity"):
+                    tempMinRange = elevationMinRange - 10 
+                    tempMaxRange = elevationMaxRange - 10 
+                else:
+                    tempMinRange = elevationMinRange
+                    tempMaxRange = elevationMaxRange
+                    
                 dataVariable = f.createVariable(dataName, "f4", ("time","level", "latitude", "longitude"))
                 dataVariable.standard_name = dataName
                 dataVariable.units = JRA_Dictionary[dataName][3]
-                dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, elevationMinRange, elevationMaxRange)
+                dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, tempMinRange, tempMaxRange)
             print "Converted:", dataName
         
         # Description
@@ -762,11 +795,17 @@ Run the JRA program
 -Download the needed GRIB files
 -Use all of the retrieved information to convert the downloaded GRIB files into netCDF with the proper area resitrictions, dates, elevation, and chunk_size
 """
-def main():
+"""
+Start the reanalysis
+Parameter:
+-pfile: The parameter file
+"""
+def main(pfile):
     # Run the program
     t0 = time.time()  
     
-    jra = JRAdownload("Parameter_Stuff.txt")
+    #jra = JRAdownload("Parameter_Stuff.txt")
+    jra = JRAdownload(pfile)
     
     # Area data 
     try:
@@ -825,10 +864,10 @@ def main():
                   "air_temperature"                                      : ["air_temperature", "surface_temperature", "geopotential_height"],
                   "relative_humidity"                                    : ["relative_humidity", "geopotential_height"],
                   "precipitation_amount"                                 : ["total_precipitation"],
-                  "downwelling_longwave_flux_in_air"                     : ["net_downward_longwave_flux_in_air"],
-                  "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["net_downward_longwave_flux_in_air_assuming_clear_sky"],
-                  "downwelling_shortwave_flux_in_air"                    : ["net_downward_shortwave_flux_in_air" ],
-                  "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["net_downward_shortwave_flux_in_air_assuming_clear_sky"],
+                  "downwelling_longwave_flux_in_air"                     : ["downwelling_longwave_flux_in_air"],
+                  "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["downwelling_longwave_flux_in_air_assuming_clear_sky"],
+                  "downwelling_shortwave_flux_in_air"                    : ["downwelling_shortwave_flux_in_air" ],
+                  "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["downwelling_shortwave_flux_in_air_assuming_clear_sky"],
                   "wind_from_direction"                                  : ["eastward_wind","geopotential_height"],
                   "wind_speed"                                           : ["northward_wind","geopotential_height"],
                   "geopotential_height"                                  : ["geopotential_height"]
@@ -843,10 +882,10 @@ def main():
     # A dictionary for each file with all the variables available for donwloading with there standard name as the key and the values being a list of short-name, filename, number of levels and units                
     fcst_dictionary = {
                       "precipitation_amount"                                   : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
-                      "net_downward_shortwave_flux_in_air_assuming_clear_sky"  : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                      "net_downward_longwave_flux_in_air_assuming_clear_sky"   : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                      "net_downward_shortwave_flux_in_air"                     : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
-                      "net_downward_longwave_flux_in_air"                      : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"]
+                      "downwelling_shortwave_flux_in_air_assuming_clear_sky"  : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "downwelling_longwave_flux_in_air_assuming_clear_sky"   : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "downwelling_shortwave_flux_in_air"                     : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
+                      "downwelling_longwave_flux_in_air"                      : ["dlwrf", "fcst_phy2m125.", 1, "W/(m^2)"]
                       }  
                       
     surf_dictionary = {
@@ -903,4 +942,5 @@ def main():
     print "Total run time:", total  
 
 
-if __name__ == "__main__": main()
+def DownloadJRA(pfile):
+    main(pfile)
