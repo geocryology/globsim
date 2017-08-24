@@ -65,6 +65,7 @@ import csv
 import netCDF4
 import itertools
 import pandas
+import timeit
 
 
 
@@ -83,7 +84,7 @@ class MERRAgeneric():
             
             Args:
             beg = "2016/01/01"
-            end = "2016/02/01"
+            end = "2016/01/03"
             
             Return:
             urls_3dmana: get type of url for 3d Analyzed Meteorological Fields data
@@ -159,11 +160,11 @@ class MERRAgeneric():
             for j in range(len(url)): 
                 session = setup_session(username, password, check_url=url[j])        
                 ds[i][j] = open_url(url[j], session=session) 
-                ###ds[0][j] = open_url(url[j], session=session)  #chris
+                ###ds[0][j] = open_url(url[j], session=session) 
                 print ('------COMPLETED------','CHUNK', i, 'URL', j )
                 print url[j]
             print ds[i][j].keys
-            ###return ds #Chris     
+            ###return ds     
         print ('================ MERRA-2 SERVER ACCESS: COMPLETED ================')
         infor = urls[0].split('/')
         print 'Dataset:', infor[2], infor[3],infor[4], infor[8]
@@ -448,19 +449,15 @@ class MERRAgeneric():
         End1 = End + timedelta(days=1)           
             
         #get the Datetimeindex with time_step 
-        time_ind1 = pandas.date_range(Start, End1, freq = time_step1)       
-        time_ind2 = pandas.date_range(Start, End1, freq = time_step2) 
-        time_ind3 = pandas.date_range(Start, End1, freq = time_step3)
-        
-        # time_ind1 = Start + np.arange(24) * timedelta(hours=6)
-        # time_ind1 = Start + np.arange(24) * timedelta(hours=3)
-        # time_ind1 = Start + np.arange(24) * timedelta(hours=1)        
+        time_ind1 = (pandas.date_range(Start, End1, freq = time_step1))[0:-1]       
+        time_ind2 = (pandas.date_range(Start, End1, freq = time_step2))[0:-1] 
+        time_ind3 = (pandas.date_range(Start, End1, freq = time_step3))[0:-1]
 
-        #Convert the Datetimeindex to numpy and get rid of one extra time in the end
-        time_ind1 = (np.array(time_ind1))[0:-1]
-        time_ind2 = (np.array(time_ind2))[0:-1]
-        time_ind3 = (np.array(time_ind3))[0:-1]
-                         
+        # To Datetime Objects
+        time_ind1.to_datetime()
+        time_ind2.to_datetime()
+        time_ind3.to_datetime()
+                                 
         # get list of wanted date series
         date_diff = End - Start
         date = [Start + timedelta(days=x) for x in range(date_diff.days + 1)]
@@ -649,8 +646,6 @@ class SaveNCDF_pl_3dmana():                                                     
                      
         """
   
-           
-
         def saveData(self, out_variable_3dmana, time, lev, lat, lon):
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
@@ -721,7 +716,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_pl-1" + "_" + (date[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date[var_up/len(time[0][0]) - 1]) + ".nc"))      
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
-                print("File Type:", rootgrp.file_format)
+                print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at pressure levels'
                 rootgrp.featureType = "3_Dimension"
     
@@ -737,7 +732,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 
                 #Output the results of output variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times', 'levels','lats', 'lons'),fill_value=9.9999999E14)       
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','levels','lats', 'lons'),fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.units         = var_list[x][2] 
                     out_var.missing_value = 9.9999999E14
@@ -750,10 +745,12 @@ class SaveNCDF_pl_3dmana():                                                     
                 Time = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
                 Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))                 
-                Time.calendar = "standard"   
+                Time.calendar = "gregorian"   
                 # pass the values
-                Time[:] = time_ind1[var_low:var_up]                                  # 6-hourly time step (for Temp, U, V, H)                                           
-                # Time[:] = nc.date2num(time_ind1[var_low:var_up],unit = Time.units,calendar = Time.calendar)
+                netCDFTime = []
+                for x in range(0, len(time_ind1)):
+                    netCDFTime.append(nc.date2num(time_ind1[x], units = Time.units, calendar = Time.calendar))
+                Time[:] = netCDFTime[var_low:var_up]                                                                                                        
                                                         
                 Level = rootgrp.createVariable('level','i4', ('levels'))
                 Level.standard_name = "air_pressure"
@@ -765,18 +762,18 @@ class SaveNCDF_pl_3dmana():                                                     
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = 'Y'
-                Latitudes[:]  = lat[0][0][:]                                   # pass the values of latitude
+                Latitudes[:]  = lat[0][0][:]                                   
 
                 Longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = 'X'
-                Longitudes[:] = lon[0][0][:]                                   # pass the values of longitudes
+                Longitudes[:] = lon[0][0][:]                                   
     
                 #close the root group
                 rootgrp.close()          
 
-class SaveNCDF_pl_3dmasm():                                                         # for saving abstracted pressure-levels variables
+class SaveNCDF_pl_3dmasm():                                                        
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
             demension: time, level, lat, lon
@@ -827,7 +824,8 @@ class SaveNCDF_pl_3dmasm():                                                     
             # save nc file 
             var_low = 0
             var_up = 0
-            for i in range(0, len(size_type)):
+            for i in range(0, 1):
+            # for i in range(0, len(size_type)):
                 var = size_type[i]
                 var_low = var_up
                 var_up = var_low + var
@@ -835,7 +833,7 @@ class SaveNCDF_pl_3dmasm():                                                     
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_pl-2" + "_" + (date[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date[var_up/len(time[0][0]) - 1]) + ".nc"))      
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
-                print("File Type:",rootgrp.file_format)
+                print("Saved File Type:",rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at pressure levels'
                 rootgrp.featureType = "3_Dimension"
     
@@ -851,7 +849,7 @@ class SaveNCDF_pl_3dmasm():                                                     
                 
                 #Output the results of output variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times', 'levels','lats', 'lons'),fill_value=9.9999999E14)       
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','levels','lats','lons'),fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.units         = var_list[x][2] 
                     out_var.missing_value = 9.9999999E14
@@ -862,11 +860,14 @@ class SaveNCDF_pl_3dmasm():                                                     
                 
                 Time = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units = "hour since" + str(datetime.strptime(beg, '%Y/%m/%d'))                  
-                Time.calendar = "standard"
+                Time.units = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))                  
+                Time.calendar = "gregorian"
                 # pass the values
-                Time[:] = time_ind2[var_low:var_up]                                  # 3-hourly time step (for RH)                                           
-                            
+                netCDFTime = []
+                for x in range(0, len(time_ind2)):
+                    netCDFTime.append(nc.date2num(time_ind2[x], units = Time.units, calendar = Time.calendar))      
+                Time[:] = netCDFTime[var_low:var_up]                                                                                                        
+                               
                 Level = rootgrp.createVariable('level','i4', ('levels'))
                 Level.standard_name = "air_pressure"
                 Level.units = "hPa"
@@ -1138,16 +1139,14 @@ class SaveNCDF_sa():
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_sa" + "_" + (date[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date[var_up/len(time[0][0]) - 1]) + ".nc"))
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
-                print("File Type:", rootgrp.file_format)
+                print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at surface level'
                 rootgrp.featureType = "2_Dimension"
             
                 #Arrange the format of dimensions for time, levels, latitude and longitude for dimension setup 
-                TIME = time[0][0]/60           # unit conversion minutues to hours
                 LAT = lat[0][0]
                 LON = lon[0][0]
-    
-                chunk_size = 5
+                
                 #dimensions
                 times  = rootgrp.createDimension('times', var)
                 lats   = rootgrp.createDimension('lats', len(LAT))
@@ -1155,7 +1154,7 @@ class SaveNCDF_sa():
                 
                 #Output the results of extracted variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','lats', 'lons'),fill_value=9.9999999E14)       
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','lats','lons'),fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.units         = var_list[x][2] 
                     out_var.missing_value = 9.9999999E14
@@ -1166,10 +1165,13 @@ class SaveNCDF_sa():
         
                 Time  = rootgrp.createVariable('time', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units         = "hour since" + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.calendar      = "standard"
+                Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                Time.calendar      = "gregorian"
                 # pass the values
-                Time[:] = time_ind3[var_low:var_up]                                               # 1-hourly time step                                            
+                netCDFTime = []
+                for x in range(0, len(time_ind3)):
+                    netCDFTime.append(nc.date2num(time_ind3[x], units = Time.units, calendar = Time.calendar))
+                Time[:] = netCDFTime[var_low:var_up]                                                                                                        
     
                 Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
@@ -1258,7 +1260,7 @@ class SaveNCDF_sr():
             variables: time: array([   0,   60,  120,  180,  240,  300,  360,  420,  480,  540,  600,
                              660,  720,  780,  840,  900,  960, 1020, 1080, 1140, 1200, 1260,
                              1320, 1380], dtype=int32, Unit: minute)
-                       swgnt(time,llat,lon), 
+                       swgnt(time,lat,lon), 
                        lwgnt(time,lat,lon), 
                        time, lat, lon.
             Args: 
@@ -1278,7 +1280,7 @@ class SaveNCDF_sr():
             dir_data  = '/Users/xquan/data'  
             
             """
-            date, time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(beg, end)
+            date, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(beg, end)
 
             #Setup size of saving file
             chunk_size = 5
@@ -1286,11 +1288,11 @@ class SaveNCDF_sr():
             hour_size = len(time[0][0])
             int_size = date_size//chunk_size
             res_type = (date_size*hour_size)%(chunk_size*hour_size)
+            
             if (res_type > 0):
                 size_type = [chunk_size*hour_size]*int_size + [res_type]
             else:
                 size_type = [chunk_size*hour_size]*int_size           
-
 
             # get the data with subset of area
             print ("------Get Subset of Surface Net Downward Shortwave Flux------")
@@ -1312,8 +1314,8 @@ class SaveNCDF_sr():
 
             var_low = 0
             var_up = 0
-            # for i in range(0, 1):
-            for i in range(0, len(size_type)):
+            for i in range(0, 1):
+            # for i in range(0, len(size_type)):
                 var = size_type[i]
                 var_low = var_up
                 var_up = var_low + var
@@ -1321,12 +1323,11 @@ class SaveNCDF_sr():
                 # set up file path and names  
                 file_ncdf  = path.join(dir_data,("merra_sr" + "_" + (date[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date[var_up/len(time[0][0]) - 1]) + ".nc"))
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
-                print("File Type:", rootgrp.file_format)
+                print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated radiation variables from metadata at surface level'
                 rootgrp.featureType = "2_Dimension"
             
                 #Arrange the format of dimensions for time, levels, latitude and longitude for dimension setup 
-                TIME = time[0][0]/60           # unit conversion minutues to hours
                 LAT = lat[0][0]
                 LON = lon[0][0]
     
@@ -1348,10 +1349,13 @@ class SaveNCDF_sr():
                                     
                 Time               = rootgrp.createVariable('time', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units         = "hour since" + str(datetime.strptime(beg, '%Y/%m/%d')) # needed to add the beging date into it
-                Time.calendar      = "standard"
+                Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d')) # needed to add the beging date into it
+                Time.calendar      = "gregorian"
                 # pass the values
-                Time[:] = time_ind3[var_low:var_up]                                               # 1-hourly time step                                            
+                netCDFTime = []
+                for x in range(0, len(time_ind3)):
+                    netCDFTime.append(nc.date2num(time_ind3[x], units = Time.units, calendar = Time.calendar))
+                Time[:] = netCDFTime[var_low:var_up]                                                                                                        
     
                 Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
@@ -1392,10 +1396,10 @@ import csv
 import netCDF4 as nc
 import itertools
 import pandas
-import time
+import time as tc
 
 
-t_start = time.time()
+t_start = tc.time()
 
 #Account for Database Access
 username = "quanxj17"
@@ -1411,7 +1415,7 @@ dir_src  = '/Users/xquan/src/globsim/'
 #Given wanted datatype, mydate, area, elevation
 
 beg   = "2016/01/01"
-end   = "2016/01/08" 
+end   = "2016/01/02" 
                                                                                
 area = {'bbS':50.0, 'bbN': 70.0, 'bbW':-120.0, 'bbE': -100.0}
  
@@ -1436,7 +1440,8 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             end = currentDay
             
             #get merra-2 meterological varaibles at pressure levels
-            print ("-----Get wanted variables from Merra-2 3d, 6-hourly Pressure-Level, Analyzed Meteorological Fields-----")
+            
+            print ("-----Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields-----")
             ds_ana = MERRApl_ana().getDs(beg, end, username, password, chunk_size)
             
             id_lat, id_lon =  MERRAgeneric().getArea(area, ds_ana)
@@ -1448,10 +1453,11 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             # Output merra-2 meteorological analysis variable at pressure levels
             #For T, V, U, H
             SaveNCDF_pl_3dmana().saveData(out_variable_3dmana, time, lev, lat, lon)
+            
             print ("----------------------------------------Result NO.1: Completed----------------------------------------")
 
             # Get merra-2 3d meteorological assimilated variables at pressure levels
-            print ("-----Get wanted variables from Merra-2 3d,3-hourly,Pressure-Level,Assimilated Meteorological Fields-----")
+            print ("-----Get Wanted Variables From Merra-2 3d, 3-hourly, Pressure-Level, Assimilated Meteorological Fields-----")
             ds_asm = MERRApl_asm().getDs(beg, end, username, password, chunk_size)                       
             
             out_variable_3dmasm = MERRApl_asm().getVariables(ds_asm)
@@ -1465,7 +1471,7 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             
             #get merra-2 meterological varaibles at surface level
             # Get merra-2 2d meteorological Diagnostics variables at surface level
-            print ("-----Get wanted variables from Merra-2 1-hourly,Single-level,meteorological Diagnostics -----")
+            print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Meteorological Diagnostics-----")
             ds_2dm = MERRAsm().getDs(beg, end, username, password, chunk_size)
 
             out_variable_2dm = MERRAsm().getVariables(ds_2dm)
@@ -1474,7 +1480,7 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             
             
             # Get merra-2 2d suface flux Diagnostics variables at surface level
-            print ("-----Get wanted variables from Merra-2 1-hourly, single-level, Surface Flux Diagnostics -----")
+            print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Surface Flux Diagnostics-----")
             ds_2ds = MERRAsf().getDs(beg, end, username, password, chunk_size)
 
             out_variable_2ds = MERRAsf().getVariables(ds_2ds)
@@ -1483,11 +1489,12 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             
             # Output marra-2 variable at surface level 
             SaveNCDF_sa().saveData(out_variable_2dm, out_variable_2ds, time, lat, lon)
+            
             print ("----------------------------------------Result NO.3: Completed----------------------------------------")
 
             #get merra-2 radiation varaibles
             # Get merra-2 2d radiation variables
-            print ("-----Get wanted variables from Merra-2 2d,1-Hourly,Time-Averaged,Single-Level, Radiation Diagnostics-----")
+            print ("-----Get Wanted Variables From Merra-2 2d, 1-Hourly, Single-Level, Radiation Diagnostics-----")
             ds_2dr = MERRAsr().getDs(beg, end, username, password, chunk_size)
 
             out_variable_2dr = MERRAsr().getVariables(ds_2dr)
@@ -1498,6 +1505,6 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             SaveNCDF_sr().saveData(out_variable_2dr, time, lat, lon)
             print ("----------------------------------------Result NO.4: Completed----------------------------------------")
 
-t_end = time.time()
-t_total = (t_end - t_start)/60
+t_end = tc.time()
+t_total = int((t_end - t_start)/60)
 print ("Total Time (Minutes):", t_total)
