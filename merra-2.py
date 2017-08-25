@@ -76,7 +76,7 @@ class MERRAgeneric():
            
     def getURLs(self, beg, end):                                                                                                                                          
         """ Set up urls by given range of date and type of data
-            to getobjected url address (2d, 3d meterological fields and radiation datasets)
+            to get objected url address (2d, 3d meterological fields and radiation datasets)
             url_2dm: 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
             url_3dm_ana: 3d,6-hourly,Instantaneous,Pressure-Level,Analyzed Meteorological Fields 
             url_3dm_asm: 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
@@ -179,7 +179,7 @@ class MERRAgeneric():
                     = ['RH','lat','lon','lev','time']                                    # for extracting from 3d Assimilated Meteorological Fields datasets
                     = ['U2M','T2M','TQL','V2M','V10M','U10M','QV2M','lat','lon','time']  # for extracting from 2d meteorological Diagnostics datasets
                     = ['PRECTOT','lat','lon','time']                                     # for extracing from 2d suface flux Diagnostics datasets  
-                    = ['SWGNT','LWGNT','lat','lon','time']                               # for extracing from 2d radiation Diagnostics datasets 
+                    = ['SWGNT','LWGNT','SWGNTCLR','LWGNTCLR','lat','lon','time']         # for extracing from 2d radiation Diagnostics datasets 
                     
            ds = MERRAgeneric().download(username, password, urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, chunk_size)
            Return:
@@ -1224,11 +1224,11 @@ class MERRAsr():
     
     def getVariables(self, ds):
         """Return the objected variables from the specific MERRA-2 2D radiation Diagnostics datasets        
-            variable = ['SWGNT','LWGNT', 'lat','lon','time']
+            variable = ['SWGNT', 'LWGNT','SWGNTCLR', 'LWGNTCLR', 'lat','lon','time']
             urls = urls_2dr
             ds = MERRAgeneric.download( username, password, urls, chunk_size)   
         """
-        variable = ['SWGNT','LWGNT', 'lat','lon','time']
+        variable = ['SWGNT','LWGNT', 'SWGNTCLR', 'LWGNTCLR', 'lat','lon','time']
         out_variable_2dr = MERRAgeneric().Variables(variable, ds)
 
         return out_variable_2dr
@@ -1246,9 +1246,9 @@ class MERRAsr():
         """       
         id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
        
-        p1 = 2
-        p2 = 3
-        p3 = 4
+        p1 = 4
+        p2 = 5
+        p3 = 6
 
         lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dr, p1, p2, p3, id_lat, id_lon)
         
@@ -1269,6 +1269,8 @@ class SaveNCDF_sr():
             date, time_ind3 = MERRAgeneric().getTime(beg, end)
             swgnt = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2dr) 
             lwgnt = MERRAgeneric().dataStuff_2d(1, id_lat, id_lon, out_variable_2dr)
+            swgntclr = MERRAgeneric().dataStuff_2d(2, id_lat, id_lon, out_variable_2dr)
+            lwgntclr = MERRAgeneric().dataStuff_2d(3, id_lat, id_lon, out_variable_2dr)
             lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dr, id_lat, id_lon)
                      
         """
@@ -1303,14 +1305,33 @@ class SaveNCDF_sr():
             
             # get the data with subset of area
             print ("------Get Subset of Surface Net Downward Longwave Flux------")
-            lwgnt = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2dr)
+            lwgnt = MERRAgeneric().dataStuff_2d(1, id_lat, id_lon, out_variable_2dr)
             #restructing the shape 
             lwgnt_total = MERRAgeneric().restruDatastuff(lwgnt)
             del lwgnt
 
+            # get the data with subset of area
+            print ("------Get Subset of Surface Net Downward Shortwave Flux Assuming Clear Sky------")
+            swgntclr = MERRAgeneric().dataStuff_2d(2, id_lat, id_lon, out_variable_2dr)
+            #restructing the shape 
+            swgntclr_total = MERRAgeneric().restruDatastuff(swgntclr)
+            del swgntclr
+            
+            # get the data with subset of area
+            print ("------Get Subset of Surface Net Downward Longwave Flux Assuming Clear Sky------")
+            lwgntclr = MERRAgeneric().dataStuff_2d(3, id_lat, id_lon, out_variable_2dr)
+            #restructing the shape 
+            lwgntclr_total = MERRAgeneric().restruDatastuff(lwgntclr)
+            del lwgntclr
+
+            
+            
+            
             #Set up the list of output variables
             var_list = [['surface_net_downward_shortwave_flux',"surface_net_downward_shortwave_flux", "W m-2", swgnt_total],
-                        ['surface_net_downward_longwave_flux',"surface_net_downward_longwave_flux","W m-2", lwgnt_total]]
+                        ['surface_net_downward_longwave_flux',"surface_net_downward_longwave_flux","W m-2", lwgnt_total],
+                        ['surface_net_downward_shortwave_flux_assuming_clear_sky',"surface_net_downward_shortwave_flux_assuming_clear_sky","W m-2", swgntclr_total],
+                        ['surface_net_downward_longwave_flux_assuming_clear_sky',"surface_net_downward_longwave_flux_cassuming_clear_sky","W m-2", lwgntclr_total]]
 
             var_low = 0
             var_up = 0
@@ -1401,27 +1422,35 @@ import time as tc
 
 t_start = tc.time()
 
+#logictics 
+project_directory = '/home/xquan/src/globsim/examples/'
+credentials_directory = '~/.'
+
+#settings directory 
+dir_data = '/Users/xquan/data'
+dir_src  = '/Users/xquan/src/globsim/'
+
 #Account for Database Access
 username = "quanxj17"
 password = "Qxj17carleton"
 
-#settings directory 
-dir_data = '/Users/xquan/data'
-# dir_data = '/Users/xquan/src/globsim/merra2'
-dir_src  = '/Users/xquan/src/globsim/'
+#Chunk size for spliting files and download [days]
+chunk_size = 5
 
-# execfile(path.join(dir_src, 'merra-2.py'))
-
-#Given wanted datatype, mydate, area, elevation
+#Time slice [YYYY/MM/DD]
 
 beg   = "2016/01/01"
 end   = "2016/01/02" 
                                                                                
-area = {'bbS':50.0, 'bbN': 70.0, 'bbW':-120.0, 'bbE': -100.0}
+# area bounding box [decimal degrees]
+area = {'bbS':50.0, 
+        'bbN': 70.0, 
+        'bbW':-120.0, 
+        'bbE': -100.0}
  
-elevation = {'min' : 50, 'max' : 2000}  
-
-chunk_size = 5
+# Ground elevation range within area [m]
+ele_min = 0
+ele_max = 2000
 
 # Get merra-2 3d meteorological analysis variables at pressure levels
 
