@@ -702,7 +702,7 @@ class SaveNCDF_pl_3dmana():                                                     
             var_list = [['Temperature',"air_temperature", "K", t_total],
                         ['V_component_of_wind', "northward_wind","m s-1", v_total],
                         ['U_component_of_wind',"eastward_wind","m s-1", u_total],
-                        ['H',"geopotential height","m+2 s-2", h_total]]
+                        ['H',"geopotential_height","m+2 s-2", h_total]]
             
             # save nc file 
             var_low = 0
@@ -744,7 +744,8 @@ class SaveNCDF_pl_3dmana():                                                     
     
                 Time = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))                 
+                # Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                Time.units  = "hour since 1980-1-1 00:00:0.0"                 
                 Time.calendar = "gregorian"   
                 # pass the values
                 netCDFTime = []
@@ -819,7 +820,7 @@ class SaveNCDF_pl_3dmasm():
             del rh
 
             #Set up the list of output variables
-            var_list = [['Relative_humidity',"relative humidity after moist", "1", rh_total]]
+            var_list = [['Relative_Humidity',"relative_humidity", "1", rh_total]]
             
             # save nc file 
             var_low = 0
@@ -860,7 +861,8 @@ class SaveNCDF_pl_3dmasm():
                 
                 Time = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))                  
+                # Time.units = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                Time.units  = "hour since 1980-1-1 00:00:0.0"                  
                 Time.calendar = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1001,6 +1003,7 @@ class MERRAsf():
            
            ds = MERRAgeneric.download( username, password, urls_2ds, chunk_size)
         """        
+        # variable = ['PRECTOT','lat','lon','time']
         variable = ['PRECTOT','lat','lon','time']
         out_variable_2ds = MERRAgeneric().Variables(variable, ds)
 
@@ -1119,12 +1122,12 @@ class SaveNCDF_sa():
             prectot_total = MERRAgeneric().restruDatastuff(prectot)
             del prectot
   
-            var_list = [['2_meter_air_temperature',"2_meter_air_temperature", "K", t2m_total],
-                        ['2_meter_eastward_wind',"2_meter_eastward_wind","m s-1", u2m_total],
-                        ['2_meter_northward_wind',"2_meter_northward_wind","m s-1", v2m_total],
-                        ['10_meter_eastward_wind',"10_meter_eastward_wind","m s-1", u10m_total],
-                        ['10_meter_northward_wind',"10_meter_northward_wind","m s-1", v10m_total],
-                        ['total_precipitation',"total_precipitation","kg m-2 s-1", prectot_total]]
+            var_list = [['2_Meter_Air_Temperature',"2_meter_air_temperature", "K", t2m_total],
+                        ['2_Meter_Eastward_Wind',"2_meter_eastward_wind","m s-1", u2m_total],
+                        ['2_Meter_Northward_Wind',"2_meter_northward_wind","m s-1", v2m_total],
+                        ['10_Meter_Eastward_Wind',"10_meter_eastward_wind","m s-1", u10m_total],
+                        ['10_Meter_Northward_Wind',"10_meter_northward_wind","m s-1", v10m_total],
+                        ['Total_Precipitation',"precipitation_flux","kg m-2 s-1", prectot_total]]
                     
             
             #save nc file
@@ -1163,9 +1166,10 @@ class SaveNCDF_sa():
                     out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:] = var_list[x][3][var_low:var_up,:,:]        #data generic name with data stored in it
         
-                Time  = rootgrp.createVariable('time', 'i4', ('times'))
+                Time  = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                Time.units  = "hour since 1980-1-1 00:00:0.0" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1326,12 +1330,11 @@ class SaveNCDF_sr():
 
             
             
-            
             #Set up the list of output variables
-            var_list = [['surface_net_downward_shortwave_flux',"surface_net_downward_shortwave_flux", "W m-2", swgnt_total],
-                        ['surface_net_downward_longwave_flux',"surface_net_downward_longwave_flux","W m-2", lwgnt_total],
-                        ['surface_net_downward_shortwave_flux_assuming_clear_sky',"surface_net_downward_shortwave_flux_assuming_clear_sky","W m-2", swgntclr_total],
-                        ['surface_net_downward_longwave_flux_assuming_clear_sky',"surface_net_downward_longwave_flux_cassuming_clear_sky","W m-2", lwgntclr_total]]
+            var_list = [['Surface_Net_Downward_Shortwave_Flux',"surface_net_downward_shortwave_flux", "W m-2", swgnt_total],
+                        ['Surface_Net_Downward_Longwave_Flux',"surface_net_downward_longwave_flux","W m-2", lwgnt_total],
+                        ['Surface_Net_Downward_Shortwave_Flux_Assuming_Clear_Sky',"surface_net_downward_shortwave_flux_assuming_clear_sky","W m-2", swgntclr_total],
+                        ['Surface_Net_Downward_Longwave_Flux_Assuming_Clear_Sky',"surface_net_downward_longwave_flux_cassuming_clear_sky","W m-2", lwgntclr_total]]
 
             var_low = 0
             var_up = 0
@@ -1368,9 +1371,10 @@ class SaveNCDF_sr():
                     out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:] = var_list[x][3][var_low:var_up,:,:]         
                                     
-                Time               = rootgrp.createVariable('time', 'i4', ('times'))
+                Time               = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
-                Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d')) # needed to add the beging date into it
+                # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d')) # needed to add the beging date into it
+                Time.units  = "hour since 1980-1-1 00:00:0.0" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1440,7 +1444,7 @@ chunk_size = 5
 #Time slice [YYYY/MM/DD]
 
 beg   = "2016/01/01"
-end   = "2016/01/02" 
+end   = "2016/01/03" 
                                                                                
 # area bounding box [decimal degrees]
 area = {'bbS':50.0, 
