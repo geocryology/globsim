@@ -58,10 +58,12 @@ from pydap.cas.urs import setup_session
 from datetime import datetime, timedelta
 from os import path
 from netCDF4 import Dataset
+from math import exp
 
 import pydap.lib
 import numpy as np
 import csv
+import math
 import netCDF4
 import itertools
 import pandas
@@ -147,7 +149,7 @@ class MERRAgeneric():
                                                               
                               
         """
-        chunk_size = 5
+        # chunk_size = 5
         urls_chunks = [urls[x:x+chunk_size] for x in xrange(0, len(urls), chunk_size)]      
 
         print ('================ MERRA-2 SERVER ACCESS: START ================')
@@ -238,9 +240,34 @@ class MERRAgeneric():
         id_lat = list(itertools.chain(*id_lat))
 
         
-        return id_lat, id_lon
+        return id_lat, id_lon 
 
-    def latLon_3d(self, out_variable, p1, p2, p3, p4, id_lat, id_lon): 
+    def getPressure(self, elevation):
+        """Convert elevation into air pressure using barometric formula"""
+        g  = 9.80665   #Gravitational acceleration [m/s2]
+        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
+        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
+        P0 = 101325    #Pressure at sea level [Pa]
+        T0 = 288.15    #Temperature at sea level [K]
+        #http://en.wikipedia.org/wiki/Barometric_formula
+        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
+    
+    def getPressureLevels(self, elevation): 
+        """Restrict list of MERRA-2 pressure levels to be download"""
+        Pmax = self.getPressure(elevation['min']) + 55
+        Pmin = self.getPressure(elevation['max']) - 55
+        # levs = np.array([0.1, 0.3, 0.4, 0.5, 0.7, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10, 20, 30, 40, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 725, 750, 775, 
+        #                  800, 825, 850, 875, 900, 925, 950, 975, 1000])
+        levs = np.array([1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 70,    
+                         50, 40, 30, 20, 10, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.7, 0.5, 0.4, 0.3, 0.1])
+ 
+        #Get the indics of selected range of elevation 
+        id_lev = np.where((levs >= Pmin) & (levs <= Pmax))
+        id_lev = list(itertools.chain(*id_lev))    
+                
+        return id_lev
+  
+    def latLon_3d(self, out_variable, p1, p2, p3, p4, id_lat, id_lon, id_lev): 
         """
         Get Latitude, Longitude, Levels, and Time for datasets at the pressure levels
         Args:
@@ -260,18 +287,18 @@ class MERRAgeneric():
    
         Lat  = {}
         Lon  = {}
-        lev  = {}
+        Lev  = {}
         time = {}
         for i in range(0, len(out_variable)):
             Lat[i] = {}
             Lon[i] = {}
-            lev[i] = {}
+            Lev[i] = {}
             time[i] = {}
             for j in range(0, len(out_variable[i])):
                 print "run", "Chunk:", i, "NO.:", j
                 Lat[i][j]   = out_variable[i][j][p1][:]
                 Lon[i][j]   = out_variable[i][j][p2][:]
-                lev[i][j]   = out_variable[i][j][p3][:]
+                Lev[i][j]   = out_variable[i][j][p3][:]
                 time[i][j]  = out_variable[i][j][p4][:]   
         
         #For Latitude and Longitude   
@@ -283,7 +310,14 @@ class MERRAgeneric():
             for j in range(len(Lat[i])):
                 lat[i][j] = Lat[i][j][id_lat]                
                 lon[i][j] = Lon[i][j][id_lon]
-        
+
+        #For elevation 
+        lev = {}               
+        for i in range(0, len(Lev)):
+            lev[i] = {}    
+            for j in range(len(Lev[i])):
+                
+                lev[i][j] = Lev[i][j][id_lev]                       
          
         return lat, lon, lev, time    
 
@@ -329,7 +363,7 @@ class MERRAgeneric():
         return lat, lon, time
 
 
-    def dataStuff_3d(self, position, id_lat, id_lon, out_variable):  
+    def dataStuff_3d(self, position, id_lat, id_lon, id_lev, out_variable):  
         """Define the outputs ones &
            pass the values of abstrated variables to the output ones and 
            restrict the area 
@@ -351,7 +385,7 @@ class MERRAgeneric():
            data_area: the extracted individual variable at pressure levels at the given area
            data_area_Structure: length of total_chunks * chunk_size * [time*level*lat*lon]
         """
-        print "get data"
+        print "Get Data"
         data = {}
         for i in range(0, len(out_variable)):
             data[i] = {}
@@ -360,13 +394,15 @@ class MERRAgeneric():
                 data[i][j] = out_variable[i][j][position][:]
 
         # Restrict the area for data set
-        print "restrict area"
+        print "Restrict Area and Elevation"
         data_area = {}
         for i in range(0, len(data)): 
             data_area[i] = {}
             for j in range(0, len(data[i])):
                 print "Run", "Chunk", i, "NO.:", j
-                data_area[i][j] = data[i][j][:,:,id_lat,:]
+                data_area[i][j] = data[i][j][:,id_lev,:,:]  
+            for j in range(0, len(data_area[i])):
+                data_area[i][j] = data_area[i][j][:,:,id_lat,:]
             for j in range(0, len(data_area[i])):
                 data_area[i][j] = data_area[i][j][:,:,:,id_lon]
             
@@ -402,7 +438,7 @@ class MERRAgeneric():
            data_area_structure: length of total_chunks * chunk_size * [time*lat*lon]
            
         """
-        print "get data"
+        print "Get Data"
         data = {}
         for i in range(0, len(out_variable)):
             data[i] = {}
@@ -411,7 +447,7 @@ class MERRAgeneric():
                 data[i][j] = out_variable[i][j][position][:]
 
         # Restrict the area for data set
-        print "restrict area"
+        print "Restrict Area"
         data_area = {}
         for i in range(0, len(data)): 
             data_area[i] = {}
@@ -530,7 +566,7 @@ class MERRApl_ana():
 
         return out_variable_3dmana 
         
-    def getlatLon_3d (self, area, ds, out_variable_3dmana, id_lat, id_lon):
+    def getlatLon_3d (self, area, ds, out_variable_3dmana, id_lat, id_lon, id_lev):
         # old: def getlatLon (self, area, ds, out_variable_3dmana, p1, p2, p3, p4, id_lat, id_lon):
         """
         Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 3D datasets
@@ -550,8 +586,10 @@ class MERRApl_ana():
         p4 = 7
         
         id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
+        
+        id_lev = MERRAgeneric().getPressureLevels(elevation)
 
-        lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, p1, p2, p3, p4, id_lat, id_lon)
+        lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, p1, p2, p3, p4, id_lat, id_lon, id_lev)
         
         return lat, lon, lev, time
     
@@ -600,7 +638,7 @@ class MERRApl_asm():
 
         return out_variable_3dmasm
         
-    def getlatLon_3d (self, area, ds, out_variable_3dmasm, id_lat, id_lon):       # Do I need to rename the out_variable or not??
+    def getlatLon_3d (self, area, ds, out_variable_3dmasm, id_lat, id_lon, id_lev):       # Do I need to rename the out_variable or not??
         """
         Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 3D datasets
         Args:
@@ -620,7 +658,9 @@ class MERRApl_asm():
         
         id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
         
-        lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, p1, p2, p3, p4, id_lat, id_lon)
+        id_lev = MERRAgeneric().getPressureLevels(elevation)
+        
+        lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, p1, p2, p3, p4, id_lat, id_lon, id_lev)
         
         return lat, lon, lev, time
         
@@ -656,7 +696,7 @@ class SaveNCDF_pl_3dmana():                                                     
             date, time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(beg, end)
             
             #Setup size of saving file
-            chunk_size = 5
+            # chunk_size = 5
             date_size = len(date)
             # for t,v, u, h, rh (double hour_size)
             hour_size = len(time[0][0])
@@ -671,7 +711,7 @@ class SaveNCDF_pl_3dmana():                                                     
             
             # get the data with subset of area for t
             print ("------Get Subset of Air Temperature at Pressure Levels------")
-            t = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmana)
+            t = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, id_lev, out_variable_3dmana)
             #restructing the shape 
             t_total = MERRAgeneric().restruDatastuff(t)
             del t
@@ -679,21 +719,21 @@ class SaveNCDF_pl_3dmana():                                                     
             
             # get the data wtih subset of area for V
             print ("------Get Subset of V Component of Wind at Pressure Levels------")
-            v = MERRAgeneric().dataStuff_3d(1, id_lat, id_lon, out_variable_3dmana)
+            v = MERRAgeneric().dataStuff_3d(1, id_lat, id_lon, id_lev, out_variable_3dmana)
             #restructing the shape 
             v_total = MERRAgeneric().restruDatastuff(v)
             del v
             
             #get the data with subset of area for U
             print ("------Get Subset of U Component of Wind at Pressure Levels------")
-            u = MERRAgeneric().dataStuff_3d(2, id_lat, id_lon, out_variable_3dmana)
+            u = MERRAgeneric().dataStuff_3d(2, id_lat, id_lon, id_lev, out_variable_3dmana)
             #restructing the shape 
             u_total = MERRAgeneric().restruDatastuff(u)
             del u
             
             #get the data with subset of area
             print ("------Get Subset of Geopotential Height at Pressure Levels------")
-            h = MERRAgeneric().dataStuff_3d(3, id_lat, id_lon, out_variable_3dmana)
+            h = MERRAgeneric().dataStuff_3d(3, id_lat, id_lon, id_lev, out_variable_3dmana)
             #restructing the shape 
             h_total = MERRAgeneric().restruDatastuff(h)
             del h
@@ -799,7 +839,7 @@ class SaveNCDF_pl_3dmasm():
             date,time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(beg, end)
             
             #Setup size of saving file
-            chunk_size = 5
+            # chunk_size = 5
             date_size = len(date)
             # for rh
             hour_size = len(time[0][0])
@@ -814,7 +854,7 @@ class SaveNCDF_pl_3dmasm():
 
             #get the data with subset of area for rh
             print ("------Get Subset of Relative Humidity at Pressure Levels------")
-            rh = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmasm)
+            rh = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, id_lev, out_variable_3dmasm)
             #restructing the shape 
             rh_total = MERRAgeneric().restruDatastuff(rh)
             del rh
@@ -1068,7 +1108,7 @@ class SaveNCDF_sa():
             date, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(beg, end)
             
             #Setup size of saving file
-            chunk_size = 5
+            # chunk_size = 5
             date_size = len(date)
             hour_size = len(time[0][0])
             int_size = date_size//chunk_size
@@ -1289,7 +1329,7 @@ class SaveNCDF_sr():
             date, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(beg, end)
 
             #Setup size of saving file
-            chunk_size = 5
+            # chunk_size = 5
             date_size = len(date)
             hour_size = len(time[0][0])
             int_size = date_size//chunk_size
@@ -1414,11 +1454,13 @@ from datetime import datetime, timedelta, date
 from os import path
 from netCDF4 import Dataset
 from dateutil.rrule import rrule, DAILY
+from math import exp
 
 import pydap.lib
 import numpy as np
 import csv
 import netCDF4 as nc
+import math
 import itertools
 import pandas
 import time as tc
@@ -1447,14 +1489,16 @@ beg   = "2016/01/01"
 end   = "2016/01/03" 
                                                                                
 # area bounding box [decimal degrees]
-area = {'bbS':50.0, 
+area = {'bbS': 50.0, 
         'bbN': 70.0, 
         'bbW':-120.0, 
         'bbE': -100.0}
  
 # Ground elevation range within area [m]
-ele_min = 0
-ele_max = 2000
+# ele_min = 0
+# ele_max = 2000
+elevation = {'min': 0,
+             'max': 2000}
 
 # Get merra-2 3d meteorological analysis variables at pressure levels
 
@@ -1479,9 +1523,11 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             
             id_lat, id_lon =  MERRAgeneric().getArea(area, ds_ana)
             
+            id_lev = MERRAgeneric().getPressureLevels(elevation)
+            
             out_variable_3dmana = MERRApl_ana().getVariables(ds_ana)
             
-            lat, lon, lev, time = MERRApl_ana().getlatLon_3d(area, ds_ana, out_variable_3dmana, id_lat, id_lon)
+            lat, lon, lev, time = MERRApl_ana().getlatLon_3d(area, ds_ana, out_variable_3dmana, id_lat, id_lon, id_lev)
            
             # Output merra-2 meteorological analysis variable at pressure levels
             #For T, V, U, H
@@ -1495,7 +1541,7 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             
             out_variable_3dmasm = MERRApl_asm().getVariables(ds_asm)
             
-            lat, lon, lev, time = MERRApl_asm().getlatLon_3d(area, ds_asm, out_variable_3dmasm, id_lat, id_lon)
+            lat, lon, lev, time = MERRApl_asm().getlatLon_3d(area, ds_asm, out_variable_3dmasm, id_lat, id_lon, id_lev)
             
             # Output meteorological assimilated variable at pressure levels
             # For RH
