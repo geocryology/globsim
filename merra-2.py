@@ -252,10 +252,12 @@ class MERRAgeneric():
         #http://en.wikipedia.org/wiki/Barometric_formula
         return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
     
-    def getPressureLevels(self, elevation): 
+    def getPressureLevels(self, ele_min, ele_max): 
         """Restrict list of MERRA-2 pressure levels to be download"""
-        Pmax = self.getPressure(elevation['min']) + 55
-        Pmin = self.getPressure(elevation['max']) - 55
+        # Pmax = self.getPressure(elevation['min']) + 55
+        # Pmin = self.getPressure(elevation['max']) - 55
+        Pmax = self.getPressure(ele_min) + 55
+        Pmin = self.getPressure(ele_max) - 55
         # levs = np.array([0.1, 0.3, 0.4, 0.5, 0.7, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10, 20, 30, 40, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 725, 750, 775, 
         #                  800, 825, 850, 875, 900, 925, 950, 975, 1000])
         levs = np.array([1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 70,    
@@ -587,7 +589,7 @@ class MERRApl_ana():
         
         id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
         
-        id_lev = MERRAgeneric().getPressureLevels(elevation)
+        id_lev = MERRAgeneric().getPressureLevels(ele_min, ele_max)
 
         lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, p1, p2, p3, p4, id_lat, id_lon, id_lev)
         
@@ -658,7 +660,7 @@ class MERRApl_asm():
         
         id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
         
-        id_lev = MERRAgeneric().getPressureLevels(elevation)
+        id_lev = MERRAgeneric().getPressureLevels(ele_min, ele_max)
         
         lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, p1, p2, p3, p4, id_lat, id_lon, id_lev)
         
@@ -1437,6 +1439,23 @@ class SaveNCDF_sr():
             
                 #close the root group
                 rootgrp.close()          
+
+"""
+Referenced from era_interim.py (Dr.Stepan Gruber): class ERAdownload()
+
+Class for accessing the parameter file for downloading Merra-2 specified variables, latitude and longitude coordinates,
+start, end date, minimum and maximum elevations.
+
+Args:
+    pfile: Full path to a Globsim Download Parameter file.
+
+"""   
+# class MERRAdownload(object):
+#     """
+#     Initialize the MERRAdownload class
+#     """
+#     def _init_(self, pfile):
+              
                
 #=========================For Run MERRA-2======================================
 # Output Datasets Types:
@@ -1455,6 +1474,7 @@ from os import path
 from netCDF4 import Dataset
 from dateutil.rrule import rrule, DAILY
 from math import exp
+from generic import ParameterIO, StationListRead
 
 import pydap.lib
 import numpy as np
@@ -1466,10 +1486,13 @@ import pandas
 import time as tc
 
 
+#Connect with globsim.py
+
+
 t_start = tc.time()
 
 #logictics 
-project_directory = '/home/xquan/src/globsim/examples/'
+project_directory = '/home/xquan/src/globsim/'
 credentials_directory = '~/.'
 
 #settings directory 
@@ -1495,10 +1518,10 @@ area = {'bbS': 50.0,
         'bbE': -100.0}
  
 # Ground elevation range within area [m]
-# ele_min = 0
-# ele_max = 2000
-elevation = {'min': 0,
-             'max': 2000}
+ele_min = 0
+ele_max = 2000
+# elevation = {'min': 0,
+#              'max': 2000}
 
 # Get merra-2 3d meteorological analysis variables at pressure levels
 
@@ -1523,7 +1546,7 @@ for dt in rrule(DAILY, dtstart = startDay, until = endDay):
             
             id_lat, id_lon =  MERRAgeneric().getArea(area, ds_ana)
             
-            id_lev = MERRAgeneric().getPressureLevels(elevation)
+            id_lev = MERRAgeneric().getPressureLevels(ele_min, ele_max)
             
             out_variable_3dmana = MERRApl_ana().getVariables(ds_ana)
             
