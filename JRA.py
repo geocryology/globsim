@@ -868,8 +868,8 @@ def main(pfile):
                   "downwelling_longwave_flux_in_air_assuming_clear_sky"  : ["downwelling_longwave_flux_in_air_assuming_clear_sky"],
                   "downwelling_shortwave_flux_in_air"                    : ["downwelling_shortwave_flux_in_air" ],
                   "downwelling_shortwave_flux_in_air_assuming_clear_sky" : ["downwelling_shortwave_flux_in_air_assuming_clear_sky"],
-                  "wind_from_direction"                                  : ["eastward_wind","geopotential_height"],
-                  "wind_speed"                                           : ["northward_wind","geopotential_height"],
+                  "wind_from_direction"                                  : ["northward_wind", "eastward_wind","geopotential_height"],
+                  "wind_speed"                                           : ["northward_wind", "eastward_wind","geopotential_height"],
                   "geopotential_height"                                  : ["geopotential_height"]
                   }
                   
@@ -897,7 +897,7 @@ def main(pfile):
   
     isobaric_dictionary = { 
                           "geopotential_height"  : ["gh", "anl_p125_hgt.", 37, "gpm"],
-                          "air _temperature"     : ["t", "anl_p125_tmp.", 37, "K"],
+                          "air_temperature"     : ["t", "anl_p125_tmp.", 37, "K"],
                           "eastward_wind"        : ["u", "anl_p125_ugrd.", 37, "m/s"],
                           "northward_wind"       : ["v", "anl_p125_vgrd.", 37, "m/s"],
                           "relative_humidity"    : ["r", "anl_p125_rh.", 27, "%"]
