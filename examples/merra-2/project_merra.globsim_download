@@ -20,7 +20,9 @@ ele_max = 2000
 
 # time slice [YYYY/MM/DD]
 beg = 2016/01/01
-end = 2016/01/06
+end = 2016/01/02
 
 # variables to download [CF Standard Name Table]
 # variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, wind_from_direction, wind_speed
+  variables = air_temperature, eastward_wind, northward_wind, geopotential_height, relative_humidity, 2-meter_air_temperature, 2-meter_eastward_wind, 2-meter_northward_wind, 10-meter_eastward_wind, 10-meter_northward_wind, precipitation_flux, surface_net_downward_shortwave_flux, surface_net_downward_longwave_flux, surface_net_downward_shortwave_flux_assuming_clear_sky, surface_net_downward_longward_flux_assuming_clear_sky
+# variables = air_temperature, 
