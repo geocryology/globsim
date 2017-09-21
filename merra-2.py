@@ -102,8 +102,8 @@ class MERRAgeneric():
         baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 2d dataset
         baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 3d dataset
  
-        baseurl_3dn = ('M2I6NPANA.5.12.4/','/MERRA2_400.inst6_3d_ana_Np.')            # sub url of 3d Analyzed Meteorological Fields data           
-        baseurl_3da = ('M2I3NPASM.5.12.4/','/MERRA2_400.inst3_3d_asm_Np.')            # sub url of 3d Assimilated Meteorological Fields data
+        baseurl_3dn = ('M2I6NPANA.5.12.4/','/MERRA2_400.inst6_3d_ana_Np.')            # sub url of 3d Pressure Levels Analyzed Meteorological Fields data         
+        baseurl_3da = ('M2I3NPASM.5.12.4/','/MERRA2_400.inst3_3d_asm_Np.')            # sub url of 3d Pressure Levels Assimilated Meteorological Fields data
         baseurl_2dm = ('M2I1NXASM.5.12.4/','/MERRA2_400.inst1_2d_asm_Nx.')            # sub url of 2d meteorological Diagnostics data     
         baseurl_2dr = ('M2T1NXRAD.5.12.4/','/MERRA2_400.tavg1_2d_rad_Nx.')            # sub url of 2d radiation Diagnostics data
         baseurl_2ds = ('M2T1NXFLX.5.12.4/','/MERRA2_400.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data                                                              
@@ -698,10 +698,10 @@ class SaveNCDF_pl_3dmana():                                                     
             v_total = []
             h_total = []
             
-            var_out = {'T':['air_temperature', 'air temperature','K', t_total],
-                       'U':['eastward_wind','eastward wind component','m/s', u_total],
-                       'V':['northward_wind','northward wind component', 'm/s', v_total],
-                       'H':['geopotential_height','geopotential height', 'm', h_total]}            
+            var_out = {'T':['air_temperature', 'air_temperature','K', t_total],
+                       'U':['eastward_wind','eastward_wind_component','m/s', u_total],
+                       'V':['northward_wind','northward_wind_component', 'm/s', v_total],
+                       'H':['geopotential_height','geopotential_height', 'm', h_total]}            
             
             var_list = []
             for i in range(0, len(get_variables[0:-4])):
@@ -716,6 +716,9 @@ class SaveNCDF_pl_3dmana():                                                     
                         del var_total
                         var_list.append([get_variables[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
                         
+            # export variable Geopotential Height 
+            gp = h_total
+            
             # save nc file 
             var_low = 0
             var_up = 0
@@ -758,7 +761,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 Time = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
                 # Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-1-1 00:00:0.0"                 
+                Time.units  = "hour since 1980-1-1 00:00:00"                 
                 Time.calendar = "gregorian"   
                 # pass the values
                 netCDFTime = []
@@ -791,7 +794,9 @@ class SaveNCDF_pl_3dmana():                                                     
                 Longitudes[:] = lon[0][0][:]                                   
     
                 #close the root group
-                rootgrp.close()          
+                rootgrp.close()
+               
+            return gp           
 
 class SaveNCDF_pl_3dmasm():                                                        
         """ write output netCDF file for abstracted variables from original meteorological data 
@@ -848,8 +853,10 @@ class SaveNCDF_pl_3dmasm():
                         var_out[x][3] = var_total
                         del var_total
                         var_list.append([get_variables[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
-
-                        
+            
+            # Add Geopential Height 
+            # var_list.insert(1,['H','geopotential_height','geopotential height', 'm', gp])
+            
             # save nc file 
             var_low = 0
             var_up = 0
@@ -891,7 +898,7 @@ class SaveNCDF_pl_3dmasm():
                 Time = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
                 # Time.units = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-1-1 00:00:0.0"                  
+                Time.units  = "hour since 1980-01-01 00:00:00"                  
                 Time.calendar = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1108,12 +1115,12 @@ class SaveNCDF_sa():
             v10m_total = []
             prectot_total = []
             
-            var_out = {'T2M':['2-meter_air_temperature', 'temperature at 2 m above the displacement height','K', t2m_total],
-                       'U2M':['2-meter_eastward_wind','eastward wind at 2 m above the displacement height','m/s', u2m_total],
-                       'V2M':['2-meter_northward_wind','northward wind at 2 m above the displacement height','m/s', v2m_total],
-                       'U10M':['10-meter_eastward_wind','eastward wind at 10 m above displacement height','m/s', u10m_total],
-                       'V10M':['10-meter_northward_wind','northward wind at 10 m above the displacement height', 'm/s', v10m_total],
-                       'PRECTOT':['precipitation_flux','total surface precipitation flux', 'kg/m2/s', prectot_total]}            
+            var_out = {'T2M':['2-meter_air_temperature', 'temperature_at_2m_above_the_displacement_height','K', t2m_total],
+                       'U2M':['2-meter_eastward_wind','eastward_wind_at _2m_above_the_displacement_height','m/s', u2m_total],
+                       'V2M':['2-meter_northward_wind','northward_wind_at_2m_above_the_displacement_height','m/s', v2m_total],
+                       'U10M':['10-meter_eastward_wind','eastward_wind_at_10m_above_displacement_height','m/s', u10m_total],
+                       'V10M':['10-meter_northward_wind','northward_wind_at_10m_above_the_displacement_height', 'm/s', v10m_total],
+                       'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total]}            
             
             var_list = []
             for i in range(0, len(get_variables_2dm[0:-3])):
@@ -1182,7 +1189,7 @@ class SaveNCDF_sa():
                 Time  = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
                 # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-1-1 00:00:0.0" 
+                Time.units  = "hour since 1980-1-1 00:00:00" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1219,9 +1226,15 @@ class MERRAsr():
               the indies of defined latitudes and longitudes.  
         
         variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['SWGNT','LWGNT','lat','lon','time'].
+                   , or all of these: ['SWGNT','LWGNT','SWGNTCLR','LWGNTCLR','SEGDN','SEGDNCLR','LWGAB','LWGABCLR','lat','lon','time'].
                    SWGNT:surface net downward shortwave flux(time*lat*lon)
                    LWGNT:surface net downward longwave flux(time*lat*lon)
+                   SWGNTCLR:surface net downward shortwave flux assuming clear sky(time*lat*lon)
+                   LWGNTCLR:surface net downward longwave flux assuming clear sky(time*lat*lon)
+                   SWGDN: surface incoming shortwave flux(time*lat*lon)
+                   LWGAB: surface absorbed longwave radiation(time*lat*lon)
+                   SWGDNCLR: surface incoming shortwave flux assuming clear sky(time*lat*lon)
+                   LWGABCLR: surface incoming longwave flux asusming clear sky(time*lat*lon)  
         
     """
     
@@ -1241,7 +1254,7 @@ class MERRAsr():
     
     def getVariables(self, get_variables, ds):
         """Return the objected variables from the specific MERRA-2 2D radiation Diagnostics datasets        
-            get_variables = ['SWGNT','LWGNT', 'SWGNTCLR', 'LWGNTCLR', 'lat','lon','time']
+            get_variables = ['SWGNT','LWGNT', 'SWGNTCLR', 'LWGNTCLR','SWGDN','LWGAB', 'SWGDNCLR', 'LWGABCLR','lat','lon','time']
             urls = urls_2dr
             ds = MERRAgeneric.download( username, password, urls, chunk_size)   
         """
@@ -1276,16 +1289,24 @@ class SaveNCDF_sr():
                        swgnt(time,lat,lon), 
                        lwgnt(time,lat,lon),
                        swgntclr(time,lat,lon)
-                       lwgntclr(time,lat,lon) 
+                       lwgntclr(time,lat,lon)
+                       swgdn(time,lat,lon),
+                       swgdnclr(time,lat,lon),
+                       lwgab(time,lat,lon),
+                       lwgabclr(time,lat,lon)
                        time, lat, lon.
             Args: 
             dir_data  = '/Users/xquan/data'  
             file_ncdf  = path.join(dir_data,'merra_sr.nc') # edit the name of saving nc file with specific date later, to save the data by each chunk
             date, time_ind3 = MERRAgeneric().getTime(beg, end)
-            swgnt = MERRAgeneric().dataStuff_2d(0, id_lat, id_lon, out_variable_2dr) 
-            lwgnt = MERRAgeneric().dataStuff_2d(1, id_lat, id_lon, out_variable_2dr)
-            swgntclr = MERRAgeneric().dataStuff_2d(2, id_lat, id_lon, out_variable_2dr)
-            lwgntclr = MERRAgeneric().dataStuff_2d(3, id_lat, id_lon, out_variable_2dr)
+            swgnt = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr) 
+            lwgnt = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
+            swgntclr = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
+            lwgntclr = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
+            swgdn = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
+            swgdnclr = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
+            lwgab = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
+            lwgabclr = MERRAgeneric().dataStuff_2d(id, id_lat, id_lon, out_variable_2dr)
             lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dr, id_lat, id_lon)
                      
         """
@@ -1299,6 +1320,9 @@ class SaveNCDF_sr():
             """
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
 
+            #Set up time_ind3 with the begin at year-mm-dd 00:30:00 
+            time_ind3 = time_ind3 + timedelta(minutes=30)
+            
             #Setup size of saving file
             date_size = len(date_ind)
             hour_size = len(time[0][0])
@@ -1315,11 +1339,19 @@ class SaveNCDF_sr():
             lwgnt_total = []
             swgntclr_total = []
             lwgntclr_total = []
+            swgdn_total = []
+            swgdnclr_total = []
+            lwgab_total = []
+            lwgabclr_total = []
             
-            var_out = {'SWGNT':['surface_net_downward_shortwave_flux', 'surface net downward shortwave flux','W/m2', swgnt_total],
-                       'LWGNT':['surface_net_downward_longwave_flux','net downward longwave flux at the surface','W/m2', lwgnt_total],
-                       'SWGNTCLR':['surface_net_downward_shortwave_flux_assuming_clear_sky','surface net downward shortwave flux assuming clear sky', 'W/m2', swgntclr_total],
-                       'LWGNTCLR':['surface_net_downward_longwave_flux_assuming_clear_sky','net downward longwave flux at the surface for cloud-free sky', 'W/m2', lwgntclr_total]}            
+            var_out = {'SWGNT':['surface_net_downward_shortwave_flux', 'surface_net_downward_shortwave_flux','W/m2', swgnt_total],
+                       'LWGNT':['surface_net_downward_longwave_flux','surface_net_downward_longwave_flux','W/m2', lwgnt_total],
+                       'SWGNTCLR':['surface_net_downward_shortwave_flux_assuming_clear_sky','surface_net_downward_shortwave_flux_assuming_clear_sky', 'W/m2', swgntclr_total],
+                       'LWGNTCLR':['surface_net_downward_longwave_flux_assuming_clear_sky','surface_net_downward_longwave_flux_assuming_clear_sky', 'W/m2', lwgntclr_total],
+                       'SWGDN': ['surface_incoming_shortwave_flux', 'surface_incoming_shortwave_flux', 'W/m2', swgdn_total],
+                       'SWGDNCLR': ['surface_incoming_shortwave_flux_assuming_clear_sky', 'surface_incoming_shortwave_flux_assuming_clear_sky', 'W/m2', swgdnclr_total],
+                       'LWGAB': ['surface_absorbed_longwave_radiation', 'surface_absorbed_longwave_radiation', 'W/m2', lwgab_total],
+                       'LWGABCLR':['surface_absorbed_longwave_radiation_assuming_clear_sky', 'surface_absorbed_longwave_radiation_assuming_clear_sky', 'W/m2', lwgabclr_total]}            
             
             var_list = []
             for i in range(0, len(get_variables[0:-3])):
@@ -1372,8 +1404,8 @@ class SaveNCDF_sr():
                                     
                 Time               = rootgrp.createVariable('times', 'i4', ('times'))
                 Time.standard_name = "time"
-                # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d')) # needed to add the beging date into it
-                Time.units  = "hour since 1980-1-1 00:00:0.0" 
+                # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                Time.units  = "hour since 1980-1-1 00:30:00" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1508,11 +1540,11 @@ class MERRAdownload(object):
                               'precipitation_amount': ['precipitation_flux'],
                               'wind_from_direction':['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
                               'wind_speed': ['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
-                              'downwelling_shortwave_flux_in_air': ['surface_net_downward_shortwave_flux'],
-                              'downwelling_longwave_flux_in_air': ['surface_net_downward_longwave_flux'],
-                              'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['surface_net_downward_shortwave_flux_assuming_clear_sky'],
-                              'downwelling_longwave_flux_in_air_assuming_clear_sky': ['surface_net_downward_longwave_flux_assuming_clear_sky']}
-         
+                              'downwelling_shortwave_flux_in_air': ['surface_net_downward_shortwave_flux', 'surface_incoming_shortwave_flux' ],
+                              'downwelling_longwave_flux_in_air': ['surface_net_downward_longwave_flux', 'surface_absorbed_longwave_flux'],
+                              'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['surface_net_downward_shortwave_flux_assuming_clear_sky','surface_incoming_shortwave_flux_assuming_clear_sky'],
+                              'downwelling_longwave_flux_in_air_assuming_clear_sky': ['surface_net_downward_longwave_flux_assuming_clear_sky', 'surface_absorbed_longwave_flux_assuming_clear_sky']}
+        
         # build variables Standards Names and referenced Names for downloading from orginal MERRA-2 datasets
         full_variables_pl_ana = {'air_temperature':'T',
                                   'eastward_wind':'U',
@@ -1532,8 +1564,11 @@ class MERRAdownload(object):
         full_variables_sr = {'surface_net_downward_shortwave_flux':'SWGNT',
                              'surface_net_downward_longwave_flux':'LWGNT',
                              'surface_net_downward_shortwave_flux_assuming_clear_sky': 'SWGNTCLR',
-                             'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR'}
-                             
+                             'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR',
+                             'surface_incoming_shortwave_flux' : 'SWGDN',
+                             'surface_absorbed_longwave_flux': 'LWGAB',
+                             'surface_incoming_shortwave_flux_assuming_clear_sky' : 'SWGDNCLR',
+                             'surface_absorbed_longwave_flux_assuming_clear_sky' : 'LWGABCLR'}
                              
         x = 0
         for dt in rrule(DAILY, dtstart = startDay, until = endDay):
@@ -1589,6 +1624,8 @@ class MERRAdownload(object):
                     #For T, V, U, H
                     
                     SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data)
+                    
+                    # gp = SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data)
                     
                     print ("----------------------------------------Result NO.1: Completed----------------------------------------")
         
