@@ -36,22 +36,19 @@
        Wind Speed & Wind Direction               10-meter_northward_wind                                    V10M
        precipitation_flux                        precipitation_flux                                         PRECTOT
        precipitation_amount                      NONE                                                       NONE                                                   
-       surface_net_downward_shortwave_flux       surface_net_downward_shortwave_flux                        SWGNT
-       surface_net_downward_longwave_flux        surface_net_downward_longwave_flux                         LWGNT
-       surface_net_downward_shortwave_flux       surface_net_downward_shortwave_flux
-       _assuming_clear_sky                       _assuming_clear_sky                                        SWGNTCLR
-       surface_net_downward_longward_flux        surface_net_downward_longward_flux
-       _assuming_clear_sky                       _assuming_clear_sky                                        LWGNTCLR
        downwelling_shortwave_flux_in_air         NONE                                                       NONE
        downwelling_longwave_flux_in_air          NONE                                                       NONE
        downwelling_shortwave_flux_in_air
        _assuming_clear_sky                       NONE                                                       NONE
        downwelling_longwave_flux_in_air
        _assuming_clear_sky                       NONE                                                       NONE
+       surface_net_downward_longwave_flux        surface_net_downward_longwave_flux                         LWGNT
+       surface_net_downward_longward_flux        surface_net_downward_longwave_flux
+       _assuming_clear_sky                       _assuming_clear_sky                                        LWGNTCLR
        NONE                                      surface_incoming_shortwave_flux                            SWGDN
        NONE                                      surface_incoming_shortewave_flux_assuming_clear_sky        SWGDNCLR
-       NONE                                      surface_absorbed_longwave_radiation                        LWGAB
-       NONE                                      surface_abosrbed_longwave_radiation_assuming_clear_sky.    LWGABCLR
+       NONE                                      longwave_flux_emitted_from_surface                         LWGEM
+
 
    
 Important Notes:
@@ -68,10 +65,10 @@ Important Notes:
      Wanted Variables                                      Replaced Variables
      
      precipitation_amount                                  precipitation_flux
-     downwelling_shortwave_flux_in_air                     surface_net_downward_shortwave_flux, surface_incoming_shortwave_flux
-     downwelling_longwave_flux_in_air                      surface_net_downward_longwave_flux, surface_aborbed_longwave_radiation
-     downwelling_shortwave_flux_in_air_assuming_clear_sky  surface_net_downward_shortwave_flux_assuming_clear_sky, surface_incoming_shortwave_flux_assuming_clear_sky
-     downwelling_longwave_flux_in_air_assuming_clear_sky   surface_net_downward_longwave_flux_assuming_clear_sky, surface_aborbed_longwave_radiation_assuming_clear_sky 
+     downwelling_shortwave_flux_in_air                     surface_incoming_shortwave_flux
+     downwelling_longwave_flux_in_air                      surface_net_downward_longwave_flux, longwave flux emitted from surface
+     downwelling_shortwave_flux_in_air_assuming_clear_sky  surface_incoming_shortwave_flux_assuming_clear_sky
+     downwelling_longwave_flux_in_air_assuming_clear_sky   surface_net_downward_longwave_flux_assuming_clear_sky, longwave_flux_emitted_from_surface
      
 
 4. Update and extend the list of Standard Names if it is needed. 
