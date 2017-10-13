@@ -667,7 +667,7 @@ class SaveNCDF_pl_3dmana():                                                     
                        geopotential heights(time,lev,lat,lon)
                        time, level, lat, lon.
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded")  
             date, time_ind1 = MERRAgeneric().getTime(beg, end)
             t = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmana) 
             u = MERRAgeneric().dataStuff_3d(2,  id_lat, id_lon, out_variable_3dmana)
@@ -681,7 +681,7 @@ class SaveNCDF_pl_3dmana():                                                     
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded") 
                                
             """
             date_ind, time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -814,7 +814,7 @@ class SaveNCDF_pl_3dmasm():
                        relative humidity(time,lev,lat,lon), 
                        time, level, lat, lon.
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded") 
             date, time_ind2 = MERRAgeneric().getTime(beg, end)
             rh = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmasm)  
             lat, lon, lev, time = MERRAgeneric().latLon(out_variable_3dmasm, id_lat, id_lon) 
@@ -825,7 +825,7 @@ class SaveNCDF_pl_3dmasm():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded")  
                                
             """
             date_ind,time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -1078,7 +1078,8 @@ class MERRAsf():
 
 
 class SaveNCDF_sa():                                  
-        """ write output netCDF file for abstracted variables from original 2d meteorological Diagnostics datasetsc and suface flux Diagnostics datasets
+        """ write output netCDF file for abstracted variables from original 2d meteorological Diagnostics dataset
+        and suface flux Diagnostics datasets
             demension: time, lat, lon
             variables: time: array([   0,   60,  120,  180,  240,  300,  360,  420,  480,  540,  600,
                              660,  720,  780,  840,  900,  960, 1020, 1080, 1140, 1200, 1260,
@@ -1091,7 +1092,7 @@ class SaveNCDF_sa():
                        prectot(time*lat*lon), 
                        time, lat, lon.
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded")
             date, time_ind3 = MERRAgeneric().getTime(beg, end)
             t2m = dataStuff_2d(0, id_lat, id_lon, out_variable_2dm) 
             u2m = dataStuff_2d(1, id_lat, id_lon, out_variable_2dm)
@@ -1107,7 +1108,7 @@ class SaveNCDF_sa():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded") 
             """
             
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -1329,7 +1330,7 @@ class SaveNCDF_sr():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = '/Users/xquan/data'  
+            dir_data  = path.join(project_directory, "merra2/downloaded")  
             
             """
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -1365,8 +1366,7 @@ class SaveNCDF_sr():
                        'LWGNTCLR':['surface_net_downward_longwave_flux_assuming_clear_sky','surface_net_downward_longwave_flux_assuming_clear_sky', 'W/m2', lwgntclr_total],
                        'LWGAB': ['surface_absorbed_longwave_radiation', 'surface_absorbed_longwave_radiation', 'W/m2', lwgab_total],
                        'LWGABCLR': ['surface_abosrbed_longwave_radiation_assuming_clear_sky','surface_abosrbed_longwave_radiation_assuming_clear_sky', 'W/m2', lwgabclr_total]}
-             
-            
+                       
             var_list = []
             for i in range(0, len(get_variables[0:-3])):
                 for x in var_out.keys():
@@ -1383,21 +1383,37 @@ class SaveNCDF_sr():
                             lwgntclr_total = var_total
                         elif x == 'LWGEM':
                             lwgem_total = var_total
+                        elif x == 'LWGAB':  
+                            lwgab_total = var_total
+                        elif x == 'LWGABCLR':
+                            lwgabclr_total = var_total      
                         del var_total
                         var_list.append([get_variables[i],var_out[x][0],var_out[x][1],var_out[x][2],var_out[x][3]])            
-
-            
+          
             # Getting downwelling longwave radiation flux conversed by the function below :
-            # downwelling longwave flux in air - Upweling longwave flux from surface = surface net downward longwave flux:
-            # - downwelling longwave flux in air =  Upweling longwave flux from surface + surface net downward longwave flux
-            # - downwelling longwave flux in air assuming clear sky =  Upweling longwave flux from surface + surface net downward longwave flux assuming clear sky
+            # - downwelling longwave flux in air - Upwelling longwave flux from surface = surface net downward longwave flux:
+            # - downwelling longwave flux in air =  Upwelling longwave flux from surface + surface net downward longwave flux
+            # - downwelling longwave flux in air assuming clear sky =  Upwelling longwave flux from surface + surface net downward longwave flux assuming clear sky
             
             lwgdn_total = lwgnt_total + lwgem_total
             lwgdnclr_total = lwgntclr_total + lwgem_total
+            
+            # Analyzed Calcualtion:
+            # - DIFF_LWGDN_LWGAB: Difference between Calculated Downwelling Longwave Flux in Air and Surface Absorbed Longwave Radiation;
+            # - DIFF_LWGDNCLR_LWGABCLR: Difference between Calculated Downwelling Longwave Flux in Air Assuming Clear Sky and Surface Absorbed Longwave Radiation Assuming Clear Sky
+            
+            diff_lwgdn_lwgab_total = lwgdn_total - lwgab_total
+            diff_lwgdnclr_lwgabclr_total = lwgdnclr_total- lwgabclr_total
+            
+            # print 'Maximum of DIFF_LWGDN_LWGAB:', diff_lwgdn_lwgab_total.max()
+            # print 'Minimum of DIFF_LWGDN_LWGAB:' , diff_lwgdn_lwgab_total.min()
+            # print 'Maximum of DIFF_LWGDNCLR_LWGABCLR:' , diff_lwgdnclr_lwgabclr_total.max()
+            # print 'Minimum of DIFF_LWGDNCLR_LWGABCLR:' , diff_lwgdnclr_lwgabclr_total.min()  
                  
             var_list.append(['LWGDN', 'downwelling_longwave_flux_in_air','downwelling_longwave_flux_in_air_calculated','W/m2', lwgdn_total])
             var_list.append(['LWGDNCLR','downwelling_longwave_flux_in_air_assuming_clear_sky','downwelling_longwave_flux_in_air_assuming_clear_sky_calculated','W/m2', lwgdnclr_total])
-             
+            var_list.append(['DIFF_LWGDN_LWGAB', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','W/m2', diff_lwgdn_lwgab_total])
+            var_list.append(['DIFF_LWGDNCLR_LWGABCLR', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','W/m2', diff_lwgdnclr_lwgabclr_total]) 
             
             print len(var_list)
                
@@ -1475,8 +1491,7 @@ class MERRAsc():
               north and south, and the longitudes west and east [decimal deg],to get 
               the indies of defined latitudes and longitudes.  
                       
-        variable:  List of variable(s) to download that can include one, several
-                   , or all of these: ['PHIS','FRLAND', 'lat','lon','time'].
+        variable:  List of variable(s) to download that can include all of these: ['PHIS','FRLAKE','FRLAND','FRLANDICE','FROCEAN','SGH','lat','lon','time'].
               
     """
     
@@ -1533,26 +1548,33 @@ class SaveNCDF_sc():
                        frland(time*lat*lon),
                        time, lat, lon
             Args: 
-            dir_data  = self.directory  
+            dir_data  = path.join(project_directory, "merra2/downloaded") 
             phis = dataStuff_2d(position, out_variable_2dc)
             frland = dataStuff_2d(position, out_variable_2dc) 
             lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dc, id_lat, id_lon)
-                     
         """
      
         def saveData(self, get_variables_2dc, id_lat, id_lon, out_variable_2dc, chunk_size, time, lat, lon, dir_data):
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = self.directory 
+            dir_data  = path.join(project_directory, "merra2/downloaded")
             """
             
             #Get the wanted variables and set up the list for saving in netCDF file
             phis_total = []
+            frlake_total = []
             frland_total = []
+            frlandice_total = []
+            frocean_total = []
+            sgh_total = []
             
             var_out = {'PHIS':['surface_geopotential_height', 'surface_geopotential_height','m2/s2', phis_total],
-                       'FRLAND':['fraction_of_land','fraction_of_land', '1', frland_total]}            
+                       'FRLAKE':['fraction_of_lake','fraction_of_lake','1',frlake_total],
+                       'FRLAND':['fraction_of_land','fraction_of_land', '1', frland_total],
+                       'FRLANDICE':['fraction_of_land_ice', 'fraction_of_land_ice', '1', frlandice_total],
+                       'FROCEAN':['fraction_of_ocean', 'fraction_of_ocean', '1',frocean_total],
+                       'SGH':['isotropic_stdv_of_GWD_topography', 'isotropic_stdv_of_GWD_topography', 'm', sgh_total]}            
             
             var_list = []
             for i in range(0, len(get_variables_2dc[0:-3])):
@@ -1651,7 +1673,7 @@ class MERRAdownload(object):
         MERRAd.retrieve()
 
     Example:
-        pfile = '/home/xquan/src/globsim/examples/merra-2/project_merra.globsim_download'
+        pfile = '/home/xquan/src/globsim/examples/par/examples.globsim_download'
         MERRAd = MERRAdownload(pfile)
         MERRAd.retrieve()   
     """
@@ -1675,12 +1697,13 @@ class MERRAdownload(object):
                           'max' : par.ele_max}
         
         # data directory for MERRA-2  
-        self.directory = path.join(par.project_directory, "merra-2/merra2int")  
+        self.directory = path.join(par.project_directory, "merra2")  
         if path.isdir(self.directory) == False:
             raise ValueError("Directory does not exist: " + self.directory)   
         
         # credential 
         self.credential = path.join(par.credentials_directory, ".merrarc")
+        print self.credential
         self.account = open(self.credential, "r")
         self.inf = self.account.readlines()
         self.username = ''.join(self.inf[0].split())                                     # pass the first line to username  (covert list to str) 
@@ -1692,8 +1715,8 @@ class MERRAdownload(object):
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size
         
-        #self.dir_data = '/Users/xquan/data'
-        self.dir_data = self.directory
+        # the diretory for storing downloaded data
+        self.dir_data = path.join(self.directory,"downloaded")
     
     def retrieve(self):
         """
@@ -1956,7 +1979,7 @@ class MERRAdownload(object):
         print ("-----Get Wanted Variables From Merra-2 2d, Time-Invariant, Single-level, Constant Model Parameters-----")
         
         # get the shared variables dictionaries and pass the information to the build-in dictionaries
-        get_variables_2dc = ['PHIS', 'FRLAND', 'lat', 'lon', 'time']
+        get_variables_2dc = ['PHIS','FRLAKE','FRLAND','FRLANDICE','FROCEAN','SGH','lat','lon','time']
         
         print get_variables_2dc                   
         
@@ -1998,8 +2021,8 @@ class MERRAdownload(object):
 #         #read parameter file
 #         self.ifile = ifile
 #         par = ParameterIO(self.ifile)
-#         self.dir_inp = path.join(par.project_directory,'merra-2/merra2int') 
-#         self.dir_out = path.join(par.project_directory,'station')
+#         self.dir_inp = path.join(par.project_directory,'merra2/downloaded_data') 
+#         self.dir_out = path.join(par.project_directory,'merra2/station_2d')
 #         self.variables = par.variables
 #         self.list_name = par.list_name
 #         self.stations_csv = path.join(par.project_directory,
@@ -2061,7 +2084,7 @@ class MERRAdownload(object):
 #     
 #==============================================================================    
 
-pfile = '/Users/xquan/src/globsim/examples/merra-2/project_merra.globsim_download'
+pfile = '/Users/xquan/src/globsim/examples/merra2/project_merra.globsim_download'
 
 MERRAd = MERRAdownload(pfile)
 
