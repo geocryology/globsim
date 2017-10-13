@@ -734,14 +734,14 @@ class SaveNCDF_ml_3dmana():                                                     
                 LAT = lat[0][0]
                 LON = lon[0][0]
                 #dimensions
-                times  = rootgrp.createDimension('times', var)
-                levels = rootgrp.createDimension('levels', len(LEV))
+                time  = rootgrp.createDimension('time', var)
+                level = rootgrp.createDimension('level', len(LEV))
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
                 
                 #Output the results of output variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','levels','lats', 'lons'),fill_value=9.9999999E14)       
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','level','lats', 'lons'),fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
@@ -752,7 +752,7 @@ class SaveNCDF_ml_3dmana():                                                     
                     out_var[:,:,:,:] = var_list[x][4][var_low:var_up,:,:,:]    #data generic name with data stored in it
                 
     
-                Time = rootgrp.createVariable('times', 'i4', ('times'))
+                Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
                 Time.units  = "hour since 1980-1-1 00:00:00"                 
@@ -763,7 +763,7 @@ class SaveNCDF_ml_3dmana():                                                     
                     netCDFTime.append(nc.date2num(time_ind1[x], units = Time.units, calendar = Time.calendar))
                 Time[:] = netCDFTime[var_low:var_up]                                                                                                        
                                                         
-                Level = rootgrp.createVariable('levels','i4', ('levels'))
+                Level = rootgrp.createVariable('level','i4', ('level'))
                 Level.standard_name = "model_layers"
                 Level.long_name = "vertical level"
                 Level.units = "layer"
@@ -775,13 +775,13 @@ class SaveNCDF_ml_3dmana():                                                     
                     netCDFLevel.append(lev[0][0][x])
                 Level[:] = netCDFLevel[:]                    
 
-                Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
+                Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = "Y"
                 Latitudes[:]  = lat[0][0][:]                                   
 
-                Longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
+                Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = "X"
@@ -880,14 +880,14 @@ class SaveNCDF_ml_3dmasm():
                 LAT = lat[0][0]
                 LON = lon[0][0]
                 #dimensions
-                times  = rootgrp.createDimension('times', var)
-                levels = rootgrp.createDimension('levels', len(LEV))
+                time  = rootgrp.createDimension('time', var)
+                level = rootgrp.createDimension('level', len(LEV))
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
                 
                 #Output the results of output variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','levels','lats','lons'),fill_value=9.9999999E14)       
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','level','lats','lons'),fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
@@ -897,7 +897,7 @@ class SaveNCDF_ml_3dmasm():
                     out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:,:] = var_list[x][4][var_low:var_up,:,:,:]       #data generic name with data stored in it
                 
-                Time = rootgrp.createVariable('times', 'i4', ('times'))
+                Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
                 Time.units  = "hour since 1980-01-01 00:00:00"                  
@@ -908,7 +908,7 @@ class SaveNCDF_ml_3dmasm():
                     netCDFTime.append(nc.date2num(time_ind2[x], units = Time.units, calendar = Time.calendar))      
                 Time[:] = netCDFTime[var_low:var_up]                                                                                                        
                                
-                Level = rootgrp.createVariable('levels','i4', ('levels'))
+                Level = rootgrp.createVariable('level','i4', ('level'))
                 Level.standard_name = "model_layers"
                 Level.long_name = "vertical level"
                 Level.units = "layer"
@@ -917,13 +917,13 @@ class SaveNCDF_ml_3dmasm():
                 # pass the values
                 Level[:] = lev[0][0][:]                    
 
-                Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
+                Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = 'Y'
                 Latitudes[:]  = lat[0][0][:]                    # pass the values of latitude
 
-                Longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
+                Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = 'X'
@@ -1172,13 +1172,13 @@ class SaveNCDF_sa():
                 LON = lon[0][0]
                 
                 #dimensions
-                times  = rootgrp.createDimension('times', var)
+                time  = rootgrp.createDimension('time', var)
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
                 
                 #Output the results of extracted variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','lats','lons'),fill_value=9.9999999E14)       
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats','lons'),fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
@@ -1188,7 +1188,7 @@ class SaveNCDF_sa():
                     out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:] = var_list[x][4][var_low:var_up,:,:]        #data generic name with data stored in it
         
-                Time  = rootgrp.createVariable('times', 'i4', ('times'))
+                Time  = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
                 Time.units  = "hour since 1980-1-1 00:00:00" 
@@ -1199,13 +1199,13 @@ class SaveNCDF_sa():
                     netCDFTime.append(nc.date2num(time_ind3[x], units = Time.units, calendar = Time.calendar))
                 Time[:] = netCDFTime[var_low:var_up]                                                                                                        
     
-                Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
+                Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = "Y"
                 Latitudes[:]  = lat[0][0][:]                    # pass the values of latitude
     
-                Longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
+                Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = "X"
@@ -1306,7 +1306,7 @@ class SaveNCDF_sr():
             
             Calculated:
             lwgdn = lwgnt + lwgem
-            lwgdnclr = lwgnt + lwgem    
+            lwgdnclr = lwgntclr + lwgem    
          
         """
 
@@ -1405,13 +1405,13 @@ class SaveNCDF_sr():
                 LON = lon[0][0]
     
                 #dimensions
-                times  = rootgrp.createDimension('times', var)
+                time  = rootgrp.createDimension('time', var)
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
             
                 #Output the results of extracted variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('times','lats', 'lons'),fill_value=9.9999999E14)    
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats', 'lons'),fill_value=9.9999999E14)    
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
@@ -1421,7 +1421,7 @@ class SaveNCDF_sr():
                     out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:] = var_list[x][4][var_low:var_up,:,:]         
                                     
-                Time               = rootgrp.createVariable('times', 'i4', ('times'))
+                Time               = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
                 Time.units  = "hour since 1980-1-1 00:30:00" 
@@ -1432,13 +1432,13 @@ class SaveNCDF_sr():
                     netCDFTime.append(nc.date2num(time_ind3[x], units = Time.units, calendar = Time.calendar))
                 Time[:] = netCDFTime[var_low:var_up]                                                                                                        
     
-                Latitudes               = rootgrp.createVariable('latitudes', 'f4',('lats'))
+                Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = 'Y'
                 Latitudes[:]  = lat[0][0][:]                    # pass the values of latitude
     
-                Longitudes               = rootgrp.createVariable('longitudes', 'f4',('lons'))
+                Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = 'X'
@@ -1494,7 +1494,7 @@ class MERRAdownload(object):
                           'max' : par.ele_max}
         
         # data directory for MERRA-2  
-        self.directory = path.join(par.project_directory, "merra-2")  
+        self.directory = path.join(par.project_directory, "merra-2/merra2int")  
         if path.isdir(self.directory) == False:
             raise ValueError("Directory does not exist: " + self.directory)   
         
@@ -1511,8 +1511,8 @@ class MERRAdownload(object):
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size
         
-        self.dir_data = '/Users/xquan/data'
-        #self.dir_data = self.directory
+        #self.dir_data = '/Users/xquan/data'
+        self.dir_data = self.directory
     
     def retrieve(self):
         """
