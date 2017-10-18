@@ -11,18 +11,18 @@ chunk_size = 5
 
 # area bounding box [decimal degrees]
 
-bbN = 50.0
-bbS = 70.0 
-bbW = -100.0
-bbE = -120.0
+bbN = 70.0
+bbS = 50.0 
+bbW = -120.0
+bbE = -100.0
 
 # ground elevation range within area [m]
 ele_min = 0
 ele_max = 2000
 
 # time slice [YYYY/MM/DD]
-beg = 1980/01/01
-end = 1980/01/02
+beg = 2016/01/01
+end = 2016/01/02
 
 # variables to download [CF Standard Name Table]
 variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, wind_from_direction, wind_speed

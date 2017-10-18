@@ -172,7 +172,6 @@ class MERRAgeneric():
                     urls_2ds.append(baseurl_2d + baseurl_2ds_4[0] + res1[i] + baseurl_2ds_4[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (2011 ~ present)   
                     urls_2dr.append(baseurl_2d + baseurl_2dr_4[0] + res1[i] + baseurl_2dr_4[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (2011 ~ present)   
                     
-        # print urls_3dmana
         
         #Setup URL for getting constant model parameters (2D, single-level, full horizontal resolution)
         url_2dc = ['https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4']
