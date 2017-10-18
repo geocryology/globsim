@@ -724,7 +724,7 @@ class SaveNCDF_pl_3dmana():                                                     
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded") 
+            dir_data  = path.join(project_directory, "merra2") 
                                
             """
             date_ind, time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -857,7 +857,7 @@ class SaveNCDF_pl_3dmasm():
                        relative humidity(time,lev,lat,lon), 
                        time, level, lat, lon.
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded") 
+            dir_data  = path.join(project_directory, "merra2") 
             date, time_ind2 = MERRAgeneric().getTime(beg, end)
             rh = MERRAgeneric().dataStuff_3d(0, id_lat, id_lon, out_variable_3dmasm)  
             lat, lon, lev, time = MERRAgeneric().latLon(out_variable_3dmasm, id_lat, id_lon) 
@@ -868,7 +868,7 @@ class SaveNCDF_pl_3dmasm():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded")  
+            dir_data  = path.join(project_directory, "merra2")  
                                
             """
             date_ind,time_ind1,time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -1135,7 +1135,7 @@ class SaveNCDF_sa():
                        prectot(time*lat*lon), 
                        time, lat, lon.
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded")
+            dir_data  = path.join(project_directory, "merra2")
             date, time_ind3 = MERRAgeneric().getTime(beg, end)
             t2m = dataStuff_2d(0, id_lat, id_lon, out_variable_2dm) 
             u2m = dataStuff_2d(1, id_lat, id_lon, out_variable_2dm)
@@ -1151,7 +1151,7 @@ class SaveNCDF_sa():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded") 
+            dir_data  = path.join(project_directory, "merra2") 
             """
             
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -1373,7 +1373,7 @@ class SaveNCDF_sr():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded")  
+            dir_data  = path.join(project_directory, "merra2")  
             
             """
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
@@ -1593,7 +1593,7 @@ class SaveNCDF_sc():
                        frland(time*lat*lon),
                        time, lat, lon
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded") 
+            dir_data  = path.join(project_directory, "merra2") 
             phis = dataStuff_2d(position, out_variable_2dc)
             frland = dataStuff_2d(position, out_variable_2dc) 
             lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dc, id_lat, id_lon)
@@ -1603,7 +1603,7 @@ class SaveNCDF_sc():
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
-            dir_data  = path.join(project_directory, "merra2/downloaded")
+            dir_data  = path.join(project_directory, "merra2")
             """
             
             #Get the wanted variables and set up the list for saving in netCDF file
@@ -1761,7 +1761,7 @@ class MERRAdownload(object):
         self.chunk_size = par.chunk_size
         
         # the diretory for storing downloaded data
-        self.dir_data = path.join(self.directory,"downloaded")
+        self.dir_data = self.directory
     
     def retrieve(self):
         """
@@ -1773,8 +1773,7 @@ class MERRAdownload(object):
                 
         t_start = tc.time()
         
-        #settings directory 
-        project_directory = self.directory
+        #settings directory to store downloaded data 
         dir_data = self.dir_data
         
         #Account for Database Access
@@ -2129,13 +2128,12 @@ class MERRAdownload(object):
 #   - merra_sc: The extracted constant model parameters with invariant time with specific spatial restrictions
 #     
 #==============================================================================    
-
-# pfile = '/Users/xquan/src/globsim/examples/merra2/project_merra.globsim_download'
-
-pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
-
-MERRAdownl = MERRAdownload(pfile)
-
-MERRAdownl.retrieve()
+# 
+# 
+# pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
+# 
+# MERRAdownl = MERRAdownload(pfile)
+# 
+# MERRAdownl.retrieve()
 
 

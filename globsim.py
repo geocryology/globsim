@@ -21,6 +21,7 @@
 #
 #===============================================================================
 from era_interim import ERAdownload, ERAinterpolate, ERAscale
+from merra_2 import MERRAdownload
 
 def GlobsimDownload(pfile):
     """
@@ -28,13 +29,14 @@ def GlobsimDownload(pfile):
     """
     #TODO: make each re-analysis one sub-process
     
-    # === ERA-Interim ===
+    # # === ERA-Interim ===
     ERAdownl = ERAdownload(pfile)
     ERAdownl.retrieve()
     
     # === MERRA-2 ===
-    #TODO
-    
+    MERRAdownl = MERRAdownload(pfile)
+    MERRAdownl.retrieve()
+
     # === JRA-55 ===
     #TODO
 
