@@ -1455,8 +1455,8 @@ class SaveNCDF_sr():
             # print 'Maximum of DIFF_LWGDNCLR_LWGABCLR:' , diff_lwgdnclr_lwgabclr_total.max()
             # print 'Minimum of DIFF_LWGDNCLR_LWGABCLR:' , diff_lwgdnclr_lwgabclr_total.min()  
                  
-            var_list.append(['LWGDN', 'downwelling_longwave_flux_in_air','downwelling_longwave_flux_in_air_calculated','W/m2', lwgdn_total])
-            var_list.append(['LWGDNCLR','downwelling_longwave_flux_in_air_assuming_clear_sky','downwelling_longwave_flux_in_air_assuming_clear_sky_calculated','W/m2', lwgdnclr_total])
+            var_list.append(['LWGDN', 'downwelling_longwave_flux_in_air','downwelling_longwave_flux_in_air','W/m2', lwgdn_total])
+            var_list.append(['LWGDNCLR','downwelling_longwave_flux_in_air_assuming_clear_sky','downwelling_longwave_flux_in_air_assuming_clear_sky','W/m2', lwgdnclr_total])
             var_list.append(['DIFF_LWGDN_LWGAB', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','W/m2', diff_lwgdn_lwgab_total])
             var_list.append(['DIFF_LWGDNCLR_LWGABCLR', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','W/m2', diff_lwgdnclr_lwgabclr_total]) 
             
@@ -2057,15 +2057,15 @@ class MERRAdownload(object):
 #     Example:
 #         ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
 #         MERRAd = MERRAdownload(ifile)
-#      
+#       
 #     """
 # 
 #     def __init__(self, ifile):
 #         #read parameter file
 #         self.ifile = ifile
 #         par = ParameterIO(self.ifile)
-#         self.dir_inp = path.join(par.project_directory,'merra2/downloaded_data') 
-#         self.dir_out = path.join(par.project_directory,'merra2/station_2d')
+#         self.dir_inp = path.join(par.project_directory,'merra2') 
+#         self.dir_out = path.join(par.project_directory,'station')
 #         self.variables = par.variables
 #         self.list_name = par.list_name
 #         self.stations_csv = path.join(par.project_directory,
@@ -2087,8 +2087,8 @@ class MERRAdownload(object):
 #           
 #         Args:
 #             ncfile_in: Full path to an MERRA-2 derived netCDF file. This can
-#                        contain wildcards to point to multiple files if temporal
-#                        chunking was used.
+#                         contain wildcards to point to multiple files if temporal
+#                         chunking was used.
 #               
 #             ncfile_out: Full path to the output netCDF file to write.  
 #               
@@ -2096,7 +2096,7 @@ class MERRAdownload(object):
 #                     generic.py for more details.
 #         
 #             variables:  List of variable(s) to interpolate such as 
-#                         ['airt', 'rh', 'geop', 'wind'].
+#                         ['T', 'RH', 'H', 'U', 'V'].
 #                         Defaults to using all variables available.
 #         
 #             date: Directory to specify begin and end time for the derived time 
@@ -2105,12 +2105,176 @@ class MERRAdownload(object):
 #         Example:
 #             from datetime import datetime
 #             date  = {'beg' : datetime(2008, 1, 1),
-#                      'end' : datetime(2008,12,31)}
+#                       'end' : datetime(2008,12,31)}
 #             variables  = ['','']       
 #             stations = StationListRead("points.csv")      
 #             MERRA2station('merra_sa.nc', 'merra_sa_inter.nc', stations, 
-#                        variables=variables, date=date)        
+#                         variables=variables, date=date)        
 #         """   
+# 
+#         # open netcdf file handle, can be one file of several with wildcards
+#         ncf = nc.MFDataset(ncfile_in, 'r')
+#         
+#         # is it a file with pressure levels?
+#         pl = 'level' in ncf.dimensions.keys()
+# 
+#         # get spatial dimensions
+#         lat  = ncf.variables['latitude'][:]
+#         lon  = ncf.variables['longitude'][:]
+#         if pl: # only for pressure level files
+#             lev  = ncf.variables['level'][:]
+#             nlev = len(lev)
+#     
+#         # get time and convert to datetime object
+#         nctime = ncf.variables['time'][:]
+#         t_unit = ncf.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+#         try :
+#             t_cal = ncf.variables['time'].calendar
+#         except AttributeError : # Attribute doesn't exist
+#             t_cal = u"gregorian" # or standard
+#         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
+#         
+#         # restrict to date/time range if given
+#         if date is None:
+#             tmask = time < datetime(3000, 1, 1)
+#         else:
+#             tmask = (time <= date['end']) * (time >= date['beg'])
+#          
+#         # test if time steps to interpolate remain
+#         nt = sum(tmask)
+#         if nt == 0:
+#             raise ValueError('No time steps from netCDF file selected.')
+#     
+#         # get variables
+#         varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+#         varlist.remove('time')
+#         varlist.remove('latitude')
+#         varlist.remove('longitude')
+#         if pl: #only for pressure level files
+#             varlist.remove('level')
+#     
+#         #list variables that should be interpolated
+#         if variables is None:
+#             variables = varlist
+#         #test is variables given are available in file
+#         if (set(variables) < set(varlist) == 0):
+#             raise ValueError('One or more variables not in netCDF file.')
+#         
+#         # Create source grid from a SCRIP formatted file. As ESMF needs one
+#         # file rather than an MFDataset, give first file in directory.
+#         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
+#         ncsingle = path.join(self.dir_inp, ncsingle)
+#         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+# 
+#         # create source field on source grid
+#         if pl: #only for pressure level files
+#             sfield = ESMF.Field(sgrid, name='sgrid',
+#                                 staggerloc=ESMF.StaggerLoc.CENTER,
+#                                 ndbounds=[len(variables), nt, nlev])
+#         else: # 2D files
+#             sfield = ESMF.Field(sgrid, name='sgrid',
+#                                 staggerloc=ESMF.StaggerLoc.CENTER,
+#                                 ndbounds=[len(variables), nt])
+#                             
+#         # assign data from ncdf: (variale, time, latitude, longitude) 
+#         for n, var in enumerate(variables):
+#             if pl: # only for pressure level files
+#                 sfield.data[n,:,:,:,:] = ncf.variables[var][tmask,:,:,:].transpose((0,1,3,2)) 
+#             else:
+#                 sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1)) 
+# 
+#         # create locstream, CANNOT have third dimension!!!
+#         locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
+#         locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
+#         locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+# 
+#         # create destination field
+#         if pl: # only for pressure level files
+#             dfield = ESMF.Field(locstream, name='dfield', 
+#                                 ndbounds=[len(variables), nt, nlev])
+#         else:
+#             dfield = ESMF.Field(locstream, name='dfield', 
+#                                 ndbounds=[len(variables), nt])    
+# 
+#         # regridding function, consider ESMF.UnmappedAction.ERROR
+#         regrid2D = ESMF.Regrid(sfield, dfield,
+#                                regrid_method=ESMF.RegridMethod.BILINEAR,
+#                                unmapped_action=ESMF.UnmappedAction.IGNORE,
+#                                dst_mask_values=None)
+#                           
+#         # regrid operation, create destination field (variables, times, points)
+#         dfield = regrid2D(sfield, dfield)        
+#         sfield.destroy() #free memory                  
+# 		
+#         # === write output netCDF file =========================================
+#         # dimensions: station, time OR station, time, level
+#         # variables: latitude(station), longitude(station), elevation(station)
+#         #            others: ...(time, level, station) or (time, station)
+#         # stations are integer numbers
+#         # create a file (Dataset object, also the root group).
+#         rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+#         rootgrp.Conventions = 'CF-1.6'
+#         rootgrp.source      = 'ERA-Interim, interpolated bilinearly to stations'
+#         rootgrp.featureType = "timeSeries"
+# 
+#         # dimensions
+#         station = rootgrp.createDimension('station', len(self.stations))
+#         time    = rootgrp.createDimension('time', nt)
+#         if pl: # only for pressure level files
+#             level = rootgrp.createDimension('level', nlev)
+# 
+#         # base variables
+#         time           = rootgrp.createVariable('time',     'i4',('time'))
+#         time.long_name = 'time'
+#         time.units     = 'hours since 1900-01-01 00:00:0.0'
+#         time.calendar  = 'gregorian'
+#         station             = rootgrp.createVariable('station',  'i4',('station'))
+#         station.long_name   = 'station for time series data'
+#         station.units       = '1'
+#         latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+#         latitude.long_name  = 'latitude'
+#         latitude.units      = 'degrees_north'    
+#         longitude           = rootgrp.createVariable('longitude','f4',('station'))
+#         longitude.long_name = 'longitude'
+#         longitude.units     = 'degrees_east'  
+#         height           = rootgrp.createVariable('height','f4',('station'))
+#         height.long_name = 'height_above_reference_ellipsoid'
+#         height.units     = 'm'  
+#         if pl: # only for pressure level files
+#             level           = rootgrp.createVariable('level','i4',('level'))
+#             level.long_name = 'pressure_level'
+#             level.units     = 'millibars'  
+#        
+#         # assign base variables
+#         time[:] = nctime[tmask]
+#         if pl: # only for pressure level files
+#             level[:] = lev
+#         station[:]   = list(self.stations['station_number'])
+#         latitude[:]  = list(self.stations['latitude_dd'])
+#         longitude[:] = list(self.stations['longitude_dd'])
+#         height[:]    = list(self.stations['elevation_m'])
+#     
+#         # create and assign variables from input file
+#         for n, var in enumerate(variables):
+#             vname = ncf.variables[var].long_name.encode('UTF8')
+#             if pl: # only for pressure level files
+#                 tmp   = rootgrp.createVariable(vname,
+#                                                'f4',('time', 'level', 'station'))
+#             else:
+#                 tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
+#                  
+#             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
+#             tmp.units     = ncf.variables[var].units.encode('UTF8')  
+#             # assign values
+#             if pl: # only for pressure level files
+#                 tmp[:] = dfield.data[n,:,:,:]
+#             else:
+#                 tmp[:] = dfield.data[n,:,:]    
+#     
+#         rootgrp.close()
+#         ncf.close()
+#         
+#         # closed file ==========================================================
 
 
 #=========================For Run MERRA-2======================================
@@ -2127,11 +2291,18 @@ class MERRAdownload(object):
 #     
 #==============================================================================    
 # 
-# 
+# Download 
 # pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
 # 
 # MERRAdownl = MERRAdownload(pfile)
 # 
 # MERRAdownl.retrieve()
 
+# Interpolation to station
+
+# ifile = '/Users/xquan/src/globsim/examples/par/examples.globsim_interpolate'
+# 
+# MERRAinterp = MERRAinterpolate(ifile)
+# 
+# MERRAinterp.process()
 
