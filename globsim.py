@@ -22,6 +22,7 @@
 #===============================================================================
 from era_interim import ERAdownload, ERAinterpolate, ERAscale
 from merra_2 import MERRAdownload
+from JRA import JRAdownload
 
 def GlobsimDownload(pfile):
     """
@@ -38,7 +39,8 @@ def GlobsimDownload(pfile):
     MERRAdownl.retrieve()
 
     # === JRA-55 ===
-    #TODO
+    JRAdownl = JRAdownload(pfile)
+    JRAdownl.retrieve()
 
 def GlobsimInterpolateStation(ifile):
     """
