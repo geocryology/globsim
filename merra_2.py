@@ -1439,6 +1439,7 @@ class SaveNCDF_sr():
             # - downwelling longwave flux in air =  Upwelling longwave flux from surface + surface net downward longwave flux
             # - downwelling longwave flux in air assuming clear sky =  Upwelling longwave flux from surface + surface net downward longwave flux assuming clear sky
             
+            
             lwgdn_total = lwgnt_total + lwgem_total
             lwgdnclr_total = lwgntclr_total + lwgem_total
             
@@ -1945,8 +1946,6 @@ class MERRAdownload(object):
                     print get_variables
                     
                     ds_2dm = MERRAsm().getDs(date, username, password, chunk_size)
-        
-                    id_lat, id_lon =  MERRAgeneric().getArea(area, ds_2dm)
                     
                     out_variable_2dm = MERRAsm().getVariables(get_variables, ds_2dm)
         
