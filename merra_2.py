@@ -131,14 +131,11 @@ class MERRAgeneric():
         #Setup the start and end of dates
         Begin = date['beg']
         End  =  date['end']
-        
-        year_beg = int(Begin.strftime("%Y"))
-        year_end = int(End.strftime("%Y"))
-        
+                
         #Setup the based string of dates for urls 
         res1 = [d.strftime("%Y/%m") for d in pandas.date_range(Begin,End)]
         res2 = [d.strftime("%Y%m%d") for d in pandas.date_range(Begin,End)]        
-        
+            
        # get the urls list
        
         urls_3dmana = []
@@ -147,31 +144,32 @@ class MERRAgeneric():
         urls_2dr = []
         urls_2ds = []
         for i in range(0,len(res1)):
-                 if year_beg >= 1980 and year_end <= 1991:  
+                 if res1[i] >= '1980/01' and res1[i] <= '1991/12':  
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_1[0] + res1[i] + baseurl_3dn_1[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset(1980 ~ 1991)            
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_1[0] + res1[i] + baseurl_3da_1[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (1980 ~ 1991)                  
                     urls_2dm.append(baseurl_2d + baseurl_2dm_1[0] + res1[i] + baseurl_2dm_1[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset(1980 ~ 1991)  
                     urls_2ds.append(baseurl_2d + baseurl_2ds_1[0] + res1[i] + baseurl_2ds_1[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (1980 ~ 1991)   
                     urls_2dr.append(baseurl_2d + baseurl_2dr_1[0] + res1[i] + baseurl_2dr_1[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset(1980 ~ 1991) 
-                 elif year_beg >= 1992 and year_end <= 2000:
+                 elif res1[i] >= '1992/01' and res1[i] <= '2000/12':
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_2[0] + res1[i] + baseurl_3dn_2[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset (1992 ~ 2000)              
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_2[0] + res1[i] + baseurl_3da_2[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (1992 ~ 2000)                 
                     urls_2dm.append(baseurl_2d + baseurl_2dm_2[0] + res1[i] + baseurl_2dm_2[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset (1992 ~ 2000)
                     urls_2ds.append(baseurl_2d + baseurl_2ds_2[0] + res1[i] + baseurl_2ds_2[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (1992 ~ 2000) 
                     urls_2dr.append(baseurl_2d + baseurl_2dr_2[0] + res1[i] + baseurl_2dr_2[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (1992 ~ 2000)
-                 elif year_beg >= 2001 and year_end <= 2010:
+                 elif res1[i] >= '2001/01' and res1[i] <= '2010/12':
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_3[0] + res1[i] + baseurl_3dn_3[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset (2001 ~ 2010)              
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_3[0] + res1[i] + baseurl_3da_3[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (2001 ~ 2010)                  
                     urls_2dm.append(baseurl_2d + baseurl_2dm_3[0] + res1[i] + baseurl_2dm_3[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset (2001 ~ 2010) 
                     urls_2ds.append(baseurl_2d + baseurl_2ds_3[0] + res1[i] + baseurl_2ds_3[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (2001 ~ 2010) 
                     urls_2dr.append(baseurl_2d + baseurl_2dr_3[0] + res1[i] + baseurl_2dr_3[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (2001 ~ 2010) 
-                 elif year_beg >= 2011:
+                 elif res1[i] >= '2011/01':
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_4[0] + res1[i] + baseurl_3dn_4[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset (2011 ~ present)              
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_4[0] + res1[i] + baseurl_3da_4[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (2011 ~ present)                   
                     urls_2dm.append(baseurl_2d + baseurl_2dm_4[0] + res1[i] + baseurl_2dm_4[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset (2011 ~ present)   
                     urls_2ds.append(baseurl_2d + baseurl_2ds_4[0] + res1[i] + baseurl_2ds_4[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (2011 ~ present)   
                     urls_2dr.append(baseurl_2d + baseurl_2dr_4[0] + res1[i] + baseurl_2dr_4[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (2011 ~ present)   
-                    
+        
+        # print urls_3dmana            
         
         #Setup URL for getting constant model parameters (2D, single-level, full horizontal resolution)
         url_2dc = ['https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4']
@@ -596,6 +594,7 @@ class MERRApl_ana():
 
         urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
         urls = urls_3dmana
+        
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
         
         return ds
@@ -2139,7 +2138,7 @@ class MERRAdownload(object):
 #             tmask = time < datetime(3000, 1, 1)
 #         else:
 #             tmask = (time <= date['end']) * (time >= date['beg'])
-#          
+#           
 #         # test if time steps to interpolate remain
 #         nt = sum(tmask)
 #         if nt == 0:
@@ -2198,9 +2197,9 @@ class MERRAdownload(object):
 # 
 #         # regridding function, consider ESMF.UnmappedAction.ERROR
 #         regrid2D = ESMF.Regrid(sfield, dfield,
-#                                regrid_method=ESMF.RegridMethod.BILINEAR,
-#                                unmapped_action=ESMF.UnmappedAction.IGNORE,
-#                                dst_mask_values=None)
+#                                 regrid_method=ESMF.RegridMethod.BILINEAR,
+#                                 unmapped_action=ESMF.UnmappedAction.IGNORE,
+#                                 dst_mask_values=None)
 #                           
 #         # regrid operation, create destination field (variables, times, points)
 #         dfield = regrid2D(sfield, dfield)        
@@ -2244,7 +2243,7 @@ class MERRAdownload(object):
 #             level           = rootgrp.createVariable('level','i4',('level'))
 #             level.long_name = 'pressure_level'
 #             level.units     = 'millibars'  
-#        
+#         
 #         # assign base variables
 #         time[:] = nctime[tmask]
 #         if pl: # only for pressure level files
@@ -2259,10 +2258,10 @@ class MERRAdownload(object):
 #             vname = ncf.variables[var].long_name.encode('UTF8')
 #             if pl: # only for pressure level files
 #                 tmp   = rootgrp.createVariable(vname,
-#                                                'f4',('time', 'level', 'station'))
+#                                                 'f4',('time', 'level', 'station'))
 #             else:
 #                 tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
-#                  
+#                   
 #             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
 #             tmp.units     = ncf.variables[var].units.encode('UTF8')  
 #             # assign values
