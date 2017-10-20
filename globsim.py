@@ -22,7 +22,7 @@
 #===============================================================================
 from era_interim import ERAdownload, ERAinterpolate, ERAscale
 from merra_2 import MERRAdownload
-from JRA import JRAdownload
+from jra import JRAdownload
 
 def GlobsimDownload(pfile):
     """

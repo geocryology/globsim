@@ -118,7 +118,7 @@ class JRA_Download:
     """
     def getPressure(self, elevation):
         g  = 9.80665   #Gravitational acceleration [m/s2]
-        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
+        R  = 8.31432   #Universal gas constant for air [N.m /(mol.K)]    
         M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
         P0 = 101325    #Pressure at sea level [Pa]
         T0 = 288.15    #Temperature at sea level [K]
