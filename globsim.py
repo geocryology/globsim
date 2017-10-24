@@ -38,9 +38,9 @@ def GlobsimDownload(pfile):
     MERRAdownl = MERRAdownload(pfile)
     MERRAdownl.retrieve()
 
-    # === JRA-55 ===
-    JRAdownl = JRAdownload(pfile)
-    JRAdownl.retrieve()
+    # # === JRA-55 ===
+    # JRAdownl = JRAdownload(pfile)
+    # JRAdownl.retrieve()
 
 def GlobsimInterpolateStation(ifile):
     """

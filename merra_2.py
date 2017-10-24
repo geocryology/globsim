@@ -1747,7 +1747,6 @@ class MERRAdownload(object):
         
         # credential 
         self.credential = path.join(par.credentials_directory, ".merrarc")
-        print self.credential
         self.account = open(self.credential, "r")
         self.inf = self.account.readlines()
         self.username = ''.join(self.inf[0].split())                                     # pass the first line to username  (covert list to str) 
@@ -1834,7 +1833,7 @@ class MERRAdownload(object):
                              'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR',
                              'surface_absorbed_longwave_radiation': 'LWGAB',
                              'surface_abosrbed_longwave_radiation_assuming_clear_sky': 'LWGABCLR'}
-                             
+                        
         x = 0
         for dt in rrule(DAILY, dtstart = startDay, until = endDay):
                 currentDay = (str(dt.strftime("%Y")) + "/" + str(dt.strftime("%m")) + "/" + str(dt.strftime("%d")))
@@ -1842,6 +1841,8 @@ class MERRAdownload(object):
                 if (x == 1):                                     
                     
                     date['beg'] = currentDay
+                    
+                    print 'DOWNLOADING BEGINS ON:', date['beg']
                     
                     #convert date['beg'] from string back to datetime object
                     date['beg'] = datetime.strptime(date['beg'],'%Y/%m/%d')  
@@ -1851,8 +1852,11 @@ class MERRAdownload(object):
                     x = 0
                     date['end'] = currentDay
                     
+                    print 'DOWNLOADING ENDS ON:', date['end']
+                       
                     #convert date['beg'] from string back to datetime object
                     date['end'] = datetime.strptime(date['end'],'%Y/%m/%d')
+
                     
                     #get merra-2 meterological varaibles at pressure levels
                     print ("-----Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields-----")
