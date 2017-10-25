@@ -19,8 +19,8 @@ ele_min = 0
 ele_max = 2000
 
 # time slice [YYYY/MM/DD]
-beg = 2012/01/01
-end = 2016/12/30
+beg = 2000/01/01
+end = 2011/12/31
 
 # variables to download [CF Standard Name Table]
 variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_longwave_flux_in_air_assuming_clear_sky, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky,  wind_from_direction, wind_speed
