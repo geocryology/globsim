@@ -20,7 +20,7 @@ import shutil
 Download ranges of data from the JRA-55 server
 Data available from 1958 to present date (give 1 or 2 days for upload)
 ~Author: Christopher Molnar
-~Date: September 29, 2017
+~Date: October 25, 2017
 """
 class JRA_Download:
       
