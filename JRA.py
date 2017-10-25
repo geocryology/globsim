@@ -311,15 +311,14 @@ class Grib2CDF:
       
     
     """
-    Extracts the needed values and levels from a Grib file
+    Extracts the needed values from a Grib file
     Parameters:
-    -filename: The name of the Grib file that the values and levels are being extracted from
+    -filename: The name of the Grib file that the values are being extracted from
     -date: An array with all of the dates in it
-    -dataName: The name of the variable that you want the values and level for
+    -dataName: The name of the variable that you want the values for
     -filePath: The direcory where you will find the folder with the GRIB files
     Returns:
     -value: An array with all of the values
-    -levels: An int with the datas level
     """
     def ExtractData(self, filename, date, dataName, filePath):    
         value = []    
@@ -337,11 +336,10 @@ class Grib2CDF:
             for g in grbs:
                 if (g.shortName == dataName):
                     value.append(g.values)
-                    level = g.level
                     break 
             grbs.close()
           
-        return (value, level)
+        return (value)
 
 
     """
@@ -482,7 +480,7 @@ class fcst_phy2m:
         endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
         
         try:
-            completeName = os.path.join(savePath + 'netCDF', "JRA_fcst_" + startName + "-" + endName + ".nc")
+            completeName = os.path.join(savePath + 'jra55', "JRA_fcst_" + startName + "-" + endName + ".nc")
             f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created  
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -511,7 +509,7 @@ class fcst_phy2m:
         time[:] = t
 
         for dataName in fcst_data: # Loop through all the needed varibales and make netCDF variables 
-            data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
+            data = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
 
             dataVariable = f.createVariable(dataName, "f4", ("time", "latitude", "longitude"))
             dataVariable.standard_name = dataName
@@ -551,7 +549,7 @@ class anl_surf:
         endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
         
         try:
-            completeName = os.path.join(savePath + 'netCDF', "JRA_surf_" + startName + "-" + endName + ".nc") 
+            completeName = os.path.join(savePath + 'jra55', "JRA_surf_" + startName + "-" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -581,7 +579,7 @@ class anl_surf:
         time[:] = t
         
         for dataName in surf_data: # Loop through all the needed varibales and make netCDF variables 
-            data, level = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
+            data = Grib2CDF().ExtractData(JRA_Dictionary[dataName][1], dateTimes, JRA_Dictionary[dataName][0], savePath)
 
             dataVariable = f.createVariable(dataName, "f4", ("time", "latitude", "longitude"))
             dataVariable.standard_name = dataName
@@ -684,7 +682,7 @@ class Isobaric:
         endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
         
         try:
-            completeName = os.path.join(savePath + 'netCDF', "JRA_Isobaric_" + startName + "-" + endName + ".nc") 
+            completeName = os.path.join(savePath + 'jra55', "JRA_Isobaric_" + startName + "-" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -891,7 +889,7 @@ class JRAdownload(object):
         
         # Create Grib and netCDF folders if necessary
         gribFolder = save_path + "Grib"
-        netFolder = save_path + "netCDF"
+        netFolder = save_path + "jra55"
         try:
             if not os.path.exists(gribFolder):
                 os.makedirs(gribFolder)
