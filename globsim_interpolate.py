@@ -24,15 +24,15 @@ from globsim import GlobsimDownload, GlobsimInterpolateStation
 
 
 #=====download the wanted varialbe from multiple re-analysis date sources======
-pfile = '/home/xquan/src/globsim/examples/par/examples.globsim_download'
-
-GlobsimDownload(pfile)
-
-# #===interpolate the variables from mutiple re-analysis data to individual stations===
+# pfile = '/home/xquan/src/globsim/examples/par/examples.globsim_download'
 # 
-# ifile = '/Users/xquan/src/globsim/examples/par/examples.globsim_interpolate'
-# 
-# GlobsimInterpolateStation(ifile)
+# GlobsimDownload(pfile)
+
+#===interpolate the variables from mutiple re-analysis data to individual stations===
+
+ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
+
+GlobsimInterpolateStation(ifile)
 
 
 

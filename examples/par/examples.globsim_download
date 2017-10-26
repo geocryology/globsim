@@ -6,7 +6,7 @@ project_directory = /home/xquan/src/globsim/examples/
 credentials_directory = /home/xquan/
 
 # chunk size for splitting files and download [days]
-chunk_size = 10
+chunk_size = 5
 
 # area bounding box [decimal degrees]
 bbN = 70.0
@@ -19,8 +19,8 @@ ele_min = 0
 ele_max = 2000
 
 # time slice [YYYY/MM/DD]
-beg = 2000/01/01
-end = 2011/12/31
+beg = 2011/01/01
+end = 2011/01/02
 
 # variables to download [CF Standard Name Table]
 variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_longwave_flux_in_air_assuming_clear_sky, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky,  wind_from_direction, wind_speed
