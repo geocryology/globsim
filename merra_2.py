@@ -61,11 +61,12 @@
 from pydap.client import open_url
 from pydap.cas.urs import setup_session
 from datetime import datetime, timedelta, date
-from os import path
+from os import path, listdir
 from netCDF4 import Dataset
 from dateutil.rrule import rrule, DAILY
-from math import exp
+from math import exp, floor
 from generic import ParameterIO, StationListRead
+from fnmatch import filter
 
 import pydap.lib
 import numpy as np
@@ -76,6 +77,11 @@ import itertools
 import pandas
 import time as tc
 
+try:
+    import ESMF
+except ImportError:
+    print("*** ESMF not imported, interpolation not possible. ***")
+    pass   
 
 class MERRAgeneric():
     """
@@ -2059,7 +2065,7 @@ class MERRAinterpolate(object):
 
     Example:
         ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
-        MERRAd = MERRAdownload(ifile)
+        MERRAinterpolate(ifile)
       
     """
 
@@ -2099,7 +2105,7 @@ class MERRAinterpolate(object):
                     generic.py for more details.
         
             variables:  List of variable(s) to interpolate such as 
-                        ['T', 'RH', 'H', 'U', 'V'].
+                        ['T','RH','U','V',' T2M', 'U2M', 'V2M', 'U10M', 'V10M', 'PRECTOT', 'SWGDN','SWGDNCLR','LWGDN', 'LWGDNCLR'].
                         Defaults to using all variables available.
         
             date: Directory to specify begin and end time for the derived time 
@@ -2109,14 +2115,14 @@ class MERRAinterpolate(object):
             from datetime import datetime
             date  = {'beg' : datetime(2008, 1, 1),
                       'end' : datetime(2008,12,31)}
-            variables  = ['','']       
+            variables  = ['T','U', 'V']       
             stations = StationListRead("points.csv")      
             MERRA2station('merra_sa.nc', 'merra_sa_inter.nc', stations, 
                         variables=variables, date=date)        
         """   
 
         # open netcdf file handle, can be one file of several with wildcards
-        ncf = nc.MFDataset(ncfile_in, 'r')
+        ncf = nc.Dataset(ncfile_in, 'r') 
         
         # is it a file with pressure levels?
         pl = 'level' in ncf.dimensions.keys()
@@ -2178,14 +2184,46 @@ class MERRAinterpolate(object):
             sfield = ESMF.Field(sgrid, name='sgrid',
                                 staggerloc=ESMF.StaggerLoc.CENTER,
                                 ndbounds=[len(variables), nt])
-                            
-        # assign data from ncdf: (variale, time, latitude, longitude) 
+
+# #----------------------------------------ADDED XQ---------------------------------------------
+#         # Build dictory between names in the list of variables and names in netCDF files                     
+#         var_dic = {'air_temperature': 'T', 
+#                     'relative_humidity': 'RH',
+#                     'precipitation_amount': ['PRECTOT'],
+#                     'wind_from_direction': ['U','V','U2M','V2M','U10M','V10M'],
+#                     'wind_speed': ['U', 'V','U2M','V2M','U10M', 'V10M'],
+#                     'downwelling_shortwave_flux_in_air': ['SWGDN'],
+#                     'downwelling_longwave_flux_in_air': ['LWGDN'],
+#                     'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'], 
+#                     'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']}
+#                
+#         # assign data from ncdf: (variable, time, latitude, longitude) 
+#         var = []
+#         for i in range(0, len(variables)):
+#             for key in var_dic.keys():
+#                 if key == variables[i]:
+#                     var1 = var_dic[key]
+#                     for j in range(0, len(var1)):
+#                         for var2 in ncf.variables.keys():
+#                             if var2 == var1[j]:
+#                               var.append(var2)
+#         var = [x.encode('UTF8') for x in var]
+#         var = list(set(var))
+#         var.remove('H') # remove 'geopotential height' from the 3d var list
+#                         
+#         for i in range(0, len(var)):
+#             if pl: # only for pressure level files
+#                 sfield.data[i,:,:,:,:] = ncf.variables[var[i]][tmask,:,:,:].transpose((0,1,3,2))
+#             else:
+#                 sfield.data[i,:,:,:] = ncf.variables[var[i]][tmask,:,:].transpose((0,2,1))
+#-------------------------------------ORINGINAL ONE--------------------------------------------------------                                                  
+        # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
                 sfield.data[n,:,:,:,:] = ncf.variables[var][tmask,:,:,:].transpose((0,1,3,2)) 
             else:
-                sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1)) 
-
+                sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1))
+#-------------------------------------------------------------------------------------------------
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
         locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
@@ -2257,6 +2295,25 @@ class MERRAinterpolate(object):
         longitude[:] = list(self.stations['longitude_dd'])
         height[:]    = list(self.stations['elevation_m'])
     
+# #-------------------------ADDED XQ------------------------------------------------
+#         # create and assign variables from input file
+#         for i in range(0, len(var)):
+#             vname = ncf.variables[var[i]].long_name.encode('UTF8')
+#             if pl: # only for pressure level files
+#                 tmp   = rootgrp.createVariable(vname,
+#                                                 'f4',('time', 'level', 'station'))
+#             else:
+#                 tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))
+#             tmp.long_name = ncf.variables[var[i]].long_name.encode('UTF8')
+#             tmp.units     = ncf.variables[var[i]].units.encode('UTF8')  
+#             # assign values
+#             if pl: # only for pressure level files
+#                 tmp[:] = dfield.data[i,:,:,:]
+#             else:
+#                 tmp[:] = dfield.data[i,:,:]    
+
+#----------------ORINGINAL ONE----------------------------------------------------   
+      
         # create and assign variables from input file
         for n, var in enumerate(variables):
             vname = ncf.variables[var].long_name.encode('UTF8')
@@ -2276,8 +2333,96 @@ class MERRAinterpolate(object):
     
         rootgrp.close()
         ncf.close()
-        
         # closed file ==========================================================
+
+    def TranslateCF2short(self, dpar):
+        """
+        Map CF Standard Names into short codes used in ERA-Interim netCDF files.
+        """
+        varlist = [] 
+        for var in self.variables:
+            varlist.append(dpar.get(var))
+        # drop none
+        varlist = [item for item in varlist if item is not None]      
+        # flatten
+        varlist = [item for sublist in varlist for item in sublist]         
+        return(varlist) 
+
+    def process(self):
+        """
+        Interpolate point time series from downloaded data. Provides access to 
+        the more generically MERRA-like interpolation functions.
+        """                       
+
+        # === 2D Interpolation for Surface  Data ===    
+        # dictionary to translate CF Standard Names into MERRA2
+        # pressure level variable keys. 
+        dpar = {'air_temperature'   : ['T2M'],  # [K] 2m values
+                'precipitation_amount' : ['PRECTOT'],  # [kg/m2/s] total precipitation                                                            
+                'wind_speed' : ['U2M', 'V2M', 'U10M','V10M']}   # [m s-1] 2m & 10m values   
+        varlist = self.TranslateCF2short(dpar)                      
+        self.MERRA2station(path.join(self.dir_inp,'merra_sa_*.nc'), 
+                           path.join(self.dir_out,'merra_sa_' + 
+                                     self.list_name + '.nc'), self.stations,
+                                     varlist, date = self.date)          
+        
+        # 2D Interpolation for Single-level Radiation Diagnostics Data 'SWGDN', 'LWGDN', 'SWGDNCLR'. 'LWGDNCLR' 
+        # dictionary to translate CF Standard Names into MERRA2
+        # pressure level variable keys.       
+        dpar = {'downwelling_shortwave_flux_in_air' : ['SWGDN'], # [W/m2] short-wave downward
+                'downwelling_longwave_flux_in_air'  : ['LWGDN'], # [W/m2] long-wave downward
+                'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'], # [W/m2] short-wave downward assuming clear sky
+                'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']} # [W/m2] long-wave downward assuming clear sky
+        varlist = self.TranslateCF2short(dpar)                           
+        self.ERA2station(path.join(self.dir_inp,'merra_sr_*.nc'), 
+                         path.join(self.dir_out,'merra_sr_' + 
+                                    self.list_name + '.nc'), self.stations,
+                                    varlist, date = self.date)          
+                        
+        # 2D Interpolation for Constant Model Parameters    
+        # dictionary to translate CF Standard Names into MERRA
+        # pressure level variable keys.            
+        dummy_date  = {'beg' : datetime(1992, 1, 2, 3, 0),
+                        'end' : datetime(1992, 1, 2, 3, 0)}        
+        self.ERA2station(path.join(self.dir_inp,'merra_sc.nc'), 
+                          path.join(self.dir_out,'merra_sc_' + 
+                                    self.list_name + '.nc'), self.stations,
+                                    ['PHIS','FRLAND','FROCEAN', 'FRLANDICE','FRLAKE'], date = dummy_date)      
+
+        # === 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA ===
+        # dictionary to translate CF Standard Names into MERRA2
+        # pressure level variable keys. 
+        dpar = {'air_temperature'   : ['T'],           # [K]
+                'wind_speed'        : ['U', 'V']}      # [m s-1]
+        varlist = self.TranslateCF2short(dpar).append('H')
+        self.ERA2station(path.join(self.dir_inp,'merra_pl-1_*.nc'), 
+                         path.join(self.dir_out,'merra_pl-1_' + 
+                                    self.list_name + '.nc'), self.stations,
+                                    varlist, date = self.date)  
+
+        # NEED ADD 'H' in it!
+        # === 2D Interpolation for Pressure-Level, Assimilated Meteorological DATA ===
+        # dictionary to translate CF Standard Names into MERRA2
+        # pressure level variable keys. 
+        dpar = {'relative_humidity' : ['RH']}           # [%]
+        varlist = self.TranslateCF2short(dpar)
+        self.ERA2station(path.join(self.dir_inp,'merra_pl-2_*.nc'), 
+                          path.join(self.dir_out,'merra_pl-2_' + 
+                                    self.list_name + '.nc'), self.stations,
+                                    varlist, date = self.date)  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+        # # 1D Interpolation for Pressure Level Analyzed Meteorological Data 
+        # self.levels2elevation(path.join(self.dir_out,'merra_pl-1_' + 
+        #                                 self.list_name + '.nc'), 
+        #                       path.join(self.dir_out,'merra_pl-1_' + 
+        #                                 self.list_name + '_surface.nc'))
+        # 
+        # # 1D Interpolation for Pressure Level Assimilated Meteorological Data 
+        # self.levels2elevation(path.join(self.dir_out,'merra_pl-2_' + 
+        #                                 self.list_name + '.nc'), 
+        #                       path.join(self.dir_out,'merra_pl-2_' + 
+        #                                 self.list_name + '_surface.nc'))
+
 
 
 #=========================For Run MERRA-2======================================
