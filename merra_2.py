@@ -62,7 +62,7 @@ from pydap.client import open_url
 from pydap.cas.urs import setup_session
 from datetime import datetime, timedelta, date
 from os import path, listdir
-from netCDF4 import Dataset
+from netCDF4 import Dataset, MFDataset
 from dateutil.rrule import rrule, DAILY
 from math import exp, floor
 from generic import ParameterIO, StationListRead
@@ -785,7 +785,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_pl-1" + "_" + (date_ind[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0][0]) - 1]) + ".nc"))      
-                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
+                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at pressure levels'
                 rootgrp.featureType = "3_Dimension"
@@ -928,7 +928,7 @@ class SaveNCDF_pl_3dmasm():
                 
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_pl-2" + "_" + (date_ind[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0][0]) - 1]) + ".nc"))      
-                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
+                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 print("Saved File Type:",rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at pressure levels'
                 rootgrp.featureType = "3_Dimension"
@@ -1225,7 +1225,7 @@ class SaveNCDF_sa():
     
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_sa" + "_" + (date_ind[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0][0]) - 1]) + ".nc"))
-                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
+                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at surface level'
                 rootgrp.featureType = "2_Dimension"
@@ -1477,7 +1477,7 @@ class SaveNCDF_sr():
     
                 # set up file path and names  
                 file_ncdf  = path.join(dir_data,("merra_sr" + "_" + (date_ind[var_low/len(time[0][0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0][0]) - 1]) + ".nc"))
-                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
+                rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated radiation variables from metadata at surface level'
                 rootgrp.featureType = "2_Dimension"
@@ -1643,7 +1643,7 @@ class SaveNCDF_sc():
             #save netCDF file    
             #set up file path and names 
             file_ncdf  = path.join(dir_data,("merra_sc" + ".nc"))
-            rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4')
+            rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
             print("Saved File Type:", rootgrp.file_format)
             rootgrp.source      = 'Merra, abstrated constant model parameters'
             rootgrp.featureType = "2_Dimension"
@@ -2122,7 +2122,7 @@ class MERRAinterpolate(object):
         """   
 
         # open netcdf file handle, can be one file of several with wildcards
-        ncf = nc.Dataset(ncfile_in, 'r') 
+        ncf = nc.MFDataset(ncfile_in, 'r',aggdim='time') 
         
         # is it a file with pressure levels?
         pl = 'level' in ncf.dimensions.keys()
@@ -2374,7 +2374,7 @@ class MERRAinterpolate(object):
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'], # [W/m2] short-wave downward assuming clear sky
                 'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']} # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'merra_sr_*.nc'), 
+        self.MERRA2station(path.join(self.dir_inp,'merra_sr_*.nc'), 
                          path.join(self.dir_out,'merra_sr_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)          
@@ -2384,7 +2384,7 @@ class MERRAinterpolate(object):
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1992, 1, 2, 3, 0),
                         'end' : datetime(1992, 1, 2, 3, 0)}        
-        self.ERA2station(path.join(self.dir_inp,'merra_sc.nc'), 
+        self.MERRA2station(path.join(self.dir_inp,'merra_sc.nc'), 
                           path.join(self.dir_out,'merra_sc_' + 
                                     self.list_name + '.nc'), self.stations,
                                     ['PHIS','FRLAND','FROCEAN', 'FRLANDICE','FRLAKE'], date = dummy_date)      
@@ -2395,7 +2395,7 @@ class MERRAinterpolate(object):
         dpar = {'air_temperature'   : ['T'],           # [K]
                 'wind_speed'        : ['U', 'V']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('H')
-        self.ERA2station(path.join(self.dir_inp,'merra_pl-1_*.nc'), 
+        self.MERRA2station(path.join(self.dir_inp,'merra_pl-1_*.nc'), 
                          path.join(self.dir_out,'merra_pl-1_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
@@ -2406,7 +2406,7 @@ class MERRAinterpolate(object):
         # pressure level variable keys. 
         dpar = {'relative_humidity' : ['RH']}           # [%]
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(path.join(self.dir_inp,'merra_pl-2_*.nc'), 
+        self.MERRA2station(path.join(self.dir_inp,'merra_pl-2_*.nc'), 
                           path.join(self.dir_out,'merra_pl-2_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
