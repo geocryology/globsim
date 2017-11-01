@@ -58,8 +58,9 @@ def GlobsimInterpolateStation(ifile):
     MERRAinterp.process()
 
     # === JRA-55 ===
-    #TODO
-    
+    JRAinterp = JRAinterpolate(ifile)
+    JRAinterp.process()
+  
             
 def GlobsimScale(sfile):
     """
