@@ -2122,7 +2122,7 @@ class MERRAinterpolate(object):
         """   
 
         # open netcdf file handle, can be one file of several with wildcards
-        ncf = nc.MFDataset(ncfile_in, 'r',aggdim='time') 
+        ncf = nc.MFDataset(ncfile_in, 'r', aggdim ='time') 
         
         # is it a file with pressure levels?
         pl = 'level' in ncf.dimensions.keys()
@@ -2316,14 +2316,14 @@ class MERRAinterpolate(object):
       
         # create and assign variables from input file
         for n, var in enumerate(variables):
-            vname = ncf.variables[var].long_name.encode('UTF8')
+            vname = ncf.variables[var].standard_name.encode('UTF8')
             if pl: # only for pressure level files
                 tmp   = rootgrp.createVariable(vname,
                                                 'f4',('time', 'level', 'station'))
             else:
                 tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
                   
-            tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
+            tmp.long_name = ncf.variables[var].standard_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
             # assign values
             if pl: # only for pressure level files

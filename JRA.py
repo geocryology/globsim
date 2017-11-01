@@ -8,6 +8,7 @@ from netCDF4         import Dataset
 from generic         import ParameterIO, StationListRead
 from os              import path, listdir
 from math            import exp
+from fnmatch         import filter
 
 import netCDF4       as nc
 import numpy         as np
@@ -1232,14 +1233,14 @@ class JRAinterpolate(object):
       
         # create and assign variables from input file
         for n, var in enumerate(variables):
-            vname = ncf.variables[var].long_name.encode('UTF8')
+            vname = ncf.variables[var].standard_name.encode('UTF8')
             if pl: # only for pressure level files
                 tmp   = rootgrp.createVariable(vname,
                                                 'f4',('time', 'level', 'station'))
             else:
                 tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
                   
-            tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
+            tmp.long_name = ncf.variables[var].standard_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
             # assign values
             if pl: # only for pressure level files
