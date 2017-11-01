@@ -484,12 +484,15 @@ class fcst_phy2m:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, fcst_data):    
         
-        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
-        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        #startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
+        #endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        
+        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")))
+        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")))
         
         try:
-            completeName = os.path.join(savePath + 'jra55', "JRA_fcst_" + startName + "-" + endName + ".nc")
-            f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created  
+            completeName = os.path.join(savePath + 'jra55', "JRA_fcst_" + startName + "_" + endName + ".nc")
+            f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
         except:
             print "Make sure you have a netCDF folder in your directory"
             print "Once the netCDF files are created they will be stored in there"
@@ -553,12 +556,15 @@ class anl_surf:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, surf_data):   
         
-        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
-        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        # startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
+        # endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
         
+        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")))
+        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")))
+
         try:
-            completeName = os.path.join(savePath + 'jra55', "JRA_surf_" + startName + "-" + endName + ".nc") 
-            f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created 
+            completeName = os.path.join(savePath + 'jra55', "JRA_surf_" + startName + "_" + endName + ".nc") 
+            f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created 
         except:
             print "Make sure you have a netCDF folder in your directory"
             print "Once the netCDF files are created they will be stored in there"
@@ -686,12 +692,16 @@ class Isobaric:
     """
     def Main(self, startDay, endDay, numDays, date, bottomLat, topLat, leftLon, rightLon, savePath, JRA_Dictionary, isobaric_data, elevationMinRange, elevationMaxRange):
         
-        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
-        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        # startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")) + str(startDay.strftime("%H")))
+        # endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")) + str(endDay.strftime("%H")))
+        
+        startName = (str(startDay.strftime("%Y")) + str(startDay.strftime("%m")) + str(startDay.strftime("%d")))
+        endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")))
+
         
         try:
-            completeName = os.path.join(savePath + 'jra55', "JRA_Isobaric_" + startName + "-" + endName + ".nc") 
-            f = Dataset(completeName, "w", format = "NETCDF4") # Name of the netCDF being created
+            completeName = os.path.join(savePath + 'jra55', "JRA_Isobaric_" + startName + "_" + endName + ".nc") 
+            f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created
         except:
             print "Make sure you have a netCDF folder in your directory"
             print "Once the netCDF files are created they will be stored in there"
