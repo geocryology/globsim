@@ -1252,6 +1252,120 @@ class JRAinterpolate(object):
         ncf.close()
         
         # closed file ==========================================================
+    
+    def levels2elevation(self, ncfile_in, ncfile_out):    
+        """
+        Linear 1D interpolation of pressure level data available for individual
+        stations to station elevation. Where and when stations are below the 
+        lowest pressure level, they are assigned the value of the lowest 
+        pressure level.
+        
+        """
+        # open file 
+        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
+        height = ncf.variables['height'][:]
+        nt = len(ncf.variables['time'][:])
+        nl = len(ncf.variables['level'][:])
+        
+        # list variables
+        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+        varlist.remove('time')
+        varlist.remove('station')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        varlist.remove('level')
+        varlist.remove('height')
+        varlist.remove('geopotential_height')
+
+        # === open and prepare output netCDF file ==============================
+        # dimensions: station, time
+        # variables: latitude(station), longitude(station), elevation(station)
+        #            others: ...(time, station)
+        # stations are integer numbers
+        # create a file (Dataset object, also the root group).
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.source      = 'ERA-Interim, interpolated (bi)linearly to stations'
+        rootgrp.featureType = "timeSeries"
+
+        # dimensions
+        station = rootgrp.createDimension('station', len(height))
+        time    = rootgrp.createDimension('time', nt)
+
+        # base variables
+        time           = rootgrp.createVariable('time',     'i4',('time'))
+        time.long_name = 'time'
+        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.calendar  = 'gregorian'
+        station             = rootgrp.createVariable('station',  'i4',('station'))
+        station.long_name   = 'station for time series data'
+        station.units       = '1'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east'  
+        height           = rootgrp.createVariable('height','f4',('station'))
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm'  
+       
+        # assign base variables
+        time[:] = ncf.variables['time'][:]
+        station[:]   = ncf.variables['station'][:]
+        latitude[:]  = ncf.variables['latitude'][:]
+        longitude[:] = ncf.variables['longitude'][:]
+        height[:]    = ncf.variables['height'][:]
+        
+        # create and assign variables from input file
+        for var in varlist:
+            vname = ncf.variables[var].long_name.encode('UTF8')
+            tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
+            tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
+            tmp.units     = ncf.variables[var].units.encode('UTF8')  
+        # end file prepation ===================================================
+    
+                                                                                                
+        # loop over stations
+        for n, h in enumerate(height): 
+            # convert geopotential [millibar] to height [m]
+            # shape: (time, level)
+            ele = ncf.variables['geopotential_height'][:,:,n] / 9.80665
+            # TODO: check if height of stations in data range (+50m at top, lapse r.)
+            
+            # difference in elevation. 
+            # level directly above will be >= 0
+            dele = ele - h
+            # vector of level indices that fall directly above station. 
+            # Apply after ravel() of data.
+            va = np.argmin(dele + (dele < 0) * 100000, axis=1) 
+            # mask for situations where station is below lowest level
+            mask = va < (nl-1)
+            va += np.arange(ele.shape[0]) * ele.shape[1]
+            
+            # Vector level indices that fall directly below station.
+            # Apply after ravel() of data.
+            vb = va + mask # +1 when OK, +0 when below lowest level
+            
+            # weights
+            wa = np.absolute(dele.ravel()[vb]) 
+            wb = np.absolute(dele.ravel()[va])
+            
+            wt = wa + wb
+            
+            wa /= wt # Apply after ravel() of data.
+            wb /= wt # Apply after ravel() of data.
+            
+            #loop over variables and apply interpolation weights
+            for v, var in enumerate(varlist):
+                #read data from netCDF
+                data = ncf.variables[var][:,:,n].ravel()
+                ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
+                rootgrp.variables[var][:,n] = ipol # assign to file   
+    
+        rootgrp.close()
+        # closed file ==========================================================    
+
 
     def TranslateCF2short(self, dpar):
         """
@@ -1309,15 +1423,10 @@ class JRAinterpolate(object):
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-        # # 1D Interpolation for Pressure Level Analyzed Meteorological Data 
-        # self.levels2elevation(path.join(self.dir_out,'merra_pl-1_' + 
-        #                                 self.list_name + '.nc'), 
-        #                       path.join(self.dir_out,'merra_pl-1_' + 
-        #                                 self.list_name + '_surface.nc'))
-        # 
-        # # 1D Interpolation for Pressure Level Assimilated Meteorological Data 
-        # self.levels2elevation(path.join(self.dir_out,'merra_pl-2_' + 
-        #                                 self.list_name + '.nc'), 
-        #                       path.join(self.dir_out,'merra_pl-2_' + 
-        #                                 self.list_name + '_surface.nc'))
+        # 1D Interpolation for Pressure Level Data 
+        self.levels2elevation(path.join(self.dir_out,'jra_pl_' + 
+                                        self.list_name + '.nc'), 
+                              path.join(self.dir_out,'jra_pl_' + 
+                                        self.list_name + '_surface.nc'))
+        
 
