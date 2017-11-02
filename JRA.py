@@ -1285,7 +1285,7 @@ class JRAinterpolate(object):
         # create a file (Dataset object, also the root group).
         rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
         rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'ERA-Interim, interpolated (bi)linearly to stations'
+        rootgrp.source      = 'JRA55, interpolated (bi)linearly to stations'
         rootgrp.featureType = "timeSeries"
 
         # dimensions
