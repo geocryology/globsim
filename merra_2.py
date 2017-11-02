@@ -2269,7 +2269,7 @@ class MERRAinterpolate(object):
         # base variables
         time           = rootgrp.createVariable('time',     'i4',('time'))
         time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.units     = 'hour since 1980-01-01 00:00:0.0'
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station',  'i4',('station'))
         station.long_name   = 'station for time series data'
@@ -2380,7 +2380,7 @@ class MERRAinterpolate(object):
         # base variables
         time           = rootgrp.createVariable('time',     'i4',('time'))
         time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.units     = 'hours since 1980-01-01 00:00:0.0'
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station',  'i4',('station'))
         station.long_name   = 'station for time series data'
