@@ -600,6 +600,7 @@ class ERAinterpolate(object):
         
         # closed file ==========================================================
         
+        
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
         Linear 1D interpolation of pressure level data available for individual
@@ -960,7 +961,7 @@ class ERAscale(object):
                                 par.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,'eraint/era_to_' + 
                                 par.list_name + '.nc'), 'r')
-                               
+                              
         # output file 
         self.outfile = par.output_file  
         
@@ -974,9 +975,11 @@ class ERAscale(object):
         #number of time steps
         nt = int(floor((max(time) - min(time)).total_seconds() 
                        / 3600 / par.time_step))
+        self.time_step = par.time_step
         
         # vector of output time steps as datetime object
-        self.times_out    = [min(time) + timedelta(hours=x) for x in range(0, nt)]
+        mt = min(time)
+        self.times_out    = [mt + timedelta(hours=x) for x in range(0, nt)]
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
                                         calendar = self.t_cal)
@@ -993,6 +996,8 @@ class ERAscale(object):
         for kernel_name in self.kernels:
             getattr(self, kernel_name)()
             
+        self.conv_geotop()    
+            
         # close netCDF files   
         self.rg.close()
         self.nc_pl.close()
@@ -1006,13 +1011,13 @@ class ERAscale(object):
         """        
         print("AIRT_ERA_pl")
         
-    def AIRT_ERA_sur(self):
+    def AIRT_ERA_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """   
         
         # add variable to ncdf file
-        vn = 'AIRT_ERA_sur' # variable name
+        vn = 'AIRT_ERA_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-I surface only'
         var.units     = self.nc_sa.variables['2 metre temperature'].units.encode('UTF8')  
@@ -1022,7 +1027,7 @@ class ERAscale(object):
         values  = self.nc_sa.variables['2 metre temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])            
+                                                    time_in, values[:, n])-273.15            
         
         
     def AIRT_ERA_redcapp(self):
@@ -1031,3 +1036,197 @@ class ERAscale(object):
         shown by the method REDCAPP.
         """       
         print("AIRT_ERA_redcapp")            
+
+    def PREC_ERA_mm_sur(self):
+        """
+        Precipitation derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'PREC_ERA_mm_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Total precipitation ERA-I surface only'
+        var.units     = self.nc_sf.variables['Total precipitation'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:]
+        values  = self.nc_sf.variables['Total precipitation'][:]
+        values  = self.conv_sf(values) # convert cummulative                 
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            vi = np.interp(self.times_out_nc, time_in, values[:, n])
+            vi = np.concatenate(([vi[0]], np.diff(vi,1, axis=0))) / self.time_step * 1000
+            self.rg.variables[vn][:, n] = np.float32(vi) 
+            
+
+    def RH_ERA_per_sur(self):
+        """
+        Air temperature derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'DEWP_ERA_C_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '2 metre dewpoint temperature ERA-I surface only'
+        var.units     = self.nc_sa.variables['2 metre dewpoint temperature'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['2 metre dewpoint temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15 
+                                                    
+        # add variable to ncdf file
+        vn = 'RH_ERA_per_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Relative humidity ERA-I surface only'
+        var.units     = 'Percent'
+        
+        # quick and dirty https://en.wikipedia.org/wiki/Dew_point
+        RH = 100 - 5 * (self.rg.variables['AIRT_ERA_C_sur'][:, :] - 
+                        self.rg.variables['DEWP_ERA_C_sur'][:, :])
+        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
+        
+        
+    def WIND_ERA_sur(self):
+        """
+        Air temperature derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = '10 metre U wind component' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 metre U wind component'
+        var.units     = self.nc_sa.variables['10 metre U wind component'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables[var.long_name][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 
+
+        # add variable to ncdf file
+        vn = '10 metre V wind component' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 metre V wind component'
+        var.units     = self.nc_sa.variables['10 metre V wind component'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables[var.long_name][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 
+
+        # add variable to ncdf file
+        vn = 'WSPD_ERA_ms_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 wind speed ERA-I surface only'
+        var.units     = 'm s**-1'  
+        
+        # add variable to ncdf file
+        vn = 'WDIR_ERA_deg_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 wind direction ERA-I surface only'
+        var.units     = 'deg'  
+                                
+        # convert
+        # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
+        # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
+        V = self.rg.variables['10 metre V wind component'][:, :]
+        U = self.rg.variables['10 metre U wind component'][:, :] 
+
+        WS = np.sqrt(np.power(V,2) + np.power(U,2))  
+        self.rg.variables['WSPD_ERA_ms_sur'][:, :] = WS                                          
+
+        WD = np.arctan2(V,U)               
+        WD = np.mod(np.degrees(WD)-90, 360) # make relative to North                                                                 
+        self.rg.variables['WDIR_ERA_deg_sur'][:, :] = WD 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+    def SW_ERA_Wm2_sur(self):
+        """
+        Precipitation derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'SW_ERA_Wm2_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Surface solar radiation downwards ERA-I surface only'
+        var.units     = self.nc_sf.variables['Surface solar radiation downwards'].units.encode('UTF8')  
+
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:]
+        values  = self.nc_sf.variables['Surface solar radiation downwards'][:]
+        values  = self.conv_sf(values) # convert cummulative                  
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            vi = np.interp(self.times_out_nc, time_in, values[:, n])
+            vi = np.concatenate(([vi[0]], np.diff(vi,1, axis=0))) / (self.time_step * 3600)
+            self.rg.variables[vn][:, n] = np.float32(vi)  
+
+    def LW_ERA_Wm2_sur(self):
+        """
+        Long-wave radiation derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'LW_ERA_Wm2_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Surface thermal radiation downwards ERA-I surface only'
+        var.units     = self.nc_sf.variables['Surface thermal radiation downwards'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:]
+        values  = self.nc_sf.variables['Surface thermal radiation downwards'][:]
+        values  = self.conv_sf(values) # convert cummulative                 
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            vi = np.interp(self.times_out_nc, time_in, values[:, n])
+            vi = np.concatenate(([vi[0]], np.diff(vi,1, axis=0))) / (self.time_step * 3600)
+            self.rg.variables[vn][:, n] = np.float32(vi)                                                          
+                                                    
+    def conv_sf(self, data):
+        """
+        Convert cummulative values, data: [time, station] 
+        """                       
+        # get increment per time step
+        diff = np.diff(data,1,axis=0)
+        diff = np.concatenate(([data[0,:]], diff))
+        # where new forecast starts, the increment will be smaller than 0
+        # and the actual value is used
+        mask = diff < 0
+        diff[mask] = data[mask]
+        #get full cummulative sum
+        return(np.cumsum(diff, axis=0, dtype=np.float64))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+    def conv_geotop(self):
+        """
+        preliminary geotop export
+        """
+        import pandas as pd
+        
+        outfile = '/Users/stgruber/Supervision/MSc/Mary_Pascale_Laurentian/reanalysis/station/Meteo_0001.txt'
+        
+        #read time object        
+        time = self.rg.variables['time']        
+        date = self.rg.variables['time'][:]
+        
+        #read all other values
+        columns = ['Date','AIRT_ERA_C_sur','PREC_ERA_mm_sur','RH_ERA_per_sur','SW_ERA_Wm2_sur','LW_ERA_Wm2_sur','WSPD_ERA_ms_sur','WDIR_ERA_deg_sur']
+        metdata = np.zeros((len(date),len(columns)))
+        metdata[:,0] = date
+        for n, vn in enumerate(columns[1:]):
+            metdata[:,n+1] = self.rg.variables[vn][:, 0]
+        
+        #make data frame
+        data = pd.DataFrame(metdata, columns=columns)
+        data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
+
+        # round
+        decimals = pd.Series([2,1,1,1,1,1,1], index=columns[1:])
+        data.round(decimals)
+
+        #export to file
+        fmt_date = "%d/%m/%Y %H:%M"
+        data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
+        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
