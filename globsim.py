@@ -50,12 +50,12 @@ def GlobsimInterpolateStation(ifile):
     """
     
     # === ERA-Interim ===
-    # ERAinterp = ERAinterpolate(ifile)
-    # ERAinterp.process()
+    ERAinterp = ERAinterpolate(ifile)
+    ERAinterp.process()
     
     # === MERRA-2 ===
-    MERRAinterp = MERRAinterpolate(ifile)
-    MERRAinterp.process()
+    # MERRAinterp = MERRAinterpolate(ifile)
+    # MERRAinterp.process()
 
     # === JRA-55 ===
     JRAinterp = JRAinterpolate(ifile)
@@ -77,4 +77,6 @@ def GlobsimScale(sfile):
     #TODO
     
     # === JRA-55 ===
-    #TODO                   
+    JRAsc = JRAscale(sfile)
+    JRAsc.process()
+                  

@@ -5,7 +5,7 @@ from datetime        import date, datetime, timedelta
 from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
 from netCDF4         import Dataset
-from generic         import ParameterIO, StationListRead
+from generic         import ParameterIO, StationListRead, ScaledFileOpen
 from os              import path, listdir
 from math            import exp
 from fnmatch         import filter
@@ -1429,4 +1429,75 @@ class JRAinterpolate(object):
                               path.join(self.dir_out,'jra_pl_' + 
                                         self.list_name + '_surface.nc'))
         
+class JRAscale(object):
+    """
+    Class for JRA-55 data that has methods for scaling station data to
+    better resemble near-surface fluxes.
+    
+    Processing kernels have names in UPPER CASE.
+       
+    Args:
+        sfile: Full path to a Globsim Scaling Parameter file. 
+              
+    Example:          
+        JRAd = JRAscale(sfile) 
+        JRAd.process()
+    """
+        
+    def __init__(self, sfile):
+        # read parameter file
+        self.sfile = sfile
+        par = ParameterIO(self.sfile)
+        
+        # read kernels
+        self.kernels = par.kernels
+        if not isinstance(self.kernels, list):
+            self.kernels = [self.kernels]
+            
+        # input file names
+        self.nc_pl = nc.Dataset(path.join(par.project_directory,'jra55/jra_pl_' + 
+                                par.list_name + '_surface.nc'), 'r')
+        self.nc_sa = nc.Dataset(path.join(par.project_directory,'jra55/jra_sa_' + 
+                                par.list_name + '.nc'), 'r')
+        self.nc_sf = nc.Dataset(path.join(par.project_directory,'jra55/jra_sr_' + 
+                                par.list_name + '.nc'), 'r')
+                               
+        # output file 
+        self.outfile = par.output_file  
+        
+        # time vector for output data
+        # get time and convert to datetime object
+        nctime = self.nc_pl.variables['time'][:]
+        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_cal  = self.nc_pl.variables['time'].calendar
+        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
+        
+        #number of time steps
+        nt = int(floor((max(time) - min(time)).total_seconds() 
+                       / 3600 / par.time_step))
+        
+        # vector of output time steps as datetime object
+        self.times_out    = [min(time) + timedelta(hours=x) for x in range(0, nt)]
+        # vector of output time steps as written in ncdf file
+        self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
+                                        calendar = self.t_cal)
 
+        
+    def process(self):
+        """
+        Run all relevant processes and save data. Each kernel processes one 
+        variable and adds it to the netCDF file.
+        """    
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
+        
+        # iterate thorugh kernels and start process
+        for kernel_name in self.kernels:
+            getattr(self, kernel_name)()
+            
+        # close netCDF files   
+        self.rg.close()
+        self.nc_pl.close()
+        self.nc_sf.close()
+        self.nc_sa.close()
+        self.nc_to.close()
+        

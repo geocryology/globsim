@@ -1,6 +1,9 @@
 # logistics
-project_directory = /home/sgruber/src/globsim/examples
-output_directory = /home/sgruber/src/globsim/examples/station
+project_directory = /Users/xquan/src/globsim/examples
+output_directory = /Users/xquan/src/globsim/examples/station
+list_name = mylist
+
+output_file = /Users/xquan/src/globsim/examples/station
 
 # processing kernels to be used
 kernels = AIRT_ERA_pl, AIRT_ERA_sur, AIRT_ERA_redcapp
