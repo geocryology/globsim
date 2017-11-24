@@ -67,7 +67,7 @@ from dateutil.rrule import rrule, DAILY
 from math import exp, floor
 from generic import ParameterIO, StationListRead
 from fnmatch import filter
-from wrf import interplevel
+from wrf import interp1d
 from scipy.interpolate import griddata,RegularGridInterpolator, NearestNDInterpolator,LinearNDInterpolator
 
 import pydap.lib
@@ -311,10 +311,8 @@ class MERRAgeneric():
         Pmin = self.getPressure(elevation['max']) - 55
         # Pmax = self.getPressure(ele_min) + 55
         # Pmin = self.getPressure(ele_max) - 55
-        # levs = np.array([0.1, 0.3, 0.4, 0.5, 0.7, 1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 10, 20, 30, 40, 50, 70, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 725, 750, 775, 
-        #                  800, 825, 850, 875, 900, 925, 950, 975, 1000])
         levs = np.array([1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 70,    
-                         50, 40, 30, 20, 10, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.7, 0.5, 0.4, 0.3, 0.1])
+                          50, 40, 30, 20, 10, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.7, 0.5, 0.4, 0.3, 0.1])
  
         #Get the indics of selected range of elevation 
         id_lev = np.where((levs >= Pmin) & (levs <= Pmax))
@@ -573,45 +571,97 @@ class MERRAgeneric():
 
         return data_total
         
-    # def tempExtrapolate(self, t_total, t2m_total, lat, lon):
-    #     """ Processing 1D vertical extrapolation for Air Temperature at specific levels, 
-    #         at where the values are lacking  (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
-    #     """  
-    #     
-    #     #Conducting 2D griddata interpolation for the partial value gap at specific level
-    #     
-    #     #get the needed variable information
-    #     ncfile = Dataset('/Users/xquan/src/globsim/examples/merra2/merra_pl-1_19800101_to_19800102.nc') 
-    #     temp = ncfile.variables['T']
-    #     lat = ncfile.variables['latitude'][:]
-    #     lon = ncfile.variables['longitude'][:]
-    #     time = ncfile.variables['time'][:]
-    #     lev = ncfile.variables['level'][:]
-    #     
-    #     # lat = lat[0][0]
-    #     # lon = lon[0][0]
-    #     
-    #     # griddata interpolation
-    #     t_out = []
-    #     for i in range(0, len(temp)):
-    #         for j in range(0, len(temp[i])): 
-    #             # find the specific levels with lacking of value 
-    #             mask = numpy.ma.getmask(temp[i,j,:,:])
-    #             if mask.any() == True:  # any invalid value in 2d temp [lat*lon]
-    #                 t1= temp[i,j,:,:] # pass the 2d data in each time and level
-    #                 t_mask = np.ma.masked_invalid(t1) # mask the invalid values in the 2d data [lat*lon]
-    #                 xx, yy = np.meshgrid(lon, lat) # assign the 2d grid
-    #                 x1 = xx[~t_mask.mask] # get the valid lat
-    #                 y1 = yy[~t_mask.mask] # get the valid lon
-    #                 newt = t1[~t_mask.mask] # get the valid temp
-    #                 t_interp = griddata((x1, y1), newt.ravel(), (xx, yy), method = 'cubic') # interpolate the valid value among the assigned grid
-    #             if mask.all() == False:
-    #                 t_interp = temp[i,j,:,:]
-    #             t_out.append(t_interp) # assign the interpolared 2d temp back to each time and each level [time*level*lat*lon]
-    #     t_out = np.reshape(t_out, (len(time)*chunk_size, len(lev),len(lat), len(lon)))
-    #     print len(t_out)
+    def tempExtrapolate(self, elevation, t_total):
+        """ Processing 1D vertical extrapolation for Air Temperature at specific levels, 
+            at where the values are lacking  (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
+            extrapolated using adiabatic lapse rate (moist or dry), dT/DP=const
+            
+        """  
+
+        Pmax = self.getPressure(elevation['min']) + 55
+        Pmin = self.getPressure(elevation['max']) - 55
+        # Pmax = self.getPressure(ele_min) + 55
+        # Pmin = self.getPressure(ele_max) - 55
+        levels = np.array([1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 70,    
+                          50, 40, 30, 20, 10, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.7, 0.5, 0.4, 0.3, 0.1])
+ 
+        #Get the indics of selected range of elevation 
+        id_lev = np.where((levels >= Pmin) & (levels <= Pmax))
+        id_lev = list(itertools.chain(*id_lev))
         
-                                    
+        #get the pressue levels
+        levs = levels[id_lev] * 100
+        
+        # Assume dt/dp=const, where const is such that dt/dz=6.5C/1km (moist adiab approx)
+        # This is similar to dt/dp=6.5C/100 mb for lowest couple of km
+        
+        r = 287.0
+        g = 9.81
+        gammadry = 9.8/10000.0
+        gammamoi = 6.5/10000.0
+
+        #restructure t_total [time*lev*lat*lon] to [time*lat*lon*lev]
+        t_total = t_total[:,:,:,:].transpose((0,2,3,1))
+
+        #find the value gap and conduct 1d extrapolation 
+        for i in range(0, len(t_total)): 
+            #pass 3d data at each individual time
+            t_time = t_total[i][:] 
+            for j in range(0, len(t_time)):
+                for k in range(0, len(t_time[0])):
+                    t_lev = t_time[j][k][:]
+                    # if t_lev.any() > 99999:
+                    for z in range(0, len(t_lev)):
+                        if t_lev[z].any() > 99999:
+                            z_bottom = z
+                            z= z+1 
+                        elif t_lev[z] < 99999:
+                            z_top = z 
+                            t_1d = np.asarray(t_lev[z_top:z_top+1])        # get the value from the lowermost pressure level
+                            #assign wanted pressure levels to interpolate
+                            id_interp = np.arange(z_top)
+                            lev_interp = levs[id_interp]
+                            # get the used pressure levels for interpolation
+                            id_1d = np.arange(z_top, z_top+1)
+                            lev_1d = levs[id_1d]
+                            # 1d interpolation
+                            # t_interp = []
+                            
+                            #------Using adiabatic lapse rate (moist or dry), dT/DP=const-----------
+                            for i in range(len(lev_interp), 0, -1):
+                                # print i
+                                if i == len(lev_interp):
+                                    t_lev[i-1] = t_1d - gammamoi*(lev_1d -lev_interp[i-1])
+                                    #t_lev[i-1] = t_1d - gammadry*(lev_1d -lev_interp[i-1]) 
+                                else:
+                                    t_lev[i-1] = t_lev[i] - gammamoi*(lev_interp[i] - lev_interp[i-1])
+                                    #t_lev[i-1] = t_lev[i] - gammadry*(lev_interp[i] - lev_interp[i-1])       
+                            
+                            #-------Using python-wrf 1D interpolaiton function-------------------------
+                            # t_interp= interp1d(t_1d, lev_1d, lev_interp,meta = False)
+                            
+                            # t_lev[0:z_top] = t_interp
+                            #----------------------------------------------
+                        else:
+                            t_lev[z] = t_lev[z]
+                    # else:
+                    #     t_lev = t_lev
+                        # print t_lev
+                        # t_lev = np.array(t_lev)      
+                          
+                    t_time[j][k][:] = t_lev
+            
+            #replace the interpoaltion 3d [lat*lon*level] to each individual 
+            t_total[i][:] = t_time  
+            # print len(t_total[0][0][0])
+            #del t_lev
+                      
+        #restructure back    
+        t_total = t_total[:,:,:,:].transpose((0,3,1,2))
+    
+        return t_total
+        
+                           
     def windExtrapolate(self, wind_total):
         """Processing 1D vertical extraplation for wind components at specific levels, 
             at where the values are lacking (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
@@ -823,7 +873,7 @@ class SaveNCDF_pl_3dmana():                                                     
                      
         """
   
-        def saveData(self, date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data):
+        def saveData(self, date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data, elevation):
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
@@ -868,7 +918,7 @@ class SaveNCDF_pl_3dmana():                                                     
                         del var
                         if x == 'T':
                            t_total = var_total
-                           #var_total = MERRAgeneric().tempExtrapolate(t_total) # 1D Extrapolation for Air Temperature
+                           var_total = MERRAgeneric().tempExtrapolate(elevation,t_total) # 1D Extrapolation for Air Temperature
                         elif x == 'U': 
                            u_total = var_total                                       
                            var_total = MERRAgeneric().windExtrapolate(u_total)   #1D Extrapolation for Eastward Wind
@@ -2018,7 +2068,7 @@ class MERRAdownload(object):
                     # Output merra-2 meteorological analysis variable at pressure levels
                     #For T, V, U, H
                       
-                    SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data)
+                    SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data, elevation)
                       
                     #Get Geopotential Height from the 3D analysed Meteorological Dataset
                     #gp = SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data)
@@ -2626,6 +2676,7 @@ class MERRAinterpolate(object):
                                     self.list_name + '.nc'), self.stations,
                                     ['PHIS','FRLAND','FROCEAN', 'FRLANDICE','FRLAKE'], date = dummy_date)      
 
+        # NEED ADD 'H' in it!
         # === 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA ===
         # dictionary to translate CF Standard Names into MERRA2
         # pressure level variable keys. 
