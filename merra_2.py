@@ -580,8 +580,6 @@ class MERRAgeneric():
 
         Pmax = self.getPressure(elevation['min']) + 55
         Pmin = self.getPressure(elevation['max']) - 55
-        # Pmax = self.getPressure(ele_min) + 55
-        # Pmin = self.getPressure(ele_max) - 55
         levels = np.array([1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 725, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100, 70,    
                           50, 40, 30, 20, 10, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.7, 0.5, 0.4, 0.3, 0.1])
  
@@ -590,15 +588,16 @@ class MERRAgeneric():
         id_lev = list(itertools.chain(*id_lev))
         
         #get the pressue levels
-        levs = levels[id_lev] * 100
+        #levs = levels[id_lev] * 100
+        levs = levels[id_lev]
         
         # Assume dt/dp=const, where const is such that dt/dz=6.5C/1km (moist adiab approx)
         # This is similar to dt/dp=6.5C/100 mb for lowest couple of km
         
         r = 287.0
         g = 9.81
-        gammadry = 9.8/10000.0
         gammamoi = 6.5/10000.0
+        gammadry = 9.8/10000.0
 
         #restructure t_total [time*lev*lat*lon] to [time*lat*lon*lev]
         t_total = t_total[:,:,:,:].transpose((0,2,3,1))
@@ -610,52 +609,43 @@ class MERRAgeneric():
             for j in range(0, len(t_time)):
                 for k in range(0, len(t_time[0])):
                     t_lev = t_time[j][k][:]
-                    # if t_lev.any() > 99999:
+                    id_interp = [] 
                     for z in range(0, len(t_lev)):
-                        if t_lev[z].any() > 99999:
-                            z_bottom = z
-                            z= z+1 
-                        elif t_lev[z] < 99999:
-                            z_top = z 
-                            t_1d = np.asarray(t_lev[z_top:z_top+1])        # get the value from the lowermost pressure level
-                            #assign wanted pressure levels to interpolate
-                            id_interp = np.arange(z_top)
-                            lev_interp = levs[id_interp]
-                            # get the used pressure levels for interpolation
-                            id_1d = np.arange(z_top, z_top+1)
-                            lev_1d = levs[id_1d]
-                            # 1d interpolation
-                            # t_interp = []
-                            
-                            #------Using adiabatic lapse rate (moist or dry), dT/DP=const-----------
+                        if t_lev[z] > 99999:
+                           id_interp.append(z)
+                        # print len(id_interp)
+                        if id_interp != []:
+                            lev_interp = levs[id_interp] 
+                            z_top = id_interp[-1] + 1
+                            lev_1d = levs[z_top]
+                            t_1d = t_lev[z_top]
+    
                             for i in range(len(lev_interp), 0, -1):
                                 # print i
+                                #------Using adiabatic lapse rate (moist or dry), dT/DP=const-----------
                                 if i == len(lev_interp):
                                     t_lev[i-1] = t_1d - gammamoi*(lev_1d -lev_interp[i-1])
-                                    #t_lev[i-1] = t_1d - gammadry*(lev_1d -lev_interp[i-1]) 
+                                    # t_lev[i-1] = t_1d - gammadry*(lev_1d - lev_interp[i-1]) 
                                 else:
                                     t_lev[i-1] = t_lev[i] - gammamoi*(lev_interp[i] - lev_interp[i-1])
-                                    #t_lev[i-1] = t_lev[i] - gammadry*(lev_interp[i] - lev_interp[i-1])       
-                            
+                                    # t_lev[i-1] = t_lev[i] - gammadry*(lev_interp[i] - lev_interp[i-1])
+
                             #-------Using python-wrf 1D interpolaiton function-------------------------
                             # t_interp= interp1d(t_1d, lev_1d, lev_interp,meta = False)
                             
                             # t_lev[0:z_top] = t_interp
-                            #----------------------------------------------
-                        else:
-                            t_lev[z] = t_lev[z]
-                    # else:
-                    #     t_lev = t_lev
-                        # print t_lev
-                        # t_lev = np.array(t_lev)      
-                          
+                            #----------------------------------------------      
+
+                        else: 
+                            t_lev[z] = t_lev[z]           
+                                           
                     t_time[j][k][:] = t_lev
-            
-            #replace the interpoaltion 3d [lat*lon*level] to each individual 
+
+            #replace the interpoaltion 3d [lat*lon*level] to each individual time
             t_total[i][:] = t_time  
             # print len(t_total[0][0][0])
             #del t_lev
-                      
+                                                 
         #restructure back    
         t_total = t_total[:,:,:,:].transpose((0,3,1,2))
     
@@ -665,27 +655,35 @@ class MERRAgeneric():
     def windExtrapolate(self, wind_total):
         """Processing 1D vertical extraplation for wind components at specific levels, 
             at where the values are lacking (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
+            Wind (u,v) are utilized the value of at lowest pressure levels to the ones with value gaps
         """ 
 
         #restructure u_total,v_total [time*lev*lat*lon] to [time*lat*lon*lev]
         wind_total = wind_total[:,:,:,:].transpose((0,2,3,1))
 
-        #find and fill the value gap
-        for i in range(0, len(wind_total)):
-            for j in range(0, len(wind_total[0])):
-                for k in range(0, len(wind_total[0][0])):
-                    wind_lev = wind_total[i,j,k,:]
+        #find and fill the value gap  
+        for i in range(0, len(wind_total)): 
+            #pass 3d data at each individual time
+            wind_time = wind_total[i][:] 
+            for j in range(0, len(wind_time)):
+                for k in range(0, len(wind_time[0])):
+                    wind_lev = wind_time[j][k][:]
+                    id_interp = [] 
                     for z in range(0, len(wind_lev)):
-                          if wind_lev[z] > 99999:
-                             z_bottom = z 
-                             z = z+1 
-                             if wind_lev[z] < 99999:
-                                z_top = z 
-                                wind_lev[0:z_top] = wind_lev[z_top]
-                          else:
-                             wind_lev[z] = wind_lev[z]      
-                    wind_total[i,j,k,:] = wind_lev
-                   
+                        if wind_lev[z] > 99999:
+                           id_interp.append(z)
+
+                        if id_interp != []: 
+                            z_top = id_interp[-1] + 1
+                            wind_lev[id_interp] = wind_lev[z_top]
+                        else: 
+                            wind_lev[z] = wind_lev[z]           
+                                           
+                    wind_time[j][k][:] = wind_lev
+
+            #replace the interpoaltion 3d [lat*lon*level] to each individual time
+            wind_total[i][:] = wind_time  
+                           
         #restructure back    
         wind_total = wind_total[:,:,:,:].transpose((0,3,1,2))
     
@@ -694,25 +692,33 @@ class MERRAgeneric():
     def rhExtrapolate(self, rh_total):
         """Processing 1D vertical extrapolation for relative humidity at specific levels,
             at where the values are lacking (marked by 9.9999999E14) from merra-2 3d Assimilated Meteorological Fields datasets
+            Relative Humidity (rh) is utilized the value of at lowest pressure level to the ones with value gaps
         """     
         #restructure rh_total [time*lev*lat*lon] to [time*lat*lon*lev]
         rh_total = rh_total[:,:,:,:].transpose((0,2,3,1))
 
         #find and fill the value gap
-        for i in range(0, len(rh_total)):
-            for j in range(0, len(rh_total[0])):
-                for k in range(0, len(rh_total[0][0])):
-                    rh_lev = rh_total[i,j,k,:]
+        for i in range(0, len(rh_total)): 
+            #pass 3d data at each individual time
+            rh_time = rh_total[i][:] 
+            for j in range(0, len(rh_time)):
+                for k in range(0, len(rh_time[0])):
+                    rh_lev = rh_time[j][k][:]
+                    id_interp = [] 
                     for z in range(0, len(rh_lev)):
-                          if rh_lev[z] > 99999:
-                             z_bottom = z 
-                             z = z+1 
-                             if rh_lev[z] < 99999:
-                                z_top = z 
-                                rh_lev[0:z_top] = rh_lev[z_top]
-                          else:
-                             rh_lev[z] = rh_lev[z]      
-                    rh_total[i,j,k,:] = rh_lev
+                        if rh_lev[z] > 99999:
+                           id_interp.append(z)
+
+                        if id_interp != []: 
+                            z_top = id_interp[-1] + 1
+                            rh_lev[id_interp] = rh_lev[z_top]
+                        else: 
+                            rh_lev[z] = rh_lev[z]           
+                                           
+                    rh_time[j][k][:] = rh_lev
+
+            #replace the interpoaltion 3d [lat*lon*level] to each individual time
+            rh_total[i][:] = rh_time  
 
         #restructure back    
         rh_total = rh_total[:,:,:,:].transpose((0,3,1,2))
@@ -2727,12 +2733,12 @@ class MERRAinterpolate(object):
 #     
 #==============================================================================    
 # 
-# # Download 
-# pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
-# 
-# MERRAdownl = MERRAdownload(pfile)
-# 
-# MERRAdownl.retrieve()
+# Download 
+pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
+
+MERRAdownl = MERRAdownload(pfile)
+
+MERRAdownl.retrieve()
 # 
 # Interpolation to station
 
