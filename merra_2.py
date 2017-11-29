@@ -573,9 +573,7 @@ class MERRAgeneric():
         
     def tempExtrapolate(self, elevation, t_total):
         """ Processing 1D vertical extrapolation for Air Temperature at specific levels, 
-            at where the values are lacking  (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
-            extrapolated using adiabatic lapse rate (moist or dry), dT/DP=const
-            
+            at where the values are lacking  (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets           
         """  
 
         Pmax = self.getPressure(elevation['min']) + 55
@@ -658,16 +656,15 @@ class MERRAgeneric():
             Wind (u,v) are utilized the value of at lowest pressure levels to the ones with value gaps
         """ 
 
-        #restructure u_total,v_total [time*lev*lat*lon] to [time*lat*lon*lev]
-        wind_total = wind_total[:,:,:,:].transpose((0,2,3,1))
+        #restructure u_total,v_total [time*lev*lat*lon] to [lat*lon*time*lev]
+        wind_total = wind_total[:,:,:,:].transpose((2,3,0,1))
 
         #find and fill the value gap  
-        for i in range(0, len(wind_total)): 
-            #pass 3d data at each individual time
-            wind_time = wind_total[i][:] 
-            for j in range(0, len(wind_time)):
-                for k in range(0, len(wind_time[0])):
-                    wind_lev = wind_time[j][k][:]
+        for i in range(0, len(wind_total)):
+            for j in range(0,len(wind_total[0])):
+                wind_time = wind_total[i][j][:]
+                for k in range(0,len(wind_time)):
+                    wind_lev = wind_time[k][:]
                     id_interp = [] 
                     for z in range(0, len(wind_lev)):
                         if wind_lev[z] > 99999:
@@ -679,14 +676,14 @@ class MERRAgeneric():
                         else: 
                             wind_lev[z] = wind_lev[z]           
                                            
-                    wind_time[j][k][:] = wind_lev
+                    wind_time[k][:] = wind_lev
 
-            #replace the interpoaltion 3d [lat*lon*level] to each individual time
-            wind_total[i][:] = wind_time  
+                #replace the interpoaltion value to each single pixel
+                wind_total[i][j][:] = wind_time
                            
         #restructure back    
-        wind_total = wind_total[:,:,:,:].transpose((0,3,1,2))
-    
+        wind_total = wind_total[:,:,:,:].transpose((2,3,0,1))
+               
         return wind_total
        
     def rhExtrapolate(self, rh_total):
@@ -694,16 +691,15 @@ class MERRAgeneric():
             at where the values are lacking (marked by 9.9999999E14) from merra-2 3d Assimilated Meteorological Fields datasets
             Relative Humidity (rh) is utilized the value of at lowest pressure level to the ones with value gaps
         """     
-        #restructure rh_total [time*lev*lat*lon] to [time*lat*lon*lev]
-        rh_total = rh_total[:,:,:,:].transpose((0,2,3,1))
+        #restructure rh_total [time*lev*lat*lon] to [lat*lon*time*lev]
+        rh_total = rh_total[:,:,:,:].transpose((2,3,0,1))
 
-        #find and fill the value gap
-        for i in range(0, len(rh_total)): 
-            #pass 3d data at each individual time
-            rh_time = rh_total[i][:] 
-            for j in range(0, len(rh_time)):
-                for k in range(0, len(rh_time[0])):
-                    rh_lev = rh_time[j][k][:]
+        #find and fill the value gap  
+        for i in range(0, len(rh_total)):
+            for j in range(0,len(rh_total[0])):
+                rh_time = rh_total[i][j][:]
+                for k in range(0,len(rh_time)):
+                    rh_lev = rh_time[k][:]
                     id_interp = [] 
                     for z in range(0, len(rh_lev)):
                         if rh_lev[z] > 99999:
@@ -715,13 +711,13 @@ class MERRAgeneric():
                         else: 
                             rh_lev[z] = rh_lev[z]           
                                            
-                    rh_time[j][k][:] = rh_lev
+                    rh_time[k][:] = rh_lev
 
-            #replace the interpoaltion 3d [lat*lon*level] to each individual time
-            rh_total[i][:] = rh_time  
+                #replace the interpoaltion value to each single pixel
+                rh_total[i][j][:] = rh_time
 
         #restructure back    
-        rh_total = rh_total[:,:,:,:].transpose((0,3,1,2))
+        rh_total = rh_total[:,:,:,:].transpose((2,3,0,1))
         
         return rh_total
                     
@@ -924,12 +920,15 @@ class SaveNCDF_pl_3dmana():                                                     
                         del var
                         if x == 'T':
                            t_total = var_total
+                           print "Conduct 1D Extrapolation for 'T'"
                            var_total = MERRAgeneric().tempExtrapolate(elevation,t_total) # 1D Extrapolation for Air Temperature
                         elif x == 'U': 
-                           u_total = var_total                                       
+                           u_total = var_total
+                           print "Conduct 1D Extrapolation for 'U'"                                       
                            var_total = MERRAgeneric().windExtrapolate(u_total)   #1D Extrapolation for Eastward Wind
                         elif x == 'V':
                            v_total = var_total
+                           print "Conduct 1D Extrapolation for 'V'"
                            var_total = MERRAgeneric().windExtrapolate(v_total)   #1D Extrapolation for Northward Wind
                         elif x == 'H':
                            h_total = var_total      
@@ -1081,6 +1080,7 @@ class SaveNCDF_pl_3dmasm():
                         var_total = MERRAgeneric().restruDatastuff(var)
                         if x == 'RH':
                            rh_total = var_total
+                           print "Conduct 1D Extrapolation for 'RH'"
                            var_total = MERRAgeneric().rhExtrapolate(rh_total)   #1D Extrapolation for Relative Humidity
                         del var
                         var_out[x][3] = var_total
@@ -1642,7 +1642,7 @@ class SaveNCDF_sr():
             var_list.append(['DIFF_LWGDN_LWGAB', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','W/m2', diff_lwgdn_lwgab_total])
             var_list.append(['DIFF_LWGDNCLR_LWGABCLR', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','W/m2', diff_lwgdnclr_lwgabclr_total]) 
             
-            print len(var_list)
+            # print len(var_list)
                
             var_low = 0
             var_up = 0
