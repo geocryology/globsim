@@ -4,18 +4,31 @@
 # Copyright Xiaojing Quan & Stephan Gruber
 # =============================================================================    
 # REVISION HISTORY 
-# 20170510 -- Initial version created 
+# 20170510 -- Initial Version Created
+# 20171205 -- First Draft Completed
 #
 #==============================================================================
 # A scripts for downloading MERRA-2 reanalysis data:
-# --Air Temperature at pressure levels [time*level*lat*lon]
-# --Relative Humidity [time*level*lat*lon]
-# --Wind Speed/Direction [time*level*lat*lon]
-# --Air Temperature at 2 meter [time*level*lat*lon]
-# --Surface Solar Radiation Downwards [time*level*lat*lon] (level=1)
-# --Surface Thermal Radiation Downwards [time*level*lat*lon] (level=1)
-# --Total Precipitation [time*level*lat*lon] (level=1)
-# --Others
+# -- Geoppotential Height at pressure levels [time*level*lat*lon] (Unit:m) (6-hourly/day)
+# -- Air Temperature at pressure levels [time*level*lat*lon] (Unit:K) (6-hourly/day)
+# -- Relative Humidity at Pressure Levels[time*level*lat*lon] (Unit:1) (3-hourly/day)
+# -- Easteward Wind at Pressure Levels [time*level*lat*lon] (Unit:m/s) (6-hourly/day)
+# -- Northward Wind at Pressure Levels [time*level*lat*lon] (Unit:m/s) (6-hourly/day)
+# -- Air Temperature at 2 Meter [time*lat*lon] (Unit:K) (1-hourly/day)
+# -- Eastward Wind at 2 Meter [time*lat*lon] (Unit:K) (1-hourly/day) 
+# -- Northward Wind at 2 Meter [time*lat*lon] (Unit: m/s) (1-hourly/day)
+# -- Eastward Wind at 10 Meter  [time*lat*lon] (Unit: m/s) (1-hourly/day)
+# -- Northward Wind at 10 Meter [time*lat*lon] (Unit: m/s) (1-hourly/day)
+# -- Precipitation Flux [time*lat*lon] (Unit: kg/m2/s) (1-hourly/day)
+# -- Surface Incoming Shoertwave Flux [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# -- Surface Incoming Shortwave Flux Assuming Clear Sky [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# -- Surface Net Downward Longwave Flux [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# -- Surface Net Downward Longwave Flux Assuming Clear Sky [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# -- Longwave Flux Emitted from Surface [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# 
+# -- Surface Absorbed Longwave Flux [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# -- Surface Absorbed Longwave Flux Assuming Clear Sky [time*lat*lon] (Unit:W/m2) (1-hourly/day)
+# 
 # Saved as netCDF 4
 #====================HOW TO RUN THIS ==========================================
 #
@@ -39,7 +52,7 @@
 #==============================================================================
 # IMPORTANT Notes: 
 
-# Samples of Selected URLs list:
+# 1. Samples of Selected URLs list:
 
 # url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4'
 #        '/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4')                     # 3d,6-hourly,Instantaneous,Pressure-Level, Analyzed Meteorological Fields                                                                                                                                                                                                                                                               
@@ -55,7 +68,18 @@
 
 # url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T3NPRAD.5.12.4'
 #      '/2016/01/MERRA2_400.tavg3_3d_rad_Np.20160102.nc4')                       # 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
-
+#
+# 2. Radiation Variables Procedure:
+# Considering the variables below as equal utilization:
+#
+# downwelling_shortwave_flux_in_air_assuming_clear_sky = Surface_Incoming_Shoertwave_Flux 
+#
+# downwelling_shortwave_flux_in_air_assuming_clear_sky = Surface_Incoming_Shortwave_Flux_Assuming_Clear_Sky
+#
+# downwelling_longwave_flux_in_air = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux 
+#
+# downwelling_longwave_flux_in_air_assuming_clear_sky = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux Assuming Clear Sky
+            
 #==============================================================================
 
 from pydap.client import open_url
@@ -67,8 +91,7 @@ from dateutil.rrule import rrule, DAILY
 from math import exp, floor
 from generic import ParameterIO, StationListRead
 from fnmatch import filter
-from wrf import interp1d
-from scipy.interpolate import griddata,RegularGridInterpolator, NearestNDInterpolator,LinearNDInterpolator
+from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 
 import pydap.lib
 import numpy as np
@@ -78,7 +101,6 @@ import math
 import itertools
 import pandas
 import time as tc
-import wrf
 
 try:
     import ESMF
@@ -230,7 +252,7 @@ class MERRAgeneric():
     def Variables(self, variable, ds):
         """Get the objected variables from the specific MERRA-2 datasets        
            variable = ['T','U','V','H','lat','lon','lev','time']                                     # for extracting from 3d Analyzed Meteorological Fields datasets 
-                    = ['RH','PHIS','lat','lon','lev','time']                                         # for extracting from 3d Assimilated Meteorological Fields datasets
+                    = ['RH','PHIS','H','lat','lon','lev','time']                                     # for extracting from 3d Assimilated Meteorological Fields datasets
                     = ['U2M','T2M','TQL','V2M','V10M','U10M','QV2M','lat','lon','time']              # for extracting from 2d meteorological Diagnostics datasets
                     = ['PRECTOT','lat','lon','time']                                                 # for extracting from 2d suface flux Diagnostics datasets  
                     = ['SWGDN','LWGNT', 'SWGDNCLR', 'LWGNTCLR', 'LWGEM', 'lat','lon','time']         # for extracting from 2d radiation Diagnostics datasets 
@@ -571,7 +593,7 @@ class MERRAgeneric():
 
         return data_total
         
-    def tempExtrapolate(self, elevation, t_total):
+    def tempExtrapolate(self, elevation, t_total, h_total):
         """ Processing 1D vertical extrapolation for Air Temperature at specific levels, 
             at where the values are lacking  (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets           
         """  
@@ -597,59 +619,57 @@ class MERRAgeneric():
         gammamoi = 6.5/10000.0
         gammadry = 9.8/10000.0
 
-        #restructure t_total [time*lev*lat*lon] to [time*lat*lon*lev]
-        t_total = t_total[:,:,:,:].transpose((0,2,3,1))
+        #restructure t_total [time*lev*lat*lon] to [lat*lon*time*lev]
+        t_total = t_total[:,:,:,:].transpose((2,3,0,1))
+        h_total = h_total[:,:,:,:].transpose((2,3,0,1))
 
         #find the value gap and conduct 1d extrapolation 
+        
         for i in range(0, len(t_total)): 
-            #pass 3d data at each individual time
-            t_time = t_total[i][:] 
-            for j in range(0, len(t_time)):
-                for k in range(0, len(t_time[0])):
-                    t_lev = t_time[j][k][:]
-                    id_interp = [] 
-                    for z in range(0, len(t_lev)):
-                        if t_lev[z] > 99999:
-                           id_interp.append(z)
-                        # print len(id_interp)
-                        if id_interp != []:
-                            lev_interp = levs[id_interp] 
-                            z_top = id_interp[-1] + 1
-                            lev_1d = levs[z_top]
-                            t_1d = t_lev[z_top]
-    
-                            for i in range(len(lev_interp), 0, -1):
-                                # print i
-                                #------Using adiabatic lapse rate (moist or dry), dT/DP=const-----------
-                                if i == len(lev_interp):
-                                    t_lev[i-1] = t_1d - gammamoi*(lev_1d -lev_interp[i-1])
-                                    # t_lev[i-1] = t_1d - gammadry*(lev_1d - lev_interp[i-1]) 
-                                else:
-                                    t_lev[i-1] = t_lev[i] - gammamoi*(lev_interp[i] - lev_interp[i-1])
-                                    # t_lev[i-1] = t_lev[i] - gammadry*(lev_interp[i] - lev_interp[i-1])
+            for j in range(0, len(t_total[0])):
+                 t_time = t_total[i][j][:]
+                 h_time = h_total[i][j][:]
+                 for k in range(0, len(t_time)) :
+                     t_lev = t_time[k][:]
+                     h_lev = h_time[k][:]
+                     id_interp = [] 
+                     for z in range(0, len(t_lev)):
+                         # find the indice of levels with missing values
+                         if t_lev[z] > 99999:
+                            id_interp.append(z)
 
-                            #-------Using python-wrf 1D interpolaiton function-------------------------
-                            # t_interp= interp1d(t_1d, lev_1d, lev_interp,meta = False)
-                            
-                            # t_lev[0:z_top] = t_interp
-                            #----------------------------------------------      
-
-                        else: 
+                            if id_interp != []:
+                                # get the levels of geopotential heights with missing values
+                                lev_interp = h_lev[id_interp]
+                                # pass the index of first found level with existing value to z_top
+                                z_top = id_interp[-1] + 1
+                                #get values at the lowest 3 levels of geopotential heights with existed values
+                                lev_3p = h_lev[z_top:z_top + 3]
+                                #get values at the lowest 3 levels of air temperature with existed values
+                                t_3p = t_lev[z_top:z_top + 3]
+                                #-------Using spicy.interpolate.interp1d function-------------------------
+                                # build linear function based on given values at lowest 3 levels of air temperature and geopotential heights
+                                f = interp1d(lev_3p, t_3p, kind = 'linear', fill_value = 'extrapolate')
+                                # use built function to calculate the values of air temperature at the found missing-values levels
+                                t_interp = f(lev_interp)    
+                                # fill the calcaulated values into missing-values levels
+                                t_lev[id_interp] = t_interp
+      
+                         else: 
                             t_lev[z] = t_lev[z]           
-                                           
-                    t_time[j][k][:] = t_lev
+                                            
+                     t_time[k][:] = t_lev
 
-            #replace the interpoaltion 3d [lat*lon*level] to each individual time
-            t_total[i][:] = t_time  
-            # print len(t_total[0][0][0])
-            #del t_lev
+                 #replace the extrapolated value [time * level] to each individual cell
+                 t_total[i][j][:] = t_time  
                                                  
         #restructure back    
-        t_total = t_total[:,:,:,:].transpose((0,3,1,2))
-    
-        return t_total
+        t_total = t_total[:,:,:,:].transpose((2,3,0,1))
         
-                           
+        del h_total
+        
+        return t_total
+                         
     def windExtrapolate(self, wind_total):
         """Processing 1D vertical extraplation for wind components at specific levels, 
             at where the values are lacking (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
@@ -875,7 +895,7 @@ class SaveNCDF_pl_3dmana():                                                     
                      
         """
   
-        def saveData(self, date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data, elevation):
+        def saveData(self, date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data, elevation, rh_total):
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
@@ -904,10 +924,10 @@ class SaveNCDF_pl_3dmana():                                                     
             v_total = []
             h_total = []
             
-            var_out = {'T':['air_temperature', 'air_temperature','K', t_total],
+            var_out = {'H':['geopotential_height','geopotential_height', 'm', h_total],
+                       'T':['air_temperature', 'air_temperature','K', t_total],
                        'U':['eastward_wind','eastward_wind_component','m/s', u_total],
-                       'V':['northward_wind','northward_wind_component', 'm/s', v_total],
-                       'H':['geopotential_height','geopotential_height', 'm', h_total]}            
+                       'V':['northward_wind','northward_wind_component', 'm/s', v_total]}            
             
             var_list = []
             for i in range(0, len(get_variables[0:-4])):
@@ -918,10 +938,12 @@ class SaveNCDF_pl_3dmana():                                                     
                         # restructing the shape 
                         var_total = MERRAgeneric().restruDatastuff(var)
                         del var
-                        if x == 'T':
+                        if x == 'H':
+                           h_total = var_total 
+                        elif x == 'T':
                            t_total = var_total
                            print "Conduct 1D Extrapolation for 'T'"
-                           var_total = MERRAgeneric().tempExtrapolate(elevation,t_total) # 1D Extrapolation for Air Temperature
+                           var_total = MERRAgeneric().tempExtrapolate(elevation,t_total, h_total) # 1D Extrapolation for Air Temperature
                         elif x == 'U': 
                            u_total = var_total
                            print "Conduct 1D Extrapolation for 'U'"                                       
@@ -930,8 +952,6 @@ class SaveNCDF_pl_3dmana():                                                     
                            v_total = var_total
                            print "Conduct 1D Extrapolation for 'V'"
                            var_total = MERRAgeneric().windExtrapolate(v_total)   #1D Extrapolation for Northward Wind
-                        elif x == 'H':
-                           h_total = var_total      
                         
                         var_out[x][3] = var_total
                         
@@ -939,7 +959,8 @@ class SaveNCDF_pl_3dmana():                                                     
                         
                         var_list.append([get_variables[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
                         
-            # print len(t_total), len(u_total), len(v_total), len(h_total)
+            # # Added Relative Humidity
+            # var_list.append(['RH','relative_humidity', 'relative humidity','1', rh_total])
 
             # save nc file 
             var_low = 0
@@ -967,9 +988,19 @@ class SaveNCDF_pl_3dmana():                                                     
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
                 
+                # # #Set up dimension for RH
+                # time1 = rootgrp.creatDimension('time1', (len(time)*2))
+
                 #Output the results of output variables
                 for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','level','lats', 'lons'),fill_value=9.9999999E14)       
+                    # if var_list[x][0] == 'RH':
+                    #     out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time*2','level','lats', 'lons'),fill_value=9.9999999E14)
+                    #     out_var[:,:,:,:] = var_list[x][4][var_low*2:var_up*2,:,:,:]
+                    # else:    
+                    #     out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','level','lats', 'lons'),fill_value=9.9999999E14)
+                    #     out_var[:,:,:,:] = var_list[x][4][var_low:var_up,:,:,:]        
+
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','level','lats', 'lons'),fill_value=9.9999999E14)
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
@@ -978,7 +1009,6 @@ class SaveNCDF_pl_3dmana():                                                     
                     out_var.vmin = (-9.9999999E14, 'f')   
                     out_var.vmax = (9.9999999E14, 'f')
                     out_var[:,:,:,:] = var_list[x][4][var_low:var_up,:,:,:]    #data generic name with data stored in it
-                
     
                 Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
@@ -989,8 +1019,19 @@ class SaveNCDF_pl_3dmana():                                                     
                 netCDFTime = []
                 for x in range(0, len(time_ind1)):
                     netCDFTime.append(nc.date2num(time_ind1[x], units = Time.units, calendar = Time.calendar))
-                Time[:] = netCDFTime[var_low:var_up]                                                                                                        
-                                                        
+                Time[:] = netCDFTime[var_low:var_up] 
+                
+                # Time1 = rootgrp.createVariable('time1', 'i4', ('time1'))
+                # Time.standard_name = "time"
+                # # Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
+                # Time.units  = "hour since 1980-1-1 00:00:00"                 
+                # Time.calendar = "gregorian"   
+                # # pass the values
+                # netCDFTime = []
+                # for x in range(0, len(time_ind2)):
+                #     netCDFTime.append(nc.date2num(time_ind2[x], units = Time.units, calendar = Time.calendar))
+                # Time1[:] = netCDFTime[var_low*2:var_up*2]                                                                                                        
+                                                                                                                                                                                                                                                         
                 Level = rootgrp.createVariable('level','i4', ('level'))
                 Level.standard_name = "air_pressure"
                 Level.long_name = "vertical level"
@@ -1018,7 +1059,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 #close the root group
                 rootgrp.close()
                
-            return t_total, u_total, v_total, h_total           
+            # return t_total, u_total, v_total, h_total           
 
 
 class SaveNCDF_pl_3dmasm():                                                        
@@ -1063,9 +1104,11 @@ class SaveNCDF_pl_3dmasm():
             #Get the wanted variables and Set up the list of output variables
             rh_total = []            
             phis_total = []
+            eh_total = []
             
             var_out = {'RH':['relative_humidity', 'relative humidity','1', rh_total],
-                       'PHIS':['surface_geopotential_height', 'surface_geopotential_height','m2/s2', phis_total]}            
+                       'PHIS':['surface_geopotential_height', 'surface_geopotential_height','m2/s2', phis_total],
+                       'H':['edge_heights', 'edge_heights','m', eh_total]}            
             
             var_list = []
             for i in range(0, len(get_variables[0:-4])):
@@ -1082,6 +1125,7 @@ class SaveNCDF_pl_3dmasm():
                            rh_total = var_total
                            print "Conduct 1D Extrapolation for 'RH'"
                            var_total = MERRAgeneric().rhExtrapolate(rh_total)   #1D Extrapolation for Relative Humidity
+                           rh_total = var_total
                         del var
                         var_out[x][3] = var_total
                         del var_total
@@ -1165,8 +1209,9 @@ class SaveNCDF_pl_3dmasm():
                 Longitudes[:] = lon[0][0][:]                    # pass the values of longitudes
     
                 #close the root group
-                rootgrp.close()          
-
+                rootgrp.close()
+                          
+            return rh_total
 
 class MERRAsm():
     """Returns variables from downloaded MERRA 2d meteorological Diagnostics data, 
@@ -1994,10 +2039,10 @@ class MERRAdownload(object):
                               'downwelling_longwave_flux_in_air_assuming_clear_sky': ['surface_net_downward_longwave_flux_assuming_clear_sky','longwave_flux_emitted_from_surface','surface_abosrbed_longwave_radiation_assuming_clear_sky']}
         
         # build variables Standards Names and referenced Names for downloading from orginal MERRA-2 datasets
-        full_variables_pl_ana = {'air_temperature':'T',
+        full_variables_pl_ana = {'geopotential_height':'H',
+                                 'air_temperature':'T',
                                   'eastward_wind':'U',
-                                  'northward_wind': 'V',
-                                  'geopotential_height':'H'}
+                                  'northward_wind': 'V'}
         
         full_variables_pl_asm = {'relative_humidity': 'RH'}
         
@@ -2040,7 +2085,44 @@ class MERRAdownload(object):
                     #convert date['beg'] from string back to datetime object
                     date['end'] = datetime.strptime(date['end'],'%Y/%m/%d')
 
+                    # Get merra-2 3d meteorological assimilated variables at pressure levels
+                    print ("-----Get Wanted Variables From Merra-2 3d, 3-hourly, Pressure-Level, Assimilated Meteorological Fields-----")
                     
+                    # get the shared variables dictionaries and pass the information to the build-in dictionaries
+                    get_variables = []
+                    for i in range(0, len(variables)):
+                        for var in full_variables_dic.keys():
+                            if  var == variables[i]:
+                                var_names = full_variables_dic[var]
+                                #  Set up the variables list for accassing original MERRA-2 3d Assimilated Meteorological Fields dataset
+                                for j in range(0, len(var_names)):
+                                    for var1 in full_variables_pl_asm.keys():
+                                        if var1 == var_names[j]:
+                                            get_variables.append(full_variables_pl_asm[var1])
+                    get_variables = list(set(get_variables))                                                                
+                    
+                    # add the variables names of latitude, longitude, levels and time
+                    # !! ADD surface Geopotential Height, Edge Heights into the downloading list
+                    get_variables.extend(['PHIS','H','lat','lon','lev','time'])
+                    
+                    print get_variables
+                    
+                    ds_asm = MERRApl_asm().getDs(date, username, password, chunk_size)
+                    
+                    id_lat, id_lon =  MERRAgeneric().getArea(area, ds_asm)
+                      
+                    id_lev = MERRAgeneric().getPressureLevels(elevation)
+
+                    out_variable_3dmasm = MERRApl_asm().getVariables(get_variables, ds_asm)
+                    
+                    lat, lon, lev, time = MERRApl_asm().getlatLon_3d(area, ds_asm, elevation, out_variable_3dmasm, id_lat, id_lon, id_lev)
+                    
+                    # Output meteorological assimilated variable at pressure levels
+                    # For RH
+                    rh_total = SaveNCDF_pl_3dmasm().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmasm, chunk_size, time, lev, lat, lon, dir_data)
+
+                    print ("----------------------------------------Result NO.1: Completed----------------------------------------")
+                      
                     #get merra-2 meterological varaibles at pressure levels
                     print ("-----Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields-----")
                     
@@ -2056,8 +2138,11 @@ class MERRAdownload(object):
                                         if var1 == var_names[j]:
                                             get_variables.append(full_variables_pl_ana[var1])
                     get_variables = list(set(get_variables))                                            
-                    # add the variables names of geopotental height, latitude, longitude, levels and time
-                    get_variables.extend(['H', 'lat','lon','lev','time'])
+                   
+                    # !! ADD Geopotential Height in the first element of downloading list
+                    get_variables.insert(0,'H')
+                     # add the variables names of geopotental height, latitude, longitude, levels and time
+                    get_variables.extend(['lat','lon','lev','time'])
                       
                     print get_variables
                       
@@ -2074,43 +2159,13 @@ class MERRAdownload(object):
                     # Output merra-2 meteorological analysis variable at pressure levels
                     #For T, V, U, H
                       
-                    SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data, elevation)
+                    SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data, elevation, rh_total)
                       
                     #Get Geopotential Height from the 3D analysed Meteorological Dataset
                     #gp = SaveNCDF_pl_3dmana().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmana, chunk_size, time, lev, lat, lon, dir_data)
                       
-                    print ("----------------------------------------Result NO.1: Completed----------------------------------------")
-        
-                    # Get merra-2 3d meteorological assimilated variables at pressure levels
-                    print ("-----Get Wanted Variables From Merra-2 3d, 3-hourly, Pressure-Level, Assimilated Meteorological Fields-----")
-                    
-                    # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 3d Assimilated Meteorological Fields dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_pl_asm.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_pl_asm[var1])
-                    get_variables = list(set(get_variables))                                                                
-                    # add the variables names of latitude, longitude, levels and time
-                    get_variables.extend(['PHIS','lat','lon','lev','time'])
-                    
-                    print get_variables
-                    
-                    ds_asm = MERRApl_asm().getDs(date, username, password, chunk_size)                       
-                    
-                    out_variable_3dmasm = MERRApl_asm().getVariables(get_variables, ds_asm)
-                    
-                    lat, lon, lev, time = MERRApl_asm().getlatLon_3d(area, ds_asm, elevation, out_variable_3dmasm, id_lat, id_lon, id_lev)
-                    
-                    # Output meteorological assimilated variable at pressure levels
-                    # For RH
-                    SaveNCDF_pl_3dmasm().saveData(date, get_variables, id_lat, id_lon, id_lev, out_variable_3dmasm, chunk_size, time, lev, lat, lon, dir_data)
                     print ("----------------------------------------Result NO.2: Completed----------------------------------------")
+        
                     # 
                     # Get merra-2 2d meteorological Diagnostics variables at surface level
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Meteorological Diagnostics-----")
