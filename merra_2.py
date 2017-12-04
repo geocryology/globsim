@@ -2788,12 +2788,12 @@ class MERRAinterpolate(object):
 #     
 #==============================================================================    
 # 
-# Download 
-pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
-
-MERRAdownl = MERRAdownload(pfile)
-
-MERRAdownl.retrieve()
+# # Download 
+# pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
+# 
+# MERRAdownl = MERRAdownload(pfile)
+# 
+# MERRAdownl.retrieve()
 # 
 # Interpolation to station
 
