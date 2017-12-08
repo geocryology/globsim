@@ -2711,6 +2711,101 @@ class MERRAinterpolate(object):
                               path.join(self.dir_out,'merra_pl_' + 
                                         self.list_name + '_surface.nc'))
  
+class MERRAscale(object):
+    """
+    Class for MERRA data that has methods for scaling station data to
+    better resemble near-surface fluxes.
+    
+    Processing kernels have names in UPPER CASE.
+       
+    Args:
+        sfile: Full path to a Globsim Scaling Parameter file. 
+              
+    Example:          
+        MERRAd = ERAscale(sfile) 
+        MERRAd.process()
+    """
+        
+    def __init__(self, sfile):
+        # read parameter file
+        self.sfile = sfile
+        par = ParameterIO(self.sfile)
+        
+        # read kernels
+        self.kernels = par.kernels
+        if not isinstance(self.kernels, list):
+            self.kernels = [self.kernels]
+            
+        # input file names
+        self.nc_pl = nc.Dataset(path.join(par.project_directory,'merra2/merra_pl_' + 
+                                par.list_name + '_surface.nc'), 'r')
+        self.nc_sa = nc.Dataset(path.join(par.project_directory,'merra2/merra_sa_' + 
+                                par.list_name + '.nc'), 'r')
+        self.nc_sr = nc.Dataset(path.join(par.project_directory,'merra2/merra_sr_' + 
+                                par.list_name + '.nc'), 'r')
+        self.nc_sc = nc.Dataset(path.join(par.project_directory,'merra2/merra_sc_' + 
+                                par.list_name + '.nc'), 'r')
+                              
+        # output file 
+        self.outfile = par.output_file  
+        
+        # time vector for output data
+        # get time and convert to datetime object
+        nctime = self.nc_pl.variables['time'][:]
+        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_cal  = self.nc_pl.variables['time'].calendar
+        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
+        
+        #number of time steps
+        nt = int(floor((max(time) - min(time)).total_seconds() 
+                       / 3600 / par.time_step))
+        self.time_step = par.time_step
+        
+        # vector of output time steps as datetime object
+        mt = min(time)
+        self.times_out    = [mt + timedelta(hours=x) for x in range(0, nt)]
+        # vector of output time steps as written in ncdf file
+        self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
+                                        calendar = self.t_cal)
+
+        
+    def process(self):
+        """
+        Run all relevant processes and save data. Each kernel processes one 
+        variable and adds it to the netCDF file.
+        """    
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
+        
+        # iterate thorugh kernels and start process
+        for kernel_name in self.kernels:
+            getattr(self, kernel_name)()
+            
+        self.conv_geotop()    
+            
+        # close netCDF files   
+        self.rg.close()
+        self.nc_pl.close()
+        self.nc_sr.close()
+        self.nc_sa.close()
+        self.nc_sc.close()
+
+    def AIRT_MERRA_C_sur(self):
+        """
+        Air temperature derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'AIRT_MERRA_C_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '2_metre_temperature MERRA2 surface only'
+        var.units     = self.nc_sa.variables['2-meter_air_temperature'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['2-meter_air_temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15            
 
 
 #=========================For Run MERRA-2======================================
@@ -2728,11 +2823,11 @@ class MERRAinterpolate(object):
 #==============================================================================    
 # 
 # # Download 
-pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
-
-MERRAdownl = MERRAdownload(pfile)
-
-MERRAdownl.retrieve()
+# pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
+# 
+# MERRAdownl = MERRAdownload(pfile)
+# 
+# MERRAdownl.retrieve()
 
 # Interpolation to station
 
