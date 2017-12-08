@@ -1459,7 +1459,7 @@ class JRAscale(object):
                                 par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,'jra55/jra_sa_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(par.project_directory,'jra55/jra_sr_' + 
+        self.nc_sr = nc.Dataset(path.join(par.project_directory,'jra55/jra_sr_' + 
                                 par.list_name + '.nc'), 'r')
                                
         # output file 
@@ -1494,10 +1494,28 @@ class JRAscale(object):
         for kernel_name in self.kernels:
             getattr(self, kernel_name)()
             
+        self.conv_geotop()    
+            
         # close netCDF files   
         self.rg.close()
         self.nc_pl.close()
-        self.nc_sf.close()
+        self.nc_sr.close()
         self.nc_sa.close()
-        self.nc_to.close()
         
+    def AIRT_JRA_C_sur(self):
+        """
+        Air temperature derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'AIRT_JRA_C_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '2_metre_temperature JRA55 surface only'
+        var.units     = self.nc_sa.variables['surface_temperature'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['surface_temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15            
