@@ -2374,45 +2374,13 @@ class MERRAinterpolate(object):
                                 staggerloc=ESMF.StaggerLoc.CENTER,
                                 ndbounds=[len(variables), nt])
 
-# #----------------------------------------ADDED XQ---------------------------------------------
-#         # Build dictory between names in the list of variables and names in netCDF files                     
-#         var_dic = {'air_temperature': 'T', 
-#                     'relative_humidity': 'RH',
-#                     'precipitation_amount': ['PRECTOT'],
-#                     'wind_from_direction': ['U','V','U2M','V2M','U10M','V10M'],
-#                     'wind_speed': ['U', 'V','U2M','V2M','U10M', 'V10M'],
-#                     'downwelling_shortwave_flux_in_air': ['SWGDN'],
-#                     'downwelling_longwave_flux_in_air': ['LWGDN'],
-#                     'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'], 
-#                     'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']}
-#                
-#         # assign data from ncdf: (variable, time, latitude, longitude) 
-#         var = []
-#         for i in range(0, len(variables)):
-#             for key in var_dic.keys():
-#                 if key == variables[i]:
-#                     var1 = var_dic[key]
-#                     for j in range(0, len(var1)):
-#                         for var2 in ncf.variables.keys():
-#                             if var2 == var1[j]:
-#                               var.append(var2)
-#         var = [x.encode('UTF8') for x in var]
-#         var = list(set(var))
-#         var.remove('H') # remove 'geopotential height' from the 3d var list
-#                         
-#         for i in range(0, len(var)):
-#             if pl: # only for pressure level files
-#                 sfield.data[i,:,:,:,:] = ncf.variables[var[i]][tmask,:,:,:].transpose((0,1,3,2))
-#             else:
-#                 sfield.data[i,:,:,:] = ncf.variables[var[i]][tmask,:,:].transpose((0,2,1))
-#-------------------------------------ORINGINAL ONE--------------------------------------------------------                                                  
         # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
                 sfield.data[n,:,:,:,:] = ncf.variables[var][tmask,:,:,:].transpose((0,1,3,2)) 
             else:
                 sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1))
-#-------------------------------------------------------------------------------------------------
+
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
         locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
@@ -2483,25 +2451,6 @@ class MERRAinterpolate(object):
         latitude[:]  = list(self.stations['latitude_dd'])
         longitude[:] = list(self.stations['longitude_dd'])
         height[:]    = list(self.stations['elevation_m'])
-    
-# #-------------------------ADDED XQ------------------------------------------------
-#         # create and assign variables from input file
-#         for i in range(0, len(var)):
-#             vname = ncf.variables[var[i]].long_name.encode('UTF8')
-#             if pl: # only for pressure level files
-#                 tmp   = rootgrp.createVariable(vname,
-#                                                 'f4',('time', 'level', 'station'))
-#             else:
-#                 tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))
-#             tmp.long_name = ncf.variables[var[i]].long_name.encode('UTF8')
-#             tmp.units     = ncf.variables[var[i]].units.encode('UTF8')  
-#             # assign values
-#             if pl: # only for pressure level files
-#                 tmp[:] = dfield.data[i,:,:,:]
-#             else:
-#                 tmp[:] = dfield.data[i,:,:]    
-
-#----------------ORINGINAL ONE----------------------------------------------------   
       
         # create and assign variables from input file
         for n, var in enumerate(variables):
@@ -2596,8 +2545,7 @@ class MERRAinterpolate(object):
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
         # end file prepation ===================================================
-    
-                                                                                                
+                                                                                             
         # loop over stations
         for n, h in enumerate(height): 
             # geopotential unit: height [m]
@@ -2722,7 +2670,7 @@ class MERRAscale(object):
         sfile: Full path to a Globsim Scaling Parameter file. 
               
     Example:          
-        MERRAd = ERAscale(sfile) 
+        MERRAd = MERRAscale(sfile) 
         MERRAd.process()
     """
         
