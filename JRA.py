@@ -7,7 +7,7 @@ from ftplib          import FTP
 from netCDF4         import Dataset
 from generic         import ParameterIO, StationListRead, ScaledFileOpen
 from os              import path, listdir
-from math            import exp
+from math            import exp, floor
 from fnmatch         import filter
 
 import netCDF4       as nc
@@ -1519,3 +1519,34 @@ class JRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
+
+    def conv_geotop(self):
+        """
+        preliminary geotop export
+        """
+        import pandas as pd
+        
+        outfile = '/home/xquan/src/globsim/examples/station/Meteo_mylist_jra55.txt'
+        
+        #read time object        
+        time = self.rg.variables['time']        
+        date = self.rg.variables['time'][:]
+        
+        #read all other values
+        columns = ['Date','AIRT_JRA_C_sur']
+        metdata = np.zeros((len(date),len(columns)))
+        metdata[:,0] = date
+        for n, vn in enumerate(columns[1:]):
+            metdata[:,n+1] = self.rg.variables[vn][:, 0]
+        
+        #make data frame
+        data = pd.DataFrame(metdata, columns=columns)
+        data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
+
+        # round
+        decimals = pd.Series([2], index=columns[1:])
+        data.round(decimals)
+
+        #export to file
+        fmt_date = "%d/%m/%Y %H:%M"
+        data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
