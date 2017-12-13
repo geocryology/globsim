@@ -1,13 +1,15 @@
 # logistics
 project_directory = /home/xquan/src/globsim/examples
-output_directory = /home/xquan/src/globsim/examples/station/mylist.nc
+output_file = /home/xquan/src/globsim/examples/station/mylist.nc
 
 list_name = mylist
 
 output_file = /Users/xquan/src/globsim/examples/station
 
 # processing kernels to be used
-kernels = AIRT_ERA_C_sur, AIRT_MERRA_C_sur, AIRT_JRA_C_sur
+# kernels = AIRT_ERA_C_sur
+kernels = AIRT_MERRA_C_sur
+# kernels = AIRT_JRA_C_sur
 
 # desired time step [hours]
 time_step = 1
