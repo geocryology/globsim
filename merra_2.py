@@ -82,15 +82,15 @@
             
 #==============================================================================
 
-from pydap.client import open_url
-from pydap.cas.urs import setup_session
-from datetime import datetime, timedelta, date
-from os import path, listdir
-from netCDF4 import Dataset, MFDataset
-from dateutil.rrule import rrule, DAILY
-from math import exp, floor
-from generic import ParameterIO, StationListRead
-from fnmatch import filter
+from pydap.client      import open_url
+from pydap.cas.urs     import setup_session
+from datetime          import datetime, timedelta, date
+from os                import path, listdir
+from netCDF4           import Dataset, MFDataset
+from dateutil.rrule    import rrule, DAILY
+from math              import exp, floor
+from generic           import ParameterIO, StationListRead, ScaledFileOpen
+from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 
 
@@ -2754,6 +2754,37 @@ class MERRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
+
+    def conv_geotop(self):
+        """
+        preliminary geotop export
+        """
+        import pandas as pd
+        
+        outfile = '/home/xquan/src/globsim/examples/station/Meteo_mylist_merra2.txt'
+        
+        #read time object        
+        time = self.rg.variables['time']        
+        date = self.rg.variables['time'][:]
+        
+        #read all other values
+        columns = ['Date','AIRT_MERRA_C_sur']
+        metdata = np.zeros((len(date),len(columns)))
+        metdata[:,0] = date
+        for n, vn in enumerate(columns[1:]):
+            metdata[:,n+1] = self.rg.variables[vn][:, 0]
+        
+        #make data frame
+        data = pd.DataFrame(metdata, columns=columns)
+        data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
+
+        # round
+        decimals = pd.Series([2], index=columns[1:])
+        data.round(decimals)
+
+        #export to file
+        fmt_date = "%d/%m/%Y %H:%M"
+        data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
 
 
 #=========================For Run MERRA-2======================================
