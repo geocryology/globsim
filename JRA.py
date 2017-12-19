@@ -1220,7 +1220,7 @@ class JRAinterpolate(object):
         if pl: # only for pressure level files
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
-            level.units     = 'hPa'  
+            level.units     = 'millibars'  
         
         # assign base variables
         time[:] = nctime[tmask]

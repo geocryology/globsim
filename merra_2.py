@@ -2700,7 +2700,7 @@ class MERRAscale(object):
         # time vector for output data
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1980-01-01 00:00:0.0"
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
