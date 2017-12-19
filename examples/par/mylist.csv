@@ -1,4 +1,6 @@
 station_number, station_name, longitude_dd, latitude_dd, elevation_m 
-1,Daring Lake,-111.5929,64.8672,415
-2,Ekati Airt3,-110.431,64.7026,460
-3,Yellowknife Elyn,-114.5314,62.4563,197
+1, ekati_airport, -110.60804, 64.70591, 461
+2, site 1, -110.50804, 64.60591, 361
+3, site 2, -110.70804, 64.80591, 561
+ 
+ 
