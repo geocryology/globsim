@@ -175,7 +175,8 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         # base variables
         time           = rootgrp.createVariable('time', 'i4',('time'))
         time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        #time.units     = 'hours since 1900-01-01 00:00:0.0' #! For Era_Interim and JRA55 Scaling
+        time.units     = 'hours since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station', 'i4',('station'))
         station.long_name   = 'station for time series data'
