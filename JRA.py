@@ -953,7 +953,7 @@ class JRAdownload(object):
         
         # A dictionary for each file with all the variables available for donwloading with there standard name as the key and the values being a list of short-name, filename, number of levels and units                
         fcst_dictionary = {
-                          "precipitation_amount"                                   : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
+                          "total_precipitation"                                   : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
                           "downwelling_shortwave_flux_in_air_assuming_clear_sky"  : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
                           "downwelling_longwave_flux_in_air_assuming_clear_sky"   : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
                           "downwelling_shortwave_flux_in_air"                     : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
