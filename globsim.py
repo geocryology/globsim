@@ -23,30 +23,49 @@
 from era_interim import ERAdownload, ERAinterpolate, ERAscale
 from merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
 from JRA import JRAdownload, JRAinterpolate, JRAscale
+from multiprocessing.dummy import Pool as ThreadPool
 
-def GlobsimDownload(pfile):
+def GlobsimDownload(pfile, multithread = True):
     """
-    Download data from multiple re-analyses.
+    Download data from multiple re-analyses. Each re-analysis is run as one 
+    separate thread if 'multithread = True'. If 'multithread = False', each
+    download is run sequentially. This is easier for interpreting the output.
     """
-    #TODO: make each re-analysis one sub-process
+    # make list of objects to execute
+    objects = []
     
-    # # === ERA-Interim ===
+    # === ERA-Interim ===
     ERAdownl = ERAdownload(pfile)
-    ERAdownl.retrieve()
+    objects.append(ERAdownl)
     
     # === MERRA-2 ===
     MERRAdownl = MERRAdownload(pfile)
-    MERRAdownl.retrieve()
+    objects.append(MERRAdownl)
 
     # === JRA-55 ===
-    JRAdownl = JRAdownload(pfile)
-    JRAdownl.retrieve()
+   JRAdownl = JRAdownload(pfile)
+   objects.append(JRAdownl)
 
+    # serial of parallel execution
+    if multithread == True:
+        # Make the Pool of workers and run as lambda functions
+        pool = ThreadPool(3) 
+        results = pool.map(lambda ob: ob.retrieve(), objects)
+        #close the pool and wait for the work to finish 
+        pool.close() 
+        pool.join() 
+        print('Multithreaded download finished')
+    else:
+        for result in (ob.retrieve() for ob in objects):
+            print(result)
+        print('Serial download finished')
+    
 def GlobsimInterpolateStation(ifile):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
     The temporal granularity and variables of each re-analysis are preserved. 
-    The resulting data is saved in netCDF format.
+    The resulting data is saved in netCDF format. THis is not parallelised to 
+    differing processors as memory may be a limiting factor.
     """
     
     # === ERA-Interim ===
