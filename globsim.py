@@ -43,8 +43,8 @@ def GlobsimDownload(pfile, multithread = True):
     objects.append(MERRAdownl)
 
     # === JRA-55 ===
-   JRAdownl = JRAdownload(pfile)
-   objects.append(JRAdownl)
+    JRAdownl = JRAdownload(pfile)
+    objects.append(JRAdownl)
 
     # serial of parallel execution
     if multithread == True:
