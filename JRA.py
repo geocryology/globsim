@@ -198,8 +198,6 @@ class JRA_Download:
                         sys.exit(0)
                
                     localfile = open(completeName, 'wb')
-                    print('STEPHAN')
-                    print(completeName)
                
                     try: # try to download the file
                         ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
@@ -902,16 +900,14 @@ class JRAdownload(object):
         # Directory Information
         directory = self.directory
         save_path = directory
-        #save_path = '/home/cmolnar/FinishedCode/'
-        print(save_path)
         
         # Get username and password
         username = self.username
         password = self.password
         
         # Create Grib and netCDF folders if necessary
-        gribFolder = save_path + "Grib"
-        netFolder = save_path + "jra55"
+        gribFolder = os.path.join(save_path, "Grib")
+        netFolder = os.path.join(save_path, "jra55")
         try:
             if not os.path.exists(gribFolder):
                 os.makedirs(gribFolder)
@@ -1007,7 +1003,6 @@ class JRAdownload(object):
                 Grib2CDF().EmptyFolder(save_path)                 
         
         # Empty out the GRIB files remaining in the folder
-        print(save_path)
         Grib2CDF().EmptyFolder(save_path) 
         print "\nAll Conversions Finished!"
         print "Have a nice day! "  
