@@ -492,7 +492,7 @@ class fcst_phy2m:
         endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")))
         
         try:
-            completeName = os.path.join(savePath + 'jra55', "JRA_fcst_" + startName + "_" + endName + ".nc")
+            completeName = os.path.join(savePath, 'jra55', "JRA_fcst_" + startName + "_" + endName + ".nc")
             f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -564,7 +564,7 @@ class anl_surf:
         endName = (str(endDay.strftime("%Y")) + str(endDay.strftime("%m")) + str(endDay.strftime("%d")))
 
         try:
-            completeName = os.path.join(savePath + 'jra55', "JRA_surf_" + startName + "_" + endName + ".nc") 
+            completeName = os.path.join(savePath, 'jra55', "JRA_surf_" + startName + "_" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created 
         except:
             print "Make sure you have a netCDF folder in your directory"
@@ -701,7 +701,7 @@ class Isobaric:
 
         
         try:
-            completeName = os.path.join(savePath + 'jra55', "JRA_Isobaric_" + startName + "_" + endName + ".nc") 
+            completeName = os.path.join(savePath, 'jra55', "JRA_Isobaric_" + startName + "_" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created
         except:
             print "Make sure you have a netCDF folder in your directory"
