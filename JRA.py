@@ -331,11 +331,11 @@ class Grib2CDF:
     """
     def ExtractData(self, filename, date, dataName, filePath):    
         value = []    
-        fileLocation = filePath + 'Grib/' 
+        fileLocation = os.path.join(filePath, 'Grib') 
         for z in range(0, len(date)):
             try:
                 name =(str(date[z].strftime("%Y")) + str(date[z].strftime("%m")) + str(date[z].strftime("%d")) + str(date[z].strftime("%H")))
-                grbs = pygrib.open(fileLocation + filename + name)
+                grbs = pygrib.open(os.path.join(fileLocation, filename + name))
             except:
                 print "file: " + filename + name +  " not found :("
                 print "Quiting program"
@@ -625,13 +625,13 @@ class Isobaric:
     """
     def ExtractData(self, filename, date, savePath):    
         allData = []
-        fileLocation = savePath + 'Grib/'
+        fileLocation = os.path.join(savePath, 'Grib')
         for z in range(0, len(date)):
             levels = []
             data = []
             try:
                 name =(str(date[z].strftime("%Y")) + str(date[z].strftime("%m")) + str(date[z].strftime("%d")) + str(date[z].strftime("%H")))
-                grbs = pygrib.open(fileLocation + filename + name)
+                grbs = pygrib.open(os.path.join(fileLocation, filename + name))
             except:
                 print "file: " + filename + name +  " not found :("
                 print "Quiting program"
