@@ -258,7 +258,7 @@ class JRA_Download:
             
                 if (len(download_list) > 0):
                     # Download all the files needed for convertion
-                    self.ftp_Download(startDay, endDay, download_list, save_path + 'Grib', ftp) 
+                    self.ftp_Download(startDay, endDay, download_list, os.path.join(save_path,'Grib'), ftp) 
                     
                 ftp.quit() # Close Connection   
               
