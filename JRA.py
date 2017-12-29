@@ -198,6 +198,8 @@ class JRA_Download:
                         sys.exit(0)
                
                     localfile = open(completeName, 'wb')
+                    print('STEPHAN')
+                    print(completeName)
                
                     try: # try to download the file
                         ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
