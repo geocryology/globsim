@@ -901,6 +901,7 @@ class JRAdownload(object):
         directory = self.directory
         save_path = directory
         #save_path = '/home/cmolnar/FinishedCode/'
+        print(save_path)
         
         # Get username and password
         username = self.username
@@ -1004,6 +1005,7 @@ class JRAdownload(object):
                 Grib2CDF().EmptyFolder(save_path)                 
         
         # Empty out the GRIB files remaining in the folder
+        print(save_path)
         Grib2CDF().EmptyFolder(save_path) 
         print "\nAll Conversions Finished!"
         print "Have a nice day! "  
