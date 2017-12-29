@@ -449,7 +449,7 @@ class Grib2CDF:
     """
     def EmptyFolder(self, location):
         "Try to remove the GRIB folder"
-        newlocation = location + "Grib"
+        newlocation = os.path.join(location, "Grib")
         try:
             shutil.rmtree(newlocation) 
         except:
