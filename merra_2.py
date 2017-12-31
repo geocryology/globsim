@@ -40,7 +40,8 @@
 #
 # (3) Adapt the script below with: 
 #    - Authrized Username and Password (setup in .merrarc file),
-#    - Input parameters: Date, Area, Elevation, Chunk_size, Variables, etc. (setup in Globsim download parameter file )
+#    - Input parameters: Date, Area, Elevation, Chunk_size, Variables, etc. 
+#      (setup in Globsim download parameter file )
 #
 # (4) Obtaining the URL addresses of the objected datasets at:
 #     https://disc.sci.gsfc.nasa.gov/daac-bin/FTPSubset2.pl
