@@ -48,7 +48,7 @@ class JRA_Download:
         try:
             start_data = date(int(start.rsplit("-")[0]), int(start.rsplit("-")[1]), int(start.rsplit("-")[2].rsplit(" ")[0]))
             end_data = date(int(end.rsplit("-")[0]), int(end.rsplit("-")[1]), int(end.rsplit("-")[2].rsplit(" ")[0]))
-            first_data = date(1979, 12, 31)
+            first_data = date(1979, 01, 31)
         except:
             print "Invalid start day or end day"
             sys.exit(0)
