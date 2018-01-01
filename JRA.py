@@ -1523,7 +1523,7 @@ class JRAscale(object):
         values  = self.nc_sa.variables['surface_temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])-273.15            
+                                                    time_in, values[:, n])-273.15  
 
     def conv_geotop(self):
         """
@@ -1555,3 +1555,4 @@ class JRAscale(object):
         #export to file
         fmt_date = "%d/%m/%Y %H:%M"
         data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
+						              
