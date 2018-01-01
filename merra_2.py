@@ -243,7 +243,6 @@ class MERRAgeneric():
                         tc.time.sleep(delay)
                         session = setup_session(username, password, check_url=url[j])        
                         ds[i][j] = open_url(url[j], session=session)
-                        break
                     except:
                         if delay < 59:
                             print "Error downloading file: " + url[j] + ". Trying again (" + str(delay) + ")"
@@ -251,7 +250,7 @@ class MERRAgeneric():
                         else:    
                             print "Error downloading file: " + url[j] + ". Giving up."
                             raise RuntimeError("==> Unsuccesfull after 60 attempts.")
-
+                    break
                 ###ds[0][j] = open_url(url[j], session=session) 
                 print ('------COMPLETED------','CHUNK NO.:', i+1, 'URL NO.:', j+1 )
                 print url[j]
