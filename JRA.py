@@ -201,6 +201,7 @@ class JRA_Download:
                     
                     # try downloading and repeat ten times before giving up
                     for delay in range(0,60):
+                        print delay
                         try: # try to download the file
                             time.sleep(delay*delay)
                             ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
