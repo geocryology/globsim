@@ -1108,7 +1108,7 @@ class SaveNCDF_pl_3dmasm():
                         var_out[x][3] = var_total
                         del var_total
                         var_list.append([get_variables[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
-                        
+
             # save nc file 
             var_low = 0
             var_up = 0
@@ -2750,6 +2750,23 @@ class MERRAscale(object):
         self.nc_sa.close()
         self.nc_sc.close()
 
+    def AIRT_MERRA_pl(self):
+        """
+        Air temperature derived from pressure levels, exclusively.
+        """        
+        print("AIRT_MERRA_pl")
+        vn = 'AIRT_MERRA_C_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'air_temperature MERRA2 pressure levels only'
+        var.units     = self.nc_pl.variables['air_temperature'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:]
+        values  = self.nc_pl.variables['air_temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15            
+        
     def AIRT_MERRA_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -2767,6 +2784,41 @@ class MERRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
+
+    # def PREC_MERRA_sur(self):
+    #     """
+    #     Precipitation derived from surface data, exclusively.
+    #     """   
+    #     
+    #     # add variable to ncdf file
+    #     vn = 'PREC_MERRA_sur' # variable name
+    #     var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+    #     var.long_name = 'Total precipitation MERRA2 surface only'
+    #     var.units     = self.nc_sa.variables['precipitation_flux'].units.encode('UTF8')  
+    #     
+    #     # interpolate station by station
+    #     time_in = self.nc_sa.variables['time'][:]
+    #     values  = self.nc_sa.variables['precipitation_flux'][:]
+    #     values  = self.conv_sf(values) # convert cummulative                 
+    #     for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+    #         vi = np.interp(self.times_out_nc, time_in, values[:, n])
+    #         vi = np.concatenate(([vi[0]], np.diff(vi,1, axis=0))) / self.time_step * 1000
+    #         self.rg.variables[vn][:, n] = np.float32(vi) 
+
+    # def conv_sf(self, data):
+    #     """
+    #     Convert cummulative values, data: [time, station] 
+    #     """                       
+    #     # get increment per time step
+    #     diff = np.diff(data,1,axis=0)
+    #     diff = np.concatenate(([data[0,:]], diff))
+    #     # where new forecast starts, the increment will be smaller than 0
+    #     # and the actual value is used
+    #     mask = diff < 0
+    #     diff[mask] = data[mask]
+    #     #get full cummulative sum
+    #     return(np.cumsum(diff, axis=0, dtype=np.float64))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+
 
     def conv_geotop(self):
         """
