@@ -204,6 +204,8 @@ class JRA_Download:
                         try: # try to download the file
                             time.sleep(delay)
                             ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
+                            print str(delay)
+                            break
                         except:
                             if delay < 59:
                                 print "Error downloading file: " + filename + ". Trying again (" + str(delay) + ")"
