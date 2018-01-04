@@ -200,18 +200,19 @@ class JRA_Download:
                     # try downloading and repeat ten times before giving up
                     for delay in range(0,60):
                         try: # try to download the file
-                            time.sleep(delay)
                             localfile = open(completeName, 'wb')
                             ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
                             localfile.close() # Close File
+                            break
                         except:
                             if delay < 59:
                                 print "Error downloading file: " + filename + ". Trying again (" + str(delay) + ")"
+                                time.sleep(delay)
                                 pass
                             else:    
                                 print "Error downloading file: " + filename + ". Giving up."
                                 raise RuntimeError("==> Unsuccesfull after 60 attempts.")
-                        break
+                     
             print "Downloaded all the data for:", str(dt.strftime("%Y")) + "-" + str(dt.strftime("%m")) + "-" + str(dt.strftime("%d"))  
         print "\nAll Downloads Finished :) \n"
             
