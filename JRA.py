@@ -954,7 +954,7 @@ class JRAdownload(object):
         
         # A dictionary for each file with all the variables available for donwloading with there standard name as the key and the values being a list of short-name, filename, number of levels and units                
         fcst_dictionary = {
-                          "precipitation_amount"                                   : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
+                          "total_precipitation"                                   : ["tpratsfc", "fcst_phy2m125.", 1, "mm/day"],
                           "downwelling_shortwave_flux_in_air_assuming_clear_sky"  : ["csdsf", "fcst_phy2m125.", 1, "W/(m^2)"],
                           "downwelling_longwave_flux_in_air_assuming_clear_sky"   : ["csdlf", "fcst_phy2m125.", 1, "W/(m^2)"],
                           "downwelling_shortwave_flux_in_air"                     : ["dswrf", "fcst_phy2m125.", 1, "W/(m^2)"],
@@ -1524,7 +1524,7 @@ class JRAscale(object):
         values  = self.nc_sa.variables['surface_temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])-273.15            
+                                                    time_in, values[:, n])-273.15  
 
     def conv_geotop(self):
         """
@@ -1556,3 +1556,4 @@ class JRAscale(object):
         #export to file
         fmt_date = "%d/%m/%Y %H:%M"
         data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
+						              
