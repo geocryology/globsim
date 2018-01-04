@@ -197,21 +197,21 @@ class JRA_Download:
                         print "Make sure you have a Grib and netCDF folder in your directory"
                         sys.exit(0)
                     
-                    # try downloading and repeat ten times before giving up
-                    for delay in range(0,60):
+                    # try downloading and repeat for up to ten hours times before giving up
+                    for delay in range(0,600):
                         try: # try to download the file
                             localfile = open(completeName, 'wb')
                             ftp.retrbinary("RETR %s" % filename , localfile.write) # Download file
                             localfile.close() # Close File
                             break
                         except:
-                            if delay < 59:
+                            if delay < 599:
                                 print "Error downloading file: " + filename + ". Trying again (" + str(delay) + ")"
-                                time.sleep(delay)
+                                time.sleep(min(delay, 60))
                                 pass
                             else:    
                                 print "Error downloading file: " + filename + ". Giving up."
-                                raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                                raise RuntimeError("==> Unsuccesfull after 10h and 600 attempts.")
                      
             print "Downloaded all the data for:", str(dt.strftime("%Y")) + "-" + str(dt.strftime("%m")) + "-" + str(dt.strftime("%d"))  
         print "\nAll Downloads Finished :) \n"
