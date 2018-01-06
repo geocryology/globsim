@@ -1514,7 +1514,7 @@ class JRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'AIRT_JRA_C_sur' # variable name
+        vn = 'AIRT_JRA55_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature JRA55 surface only'
         var.units     = self.nc_sa.variables['surface_temperature'].units.encode('UTF8')  
@@ -1525,6 +1525,114 @@ class JRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15  
+    def RH_JRA_per_sur(self):
+        """
+        Relative Humidity derived from surface data, exclusively.
+        """        
+        # add variable to ncdf file
+        vn = 'RH_JRA55_per_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'relative humidity JRA55-2 surface only'
+        var.units     = self.nc_sa.variables['relative_humidity'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['relative_humidity'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])  
+
+    def WIND_JRA_sur(self):
+        """
+        Wind at 10 metre derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = '10 metre U wind component' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 metre U wind component'
+        var.units     = self.nc_sa.variables['eastward_wind'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['eastward_wind'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 
+
+        # add variable to ncdf file
+        vn = '10 metre V wind component' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 metre V wind component'
+        var.units     = self.nc_sa.variables['northward_wind'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['northward_wind'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 
+
+        # add variable to ncdf file
+        vn = 'WSPD_JRA55_ms_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 metre wind speed JRA-55 surface only'
+        var.units     = 'm s**-1'  
+        
+        # add variable to ncdf file
+        vn = 'WDIR_JRA55_deg_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '10 metre wind direction JRA-55 surface only'
+        var.units     = 'deg'  
+                                
+        # convert
+        # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
+        # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
+        V = self.rg.variables['10 metre V wind component'][:, :]
+        U = self.rg.variables['10 metre U wind component'][:, :] 
+
+        WS = np.sqrt(np.power(V,2) + np.power(U,2))  
+        self.rg.variables['WSPD_JRA55_ms_sur'][:, :] = WS                                          
+
+        WD = np.arctan2(V,U)               
+        WD = np.mod(np.degrees(WD)-90, 360) # make relative to North                                                                 
+        self.rg.variables['WDIR_JRA55_deg_sur'][:, :] = WD 
+
+    def SW_JRA_Wm2_sur(self):
+        """
+        solar radiation downwards derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'SW_JRA55_Wm2_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Surface solar radiation downwards JRA-55 surface only'
+        var.units     = self.nc_sr.variables['downwelling_shortwave_flux_in_air'].units.encode('UTF8')  
+
+        # interpolate station by station
+        time_in = self.nc_sr.variables['time'][:]
+        values  = self.nc_sr.variables['downwelling_shortwave_flux_in_air'][:]                                
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 
+
+    def LW_JRA_Wm2_sur(self):
+        """
+        Long-wave radiation downwards derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'LW_JRA55_Wm2_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Surface thermal radiation downwards JRA-55 surface only'
+        var.units     = self.nc_sr.variables['downwelling_longwave_flux_in_air'].units.encode('UTF8')  
+
+        # interpolate station by station
+        time_in = self.nc_sr.variables['time'][:]
+        values  = self.nc_sr.variables['downwelling_longwave_flux_in_air'][:]                                
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 
 
     def conv_geotop(self):
         """
@@ -1539,7 +1647,7 @@ class JRAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_JRA_C_sur']
+        columns = ['Date','AIRT_JRA55_C_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
@@ -1550,7 +1658,7 @@ class JRAscale(object):
         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
         # round
-        decimals = pd.Series([2], index=columns[1:])
+        decimals = pd.Series([2,1,1,1,1,1], index=columns[1:])
         data.round(decimals)
 
         #export to file
