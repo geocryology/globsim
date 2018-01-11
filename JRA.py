@@ -1507,7 +1507,24 @@ class JRAscale(object):
         self.nc_pl.close()
         self.nc_sr.close()
         self.nc_sa.close()
+
+    def AIRT_JRA_C_pl(self):
+        """
+        Air temperature derived from pressure levels, exclusively.
+        """        
+        vn = 'AIRT_JRA55_C_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time','station'))    
+        var.long_name = 'air_temperature JRA55 pressure levels only'
+        var.units     = self.nc_pl.variables['air_temperature'].units.encode('UTF8')  
         
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:]
+        values  = self.nc_pl.variables['air_temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15            
+                
+ 
     def AIRT_JRA_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -1647,7 +1664,7 @@ class JRAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_JRA55_C_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
+        columns = ['Date','AIRT_JRA55_C_pl','AIRT_JRA55_C_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
@@ -1658,7 +1675,7 @@ class JRAscale(object):
         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
         # round
-        decimals = pd.Series([2,1,1,1,1,1], index=columns[1:])
+        decimals = pd.Series([2,1,1,1,1,1,1], index=columns[1:])
         data.round(decimals)
 
         #export to file
