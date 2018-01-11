@@ -1005,12 +1005,23 @@ class ERAscale(object):
         self.nc_sa.close()
         self.nc_to.close()
         
-    def AIRT_ERA_pl(self):
+    def AIRT_ERA_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """        
-        print("AIRT_ERA_pl")
+        vn = 'AIRT_ERA_C_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time','station'))    
+        var.long_name = 'air_temperature ERA-I pressure levels only'
+        var.units     = self.nc_pl.variables['Temperature'].units.encode('UTF8')  
         
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:]
+        values  = self.nc_pl.variables['Temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15            
+
+                                
     def AIRT_ERA_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -1211,7 +1222,7 @@ class ERAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_ERA_C_sur','PREC_ERA_mm_sur','RH_ERA_per_sur','SW_ERA_Wm2_sur','LW_ERA_Wm2_sur','WSPD_ERA_ms_sur','WDIR_ERA_deg_sur']
+        columns = ['Date','AIRT_ERA_C_pl','AIRT_ERA_C_sur','PREC_ERA_mm_sur','RH_ERA_per_sur','SW_ERA_Wm2_sur','LW_ERA_Wm2_sur','WSPD_ERA_ms_sur','WDIR_ERA_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
@@ -1222,7 +1233,7 @@ class ERAscale(object):
         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
         # round
-        decimals = pd.Series([2,1,1,1,1,1,1], index=columns[1:])
+        decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
         data.round(decimals)
 
         #export to file
