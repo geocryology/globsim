@@ -2750,23 +2750,23 @@ class MERRAscale(object):
         self.nc_sa.close()
         self.nc_sc.close()
 
-    # def AIRT_MERRA_C_pl(self):
-    #     """
-    #     Air temperature derived from pressure levels, exclusively.
-    #     """        
-    #     vn = 'AIRT_MERRA_C_pl' # variable name
-    #     var           = self.rg.createVariable(vn,'f4',('time','level','station'))    
-    #     var.long_name = 'air_temperature MERRA2 pressure levels only'
-    #     var.units     = self.nc_pl.variables['air_temperature'].units.encode('UTF8')  
-    #     
-    #     # interpolate station by station
-    #     time_in = self.nc_pl.variables['time'][:]
-    #     values  = self.nc_pl.variables['air_temperature'][:]                   
-    #     for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-    #         self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-    #                                                 time_in, values[:, n])-273.15            
+    def AIRT_MERRA_C_pl(self):
+        """
+        Air temperature derived from pressure levels, exclusively.
+        """        
+        vn = 'AIRT_MERRA2_C_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time','station'))    
+        var.long_name = 'air_temperature MERRA2 pressure levels only'
+        var.units     = self.nc_pl.variables['air_temperature'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:]
+        values  = self.nc_pl.variables['air_temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15            
 
-                
+
     def AIRT_MERRA_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -2784,6 +2784,7 @@ class MERRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
+
     def RH_MERRA_per_sur(self):
         """
         Relative Humidity derived from surface data, exclusively.
@@ -2894,28 +2895,6 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
 
-#     def LW_ERA_Wm2_sur(self):
-#         """
-#         Long-wave radiation derived from surface data, exclusively.
-#         """   
-#         
-#         # add variable to ncdf file
-#         vn = 'LW_ERA_Wm2_sur' # variable name
-#         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-#         var.long_name = 'Surface thermal radiation downwards ERA-I surface only'
-#         var.units     = self.nc_sf.variables['Surface thermal radiation downwards'].units.encode('UTF8')  
-#         
-#         # interpolate station by station
-#         time_in = self.nc_sf.variables['time'][:]
-#         values  = self.nc_sf.variables['Surface thermal radiation downwards'][:]
-#         values  = self.conv_sf(values) # convert cummulative                 
-#         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-#             vi = np.interp(self.times_out_nc, time_in, values[:, n])
-#             vi = np.concatenate(([vi[0]], np.diff(vi,1, axis=0))) / (self.time_step * 3600)
-#             self.rg.variables[vn][:, n] = np.float32(vi)                                                          
-# 
-# 
-
     # def PREC_MERRA_sur(self):
     #     """
     #     Precipitation derived from surface data, exclusively.
@@ -2964,7 +2943,7 @@ class MERRAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_MERRA2_C_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
+        columns = ['Date','AIRT_MERRA2_C_pl','AIRT_MERRA2_C_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
@@ -2975,7 +2954,7 @@ class MERRAscale(object):
         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
         # round
-        decimals = pd.Series([2,1,1,1,1,1], index=columns[1:])
+        decimals = pd.Series([2,1,1,1,1,1,1], index=columns[1:])
         data.round(decimals)
 
         #export to file
