@@ -1651,6 +1651,25 @@ class JRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
 
+    def PREC_JRA_mm_sur(self):
+        """
+        Precipitation derived from surface data, exclusively.
+        Convert unit: mm/day to mm/time_step (hours)
+        """   
+        
+        # add variable to ncdf file
+        vn = 'PREC_JRA_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Total precipitation JRA55 surface only'
+        var.units     = self.nc_sa.variables['total_precipitation'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['total_precipitation'][:]
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) / 24 * self.time_step            
+
     def conv_geotop(self):
         """
         preliminary geotop export
@@ -1664,7 +1683,7 @@ class JRAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_JRA55_C_pl','AIRT_JRA55_C_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
+        columns = ['Date','AIRT_JRA55_C_pl','AIRT_JRA55_C_sur','PREC_JRA_mm_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
@@ -1675,7 +1694,7 @@ class JRAscale(object):
         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
         # round
-        decimals = pd.Series([2,1,1,1,1,1,1], index=columns[1:])
+        decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
         data.round(decimals)
 
         #export to file
