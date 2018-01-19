@@ -2903,7 +2903,7 @@ class MERRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'PREC_MERRA_sur' # variable name
+        vn = 'PREC_MERRA2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation MERRA2 surface only'
         var.units     = self.nc_sa.variables['precipitation_flux'].units.encode('UTF8')  
