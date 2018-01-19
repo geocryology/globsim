@@ -2895,39 +2895,25 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
 
-    # def PREC_MERRA_sur(self):
-    #     """
-    #     Precipitation derived from surface data, exclusively.
-    #     """   
-    #     
-    #     # add variable to ncdf file
-    #     vn = 'PREC_MERRA_sur' # variable name
-    #     var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-    #     var.long_name = 'Total precipitation MERRA2 surface only'
-    #     var.units     = self.nc_sa.variables['precipitation_flux'].units.encode('UTF8')  
-    #     
-    #     # interpolate station by station
-    #     time_in = self.nc_sa.variables['time'][:]
-    #     values  = self.nc_sa.variables['precipitation_flux'][:]
-    #     values  = self.conv_sf(values) # convert cummulative                 
-    #     for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-    #         vi = np.interp(self.times_out_nc, time_in, values[:, n])
-    #         vi = np.concatenate(([vi[0]], np.diff(vi,1, axis=0))) / self.time_step * 1000
-    #         self.rg.variables[vn][:, n] = np.float32(vi) 
-
-    # def conv_sf(self, data):
-    #     """
-    #     Convert cummulative values, data: [time, station] 
-    #     """                       
-    #     # get increment per time step
-    #     diff = np.diff(data,1,axis=0)
-    #     diff = np.concatenate(([data[0,:]], diff))
-    #     # where new forecast starts, the increment will be smaller than 0
-    #     # and the actual value is used
-    #     mask = diff < 0
-    #     diff[mask] = data[mask]
-    #     #get full cummulative sum
-    #     return(np.cumsum(diff, axis=0, dtype=np.float64))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+    def PREC_MERRA_mm_sur(self):
+        """
+        Precipitation derived from surface data, exclusively.
+        Convert units: kg/m2/s to mm/time_step (hours)
+        1 kg/m2 = 1mm
+        """   
+        
+        # add variable to ncdf file
+        vn = 'PREC_MERRA_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Total precipitation MERRA2 surface only'
+        var.units     = self.nc_sa.variables['precipitation_flux'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['precipitation_flux'][:]
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) * 3600 * self.time_step            
 
 
     def conv_geotop(self):
@@ -2943,7 +2929,7 @@ class MERRAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_MERRA2_C_pl','AIRT_MERRA2_C_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
+        columns = ['Date','AIRT_MERRA2_C_pl','AIRT_MERRA2_C_sur','PREC_MERRA_mm_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
@@ -2954,7 +2940,7 @@ class MERRAscale(object):
         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
         # round
-        decimals = pd.Series([2,1,1,1,1,1,1], index=columns[1:])
+        decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
         data.round(decimals)
 
         #export to file
