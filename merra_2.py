@@ -2903,7 +2903,7 @@ class MERRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'PREC_MERRA2_sur' # variable name
+        vn = 'PREC_MERRA2_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation MERRA2 surface only'
         var.units     = self.nc_sa.variables['precipitation_flux'].units.encode('UTF8')  
@@ -2929,7 +2929,7 @@ class MERRAscale(object):
         date = self.rg.variables['time'][:]
         
         #read all other values
-        columns = ['Date','AIRT_MERRA2_C_pl','AIRT_MERRA2_C_sur','PREC_MERRA_mm_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
+        columns = ['Date','AIRT_MERRA2_C_pl','AIRT_MERRA2_C_sur','PREC_MERRA2_mm_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
         metdata = np.zeros((len(date),len(columns)))
         metdata[:,0] = date
         for n, vn in enumerate(columns[1:]):
