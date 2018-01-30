@@ -1374,7 +1374,8 @@ class SaveNCDF_sa():
                        'V2M':['2-meter_northward_wind','northward_wind_at_2m_above_the_displacement_height','m/s', v2m_total],
                        'U10M':['10-meter_eastward_wind','eastward_wind_at_10m_above_displacement_height','m/s', u10m_total],
                        'V10M':['10-meter_northward_wind','northward_wind_at_10m_above_the_displacement_height', 'm/s', v10m_total],
-                       'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total]}            
+                       'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total]}
+                       #'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total]}            
             
             var_list = []
             for i in range(0, len(get_variables_2dm[0:-3])):
@@ -2022,6 +2023,7 @@ class MERRAdownload(object):
                              '10-meter_northward_wind':'V10M'}
         
         full_variables_sf = {'precipitation_flux': 'PRECTOT'}
+        #full_variables_sf = {'precipitation_flux': 'PRECTOTCORR'}
                         
         full_variables_sr = {'surface_incoming_shortwave_flux' : 'SWGDN',
                              'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
@@ -2107,7 +2109,7 @@ class MERRAdownload(object):
                                             get_variables.append(full_variables_pl_ana[var1])
                     get_variables = list(set(get_variables))                                            
                    
-                    # !ADD Geopotential Height in the first element of downloading list.Must be the first one!
+                    # !ADD Geopotential Height in the first element of downloading list.Must be the first one
                     get_variables.insert(0,'H')
                      # add the variables names of geopotental height, latitude, longitude, levels and time
                     get_variables.extend(['lat','lon','lev','time'])
