@@ -1658,7 +1658,7 @@ class JRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'PREC_JRA55_sur' # variable name
+        vn = 'PREC_JRA55_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation JRA55 surface only'
         var.units     = self.nc_sa.variables['total_precipitation'].units.encode('UTF8')  
