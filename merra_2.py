@@ -140,28 +140,33 @@ class MERRAgeneric():
         baseurl_3da_1 = ('M2I3NPASM.5.12.4/','/MERRA2_100.inst3_3d_asm_Np.')            # sub url of 3d Pressure Levels Assimilated Meteorological Fields data 
         baseurl_2dm_1 = ('M2I1NXASM.5.12.4/','/MERRA2_100.inst1_2d_asm_Nx.')            # sub url of 2d Single-Level Diagnostics     
         baseurl_2dr_1 = ('M2T1NXRAD.5.12.4/','/MERRA2_100.tavg1_2d_rad_Nx.')            # sub url of 2d radiation Diagnostics data 
-        baseurl_2ds_1 = ('M2T1NXFLX.5.12.4/','/MERRA2_100.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data                                                          
+        baseurl_2ds_1 = ('M2T1NXFLX.5.12.4/','/MERRA2_100.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data
+        baseurl_2dv_1 = ('M2T1NXSLV.5.12.4/','/MERRA2_100.tavg1_2d_slv_Nx.')            # sub url of 2d 1-Hourly,Time-Averaged,Single-Level,Assimilation,Single-Level Diagnostics V5.12.4                                                                                                                                
         # 1992 ~ 2000
         baseurl_3dn_2 = ('M2I6NPANA.5.12.4/','/MERRA2_200.inst6_3d_ana_Np.')            # sub url of 3d Pressure Levels Analyzed Meteorological Fields data         
         baseurl_3da_2 = ('M2I3NPASM.5.12.4/','/MERRA2_200.inst3_3d_asm_Np.')            # sub url of 3d Pressure Levels Assimilated Meteorological Fields data 
         baseurl_2dm_2 = ('M2I1NXASM.5.12.4/','/MERRA2_200.inst1_2d_asm_Nx.')            # sub url of 2d Single-Level Diagnostics      
         baseurl_2dr_2 = ('M2T1NXRAD.5.12.4/','/MERRA2_200.tavg1_2d_rad_Nx.')            # sub url of 2d radiation Diagnostics data 
-        baseurl_2ds_2 = ('M2T1NXFLX.5.12.4/','/MERRA2_200.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data                                                          
+        baseurl_2ds_2 = ('M2T1NXFLX.5.12.4/','/MERRA2_200.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data
+        baseurl_2dv_2 = ('M2T1NXSLV.5.12.4/','/MERRA2_200.tavg1_2d_slv_Nx.')            # sub url of 2d 1-Hourly,Time-Averaged,Single-Level,Assimilation,Single-Level Diagnostics V5.12.4                                                                                                                                                                                                  
         # 2001 ~ 2010  
         baseurl_3dn_3 = ('M2I6NPANA.5.12.4/','/MERRA2_300.inst6_3d_ana_Np.')            # sub url of 3d Pressure Levels Analyzed Meteorological Fields data        
         baseurl_3da_3 = ('M2I3NPASM.5.12.4/','/MERRA2_300.inst3_3d_asm_Np.')            # sub url of 3d Pressure Levels Assimilated Meteorological Fields data 
         baseurl_2dm_3 = ('M2I1NXASM.5.12.4/','/MERRA2_300.inst1_2d_asm_Nx.')            # sub url of 2d Single-Level Diagnostics     
         baseurl_2dr_3 = ('M2T1NXRAD.5.12.4/','/MERRA2_300.tavg1_2d_rad_Nx.')            # sub url of 2d radiation Diagnostics data 
         baseurl_2ds_3 = ('M2T1NXFLX.5.12.4/','/MERRA2_300.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data                                                                             
+        baseurl_2dv_3 = ('M2T1NXSLV.5.12.4/','/MERRA2_300.tavg1_2d_slv_Nx.')            # sub url of 2d 1-Hourly,Time-Averaged,Single-Level,Assimilation,Single-Level Diagnostics V5.12.4                                                                                                                                                                                                  
         # 2011 ~ present
         baseurl_3dn_4 = ('M2I6NPANA.5.12.4/','/MERRA2_400.inst6_3d_ana_Np.')            # sub url of 3d Pressure Levels Analyzed Meteorological Fields data      
         baseurl_3da_4 = ('M2I3NPASM.5.12.4/','/MERRA2_400.inst3_3d_asm_Np.')            # sub url of 3d Pressure Levels Assimilated Meteorological Fields data 
         baseurl_2dm_4 = ('M2I1NXASM.5.12.4/','/MERRA2_400.inst1_2d_asm_Nx.')            # sub url of 2d Single-Level Diagnostics      
         baseurl_2dr_4 = ('M2T1NXRAD.5.12.4/','/MERRA2_400.tavg1_2d_rad_Nx.')            # sub url of 2d radiation Diagnostics data 
         baseurl_2ds_4 = ('M2T1NXFLX.5.12.4/','/MERRA2_400.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data                                                         
-        
-        format = ('.nc4')
+        baseurl_2dv_4 = ('M2T1NXSLV.5.12.4/','/MERRA2_400.tavg1_2d_slv_Nx.')            # sub url of 2d 1-Hourly,Time-Averaged,Single-Level,Assimilation,Single-Level Diagnostics V5.12.4                                                                                                                                                                                                  
+
                 
+        format = ('.nc4')
+                        
         #Setup the start and end of dates
         Begin = date['beg']
         End  =  date['end']
@@ -177,6 +182,7 @@ class MERRAgeneric():
         urls_2dm = []
         urls_2dr = []
         urls_2ds = []
+        urls_2dv = []
         for i in range(0,len(res1)):
                  if res1[i] >= '1980/01' and res1[i] <= '1991/12':  
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_1[0] + res1[i] + baseurl_3dn_1[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset(1980 ~ 1991)            
@@ -184,31 +190,34 @@ class MERRAgeneric():
                     urls_2dm.append(baseurl_2d + baseurl_2dm_1[0] + res1[i] + baseurl_2dm_1[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset(1980 ~ 1991)  
                     urls_2ds.append(baseurl_2d + baseurl_2ds_1[0] + res1[i] + baseurl_2ds_1[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (1980 ~ 1991)   
                     urls_2dr.append(baseurl_2d + baseurl_2dr_1[0] + res1[i] + baseurl_2dr_1[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset(1980 ~ 1991) 
+                    urls_2dv.append(baseurl_2d + baseurl_2dv_1[0] + res1[i] + baseurl_2dv_1[1] + res2[i] + format)     # urls of 2d Single-Level,Assimilation,Single-Level Diagnostics (1980 ~ 1991) 
                  elif res1[i] >= '1992/01' and res1[i] <= '2000/12':
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_2[0] + res1[i] + baseurl_3dn_2[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset (1992 ~ 2000)              
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_2[0] + res1[i] + baseurl_3da_2[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (1992 ~ 2000)                 
                     urls_2dm.append(baseurl_2d + baseurl_2dm_2[0] + res1[i] + baseurl_2dm_2[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset (1992 ~ 2000)
                     urls_2ds.append(baseurl_2d + baseurl_2ds_2[0] + res1[i] + baseurl_2ds_2[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (1992 ~ 2000) 
                     urls_2dr.append(baseurl_2d + baseurl_2dr_2[0] + res1[i] + baseurl_2dr_2[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (1992 ~ 2000)
+                    urls_2dv.append(baseurl_2d + baseurl_2dv_2[0] + res1[i] + baseurl_2dv_2[1] + res2[i] + format)     # urls of 2d Single-Level,Assimilation,Single-Level Diagnostics (1992 ~ 2000)
                  elif res1[i] >= '2001/01' and res1[i] <= '2010/12':
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_3[0] + res1[i] + baseurl_3dn_3[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset (2001 ~ 2010)              
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_3[0] + res1[i] + baseurl_3da_3[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (2001 ~ 2010)                  
                     urls_2dm.append(baseurl_2d + baseurl_2dm_3[0] + res1[i] + baseurl_2dm_3[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset (2001 ~ 2010) 
                     urls_2ds.append(baseurl_2d + baseurl_2ds_3[0] + res1[i] + baseurl_2ds_3[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (2001 ~ 2010) 
                     urls_2dr.append(baseurl_2d + baseurl_2dr_3[0] + res1[i] + baseurl_2dr_3[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (2001 ~ 2010) 
+                    urls_2dv.append(baseurl_2d + baseurl_2dv_3[0] + res1[i] + baseurl_2dv_3[1] + res2[i] + format)     # urls of 2d Single-Level,Assimilation,Single-Level Diagnostics (2001 ~ 2010)
                  elif res1[i] >= '2011/01':
                     urls_3dmana.append(baseurl_3d + baseurl_3dn_4[0] + res1[i] + baseurl_3dn_4[1] + res2[i] + format)  # urls of 3d Analyzed Meteorological Fields datasets with temporal subset (2011 ~ present)              
                     urls_3dmasm.append(baseurl_3d + baseurl_3da_4[0] + res1[i] + baseurl_3da_4[1] + res2[i] + format)  # urls of 3d Assimilated Meteorological Fields datasets with temporal subset (2011 ~ present)                   
                     urls_2dm.append(baseurl_2d + baseurl_2dm_4[0] + res1[i] + baseurl_2dm_4[1] + res2[i] + format)     # urls of 2d meteorological Diagnostics datasets temporal subset (2011 ~ present)   
                     urls_2ds.append(baseurl_2d + baseurl_2ds_4[0] + res1[i] + baseurl_2ds_4[1] + res2[i] + format)     # urls of 2d suface flux Diagnostics datasets with temporal subset (2011 ~ present)   
                     urls_2dr.append(baseurl_2d + baseurl_2dr_4[0] + res1[i] + baseurl_2dr_4[1] + res2[i] + format)     # urls of 2d radiation Diagnostics datasets with temporal subset (2011 ~ present)   
+                    urls_2dv.append(baseurl_2d + baseurl_2dv_4[0] + res1[i] + baseurl_2dv_4[1] + res2[i] + format)     # urls of 2d Single-Level,Assimilation,Single-Level Diagnostics (2011 ~ present) 
         
-        # print urls_3dmana            
-        
+     
         #Setup URL for getting constant model parameters (2D, single-level, full horizontal resolution)
         url_2dc = ['https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4']
  
-        return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc
+        return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv
  
     def download(self, username, password, urls, chunk_size):
         """ Access the MERRA server by account information and defiend urls
@@ -773,7 +782,7 @@ class MERRApl_ana():
            ds = MERRAgeneric().download(username, password, urls, chunk_size)
         """    
 
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
         urls = urls_3dmana
         
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
@@ -841,7 +850,7 @@ class MERRApl_asm():
            ds = MERRAgeneric().download(username, password, urls, chunk_size)
         """    
         
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
         urls = urls_3dmasm
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
         return ds
@@ -1214,7 +1223,7 @@ class MERRAsm():
            chunk_size = 5
            ds = MERRAgeneric().download(username, password, urls, chunk_size)
         """    
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
         urls = urls_2dm
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
         
@@ -1278,7 +1287,7 @@ class MERRAsf():
            ds = MERRAgeneric().download(username, password, urls, chunk_size)
         """    
         
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
         urls = urls_2ds
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
         
@@ -1368,14 +1377,16 @@ class SaveNCDF_sa():
             u10m_total = []
             v10m_total = []
             prectot_total = []
+            prectotcorr_total = []
             
             var_out = {'T2M':['2-meter_air_temperature', 'temperature_at_2m_above_the_displacement_height','K', t2m_total],
                        'U2M':['2-meter_eastward_wind','eastward_wind_at _2m_above_the_displacement_height','m/s', u2m_total],
                        'V2M':['2-meter_northward_wind','northward_wind_at_2m_above_the_displacement_height','m/s', v2m_total],
                        'U10M':['10-meter_eastward_wind','eastward_wind_at_10m_above_displacement_height','m/s', u10m_total],
                        'V10M':['10-meter_northward_wind','northward_wind_at_10m_above_the_displacement_height', 'm/s', v10m_total],
-                       'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total]}
-                       #'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total]}            
+                       'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total],
+                       'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectotcorr_total]}
+            
             
             var_list = []
             for i in range(0, len(get_variables_2dm[0:-3])):
@@ -1501,7 +1512,7 @@ class MERRAsr():
            username = ******
            password = ******
         """    
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
         urls = urls_2dr
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
 
@@ -1748,7 +1759,7 @@ class MERRAsc():
            ds = MERRAgeneric().download(username, password, urls, chunk_size)
         """    
         
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc = MERRAgeneric().getURLs(date)
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
         urls = url_2dc
         ds = MERRAgeneric().download(username, password, urls, chunk_size)
         
@@ -2016,14 +2027,13 @@ class MERRAdownload(object):
         
         full_variables_pl_asm = {'relative_humidity': 'RH'}
         
-        full_variables_sm = {'2-meter_air_temperature': 'T2M', 
+        full_variables_sm = {'2-meter_air_temperature': 'T2M',
                              '2-meter_eastward_wind': 'U2M',
                              '2-meter_northward_wind':'V2M', 
                              '10-meter_eastward_wind':'U10M',
                              '10-meter_northward_wind':'V10M'}
         
-        full_variables_sf = {'precipitation_flux': 'PRECTOT'}
-        #full_variables_sf = {'precipitation_flux': 'PRECTOTCORR'}
+        full_variables_sf = {'precipitation_flux': ['PRECTOT','PRECTOTCORR']}
                         
         full_variables_sr = {'surface_incoming_shortwave_flux' : 'SWGDN',
                              'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
@@ -2070,6 +2080,7 @@ class MERRAdownload(object):
                                     for var1 in full_variables_pl_asm.keys():
                                         if var1 == var_names[j]:
                                             get_variables.append(full_variables_pl_asm[var1])
+                    
                     get_variables = list(set(get_variables))                                                                
                     
                     # add the variables names of latitude, longitude, levels and time
@@ -2180,7 +2191,8 @@ class MERRAdownload(object):
                                     for var1 in full_variables_sf.keys():
                                         if var1 == var_names[j]:
                                             get_variables.append(full_variables_sf[var1])
-                    get_variables = list(set(get_variables))                                            
+                    get_variables = list(itertools.chain(*get_variables))
+                    get_variables = list(set(get_variables))                                          
                     # add the variables names of latitude, longitude and time
                     get_variables.extend(['lat','lon','time'])
 
@@ -2218,7 +2230,7 @@ class MERRAdownload(object):
                     get_variables.extend(['lat','lon','time'])
                     
                     print get_variables
-
+                    
                     ds_2dr = MERRAsr().getDs(date, username, password, chunk_size)
         
                     out_variable_2dr = MERRAsr().getVariables(get_variables, ds_2dr)
@@ -2624,7 +2636,8 @@ class MERRAinterpolate(object):
         # dictionary to translate CF Standard Names into MERRA2
         # pressure level variable keys. 
         dpar = {'air_temperature'   : ['T2M'],  # [K] 2m values
-                'precipitation_amount' : ['PRECTOT'],  # [kg/m2/s] total precipitation                                                            
+                #'precipitation_amount' : ['PRECTOT'],  # [kg/m2/s] total precipitation
+                'precipitation_amount' : ['PRECTOTCORR'],  # [kg/m2/s] total precipitation                                                            
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M']}   # [m s-1] 2m & 10m values   
         varlist = self.TranslateCF2short(dpar)                      
         self.MERRA2station(path.join(self.dir_inp,'merra_sa_*.nc'), 
@@ -2964,7 +2977,7 @@ class MERRAscale(object):
 #     
 #==============================================================================    
 # 
-# # Download 
+# Download 
 # pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
 # 
 # MERRAdownl = MERRAdownload(pfile)
