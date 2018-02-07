@@ -1322,6 +1322,68 @@ class MERRAsf():
         return lat, lon, time
 
 
+class MERRAsv():
+    """Returns variables from downloaded MERRA 2d Single-Level, Assimilation,Single-Level Diagnostics data, 
+        which are abstracted with specific temporal and spatial range        
+        
+    Args:
+        beg, end: A dictionary specifying the specific date desired as a datetime.datetime object.
+              
+        area: A dictionary delimiting the area to be queried with the latitudes
+              north and south, and the longitudes west and east [decimal degree],to get 
+              the indies of defined latitudes and longitudes.  
+                      
+        variable:  List of variable(s) to download that can include one, several
+                    , or all of these: ['T2MDEW','lat','lon','time'].
+              
+    """
+    
+    def getDs(self, date, username, password, chunk_size):
+        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 2d Assimilation,Single-Level Diagnostics
+            data products
+            Args:
+            username = ******
+            password = ******
+            urls = urls_2dv
+            chunk_size = 5
+            ds = MERRAgeneric().download(username, password, urls, chunk_size)
+        """    
+        
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
+        urls = urls_2dv
+        ds = MERRAgeneric().download(username, password, urls, chunk_size)
+        
+        return ds
+    
+    def getVariables(self, get_variables, ds):
+        """Return the objected variables from the specific MERRA-2 2d Assimilation Single-Level Diagnostics data data    
+            
+            ds = MERRAgeneric.download( username, password, urls_2ds, chunk_size)
+        """        
+        
+        out_variable_2dv = MERRAgeneric().Variables(get_variables, ds)
+
+        return out_variable_2dv
+
+    def getlatLon_2d(self, area, ds, out_variable_2dv, id_lat, id_lon):
+        """
+        Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 2D datasets
+        Args:
+            id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
+            out_variable_3dmana = MERRAgeneric().getVariables(variable, ds)
+            p1 = -3 (id_Latitude)
+            p2 = -2 (id_Longitude)
+            p3 = -1 (id_Time) 
+
+        """       
+
+        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
+        
+        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dv, id_lat, id_lon)
+        
+        return lat, lon, time
+
+
 class SaveNCDF_sa():                                  
         """ write output netCDF file for abstracted variables from original 2d meteorological Diagnostics dataset
         and suface flux Diagnostics datasets
@@ -1349,7 +1411,7 @@ class SaveNCDF_sa():
                      
         """
      
-        def saveData(self, date, get_variables_2dm, get_variables_2ds, id_lat, id_lon, out_variable_2dm, out_variable_2ds, chunk_size, time, lat, lon, dir_data):
+        def saveData(self, date, get_variables_2dm, get_variables_2ds, get_variables_2dv, id_lat, id_lon, out_variable_2dm, out_variable_2ds, out_variable_2dv, chunk_size, time, lat, lon, dir_data):
         # creat a NetCDF file for saving output variables (Dataset object, also the root group).
             """
             Args: 
@@ -1378,6 +1440,7 @@ class SaveNCDF_sa():
             v10m_total = []
             prectot_total = []
             prectotcorr_total = []
+            t2mdew_total = []
             
             var_out = {'T2M':['2-meter_air_temperature', 'temperature_at_2m_above_the_displacement_height','K', t2m_total],
                        'U2M':['2-meter_eastward_wind','eastward_wind_at _2m_above_the_displacement_height','m/s', u2m_total],
@@ -1385,7 +1448,8 @@ class SaveNCDF_sa():
                        'U10M':['10-meter_eastward_wind','eastward_wind_at_10m_above_displacement_height','m/s', u10m_total],
                        'V10M':['10-meter_northward_wind','northward_wind_at_10m_above_the_displacement_height', 'm/s', v10m_total],
                        'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total],
-                       'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectotcorr_total]}
+                       'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectotcorr_total],
+                       'T2MDEW': ['2-metre_dew_point_temperature', '2-metre_dew_point_temperature' ,'K',  t2mdew_total]}
             
             
             var_list = []
@@ -1415,6 +1479,19 @@ class SaveNCDF_sa():
                         del var_total
                         var_list.append([get_variables_2ds[i], var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
 
+            for i in range(0, len(get_variables_2dv[0:-3])):
+                for x in var_out.keys():
+                    if x == get_variables_2dv[i]:
+                        print ("------Get Subset of Variable at Surface Level------", get_variables_2dv[i])
+                        # the position of PRECTOT in out_variable_2ds is 0
+                        var = MERRAgeneric().dataStuff_2d(i, id_lat, id_lon, out_variable_2dv) 
+                        # restructing the shape 
+                        var_total = MERRAgeneric().restruDatastuff(var)
+                        del var
+                        var_out[x][3] = var_total
+                        del var_total
+                        var_list.append([get_variables_2dv[i], var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
+                        
             #save nc file
             var_low = 0
             var_up = 0
@@ -1480,7 +1557,6 @@ class SaveNCDF_sa():
     
                 rootgrp.close() 
                                   
-
 
 class MERRAsr():
     """Returns variables from downloaded MERRA 2d radiation Diagnostics datasets, 
@@ -2010,7 +2086,7 @@ class MERRAdownload(object):
         
         # build variables dictionaries between variables list in pfile and variables list from MERRA original datasets            
         full_variables_dic = {'air_temperature': ['air_temperature', '2-meter_air_temperature'],
-                              'relative_humidity' : ['relative_humidity'],
+                              'relative_humidity' : ['relative_humidity','2-metre_dewpoint_temperature'],
                               'precipitation_amount': ['precipitation_flux'],
                               'wind_from_direction':['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
                               'wind_speed': ['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
@@ -2034,6 +2110,8 @@ class MERRAdownload(object):
                              '10-meter_northward_wind':'V10M'}
         
         full_variables_sf = {'precipitation_flux': ['PRECTOT','PRECTOTCORR']}
+        
+        full_variables_sv = {'2-metre_dewpoint_temperature': 'T2MDEW'}
                         
         full_variables_sr = {'surface_incoming_shortwave_flux' : 'SWGDN',
                              'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
@@ -2206,8 +2284,36 @@ class MERRAdownload(object):
                     
                     get_variables_2ds = get_variables               
                     
+                    print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-Level,Assimilation,Single-Level Diagnostics-----")
+                    
+                    # get the shared variables dictionaries and pass the information to the build-in dictionaries
+                    get_variables = []
+                    for i in range(0, len(variables)):
+                        for var in full_variables_dic.keys():
+                            if  var == variables[i]:
+                                var_names = full_variables_dic[var]
+                                #  Set up the variables list for accassing original MERRA-2 2d Assimilation Single Level Diagnostics dataset
+                                for j in range(0, len(var_names)):
+                                    for var1 in full_variables_sv.keys():
+                                        if var1 == var_names[j]:
+                                            get_variables.append(full_variables_sv[var1])
+                    get_variables = list(set(get_variables))                                          
+                    # add the variables names of latitude, longitude and time
+                    get_variables.extend(['lat','lon','time'])
+
+                    print get_variables                   
+                    
+                    ds_2dv = MERRAsv().getDs(date, username, password, chunk_size)
+        
+                    out_variable_2dv = MERRAsv().getVariables(get_variables, ds_2dv)
+                    
+                    lat, lon, time = MERRAsv().getlatLon_2d(area, ds_2dv, out_variable_2dv, id_lat, id_lon)
+                    
+                    get_variables_2dv = get_variables               
+#                     
+                                       
                     # Output marra-2 variable at surface level 
-                    SaveNCDF_sa().saveData(date,  get_variables_2dm, get_variables_2ds, id_lat, id_lon, out_variable_2dm, out_variable_2ds, chunk_size, time, lat, lon, dir_data)
+                    SaveNCDF_sa().saveData(date,  get_variables_2dm, get_variables_2ds, get_variables_2dv, id_lat, id_lon, out_variable_2dm, out_variable_2ds, out_variable_2dv, chunk_size, time, lat, lon, dir_data)
                     
                     print ("----------------------------------------Result NO.3: Completed----------------------------------------")
         
