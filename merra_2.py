@@ -1449,7 +1449,7 @@ class SaveNCDF_sa():
                        'V10M':['10-metre_northward_wind','northward_wind_at_10m_above_the_displacement_height', 'm/s', v10m_total],
                        'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total],
                        'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectotcorr_total],
-                       'T2MDEW': ['2-metre_dew_point_temperature', '2-metre_dew_point_temperature' ,'K',  t2mdew_total]}
+                       'T2MDEW': ['2-metre_dew_point_temperature', 'dew_point_temperature_at_2_m' ,'K',  t2mdew_total]}
             
             
             var_list = []
