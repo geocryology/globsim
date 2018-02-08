@@ -93,7 +93,7 @@ from math              import exp, floor
 from generic           import ParameterIO, StationListRead, ScaledFileOpen
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
-
+from time import sleep
 
 import pydap.lib
 import numpy as np
@@ -255,7 +255,7 @@ class MERRAgeneric():
                     except:
                         if delay < 59:
                             print "Error downloading file: " + url[j] + ". Trying again (" + str(delay) + ")"
-                            tc.time.sleep(delay)
+                            sleep(delay)
                             pass
                         else:    
                             print "Error downloading file: " + url[j] + ". Giving up."
