@@ -488,9 +488,20 @@ class MERRAgeneric():
         for i in range(0, len(out_variable)):
             data[i] = {}
             for j in range(0, len(out_variable[i])):
-                print "Run","Chunk", i+1, "NO.:", j+1 
-                data[i][j] = out_variable[i][j][position][:]
-
+                for delay in range(0,60):
+                    try: # try to obtain the data of variable each by each
+                         print "Run","Chunk", i+1, "NO.:", j+1 
+                         data[i][j] = out_variable[i][j][position][:]
+                         break
+                    except:
+                        if delay < 59:
+                            print "Error downloading data: " + out_variable[i][j] + ". Trying again (" + str(delay) + ")"
+                            sleep(delay)
+                            pass
+                        else:    
+                            print "Error downloading data: " + out_variable[i][j] + ". Giving up."
+                            raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                             
         # Restrict the area for data set
         print "Restrict Area and Elevation"
         data_area = {}
@@ -507,7 +518,8 @@ class MERRAgeneric():
         del data 
 
         return data_area
-    
+
+        
     def dataStuff_2d(self, position, id_lat, id_lon, out_variable):  
         """Define the outputs ones &
            pass the values of abstrated variables to the output ones and 
@@ -543,9 +555,20 @@ class MERRAgeneric():
         for i in range(0, len(out_variable)):
             data[i] = {}
             for j in range(0, len(out_variable[i])):
-                print "Run","Chunk", i+1, "NO.:", j+1
-                data[i][j] = out_variable[i][j][position][:]
-
+                for delay in range(0,60):
+                    try: # try to obtain the data of variable each by each
+                        print "Run","Chunk", i+1, "NO.:", j+1
+                        data[i][j] = out_variable[i][j][position][:]
+                        break
+                    except:
+                        if delay < 59:
+                            print "Error downloading data: " + out_variable[i][j] + ". Trying again (" + str(delay) + ")"
+                            sleep(delay)
+                            pass
+                        else:    
+                            print "Error downloading data: " + out_variable[i][j] + ". Giving up."
+                            raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                    
         # Restrict the area for data set
         print "Restrict Area"
         data_area = {}
