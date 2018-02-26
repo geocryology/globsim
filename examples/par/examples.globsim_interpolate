@@ -1,5 +1,5 @@
 # logistics
-project_directory = /Users/xquan/src/globsim/examples
+project_directory = /home/xquan/src/globsim/examples
 station_list = siteslist.csv
 list_name = siteslist
 
