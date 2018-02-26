@@ -27,7 +27,7 @@ import time as tc
 import sys
     
     
-class DataCheck(object):
+class MERRA2DataCheck(object):
     """
         To check  the continourity of the time coverage of from all the downloaded 
         netCDF files with a wildward expression
@@ -68,9 +68,10 @@ class DataCheck(object):
               
             ncfile_out: Full path to the output netCDF file to write.  
           """
+
         # open netcdf file handle, can be one file of several with wildcards
-        ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
-                  
+        ncf = nc.MFDataset(file_in, 'r', aggdim ='time')
+                                                                 
         #get variable 'time' 
         nctime = ncf.variables['time'][:]
         t_unit = ncf.variables['time'].units 
@@ -139,7 +140,7 @@ class DataCheck(object):
   
 ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
 
-MERRA2check = DataCheck(ifile)
+MERRA2check = MERRA2DataCheck(ifile)
 
 MERRA2check.process()
 
