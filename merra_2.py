@@ -495,11 +495,11 @@ class MERRAgeneric():
                          break
                     except:
                         if delay < 59:
-                            print "Error downloading data: " + out_variable[i][j] + ". Trying again (" + str(delay) + ")"
+                            print "Error downloading data: " + ". Trying again (" + str(delay) + ")"
                             sleep(delay)
                             pass
                         else:    
-                            print "Error downloading data: " + out_variable[i][j] + ". Giving up."
+                            print "Error downloading data: " + ". Giving up."
                             raise RuntimeError("==> Unsuccesfull after 60 attempts.")
                              
         # Restrict the area for data set
@@ -562,11 +562,11 @@ class MERRAgeneric():
                         break
                     except:
                         if delay < 59:
-                            print "Error downloading data: " + out_variable[i][j] + ". Trying again (" + str(delay) + ")"
+                            print "Error downloading data: " + ". Trying again (" + str(delay) + ")"
                             sleep(delay)
                             pass
                         else:    
-                            print "Error downloading data: " + out_variable[i][j] + ". Giving up."
+                            print "Error downloading data: " + ". Giving up."
                             raise RuntimeError("==> Unsuccesfull after 60 attempts.")
                     
         # Restrict the area for data set
