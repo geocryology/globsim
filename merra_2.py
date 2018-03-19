@@ -3167,51 +3167,52 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
 
-    def RH_MERRA_per_sur(self):
-        """
-        Relative Humidity derived from surface data, exclusively.
-        """   
-        
-        # add variable to ncdf file
-        vn = 'RH_MERRA2_per_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'relative humidity MERRA-2 surface only'
-        var.units     = 'Percent'
-        
-        # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:]
-        values  = self.nc_pl.variables['relative_humidity'][:]                   
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) * 100
     # def RH_MERRA_per_sur(self):
     #     """
-    #     Relative Humdity derived from surface data, exclusively.
+    #     Relative Humidity derived from surface data, exclusively.
     #     """   
     #     
     #     # add variable to ncdf file
-    #     vn = 'DEWP_MERRA2_C_sur' # variable name
-    #     var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-    #     var.long_name = '2 metre dewpoint temperature MERRA2-I surface only'
-    #     var.units     = self.nc_sa.variables['2-metre_dew_point_temperature'].units.encode('UTF8')  
-    #     
-    #     # interpolate station by station
-    #     time_in = self.nc_sa.variables['time'][:]
-    #     values  = self.nc_sa.variables['2-metre_dew_point_temperature'][:]                   
-    #     for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-    #         self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-    #                                                 time_in, values[:, n])-273.15 
-    #                                                 
-    #     # add variable to ncdf file
     #     vn = 'RH_MERRA2_per_sur' # variable name
     #     var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-    #     var.long_name = 'Relative humidity MERRA2-I surface only'
+    #     var.long_name = 'relative humidity MERRA-2 surface only'
     #     var.units     = 'Percent'
     #     
-    #     # quick and dirty https://en.wikipedia.org/wiki/Dew_point
-    #     RH = 100 - 5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :] - 
-    #                     self.rg.variables['DEWP_MERRA2_C_sur'][:, :])
-    #     self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
+    #     # interpolate station by station
+    #     time_in = self.nc_pl.variables['time'][:]
+    #     values  = self.nc_pl.variables['relative_humidity'][:]                   
+    #     for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+    #         self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+    #                                                 time_in, values[:, n]) * 100
+
+    def RH_MERRA_per_sur(self):
+        """
+        Relative Humdity derived from surface data, exclusively.
+        """   
+        
+        # add variable to ncdf file
+        vn = 'DEWP_MERRA2_C_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = '2 metre dewpoint temperature MERRA2-I surface only'
+        var.units     = self.nc_sa.variables['2-metre_dew_point_temperature'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['2-metre_dew_point_temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n])-273.15 
+                                                    
+        # add variable to ncdf file
+        vn = 'RH_MERRA2_per_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Relative humidity MERRA2-I surface only'
+        var.units     = 'Percent'
+        
+        # quick and dirty https://en.wikipedia.org/wiki/Dew_point
+        RH = 100 - 5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :] - 
+                        self.rg.variables['DEWP_MERRA2_C_sur'][:, :])
+        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
                                                     
 
     def WIND_MERRA_sur(self):
