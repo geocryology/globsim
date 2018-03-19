@@ -3158,11 +3158,11 @@ class MERRAscale(object):
         vn = 'AIRT_MERRA2_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature MERRA2 surface only'
-        var.units     = self.nc_sa.variables['2-meter_air_temperature'].units.encode('UTF8')  
+        var.units     = self.nc_sa.variables['2-metre_air_temperature'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['2-meter_air_temperature'][:]                   
+        values  = self.nc_sa.variables['2-metre_air_temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
@@ -3224,11 +3224,11 @@ class MERRAscale(object):
         vn = '10 metre U wind component' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre U wind component'
-        var.units     = self.nc_sa.variables['10-meter_eastward_wind'].units.encode('UTF8')  
+        var.units     = self.nc_sa.variables['10-metre_eastward_wind'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['10-meter_eastward_wind'][:]                   
+        values  = self.nc_sa.variables['10-metre_eastward_wind'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
@@ -3237,11 +3237,11 @@ class MERRAscale(object):
         vn = '10 metre V wind component' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre V wind component'
-        var.units     = self.nc_sa.variables['10-meter_northward_wind'].units.encode('UTF8')  
+        var.units     = self.nc_sa.variables['10-metre_northward_wind'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['10-meter_northward_wind'][:]                   
+        values  = self.nc_sa.variables['10-metre_northward_wind'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
