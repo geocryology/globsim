@@ -94,6 +94,7 @@ from generic           import ParameterIO, StationListRead, ScaledFileOpen
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time import sleep
+from numpy.random import uniform
 
 import pydap.lib
 import numpy as np
@@ -394,12 +395,23 @@ class MERRAgeneric():
             Lev[i] = {}
             time[i] = {}
             for j in range(0, len(out_variable[i])):
-                print "run", "Chunk:", i+1, "NO.:", j+1
-                Lat[i][j]   = out_variable[i][j][-4][:]
-                Lon[i][j]   = out_variable[i][j][-3][:]
-                Lev[i][j]   = out_variable[i][j][-2][:]
-                time[i][j]  = out_variable[i][j][-1][:]   
-        
+                for delay in range(0,60):
+                    try: # try to obtain the data of Lat, Lon, Lev, time each by each
+                        print "run", "Chunk:", i+1, "NO.:", j+1
+                        Lat[i][j]   = out_variable[i][j][-4][:]
+                        Lon[i][j]   = out_variable[i][j][-3][:]
+                        Lev[i][j]   = out_variable[i][j][-2][:]
+                        time[i][j]  = out_variable[i][j][-1][:]
+                        break
+                    except:
+                        if delay < 59:
+                            print "Error downloading data: " + ". Trying again (" + str(delay) + ")"
+                            sleep(delay)
+                            pass
+                        else:    
+                            print "Error downloading data: " + ". Giving up."
+                            raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                
         #For Latitude and Longitude   
         lat = {}
         lon = {}               
@@ -444,11 +456,22 @@ class MERRAgeneric():
             Lon[i] = {}
             time[i] = {}
             for j in range(0, len(out_variable[i])):
-                print "Run", "Chunk:",i+1, "NO.:", j+1
-                Lat[i][j]   = out_variable[i][j][-3][:]
-                Lon[i][j]   = out_variable[i][j][-2][:]
-                time[i][j]  = out_variable[i][j][-1][:]    
-        
+                for delay in range(0,60):
+                    try: # try to obtain the data of Lat, Lon, time each by each
+                        print "Run", "Chunk:",i+1, "NO.:", j+1
+                        Lat[i][j]   = out_variable[i][j][-3][:]
+                        Lon[i][j]   = out_variable[i][j][-2][:]
+                        time[i][j]  = out_variable[i][j][-1][:]
+                        break
+                    except:
+                        if delay < 59:
+                            print "Error downloading data: " + ". Trying again (" + str(delay) + ")"
+                            sleep(delay)
+                            pass
+                        else:    
+                            print "Error downloading data: " + ". Giving up."
+                            raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                
         #For Latitude and Longitude 
         lat = {}
         lon = {}               
@@ -460,7 +483,6 @@ class MERRAgeneric():
                 lon[i][j] = Lon[i][j][id_lon]
         
         return lat, lon, time
-
 
     def dataStuff_3d(self, position, id_lat, id_lon, id_lev, out_variable):  
         """Define the outputs ones &
@@ -2865,7 +2887,7 @@ class SaveNCDF(object):
                       'end' : par.end}
 
     
-    def FileNCDF(self, ncfile_out, date):
+    def FileNCDF(self, ncfile_out):
         """
         Build new empty netCDF file, to conduct the MERRA2station by given a defined range of
         time lengh, e.g. one month, then saved the interpolated variables in the netCDF file
@@ -2874,11 +2896,7 @@ class SaveNCDF(object):
         #Check the existance of empty netCDF file
         try:
             netfile = Dataset(ncfile_out, "r", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
-            
-            time_nc = netfile.variables['time'][:]
-            
-            print time_nc
-        
+                    
         except:
             print "netCDF file is not existed"
             print "creating one netCDF file"
@@ -2912,7 +2930,7 @@ class SaveNCDF(object):
             longitude           = rootgrp.createVariable('longitude','f4',('station'))
             longitude.long_name = 'longitude'
             longitude.units     = 'degrees_east'  
-        
+
             # assign base variables
             station[:]   = list(self.stations['station_number'])
             latitude[:]  = list(self.stations['latitude_dd'])
@@ -2922,15 +2940,19 @@ class SaveNCDF(object):
             rootgrp.close()
         
 
-    def DataNCDF(self, ncfile_out, date):
+    def DataNCDF(self, ncfile_out):
         """
-        Build new empty netCDF file, to conduct the MERRA2station by given a defined range of
-        time lengh, e.g. one month, then saved the interpolated variables in the netCDF file
+        open the built netCDF file, get the basic variables, add interpolated data in
         
+        append time 
         
         """
-         
+        netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
             
+        t = netfile.variables['time']
+            
+        print time_nc
+                      
         day_chunk = 30
         
         startDay = self.date['beg']
@@ -2984,60 +3006,19 @@ class SaveNCDF(object):
                         var_low = var_up
                         var_up = var_low + var
                         
-                        #Check the existance of empty netCDF file
-                        try:
-                            netfile = Dataset(ncfile_out, "r", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
-                            
-                            time_nc = netfile.variables['time'][:]
-                            
-                            print time_nc
-                        
-                        except:
-                            print "netCDF file is not existed"
-                            print "creating one netCDF file"
-                #            sys.exit(0)
-
-                            #Build the netCDF file
-                            rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-                            #rootgrp = nc.Dataset(('test'+ "_" + (date_ind[var_low/hour_out]) + "_" + "to" + "_" +(date_ind[var_up/hour_out]) + ".nc"), 'w', format='NETCDF4_CLASSIC')
-                            rootgrp.Conventions = 'CF-1.6'
-                            rootgrp.source      = 'MERRA-2, interpolated bilinearly to stations'
-                            rootgrp.featureType = "timeSeries"
                                                 
-                            
-                            # # get dfield 
-                            # dfield, time_out = MERRA2station(ncfile_in, self.stations, date, variables=None) # self.time: needed to given a specifi time range to it, e.g. 30 days          
-                            
-                            # dimensions
-                            station = rootgrp.createDimension('station', len(self.stations))
-                            time    = rootgrp.createDimension('time', None)
-    
-                            # base variables
-                            time           = rootgrp.createVariable('time',     'i4',('time'))
-                            time.long_name = 'time'
-                            time.units     = 'hour since 1980-01-01 00:00:0.0'
-                            time.calendar  = 'gregorian'
-                            station             = rootgrp.createVariable('station',  'i4',('station'))
-                            station.long_name   = 'station for time series data'
-                            station.units       = '1'
-                            latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-                            latitude.long_name  = 'latitude'
-                            latitude.units      = 'degrees_north'    
-                            longitude           = rootgrp.createVariable('longitude','f4',('station'))
-                            longitude.long_name = 'longitude'
-                            longitude.units     = 'degrees_east'  
                         
-                            # assign base variables
-                            station[:]   = list(self.stations['station_number'])
-                            latitude[:]  = list(self.stations['latitude_dd'])
-                            longitude[:] = list(self.stations['longitude_dd'])
+                        # # get dfield 
+                        # dfield, time_out = MERRA2station(ncfile_in, self.stations, date, variables=None) # self.time: needed to given a specifi time range to it, e.g. 30 days          
                             
-                            netCDFTime = []
-                            for x in range(0, len(time_ind1)):
-                                netCDFTime.append(nc.date2num(time_ind1[x], units = time.units, calendar = time.calendar))
-                            time[:] = netCDFTime[var_low:var_up]                                                                                                        
-            
-                            rootgrp.close()
+                        
+                            
+                        netCDFTime = []
+                        for x in range(0, len(time_ind1)):
+                            netCDFTime.append(nc.date2num(time_ind1[x], units = time.units, calendar = time.calendar))
+                        time[:] = netCDFTime[var_low:var_up]                                                                                                        
+        
+                        netfile.close()
                                                                                                                                                                                                                                                                                                                                                                                                                 
             
 # 
@@ -3068,7 +3049,7 @@ class SaveNCDF(object):
       #           else:
       #               tmp[:] = dfield.data[n,:,:]    
         
-       #     rootgrp.close()
+
             
             
 #==============================================================================                  
