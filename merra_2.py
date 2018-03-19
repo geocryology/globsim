@@ -2788,7 +2788,7 @@ class MERRAinterpolate(object):
         # === 2D Interpolation for Surface  Data ===    
         # dictionary to translate CF Standard Names into MERRA2
         # pressure level variable keys. 
-        dpar = {'air_temperature'   : ['T2M'],  # [K] 2m values
+        dpar = {'air_temperature'   : ['T2M', 'T2MDEW'],  # [K] 2m values
                 #'precipitation_amount' : ['PRECTOT'],  # [kg/m2/s] total precipitation
                 'precipitation_amount' : ['PRECTOTCORR'],  # [kg/m2/s] total precipitation                                                            
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M']}   # [m s-1] 2m & 10m values   
