@@ -2581,8 +2581,7 @@ class MERRAinterpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-	
-	# time_out = nctime[tmask]		
+		
         # === write output netCDF file =========================================
         # dimensions: station, time OR station, time, level
         # variables: latitude(station), longitude(station), elevation(station)
@@ -2652,7 +2651,265 @@ class MERRAinterpolate(object):
         ncf.close()
         # closed file ==========================================================
 
-#   return dfiled, time_out
+    def MERRA2station_NEW(self, ncfile_in, ncfile_out, points, 
+                          variables = None, date = None):
+        """
+        #------------------IDEA-------------------------------------------------------       
+        To conduct the MERRA2station by given a defined range of time lengh, e.g. one month, then saved the interpolated variables in the netCDF file
+
+        1. open ncfile_in, to get processed variables information (list, value )
+        
+        2. check the existance of new empty netcdf file: 
+           if no, creat one, 
+           if yes, open it, to build new empty netCDF file, build the basic variables (lat, lon, height, level, time),
+                   build the main variables (get variables list from opened downloaded netcdf file) 
+            
+            # dimensions: station, time (dim : None)
+            # base variables: time (to append), station, latitude, longitude, height, levels 
+            # main variables: CALL MERRA2STATION(ncfile_in, stations, variables = None, date = currentDay, endDay)
+ 
+        
+        3. looping the startDay : startday + day_chunk (first round: build)
+           looping the startday + day_chunk + 1 TO the startday + day_chunk + 1 + day_chunk (second round: append)
+           ....
+           looping the endDay (last round: append) 
+
+            #-----inside the looping------------
+            # interpolatin the main variables
+            # append interpolated variable in varlist: 
+            #                     if pl: [time (to append), level, station]
+            #                     else: [time (to append), station]
+            #                
+        
+        4. close the file
+       
+        """
+        
+        # open netcdf file handle, can be one file of several with wildcards
+        ncf = nc.MFDataset(ncfile_in, 'r', aggdim ='time') 
+        
+        # is it a file with pressure levels?
+        pl = 'level' in ncf.dimensions.keys()
+
+        # get spatial dimensions
+        lat  = ncf.variables['latitude'][:]
+        lon  = ncf.variables['longitude'][:]
+        if pl: # only for pressure level files
+            lev  = ncf.variables['level'][:]
+            nlev = len(lev)
+    
+        # get time and convert to datetime object
+        nctime = ncf.variables['time'][:]
+        t_unit = ncf.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        try :
+            t_cal = ncf.variables['time'].calendar
+        except AttributeError : # Attribute doesn't exist
+            t_cal = u"gregorian" # or standard
+        time_out = nc.num2date(nctime, units = t_unit, calendar = t_cal)
+        
+        # restrict to date/time range if given
+        if date is None:
+            tmask = time_out < datetime(3000, 1, 1)
+        else:
+            tmask = (time_out <= date['end']) * (time_out >= date['beg']) # updated time_out <= date['end'], removed '=' 
+          
+        # test if time steps to interpolate remain
+        nt = sum(tmask)
+        if nt == 0:
+            raise ValueError('No time steps from netCDF file selected.')
+    
+        # get variables
+        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+        varlist.remove('time')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        if pl: #only for pressure level files
+            varlist.remove('level')
+        #remove 'PRECTOT' in merra_sa*.nc
+        for var in varlist:
+            if var == 'PRECTOT':
+               varlist.remove('PRECTOT')  
+
+        #list variables that should be interpolated
+        if variables is None:
+            variables = varlist
+        #test is variables given are available in file
+        if (set(variables) < set(varlist) == 0):
+            raise ValueError('One or more variables not in netCDF file.')
+            
+            
+        #======Prepare the Output File========================================                         
+        #Check the existance of empty netCDF file
+        try:
+            netfile = Dataset(ncfile_out, "r", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
+                    
+        except:
+            print "netCDF file is not existed"
+            print "creating one netCDF file"
+    
+            #Build the netCDF file
+            rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+            rootgrp.Conventions = 'CF-1.6'
+            rootgrp.source      = 'MERRA-2, interpolated bilinearly to stations'
+            rootgrp.featureType = "timeSeries"
+                                            
+            # dimensions
+            station = rootgrp.createDimension('station', len(self.stations))
+            time    = rootgrp.createDimension('time', None)
+            if pl: # only for pressure level files
+                level = rootgrp.createDimension('level', nlev)
+            
+            # base variables
+            time           = rootgrp.createVariable('time',     'i4',('time'))
+            time.long_name = 'time'
+            time.units     = 'hour since 1980-01-01 00:00:0.0'
+            time.calendar  = 'gregorian'
+            station             = rootgrp.createVariable('station',  'i4',('station'))
+            station.long_name   = 'station for time series data'
+            station.units       = '1'
+            latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+            latitude.long_name  = 'latitude'
+            latitude.units      = 'degrees_north'    
+            longitude           = rootgrp.createVariable('longitude','f4',('station'))
+            longitude.long_name = 'longitude'
+            longitude.units     = 'degrees_east' 
+            height           = rootgrp.createVariable('height','f4',('station'))
+            height.long_name = 'height_above_reference_ellipsoid'
+            height.units     = 'm'  
+            if pl: # only for pressure level files
+                level           = rootgrp.createVariable('level','i4',('level'))
+                level.long_name = 'pressure_level'
+                level.units     = 'hPa'  
+
+            # assign base variables
+            if pl: # only for pressure level files
+                level[:] = lev
+            station[:]   = list(self.stations['station_number'])
+            latitude[:]  = list(self.stations['latitude_dd'])
+            longitude[:] = list(self.stations['longitude_dd'])
+            height[:]    = list(self.stations['elevation_m'])
+            
+            # create and assign variables from input file
+            for n, var in enumerate(variables):
+                vname = ncf.variables[var].standard_name.encode('UTF8')
+                print vname
+                if pl: # only for pressure level files
+                    tmp   = rootgrp.createVariable(vname,
+                                                    'f4',('time', 'level', 'station'))
+                else:
+                    tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
+                    
+                tmp.long_name = ncf.variables[var].standard_name.encode('UTF8')
+                tmp.units     = ncf.variables[var].units.encode('UTF8')  
+                
+            #close the file
+            rootgrp.close()
+        #======End of Preparation of End======================================
+
+        #=======INTERPOLATION & APPEND========================================
+        #Setup the time chunck for looping process
+        day_step = 30 # number of days 
+        if pl:
+            hour_size = 4    # number of time-steps per day for pressure-level variables
+        else:
+            hour_size = 24   # number of time-steps per day for surface-level variables 
+
+        date_size = nt/hour_size
+        int_size = date_size//day_step
+        res_type = (date_size*hour_size)%(day_step*hour_size)
+            
+        if (res_type > 0):
+            size_type = [day_step*hour_size]*int_size + [res_type]
+        else:
+            size_type = [day_step*hour_size]*int_size           
+                                                                  
+        #looping over processed the date chunk each by each
+        var_low = 0
+        var_up = 0
+        for i in range(0, len(size_type)):
+            chunk = size_type[i]
+            var_low = var_up
+            var_up = var_low + chunk
+            
+            print i
+            print chunk
+            print var_low
+            print var_up
+            
+            #==================Interpolation==================================
+            # Create source grid from a SCRIP formatted file. As ESMF needs one
+            # file rather than an MFDataset, give first file in directory.
+            ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
+            ncsingle = path.join(self.dir_inp, ncsingle)
+            sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+    
+            # create source field on source grid
+            if pl: #only for pressure level files
+                sfield = ESMF.Field(sgrid, name='sgrid',
+                                    staggerloc=ESMF.StaggerLoc.CENTER,
+                                    ndbounds=[len(variables), chunk, nlev]) # replaced the nt (the total length of tmask) to chunk(the break-down loopling size of tmask) 
+            else: # 2D files
+                sfield = ESMF.Field(sgrid, name='sgrid',
+                                    staggerloc=ESMF.StaggerLoc.CENTER,
+                                    ndbounds=[len(variables), chunk]) # as same as replacement above
+    
+            # assign data from ncdf: (variable, time, latitude, longitude) 
+            tmask_chunk = tmask[var_low:var_up] # set up the looping chunk for tmask
+            for n, var in enumerate(variables):
+                if pl: # only for pressure level files
+                    sfield.data[n,:,:,:,:] = ncf.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                else:
+                    sfield.data[n,:,:,:] = ncf.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+    
+            # create locstream, CANNOT have third dimension!!!
+            locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
+            locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
+            locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+    
+            # create destination field
+            if pl: # only for pressure level files
+                dfield = ESMF.Field(locstream, name='dfield', 
+                                    ndbounds=[len(variables), chunk, nlev]) # replaced the nt (the total length of tmask) to chunk(the break-down loopling size of tmask)
+            else:
+                dfield = ESMF.Field(locstream, name='dfield', 
+                                    ndbounds=[len(variables), chunk]) # as same as replacement above   
+    
+            # regridding function, consider ESMF.UnmappedAction.ERROR
+            regrid2D = ESMF.Regrid(sfield, dfield,
+                                    regrid_method=ESMF.RegridMethod.BILINEAR,
+                                    unmapped_action=ESMF.UnmappedAction.IGNORE,
+                                    dst_mask_values=None)
+                            
+            # regrid operation, create destination field (variables, times, points)
+            dfield = regrid2D(sfield, dfield)        
+            sfield.destroy() #free memory                  
+            
+            #==================Appending======================================
+            netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") 
+    
+            # append time
+            t = netfile.variables['time']           
+            t_add = nctime[var_low:var_up]                                                                                                     
+            t[:] = np.append(t[:], t_add)
+            
+            # append variables
+            for n, var in enumerate(variables):
+                vname = ncf.variables[var].standard_name.encode('UTF8')
+                append_var = netfile.variables[vname]
+                var_add = []                    
+                # assign values
+                if pl: # only for pressure level files
+                    var_add[:] = dfield.data[n,:,:,:]
+                else:
+                    var_add[:] = dfield.data[n,:,:]    
+                
+                append_var[:] = np.append(append_var[:], var_add)
+            
+            
+            #close the file
+            netfile.close()                                                                                                                                                                                                                                                                                                                                                                                                              
+        ncf.close()           
+        #close read-in and read-out files====================================                  
 
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
@@ -2840,220 +3097,7 @@ class MERRAinterpolate(object):
                               path.join(self.dir_out,'merra_pl_' + 
                                         self.list_name + '_surface.nc'))
 
-#=============================================================================
-class SaveNCDF(object):
-    """
-    #------------------IDEA-------------------------------------------------------       
-    1. get all indices of date, time steps 
-    date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
-        
-    2. check the existance of netcdf file, if no, creat one, if yes, open it, and append 
-        
-        
-    3. looping the startDay TO startday + day_chunk (first round: build)
-       looping the startday + day_chunk + 1 TO the startday + day_chunk + 1 + day_chunk (second round: append)
-       ....
-       looping the endDay (last round: append) 
-
-          #-----inside the looping------------
-          # dimensions: station, time (dim : None)
-          # base variables: time (to append), station, latitude, longitude, height, levels 
-          # main variables: CALL MERRA2STATION(ncfile_in, stations, variables = None, date = currentDay, endDay)
-          # looping varlist: if pl: [time (to append), level, station]
-          #                     else: [time (to append), station]
-          #
-          #                      
-        
-    4. close the file  
-     
-    """
-
-    def __init__(self, ifile):
-        #read parameter file
-        self.ifile = ifile
-        par = ParameterIO(self.ifile)
-        self.dir_inp = path.join(par.project_directory,'merra2') 
-        self.dir_out = path.join(par.project_directory,'station')
-        self.variables = par.variables
-        self.list_name = par.list_name
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)  
-        
-        # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end}
-
-    
-    def FileNCDF(self, ncfile_out):
-        """
-        Build new empty netCDF file, to conduct the MERRA2station by given a defined range of
-        time lengh, e.g. one month, then saved the interpolated variables in the netCDF file
-        """
-
-        #Check the existance of empty netCDF file
-        try:
-            netfile = Dataset(ncfile_out, "r", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
-                    
-        except:
-            print "netCDF file is not existed"
-            print "creating one netCDF file"
-    #            sys.exit(0)
-    
-            #Build the netCDF file
-            rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-            rootgrp.Conventions = 'CF-1.6'
-            rootgrp.source      = 'MERRA-2, interpolated bilinearly to stations'
-            rootgrp.featureType = "timeSeries"
-                                
-            
-            # # get dfield 
-            # dfield, time_out = MERRA2station(ncfile_in, self.stations, date, variables=None) # self.time: needed to given a specifi time range to it, e.g. 30 days          
-            
-            # dimensions
-            station = rootgrp.createDimension('station', len(self.stations))
-            time    = rootgrp.createDimension('time', None)
-    
-            # base variables
-            time           = rootgrp.createVariable('time',     'i4',('time'))
-            time.long_name = 'time'
-            time.units     = 'hour since 1980-01-01 00:00:0.0'
-            time.calendar  = 'gregorian'
-            station             = rootgrp.createVariable('station',  'i4',('station'))
-            station.long_name   = 'station for time series data'
-            station.units       = '1'
-            latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-            latitude.long_name  = 'latitude'
-            latitude.units      = 'degrees_north'    
-            longitude           = rootgrp.createVariable('longitude','f4',('station'))
-            longitude.long_name = 'longitude'
-            longitude.units     = 'degrees_east'  
-
-            # assign base variables
-            station[:]   = list(self.stations['station_number'])
-            latitude[:]  = list(self.stations['latitude_dd'])
-            longitude[:] = list(self.stations['longitude_dd'])
-
-            #close the file
-            rootgrp.close()
-        
-
-    def DataNCDF(self, ncfile_out):
-        """
-        open the built netCDF file, get the basic variables, add interpolated data in
-        
-        append time 
-        
-        """
-        netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
-            
-        t = netfile.variables['time']
-            
-        print time_nc
-                      
-        day_chunk = 30
-        
-        startDay = self.date['beg']
-        endDay   = self.date['end']
-       
-        x = 0
-        for dt in rrule(DAILY, dtstart = startDay, until = endDay):
-                currentDay = (str(dt.strftime("%Y")) + "/" + str(dt.strftime("%m")) + "/" + str(dt.strftime("%d")))
-                x += 1
-                if (x == 1):                                     
-                    
-                    date['beg'] = currentDay
-                    
-                    print 'MERRA2STATION BEGINS ON:', date['beg']
-                    
-                    print x 
-                    
-                    #convert date['beg'] from string back to datetime object
-                    date['beg'] = datetime.strptime(date['beg'],'%Y/%m/%d')  
-            
-                if (x == day_chunk or dt == endDay):   
-                    
-                    x = 0
-                    date['end'] = currentDay
-                    
-                    print 'MERRA2STATION ENDS ON:', date['end']
-                    
-                    print x
-                    
-                    #convert date['beg'] from string back to datetime object
-                    date['end'] = datetime.strptime(date['end'],'%Y/%m/%d')
-                    
-                       
-                    #Setup the length of date and time wanted to process
-                    day_step = 30 # number of days 
-                    hour_size = 4 # number of time steps per day
-                    date_size = len(date_ind)
-                    int_size = date_size//day_step
-                    res_type = (date_size*hour_size)%(day_step*hour_size)
-                        
-                    if (res_type > 0):
-                        size_type = [day_step*hour_size]*int_size + [res_type]
-                    else:
-                        size_type = [day_step*hour_size]*int_size           
-                                                            
-                    var_low = 0
-                    var_up = 0
-                    #for i in range(0, 1):
-                    for i in range(0, len(size_type)):
-                        var = size_type[i]
-                        var_low = var_up
-                        var_up = var_low + var
-                        
-                                                
-                        
-                        # # get dfield 
-                        # dfield, time_out = MERRA2station(ncfile_in, self.stations, date, variables=None) # self.time: needed to given a specifi time range to it, e.g. 30 days          
-                            
-                        
-                            
-                        netCDFTime = []
-                        for x in range(0, len(time_ind1)):
-                            netCDFTime.append(nc.date2num(time_ind1[x], units = time.units, calendar = time.calendar))
-                        time[:] = netCDFTime[var_low:var_up]                                                                                                        
-        
-                        netfile.close()
-                                                                                                                                                                                                                                                                                                                                                                                                                
-            
-# 
-#             # get dfield 
-#             dfield, time_out = MERRA2station(self.time) # self.time: needed to given a specifi time range to it, e.g. 30 days          
-#    
-#             # assign base variables
-#             time[:] = time_out[0:1000]
-#             if pl: # only for pressure level files
-#                 level[:] = lev
-#             height[:]    = list(self.stations['elevation_m'])
-# 
-      # 
-      #       # create and assign variables from input file
-      #       for n, var in enumerate(variables):
-      #           vname = ncf.variables[var].standard_name.encode('UTF8')
-      #           if pl: # only for pressure level files
-      #               tmp   = rootgrp.createVariable(vname,
-      #                                               'f4',('time', 'level', 'station'))
-      #           else:
-      #               tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
-      #               
-      #           tmp.long_name = ncf.variables[var].standard_name.encode('UTF8')
-      #           tmp.units     = ncf.variables[var].units.encode('UTF8')  
-      #           # assign values
-      #           if pl: # only for pressure level files
-      #               tmp[:] = dfield.data[n,:,:,:]
-      #           else:
-      #               tmp[:] = dfield.data[n,:,:]    
-        
-
-            
-            
-#==============================================================================                  
-  
+      
 class MERRAscale(object):
     """
     Class for MERRA data that has methods for scaling station data to
