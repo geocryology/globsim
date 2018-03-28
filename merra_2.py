@@ -2807,6 +2807,8 @@ class MERRAinterpolate(object):
         #======End of Preparation of End======================================
 
         #=======INTERPOLATION & APPEND========================================
+        netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") 
+
         #Setup the time chunck for looping process
         day_step = 30 # number of days 
         if pl:
@@ -2887,7 +2889,7 @@ class MERRAinterpolate(object):
             sfield.destroy() #free memory                  
             
             #==================Appending======================================
-            netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") 
+            # netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") 
     
             # append time
             t = netfile.variables['time']           
@@ -2898,7 +2900,7 @@ class MERRAinterpolate(object):
             for n, var in enumerate(variables):
                 vname = ncf.variables[var].standard_name.encode('UTF8')
                 append_var = netfile.variables[vname]
-                # var_add = []                   
+                var_add = []                   
                 # assign values
                 if pl: # only for pressure level files
                     var_add = dfield.data[n,:,:,:]
@@ -2908,8 +2910,8 @@ class MERRAinterpolate(object):
                 append_var[:] = np.append(append_var, var_add, axis = 0)
             
             
-            #close the file
-            netfile.close()                                                                                                                                                                                                                                                                                                                                                                                                              
+        #close the file
+        netfile.close()                                                                                                                                                                                                                                                                                                                                                                                                              
         ncf.close()         
         #close read-in and read-out files====================================                  
 
