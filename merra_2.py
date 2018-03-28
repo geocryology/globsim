@@ -2854,7 +2854,9 @@ class MERRAinterpolate(object):
                                     ndbounds=[len(variables), chunk]) # as same as replacement above
     
             # assign data from ncdf: (variable, time, latitude, longitude) 
-            tmask_chunk = tmask[var_low:var_up] # set up the looping chunk for tmask
+            date_low = time_out[var_low]
+            date_up = time_out[var_up]
+            tmask_chunk = (time_out < date_up) * (time_out >= date_low) # set up the looping chunk for tmask
             for n, var in enumerate(variables):
                 if pl: # only for pressure level files
                     sfield.data[n,:,:,:,:] = ncf.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
@@ -2896,19 +2898,19 @@ class MERRAinterpolate(object):
             for n, var in enumerate(variables):
                 vname = ncf.variables[var].standard_name.encode('UTF8')
                 append_var = netfile.variables[vname]
-                var_add = []                    
+                # var_add = []                   
                 # assign values
                 if pl: # only for pressure level files
-                    var_add[:] = dfield.data[n,:,:,:]
+                    var_add = dfield.data[n,:,:,:]
                 else:
-                    var_add[:] = dfield.data[n,:,:]    
+                    var_add = dfield.data[n,:,:]    
                 
-                append_var[:] = np.append(append_var[:], var_add)
+                append_var[:] = np.append(append_var, var_add, axis = 0)
             
             
             #close the file
             netfile.close()                                                                                                                                                                                                                                                                                                                                                                                                              
-        ncf.close()           
+        ncf.close()         
         #close read-in and read-out files====================================                  
 
     def levels2elevation(self, ncfile_in, ncfile_out):    
