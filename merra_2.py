@@ -2755,7 +2755,7 @@ class MERRAinterpolate(object):
                                             
             # dimensions
             station = rootgrp.createDimension('station', len(self.stations))
-            time    = rootgrp.createDimension('time', None)
+            time    = rootgrp.createDimension('time', nt)
             if pl: # only for pressure level files
                 level = rootgrp.createDimension('level', nlev)
             
@@ -2782,6 +2782,7 @@ class MERRAinterpolate(object):
                 level.units     = 'hPa'  
 
             # assign base variables
+            time[:] = nctime[tmask]
             if pl: # only for pressure level files
                 level[:] = lev
             station[:]   = list(self.stations['station_number'])
@@ -2892,9 +2893,9 @@ class MERRAinterpolate(object):
             # netfile = Dataset(ncfile_out, "a", format = "NETCDF4_CLASSIC") 
     
             # append time
-            t = netfile.variables['time']           
-            t_add = nctime[var_low:var_up]                                                                                                     
-            t[:] = np.append(t[:], t_add)
+            # t = netfile.variables['time']           
+            # t_add = nctime[var_low:var_up]                                                                                                     
+            # t[:] = np.append(t[:], t_add)
             
             # append variables
             for n, var in enumerate(variables):
@@ -2903,13 +2904,13 @@ class MERRAinterpolate(object):
                 var_add = []                   
                 # assign values
                 if pl: # only for pressure level files
-                    var_add = dfield.data[n,:,:,:]
+                    # var_add = dfield.data[n,:,:,:]
+                    append.var[:].append(dfield.data[n,:,:,:])
                 else:
-                    var_add = dfield.data[n,:,:]    
-                
-                append_var[:] = np.append(append_var, var_add, axis = 0)
-            
-            
+                    # var_add = dfield.data[n,:,:] 
+                    append.var[:].append(dfield.data[n,:,:])   
+                # append_var[:] = np.append(append_var, var_add, axis = 0)
+     
         #close the file
         netfile.close()                                                                                                                                                                                                                                                                                                                                                                                                              
         ncf.close()         
