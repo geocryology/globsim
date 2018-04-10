@@ -2952,11 +2952,11 @@ class MERRAinterpolate(object):
                     lev = nc_in.variables['level'][:]
                     # dimension: time, level, latitude, longitude
 #                    ncf_out.variables[var][beg:end,:,:] = ncf_in.variables[var][beg:end,:,1,0:3]
-                    ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,:,:,:])
+                    ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,beg:end,:,:])
                 except:
                     # time, latitude, longitude
 #                    nc_out.variables[var][beg:end,:] = nc_in.variables[var][beg:end,1,0:3]
-                    ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,:,:])
+                    ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,beg:end,:])
                                      
         #close the file
         nc_in.close()
@@ -3365,7 +3365,7 @@ class MERRAinterpolate(object):
         # pressure level variable keys. 
         dpar = {'air_temperature'   : ['T2M', 'T2MDEW'],  # [K] 2m values
                 #'precipitation_amount' : ['PRECTOT'],  # [kg/m2/s] total precipitation
-                'precipitation_amount' : ['PRECTOT','PRECTOTCORR'],  # [kg/m2/s] total precipitation                                                            
+                'precipitation_amount' : ['PRECTOTCORR'],  # [kg/m2/s] total precipitation                                                            
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M']}   # [m s-1] 2m & 10m values   
         varlist = self.TranslateCF2short(dpar)                      
         self.MERRA2station(path.join(self.dir_inp,'merra_sa_*.nc'), 
