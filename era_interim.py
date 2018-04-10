@@ -136,7 +136,7 @@ class ERAgeneric(object):
                   "ERA-Interim data: {0}")
         return string.format(self.getDictionary) 
 
-    def variables_skip(variable_name):
+    def variables_skip(self, variable_name):
         '''
         Which variable names to use? Drop the ones that are dimensions.  
         '''
@@ -152,7 +152,7 @@ class ERAgeneric(object):
 
         return skip 
     
-    def netCDF_empty(ncfile_out, stations, nc_in):
+    def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
         Creates an empty station file to hold interpolated reults. The number of 
         stations is defined by the variable stations, variables are determined by 
@@ -214,7 +214,7 @@ class ERAgeneric(object):
                 
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
-            if variables_skip(var):
+            if self.variables_skip(var):
                 continue                 
             print "VAR: ", var
             
