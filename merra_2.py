@@ -799,7 +799,7 @@ class MERRAgeneric():
         
         return rh_total
 
-    def variables_skip(variable_name):
+    def variables_skip(self, variable_name):
         '''
         Which variable names to use? Drop the ones that are dimensions.  
         '''
@@ -814,7 +814,7 @@ class MERRAgeneric():
             skip = 1
         return skip 
     
-    def netCDF_empty(ncfile_out, stations, nc_in):
+    def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
         Creates an empty station file to hold interpolated reults. The number of 
         stations is defined by the variable stations, variables are determined by 
