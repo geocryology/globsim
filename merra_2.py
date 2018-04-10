@@ -2943,8 +2943,8 @@ class MERRAinterpolate(object):
                                                      time_in[beg:end])
                                                                                                         
             #append variables
-            for n, var in enumerate(nc_in.variables):
-                if variables_skip(var):
+            for n, var in enumerate(ncf_in.variables):
+                if MERRAgeneric().variables_skip(var):
                     continue
                                 
                 # extra treatment for pressure level files
