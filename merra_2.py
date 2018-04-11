@@ -2959,8 +2959,8 @@ class MERRAinterpolate(object):
                     ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,beg:end,:])
                                      
         #close the file
-        nc_in.close()
-        nc_out.close()         
+        ncf_in.close()
+        ncf_out.close()         
         #close read-in and read-out files====================================                  
         
 
