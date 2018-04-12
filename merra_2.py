@@ -2940,17 +2940,15 @@ class MERRAinterpolate(object):
             for n, var in enumerate(ncf_in.variables):
                 if MERRAgeneric().variables_skip(var):
                     continue
-                                
+                vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
                 # extra treatment for pressure level files
                 try:
                     lev = ncf_in.variables['level'][:]
                     # dimension: time, level, latitude, longitude
-#                    ncf_out.variables[var][beg:end,:] = np.append(ncf_out.variables[var][beg:end,:], dfield.data[n,:,:,:])
-                    ncf_out.variables[var][beg:end,:] = dfield.data[n,:,:,:]                    
+                    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:,:]                    
                 except:
                     # time, latitude, longitude
-#                    ncf_out.variables[var][beg:end,:] = np.append(ncf_out.variables[var][beg:end,:], dfield.data[n,:,:])
-                    ncf_out.variables[var][beg:end,:] = dfield.data[n,:,:]
+                    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:]
 
                                                                           
         #close the file
