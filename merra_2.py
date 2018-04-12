@@ -2943,12 +2943,12 @@ class MERRAinterpolate(object):
                 try:
                     lev = ncf_in.variables['level'][:]
                     # dimension: time, level, latitude, longitude
-                    ncf_out.variables[var][beg:end,:,:] = ncf_in.variables[var][beg:end,:,1,0:3]
-#                    ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,:,:,:])
+#                    ncf_out.variables[var][beg:end,:,:] = ncf_in.variables[var][beg:end,:,1,0:3]
+                    ncf_out.variables[var][beg:end,:] = np.append(ncf_out.variables[var][beg:end,:], dfield[n,:,:,:])
                 except:
                     # time, latitude, longitude
-                    ncf_out.variables[var][beg:end,:] = ncf_in.variables[var][beg:end,1,0:3]
-#                    ncf_out.variables[var][beg:end,:,:] = np.append(ncf_out.variables[var][:], dfield[n,:,:])
+#                    ncf_out.variables[var][beg:end,:] = ncf_in.variables[var][beg:end,1,0:3]
+                    ncf_out.variables[var][beg:end,:] = np.append(ncf_out.variables[var][beg:end,:], dfield[n,:,:])
                                      
         #close the file
         ncf_in.close()
