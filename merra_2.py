@@ -814,6 +814,11 @@ class MERRAgeneric():
             skip = 1
         if variable_name == 'PRECTOT':
             skip = 1
+        if variable_name == 'DIFF_LWGDN_LWGAB':
+            skip = 1
+        if variable_name == 'DIFF_LWGDNCLR_LWGABCLR':
+            skip = 1
+
         return skip 
     
     def netCDF_empty(self, ncfile_out, stations, nc_in):
@@ -2916,9 +2921,9 @@ class MERRAinterpolate(object):
         time_out = ncf_out.variables['time'][:] 
 
         # loop in chunk size cs
-        cs = 2 
+        cs = 4 
 
-        for n in range(len(time_in)/2): # or range(len(time_in)/cs)
+        for n in range(len(time_in)/cs): 
             #make indices
             beg = n*cs
             end = n*cs+cs
@@ -2926,6 +2931,7 @@ class MERRAinterpolate(object):
             #get tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units = t_unit, calendar = t_cal)
             end_time = nc.num2date(nctime[end], units = t_unit, calendar = t_cal)
+            # !! CAN'T HAVE '<= end_time', NEED TO EXCLUDE THE RESIDUAL FRIST TIME OF END_TIME
             tmask_chunk = (time <= end_time) * (time >= beg_time)           
             
             # get the interpolated variables
