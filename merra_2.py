@@ -818,6 +818,16 @@ class MERRAgeneric():
             skip = 1
         if variable_name == 'DIFF_LWGDNCLR_LWGABCLR':
             skip = 1
+        if variable_name == 'LWGAB':   
+            skip = 1
+        if variable_name == 'LWGABCLR':   
+            skip = 1
+        if variable_name == 'LWGEM':   
+            skip = 1
+        if variable_name == 'LWGNT':   
+            skip = 1
+        if variable_name == 'LWGNTCLR':   
+            skip = 1
 
         return skip 
     
@@ -879,8 +889,7 @@ class MERRAgeneric():
         except:
             print "== 2D: file without pressure levels"
             lev = []
-            
-                
+                           
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
             if self.variables_skip(var):
