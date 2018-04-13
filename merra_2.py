@@ -2941,7 +2941,7 @@ class MERRAinterpolate(object):
             beg_time = nc.num2date(nctime[beg], units = t_unit, calendar = t_cal)
             end_time = nc.num2date(nctime[end], units = t_unit, calendar = t_cal)
             # !! CAN'T HAVE '<= end_time', NEED TO EXCLUDE THE RESIDUAL FRIST TIME OF END_TIME
-            tmask_chunk = (time <= end_time) * (time >= beg_time)           
+            tmask_chunk = (time < end_time) * (time >= beg_time)           
             
             # get the interpolated variables
             dfield = self.MERRA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
@@ -2960,7 +2960,7 @@ class MERRAinterpolate(object):
                 try:
                     lev = ncf_in.variables['level'][:]
                     # dimension: time, level, latitude, longitude
-                    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:,:]                    
+                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[n,:,:,:]                    
                 except:
                     # time, latitude, longitude
                     ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:]
@@ -2971,7 +2971,6 @@ class MERRAinterpolate(object):
         ncf_out.close()         
         #close read-in and read-out files====================================                  
         
-
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
         Linear 1D interpolation of pressure level data available for individual
@@ -3430,7 +3429,6 @@ class MERRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) * 3600 * self.time_step            
-
 
     def conv_geotop(self):
         """
