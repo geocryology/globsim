@@ -297,9 +297,8 @@ class ERApl(ERAgeneric):
         string = ("List of variables to query ECMWF server for "
                   "ERA-Interim data: {0}")
         return string.format(self.getDictionary) 
-        
-        
-        
+
+                                
 class ERAsa(ERAgeneric):
     """
     Returns an object for ERA-Interim data that has methods for querying the
@@ -361,8 +360,6 @@ class ERAsa(ERAgeneric):
     def __str__(self):
         string = ("Class for ERA-Interim surface analysis data: {0}")
         return string.format(self.getDictionary)         
-
-
 
 
 class ERAsf(ERAgeneric):
@@ -690,8 +687,219 @@ class ERAinterpolate(object):
         ncf.close()
         
         # closed file ==========================================================
+
+    def ERA2station_interpolate(self, ncfile_in, ncf_in, points, tmask_chunk,
+                    variables=None, date=None):    
+        """
+        Biliner interpolation from fields on regular grid (latitude, longitude) 
+        to individual point stations (latitude, longitude). This works for
+        surface and for pressure level files (all Era_Interim files).
+          
+        Args:
+            ncfile_in: Full path to an Era-Interim derived netCDF file. This can
+                        contain wildcards to point to multiple files if temporal
+                        chunking was used.
+              
+            ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim multiple files (def ERA2station_append())
+            
+            points: A dictionary of locations. See method StationListRead in
+                    generic.py for more details.
         
+            variables:  List of variable(s) to interpolate such as 
+                        ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
+                        Defaults to using all variables available.
         
+            date: Directory to specify begin and end time for the derived time 
+                  series. Defaluts to using all times available in ncfile_in.
+              
+        Example:
+            from datetime import datetime
+            date  = {'beg' : datetime(2008, 1, 1),
+                      'end' : datetime(2008,12,31)}
+            variables  = ['t','u', 'v']       
+            stations = StationListRead("points.csv")      
+            ERA2station('era_sa.nc', 'era_sa_inter.nc', stations, 
+                        variables=variables, date=date)        
+        """   
+        
+        # is it a file with pressure levels?
+        pl = 'level' in ncf_in.dimensions.keys()
+
+        # get spatial dimensions
+        lat  = ncf_in.variables['latitude'][:]
+        lon  = ncf_in.variables['longitude'][:]
+        if pl: # only for pressure level files
+            lev  = ncf_in.variables['level'][:]
+            nlev = len(lev)
+              
+        # test if time steps to interpolate remain
+        nt = sum(tmask_chunk)
+        if nt == 0:
+            raise ValueError('No time steps from netCDF file selected.')
+    
+        # get variables
+        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist.remove('time')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        if pl: #only for pressure level files
+            varlist.remove('level')
+    
+        #list variables that should be interpolated
+        if variables is None:
+            variables = varlist
+        #test is variables given are available in file
+        if (set(variables) < set(varlist) == 0):
+            raise ValueError('One or more variables not in netCDF file.')
+        
+        # Create source grid from a SCRIP formatted file. As ESMF needs one
+        # file rather than an MFDataset, give first file in directory.
+        ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
+        ncsingle = path.join(self.dir_inp, ncsingle)
+        sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+
+        # create source field on source grid
+        if pl: #only for pressure level files
+            sfield = ESMF.Field(sgrid, name='sgrid',
+                                staggerloc=ESMF.StaggerLoc.CENTER,
+                                ndbounds=[len(variables), nt, nlev])
+        else: # 2D files
+            sfield = ESMF.Field(sgrid, name='sgrid',
+                                staggerloc=ESMF.StaggerLoc.CENTER,
+                                ndbounds=[len(variables), nt])
+
+        # assign data from ncdf: (variable, time, latitude, longitude) 
+        for n, var in enumerate(variables):
+            if pl: # only for pressure level files
+                sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+            else:
+                sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+
+        # create locstream, CANNOT have third dimension!!!
+        locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
+        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
+        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+
+        # create destination field
+        if pl: # only for pressure level files
+            dfield = ESMF.Field(locstream, name='dfield', 
+                                ndbounds=[len(variables), nt, nlev])
+        else:
+            dfield = ESMF.Field(locstream, name='dfield', 
+                                ndbounds=[len(variables), nt])    
+
+        # regridding function, consider ESMF.UnmappedAction.ERROR
+        regrid2D = ESMF.Regrid(sfield, dfield,
+                                regrid_method=ESMF.RegridMethod.BILINEAR,
+                                unmapped_action=ESMF.UnmappedAction.IGNORE,
+                                dst_mask_values=None)
+                          
+        # regrid operation, create destination field (variables, times, points)
+        dfield = regrid2D(sfield, dfield)        
+        sfield.destroy() #free memory                  
+		    
+        return dfield
+
+    def ERA2station_append(self, ncfile_in, ncfile_out, points,
+                             variables = None, date = None):
+        
+        """
+        Given the type of variables to interpoalted from ERAINT downloaded diretory
+        Create the empty of netCDF file to hold the interpolated results, by calling ERAgeneric().netCDF_empty
+        Get the interpolated results from MERRA2station
+        Append all variables into the empty netCDF file
+        Close all files
+        
+        Args:
+        ncfile_in: Full path to an Era-Interim derived netCDF file. This can
+                    contain wildcards to point to multiple files if temporal
+                    chunking was used.
+            
+        ncfile_out: Full path to the output netCDF file to write.     
+        
+        points: A dictionary of locations. See method StationListRead in
+                generic.py for more details.
+    
+        variables:  List of variable(s) to interpolate such as 
+                    ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
+                    Defaults to using all variables available.
+    
+        date: Directory to specify begin and end time for the derived time 
+                series. Defaluts to using all times available in ncfile_in.
+  
+        """
+        
+        # read in one type of mutiple netcdf files
+        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+
+        # build the output of empty netCDF file
+        ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
+                                     
+        # append to file
+        # open the output netCDF file, set it to be appendable ('a')
+        ncf_out = nc.Dataset(ncfile_out, 'a')
+
+        # get time and convert to datetime object
+        nctime = ncf_in.variables['time'][:]
+        t_unit = ncf_in.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        try :
+            t_cal = ncf_in.variables['time'].calendar
+        except AttributeError : # Attribute doesn't exist
+            t_cal = u"gregorian" # or standard
+        time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
+                                                                                    
+        # restrict to date/time range if given
+        if date is None:
+            tmask = time < datetime(3000, 1, 1)
+        else:
+            tmask = (time <= date['end']) * (time >= date['beg'])
+                              
+        # get time indices
+        time_in = nctime[tmask]
+        time_out = ncf_out.variables['time'][:] 
+
+        # loop in chunk size cs
+        cs = 4 
+
+        for n in range(len(time_in)/cs): 
+            #make indices
+            beg = n*cs
+            end = n*cs+cs
+            
+            #get tmask for chunk 
+            beg_time = nc.num2date(nctime[beg], units = t_unit, calendar = t_cal)
+            end_time = nc.num2date(nctime[end], units = t_unit, calendar = t_cal)
+            # !! CAN'T HAVE '<= end_time', NEED TO EXCLUDE THE RESIDUAL FRIST TIME OF END_TIME
+            tmask_chunk = (time < end_time) * (time >= beg_time)           
+            
+            # get the interpolated variables
+            dfield = self.ERA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
+                     variables=None, date=None) 
+
+            # append time
+            ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
+                                                     time_in[beg:end])
+                                                                                                        
+            #append variables
+            for n, var in enumerate(ncf_in.variables):
+                if ERAgeneric().variables_skip(var):
+                    continue
+                vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
+                # extra treatment for pressure level files
+                try:
+                    lev = ncf_in.variables['level'][:]
+                    # dimension: time, level, latitude, longitude
+                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[n,:,:,:]                    
+                except:
+                    # time, latitude, longitude
+                    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:]
+
+                                                                          
+        #close the file
+        ncf_in.close()
+        ncf_out.close()         
+        #close read-in and read-out files====================================                  
+       
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
         Linear 1D interpolation of pressure level data available for individual
@@ -835,7 +1043,7 @@ class ERAinterpolate(object):
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
-        self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
+        self.ERA2station_append(path.join(self.dir_inp,'era_sa_*.nc'), 
                          path.join(self.dir_out,'era_sa_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
@@ -847,7 +1055,7 @@ class ERAinterpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], # [J m-2] short-wave downward
                 'downwelling_longwave_flux_in_air'  : ['strd']} # [J m-2] long-wave downward
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
+        self.ERA2station_append(path.join(self.dir_inp,'era_sf_*.nc'), 
                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
@@ -870,7 +1078,7 @@ class ERAinterpolate(object):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}    # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
+        self.ERA2station_append(path.join(self.dir_inp,'era_pl_*.nc'), 
                          path.join(self.dir_out,'era_pl_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
