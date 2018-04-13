@@ -210,19 +210,18 @@ class ERAgeneric(object):
         except:
             print "== 2D: file without pressure levels"
             lev = []
-            
-                
+                    
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
             if self.variables_skip(var):
                 continue                 
             print "VAR: ", var
-            
             # extra treatment for pressure level files
+            vname = nc_in.variables[var].long_name.encode('UTF8')            
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+                tmp = rootgrp.createVariable(vname,'f4',('time', 'level', 'station'))
             else:
-                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+                tmp = rootgrp.createVariable(vname,'f4',('time', 'station'))     
             tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') # for eraint
             tmp.units     = nc_in.variables[var].units.encode('UTF8')  
                     
