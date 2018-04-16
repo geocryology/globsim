@@ -751,7 +751,7 @@ class ERAinterpolate(object):
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
-        
+
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
@@ -793,7 +793,7 @@ class ERAinterpolate(object):
                                 regrid_method=ESMF.RegridMethod.BILINEAR,
                                 unmapped_action=ESMF.UnmappedAction.IGNORE,
                                 dst_mask_values=None)
-                          
+                  
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
@@ -861,7 +861,7 @@ class ERAinterpolate(object):
         # loop in chunk size cs
         cs = 4 
 
-        for n in range(len(time_in)/cs): 
+        for n in range(len(time_in)/cs):
             #make indices
             beg = n*cs
             end = n*cs+cs
@@ -870,31 +870,30 @@ class ERAinterpolate(object):
             beg_time = nc.num2date(nctime[beg], units = t_unit, calendar = t_cal)
             end_time = nc.num2date(nctime[end], units = t_unit, calendar = t_cal)
             # !! CAN'T HAVE '<= end_time', NEED TO EXCLUDE THE RESIDUAL FRIST TIME OF END_TIME
-            tmask_chunk = (time < end_time) * (time >= beg_time)           
+	    tmask_chunk = (time < end_time) * (time >= beg_time)           
             
-            # get the interpolated variables
+	    # get the interpolated variables
             dfield = self.ERA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
                      variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
-                                                                                                        
             #append variables
             for n, var in enumerate(ncf_in.variables):
                 if ERAgeneric().variables_skip(var):
                     continue
+
                 vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
                 # extra treatment for pressure level files
                 try:
                     lev = ncf_in.variables['level'][:]
                     # dimension: time, level, latitude, longitude
-                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[n,:,:,:]                    
+                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[n,:,:,:]    		    
                 except:
                     # time, latitude, longitude
-                    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:]
-
-                                                                          
+		    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:]		    
+                                     
         #close the file
         ncf_in.close()
         ncf_out.close()         
