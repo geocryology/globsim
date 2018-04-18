@@ -1410,7 +1410,8 @@ class JRAinterpolate(object):
         dpar = {'downwelling_shortwave_flux_in_air' : ['downwelling_shortwave_flux_in_air'], # [W/m2] short-wave downward
                 'downwelling_longwave_flux_in_air'  : ['downwelling_longwave_flux_in_air'], # [W/m2] long-wave downward
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['downwelling_shortwave_flux_in_air_assuming_clear_sky'], # [W/m2] short-wave downward assuming clear sky
-                'downwelling_longwave_flux_in_air_assuming_clear_sky': ['downwelling_longwave_flux_in_air_assuming_clear_sky']} # [W/m2] long-wave downward assuming clear sky
+                'downwelling_longwave_flux_in_air_assuming_clear_sky': ['downwelling_longwave_flux_in_air_assuming_clear_sky'],
+                'precipitation_amount' : ['total_precipitation']} # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)                           
         self.JRA2station(path.join(self.dir_inp,'JRA_fcst_*.nc'), 
                           path.join(self.dir_out,'jra_sr_' + 
@@ -1481,7 +1482,8 @@ class JRAscale(object):
         #number of time steps
         nt = int(floor((max(time) - min(time)).total_seconds() 
                        / 3600 / par.time_step))
-        
+        self.time_step = par.time_step
+                              
         # vector of output time steps as datetime object
         self.times_out    = [min(time) + timedelta(hours=x) for x in range(0, nt)]
         # vector of output time steps as written in ncdf file
@@ -1661,11 +1663,11 @@ class JRAscale(object):
         vn = 'PREC_JRA55_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation JRA55 surface only'
-        var.units     = self.nc_sa.variables['total_precipitation'].units.encode('UTF8')  
+        var.units     = self.nc_sr.variables['total_precipitation'].units.encode('UTF8')  
         
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['total_precipitation'][:]
+        time_in = self.nc_sr.variables['time'][:]
+        values  = self.nc_sr.variables['total_precipitation'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) / 24 * self.time_step            
