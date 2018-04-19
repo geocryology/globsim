@@ -2821,7 +2821,8 @@ class MERRAinterpolate(object):
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
-
+        variables_out = variables
+        
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
@@ -2868,7 +2869,7 @@ class MERRAinterpolate(object):
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
 		            
-        return dfield
+        return dfield, variables_out
 
     def MERRA2station_append(self, ncfile_in, ncfile_out, points,
                              variables = None, date = None):
@@ -2922,14 +2923,14 @@ class MERRAinterpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time <= date['end']) * (time >= date['beg'])
+            tmask = (time < date['end']) * (time >= date['beg'])
                               
         # get time indices
         time_in = nctime[tmask]
         time_out = ncf_out.variables['time'][:] 
 
         # loop in chunk size cs
-        cs = 4 
+        cs = 40 
 
         for n in range(len(time_in)/cs):
             #make indices
@@ -2943,26 +2944,28 @@ class MERRAinterpolate(object):
 	    tmask_chunk = (time < end_time) * (time >= beg_time)           
             
 	    # get the interpolated variables
-            dfield = self.MERRA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
-                     variables=None, date=None) 
+            dfield, variables_out = self.MERRA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
+                                    variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
             #append variables
             for n, var in enumerate(ncf_in.variables):
-                if MERRAgeneric().variables_skip(var):
-                    continue
+                for i, name in enumerate(variables_out):
+                    if MERRAgeneric().variables_skip(var):
+                        continue
 
-                vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
-                # extra treatment for pressure level files
-                try:
-                    lev = ncf_in.variables['level'][:]
-                    # dimension: time, level, latitude, longitude
-                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[n,:,:,:]    		    
-                except:
-                    # time, latitude, longitude
-		    ncf_out.variables[vname][beg:end,:] = dfield.data[n,:,:]		    
+                    if var == name: 
+                        vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
+                        # extra treatment for pressure level files
+                        try:
+                            lev = ncf_in.variables['level'][:]
+                            # dimension: time, level, latitude, longitude
+                            ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                        except:
+                            # time, latitude, longitude
+      		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
         ncf_in.close()
