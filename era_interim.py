@@ -44,9 +44,12 @@ from math     import exp, floor
 from os       import path, listdir
 from generic import ParameterIO, StationListRead, ScaledFileOpen
 from fnmatch import filter
+from nco import Nco
 
 import numpy   as np
 import netCDF4 as nc
+import glob
+import nco
 
 try:
     import ESMF
@@ -491,6 +494,32 @@ class ERAinterpolate(object):
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
     
+    def netCDF_merge(self, ncfile_in):
+        """
+        combine mutiple downloaded eraint netCDF files into a large file, to prepare the proper number of files for interpolation
+        -- give the full name of merged file to the output = outfile
+        -- pass all data from the first input netfile to the merged file name
+        -- loop over the files_list, append file one by one into the merge file
+        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
+        return:
+            
+            
+        """
+        #get the file list
+        files_list = glob.glob(ncfile_in)
+        files_list.sort()
+        
+        #Set up the outfile 
+        ncfile_in_all = path.join(self.dir_inp,'eraint_all.nc')
+
+        # append data  
+        nco = Nco()
+        
+        # combined all files into the merged file
+        nco.ncrcat(input=files_list, output=ncfile_in_all, append = True)
+                   
+        return ncfile_in_all
+
     def ERA2station(self, ncfile_in, ncfile_out, points,
                     variables=None, date=None):    
         """
@@ -524,7 +553,11 @@ class ERAinterpolate(object):
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations, 
                        variables=variables, date=date)        
         """   
+        # get the merged netcdf file
+        ncfile_in_all = self.netCDF_merge(ncfile_in)
+        
         # open netcdf file handle, can be one file of several with wildcards
+        # ncf = nc.Dataset(ncfile_in_all, 'r')
         ncf = nc.MFDataset(ncfile_in, 'r')
         
         # is it a file with pressure levels?
@@ -829,9 +862,12 @@ class ERAinterpolate(object):
                 series. Defaluts to using all times available in ncfile_in.
   
         """
-        
+        # get the merged netcdf file
+        ncfile_in_all = self.netCDF_merge(ncfile_in)
+                
         # read in one type of mutiple netcdf files
-        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+        ncf_in = nc.Dataset(ncfile_in_all, 'r')        
+        # ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
 
         # build the output of empty netCDF file
         ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
