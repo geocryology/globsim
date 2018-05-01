@@ -834,8 +834,8 @@ class ERAinterpolate(object):
 		    
         return dfield, variables_out
 
-    def ERA2station_append(self, ncfile_in, ncfile_out, points,
-                             variables = None, date = None):
+    def ERA_append(self, ncfile_in, ncfile_out, points,
+                         variables = None, date = None):
         
         """
         Given the type of variables to interpoalted from ERAINT downloaded diretory
@@ -1081,7 +1081,7 @@ class ERAinterpolate(object):
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
-        self.ERA2station_append(path.join(self.dir_inp,'era_sa_*.nc'), 
+        self.ERA_append(path.join(self.dir_inp,'era_sa_*.nc'), 
                          path.join(self.dir_out,'era_sa_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
@@ -1093,7 +1093,7 @@ class ERAinterpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], # [J m-2] short-wave downward
                 'downwelling_longwave_flux_in_air'  : ['strd']} # [J m-2] long-wave downward
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station_append(path.join(self.dir_inp,'era_sf_*.nc'), 
+        self.ERA_append(path.join(self.dir_inp,'era_sf_*.nc'), 
                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
@@ -1116,7 +1116,7 @@ class ERAinterpolate(object):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}    # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station_append(path.join(self.dir_inp,'era_pl_*.nc'), 
+        self.ERA_append(path.join(self.dir_inp,'era_pl_*.nc'), 
                          path.join(self.dir_out,'era_pl_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
