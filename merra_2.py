@@ -2581,21 +2581,16 @@ class MERRAinterpolate(object):
         files_list.sort()
         
         #Set up the outfile 
-        ncfile_in_all = path.join(self.dir_inp,'merra_sa_all.nc')
+        ncfile_in_all = path.join(self.dir_inp,'merra_all.nc')
 
-        
         # append data 
         # pass the first netcdf file to the merged file 
         nco = Nco()
-        nco.ncks(input=files_list[0], output=ncfile_in_all,  append = True)
         
-        # loop over all netcdf files to the merged file
-        for i in range(1, len(files_list)):
-            nco.ncks(input=files_list[i], output=ncfile_in_all,  append = True)
-            #nco.ncrcat(input=files_list[i], output=ncfile_in_all, options='-A')
-
-                
-    return ncfile_in_all
+        # combined all files into the merged file
+        nco.ncrcat(input=files_list, output=ncfile_in_all, append = True)
+                   
+        return ncfile_in_all
 
 
     def MERRA2station(self, ncfile_in, ncfile_out, points,
@@ -2635,7 +2630,7 @@ class MERRAinterpolate(object):
         # ncfile_in_all = self.netCDF_merge(ncfile_in)
 
         # open netcdf file handle, can be one file of several with wildcards
-        # ncf = nc.MFDataset(ncfile_in_all, 'r', aggdim ='time')
+        # ncf = nc.MFDataset(ncfile_in_all, 'r')
         ncf = nc.MFDataset(ncfile_in, 'r', aggdim ='time') 
         
         # is it a file with pressure levels?
@@ -2939,10 +2934,11 @@ class MERRAinterpolate(object):
                 series. Defaluts to using all times available in ncfile_in.
   
         """
-        # get merged nc file of one type here 
-        
+        # get the merged netcdf file
+        # ncfile_in_all = self.netCDF_merge(ncfile_in)        
         
         # read in one type of mutiple netcdf files
+        #ncf_in = nc.MFDataset(ncfile_in_all, 'r', aggdim ='time')
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
 
         # build the output of empty netCDF file
