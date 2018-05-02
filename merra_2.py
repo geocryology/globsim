@@ -2930,10 +2930,9 @@ class MERRAinterpolate(object):
   
         """
         # get the merged netcdf file
-        # ncfile_in_all = MERRAgeneric().netCDF_merge(ncfile_in)        
+        # ncfile_in = MERRAgeneric().netCDF_merge(ncfile_in)        
         
         # read in one type of mutiple netcdf files
-        #ncf_in = nc.MFDataset(ncfile_in_all, 'r', aggdim ='time')
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
 
         # build the output of empty netCDF file
