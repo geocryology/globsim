@@ -910,6 +910,32 @@ class MERRAgeneric():
         #close the file
         rootgrp.close()
 
+    def netCDF_merge(self, ncfile_in):
+        """
+        combine mutiple downloaded merra2 netCDF files into a large file, to prepare the proper number of files for interpolation
+        -- give the full name of merged file to the output = outfile
+        -- pass all data from the first input netfile to the merged file name
+        -- loop over the files_list, append file one by one into the merge file
+        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
+        return:
+            
+            
+        """
+        #get the file list
+        files_list = glob.glob(ncfile_in)
+        files_list.sort()
+        
+        #Set up the outfile 
+        ncfile_in_all = path.join(self.dir_inp,'merra_all.nc')
+
+        # append data 
+        # pass the first netcdf file to the merged file 
+        nco = Nco()
+        
+        # combined all files into the merged file
+        nco.ncrcat(input=files_list, output=ncfile_in_all, append = True)
+                   
+        return ncfile_in_all
                                                                                                                                              
 class MERRApl_ana():
     """Returns variables from downloaded MERRA 3d Analyzed Meteorological Fields datasets  
@@ -2528,7 +2554,6 @@ class MERRAdownload(object):
         print ("Total Time (Minutes):", t_total)
            
 
-
 class MERRAinterpolate(object):
     """
     Algorithms to interpolate MERRA-2 netCDF files to station coordinates. 
@@ -2565,33 +2590,6 @@ class MERRAinterpolate(object):
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
 
-    def netCDF_merge(self, ncfile_in):
-        """
-        combine mutiple downloaded merra2 netCDF files into a large file, to prepare the proper number of files for interpolation
-        -- give the full name of merged file to the output = outfile
-        -- pass all data from the first input netfile to the merged file name
-        -- loop over the files_list, append file one by one into the merge file
-        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
-        return:
-            
-            
-        """
-        #get the file list
-        files_list = glob.glob(ncfile_in)
-        files_list.sort()
-        
-        #Set up the outfile 
-        ncfile_in_all = path.join(self.dir_inp,'merra_all.nc')
-
-        # append data 
-        # pass the first netcdf file to the merged file 
-        nco = Nco()
-        
-        # combined all files into the merged file
-        nco.ncrcat(input=files_list, output=ncfile_in_all, append = True)
-                   
-        return ncfile_in_all
-
 
     def MERRA2station(self, ncfile_in, ncfile_out, points,
                      variables=None, date=None):    
@@ -2626,11 +2624,8 @@ class MERRAinterpolate(object):
             MERRA2station('merra_sa.nc', 'merra_sa_inter.nc', stations, 
                         variables=variables, date=date)        
         """   
-        # get the merged netcdf file
-        # ncfile_in_all = self.netCDF_merge(ncfile_in)
 
         # open netcdf file handle, can be one file of several with wildcards
-        # ncf = nc.MFDataset(ncfile_in_all, 'r')
         ncf = nc.MFDataset(ncfile_in, 'r', aggdim ='time') 
         
         # is it a file with pressure levels?
@@ -2935,7 +2930,7 @@ class MERRAinterpolate(object):
   
         """
         # get the merged netcdf file
-        # ncfile_in_all = self.netCDF_merge(ncfile_in)        
+        # ncfile_in_all = MERRAgeneric().netCDF_merge(ncfile_in)        
         
         # read in one type of mutiple netcdf files
         #ncf_in = nc.MFDataset(ncfile_in_all, 'r', aggdim ='time')
