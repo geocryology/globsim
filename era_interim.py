@@ -230,7 +230,54 @@ class ERAgeneric(object):
                     
         #close the file
         rootgrp.close()
-                                          
+    
+    def netCDF_merge(self, ncfile_in):
+        """
+        combine mutiple downloaded eraint netCDF files into a large file, to prepare the proper number of files for interpolation
+        -- give the full name of merged file to the output = outfile
+        -- pass all data from the first input netfile to the merged file name
+        -- loop over the files_list, append file one by one into the merge file
+        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
+        return:
+            
+            
+        """
+        #set up nco operator
+        nco = Nco()
+        
+        #get the file list
+        files_list = glob.glob(ncfile_in)
+        files_list.sort()
+                
+        # divide file_list
+        chunk_size = 500
+        files_size = len(files_list)
+        int_size = files_size//chunk_size
+        res_type = files_size%chunk_size
+        
+        if (res_type > 0):
+            loop_size = [chunk_size*1]*int_size + [res_type]
+        else:
+            loop_size = [chunk_size*1]*int_size            
+        
+        # set up the combined files list and outfiles
+        loop_low = 0
+        loop_up = 0
+        for i in range(0, len(loop_size)):
+            size = loop_size[i]
+            loop_low = loop_up
+            loop_up = loop_low + size
+            
+            #set up the name of merged file
+            merged_file = path.join(self.dir_inp,'eraint_all_'+ str(i) +'.nc')
+            
+            #get the divided file list
+            files_list_chunk = files_list[loop_low:loop_up]
+        
+            # combined files into merged files
+            nco.ncrcat(input=files_list_chunk,output=merged_file, append = True)
+                           
+                                        
 class ERApl(ERAgeneric):
     """Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server.
@@ -494,32 +541,7 @@ class ERAinterpolate(object):
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
     
-    def netCDF_merge(self, ncfile_in):
-        """
-        combine mutiple downloaded eraint netCDF files into a large file, to prepare the proper number of files for interpolation
-        -- give the full name of merged file to the output = outfile
-        -- pass all data from the first input netfile to the merged file name
-        -- loop over the files_list, append file one by one into the merge file
-        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
-        return:
-            
-            
-        """
-        #get the file list
-        files_list = glob.glob(ncfile_in)
-        files_list.sort()
-        
-        #Set up the outfile 
-        ncfile_in_all = path.join(self.dir_inp,'eraint_all.nc')
-
-        # append data  
-        nco = Nco()
-        
-        # combined all files into the merged file
-        nco.ncrcat(input=files_list, output=ncfile_in_all, append = True)
-                   
-        return ncfile_in_all
-
+    
     def ERA2station(self, ncfile_in, ncfile_out, points,
                     variables=None, date=None):    
         """
@@ -553,11 +575,8 @@ class ERAinterpolate(object):
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations, 
                        variables=variables, date=date)        
         """   
-        # get the merged netcdf file
-        ncfile_in_all = self.netCDF_merge(ncfile_in)
         
         # open netcdf file handle, can be one file of several with wildcards
-        # ncf = nc.Dataset(ncfile_in_all, 'r')
         ncf = nc.MFDataset(ncfile_in, 'r')
         
         # is it a file with pressure levels?
@@ -863,11 +882,11 @@ class ERAinterpolate(object):
   
         """
         # get the merged netcdf file
-        ncfile_in_all = self.netCDF_merge(ncfile_in)
+        # ncfile_in_all = ERAgeneric().netCDF_merge(ncfile_in)
                 
         # read in one type of mutiple netcdf files
-        ncf_in = nc.Dataset(ncfile_in_all, 'r')        
-        # ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+        # ncf_in = nc.MFDataset(ncfile_in_all, 'r')        
+        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
 
         # build the output of empty netCDF file
         ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
