@@ -233,14 +233,22 @@ class ERAgeneric(object):
     
     def netCDF_merge(self, ncfile_in):
         """
-        combine mutiple downloaded eraint netCDF files into a large file, to prepare the proper number of files for interpolation
+        To combine mutiple downloaded eraint netCDF files into a large file with specified chunk_size(e.g. 500), 
         -- give the full name of merged file to the output = outfile
         -- pass all data from the first input netfile to the merged file name
         -- loop over the files_list, append file one by one into the merge file
         -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
-        return:
-            
-            
+        
+        Args:
+            ncfile_in: the full name of downloaded files (file directory + files names)
+        e.g.:
+             '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
+             '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
+             '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+
+        Output: merged netCDF files
+        eraint_all_0.nc, eraint_all_1.nc, ...,
+               
         """
         #set up nco operator
         nco = Nco()
@@ -269,15 +277,25 @@ class ERAgeneric(object):
             loop_up = loop_low + size
             
             #set up the name of merged file
-            merged_file = path.join(self.dir_inp,'eraint_all_'+ str(i) +'.nc')
+            if ncfile_in[-7:-5] == 'sa':
+                merged_file = path.join(self.dir_inp,'eraint_sa_all_'+ str(i) +'.nc')
+            elif ncfile_in[-7:-5] == 'sf':
+                merged_file = path.join(self.dir_inp,'eraint_sf_all_'+ str(i) +'.nc')
+            elif ncfile_in[-7:-5] == 'pl':
+                merged_file = path.join(self.dir_inp,'eraint_pl_all_'+ str(i) +'.nc')
+            else:
+                print 'There is not such type of file'    
             
             #get the divided file list
             files_list_chunk = files_list[loop_low:loop_up]
         
             # combined files into merged files
             nco.ncrcat(input=files_list_chunk,output=merged_file, append = True)
+            
+            print 'The Merged File below is saved:'
+            print merged_file
                            
-                                        
+                                                                                                       
 class ERApl(ERAgeneric):
     """Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server.
