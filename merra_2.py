@@ -1119,7 +1119,6 @@ class SaveNCDF_pl_3dmana():                                                     
             u_total = []
             v_total = []
 
-            
             var_out = {'H':['geopotential_height','geopotential_height', 'm', h_total],
                        'T':['air_temperature', 'air_temperature','K', t_total],
                        'U':['eastward_wind','eastward_wind_component','m/s', u_total],
@@ -1201,7 +1200,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units  = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-1-1 00:00:00"                 
+                Time.units  = "hours since 1980-1-1 00:00:0.0"                 
                 Time.calendar = "gregorian"   
                 # pass the values
                 netCDFTime = []
@@ -1341,7 +1340,7 @@ class SaveNCDF_pl_3dmasm():
                 Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-01-01 00:00:00"                  
+                Time.units  = "hours since 1980-01-01 00:00:0.0"                  
                 Time.calendar = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1440,7 +1439,6 @@ class MERRAsm():
         
         return lat, lon, time
         
-
 
 class MERRAsf():
     """Returns variables from downloaded MERRA 2d suface flux Diagnostics data, 
@@ -1714,7 +1712,7 @@ class SaveNCDF_sa():
                 Time  = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-1-1 00:00:00" 
+                Time.units  = "hours since 1980-1-1 00:00:0.0" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1967,7 +1965,7 @@ class SaveNCDF_sr():
                 Time               = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hour since 1980-1-1 00:30:00" 
+                Time.units  = "hours since 1980-1-1 00:30:0.0" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -2133,7 +2131,7 @@ class SaveNCDF_sc():
     
             Time  = rootgrp.createVariable('time', 'i4', ('time'))
             Time.standard_name = "time"
-            Time.units  = "hour since 1992-01-02 03:00:00" 
+            Time.units  = "hours since 1992-01-02 03:00:0.0" 
             Time.calendar      = "gregorian"
             #Set up the value of time (one single value)
             time_ind4 = datetime.combine(datetime.strptime("1992-01-02", "%Y-%m-%d") ,datetime.strptime("0300","%H%M").time())
