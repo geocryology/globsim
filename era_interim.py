@@ -278,11 +278,11 @@ class ERAgeneric(object):
             
             #set up the name of merged file
             if ncfile_in[-7:-5] == 'sa':
-                merged_file = path.join(self.dir_inp,'eraint_sa_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'eraint_sa_all_'+ str(i) +'.nc')
             elif ncfile_in[-7:-5] == 'sf':
-                merged_file = path.join(self.dir_inp,'eraint_sf_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'eraint_sf_all_'+ str(i) +'.nc')
             elif ncfile_in[-7:-5] == 'pl':
-                merged_file = path.join(self.dir_inp,'eraint_pl_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ str(i) +'.nc')
             else:
                 print 'There is not such type of file'    
             
@@ -294,8 +294,11 @@ class ERAgeneric(object):
             
             print 'The Merged File below is saved:'
             print merged_file
-                           
-                                                                                                       
+            
+        merged_files = path.join(ncfile_in[:-11],'eraint_' + ncfile_in[-7:-5] + '_all_*.nc')     
+        
+        return merged_files                
+                                                                                                                                                                                                                       
 class ERApl(ERAgeneric):
     """Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server.
