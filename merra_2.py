@@ -912,30 +912,71 @@ class MERRAgeneric():
 
     def netCDF_merge(self, ncfile_in):
         """
-        combine mutiple downloaded merra2 netCDF files into a large file, to prepare the proper number of files for interpolation
+        To combine mutiple downloaded merra2 netCDF files into a large file with specified chunk_size(e.g. 500), 
         -- give the full name of merged file to the output = outfile
         -- pass all data from the first input netfile to the merged file name
         -- loop over the files_list, append file one by one into the merge file
         -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
-        return:
-            
-            
+        
+        Args:
+            ncfile_in: the full name of downloaded files (file directory + files names)
+        e.g.:
+             '/home/xquan/src/globsim/examples/merra2/merra_sa_*.nc' 
+             '/home/xquan/src/globsim/examples/merra2/merra_pl_*.nc'
+             '/home/xquan/src/globsim/examples/merra2/merra_sf_*.nc'
+
+        Output: merged netCDF files
+        merra2_all_0.nc, merra2_all_1.nc, ...,
+               
         """
+        #set up nco operator
+        nco = Nco()
+        
         #get the file list
         files_list = glob.glob(ncfile_in)
         files_list.sort()
+                
+        # divide file_list
+        chunk_size = 500
+        files_size = len(files_list)
+        int_size = files_size//chunk_size
+        res_type = files_size%chunk_size
         
-        #Set up the outfile 
-        ncfile_in_all = path.join(self.dir_inp,'merra_all.nc')
-
-        # append data 
-        # pass the first netcdf file to the merged file 
-        nco = Nco()
+        if (res_type > 0):
+            loop_size = [chunk_size*1]*int_size + [res_type]
+        else:
+            loop_size = [chunk_size*1]*int_size            
         
-        # combined all files into the merged file
-        nco.ncrcat(input=files_list, output=ncfile_in_all, append = True)
-                   
-        return ncfile_in_all
+        # set up the combined files list and outfiles
+        loop_low = 0
+        loop_up = 0
+        for i in range(0, len(loop_size)):
+            size = loop_size[i]
+            loop_low = loop_up
+            loop_up = loop_low + size
+            
+            #set up the name of merged file
+            if ncfile_in[-7:-5] == 'sa':
+                merged_file = path.join(ncfile_in[:-11],'merra2_sa_all_'+ str(i) +'.nc')
+            elif ncfile_in[-7:-5] == 'sf':
+                merged_file = path.join(ncfile_in[:-11],'merra2_sf_all_'+ str(i) +'.nc')
+            elif ncfile_in[-7:-5] == 'pl':
+                merged_file = path.join(ncfile_in[:-11],'merra2_pl_all_'+ str(i) +'.nc')
+            else:
+                print 'There is not such type of file'    
+            
+            #get the divided file list
+            files_list_chunk = files_list[loop_low:loop_up]
+        
+            # combined files into merged files
+            nco.ncrcat(input=files_list_chunk,output=merged_file, append = True)
+            
+            print 'The Merged File below is saved:'
+            print merged_file
+            
+        merged_files = path.join(ncfile_in[:-11],'merra2_' + ncfile_in[-7:-5] + '_all_*.nc')     
+        
+        return merged_files                
                                                                                                                                              
 class MERRApl_ana():
     """Returns variables from downloaded MERRA 3d Analyzed Meteorological Fields datasets  
@@ -1180,7 +1221,7 @@ class SaveNCDF_pl_3dmana():                                                     
                 LAT = lat[0][0]
                 LON = lon[0][0]
                 #dimensions
-                time  = rootgrp.createDimension('time', var)
+                time  = rootgrp.createDimension('time', None)
                 level = rootgrp.createDimension('level', len(LEV))
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
@@ -1320,7 +1361,7 @@ class SaveNCDF_pl_3dmasm():
                 LAT = lat[0][0]
                 LON = lon[0][0]
                 #dimensions
-                time  = rootgrp.createDimension('time', var)
+                time  = rootgrp.createDimension('time', None)
                 level = rootgrp.createDimension('level', len(LEV))
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
@@ -1693,7 +1734,7 @@ class SaveNCDF_sa():
                 LON = lon[0][0]
                 
                 #dimensions
-                time  = rootgrp.createDimension('time', var)
+                time  = rootgrp.createDimension('time', None)
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
                 
@@ -1946,7 +1987,7 @@ class SaveNCDF_sr():
                 LON = lon[0][0]
     
                 #dimensions
-                time  = rootgrp.createDimension('time', var)
+                time  = rootgrp.createDimension('time', None)
                 lats   = rootgrp.createDimension('lats', len(LAT))
                 lons   = rootgrp.createDimension('lons', len(LON))
             
@@ -3507,7 +3548,7 @@ class MERRAscale(object):
 #     
 #==============================================================================    
 # 
-# Download 
+# # Download 
 # pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
 # 
 # MERRAdownl = MERRAdownload(pfile)
