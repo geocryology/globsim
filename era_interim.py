@@ -41,7 +41,7 @@
 from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
-from os       import path, listdir
+from os       import path, listdir, remove
 from generic import ParameterIO, StationListRead, ScaledFileOpen
 from fnmatch import filter
 from nco import Nco
@@ -230,8 +230,8 @@ class ERAgeneric(object):
                     
         #close the file
         rootgrp.close()
-    
-    def netCDF_merge(self, ncfile_in):
+        
+    def netCDF_merge(self, directory):
         """
         To combine mutiple downloaded eraint netCDF files into a large file with specified chunk_size(e.g. 500), 
         -- give the full name of merged file to the output = outfile
@@ -242,63 +242,47 @@ class ERAgeneric(object):
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
         e.g.:
-             '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
-             '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
-             '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
+              '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
 
         Output: merged netCDF files
-        eraint_all_0.nc, eraint_all_1.nc, ...,
-               
+        era_all_0.nc, era_all_1.nc, ...,
+                
         """
         #set up nco operator
         nco = Nco()
-        
-        #get the file list
-        files_list = glob.glob(ncfile_in)
-        files_list.sort()
-                
-        # divide file_list
-        chunk_size = 500
-        files_size = len(files_list)
-        int_size = files_size//chunk_size
-        res_type = files_size%chunk_size
-        
-        if (res_type > 0):
-            loop_size = [chunk_size*1]*int_size + [res_type]
-        else:
-            loop_size = [chunk_size*1]*int_size            
-        
-        # set up the combined files list and outfiles
-        loop_low = 0
-        loop_up = 0
-        for i in range(0, len(loop_size)):
-            size = loop_size[i]
-            loop_low = loop_up
-            loop_up = loop_low + size
+  
+        # loop over filetypes, read, report
+        file_type = ['era_sa_*.nc', 'era_sf_*.nc', 'era_pl_*.nc']
+        for ft in file_type:
+            ncfile_in = path.join(directory, ft)
             
+            #get the file list
+            files_list = glob.glob(ncfile_in)
+            files_list.sort()
+            num = len(files_list)
+                        
             #set up the name of merged file
             if ncfile_in[-7:-5] == 'sa':
-                merged_file = path.join(ncfile_in[:-11],'eraint_sa_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'eraint_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
             elif ncfile_in[-7:-5] == 'sf':
-                merged_file = path.join(ncfile_in[:-11],'eraint_sf_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'eraint_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
             elif ncfile_in[-7:-5] == 'pl':
-                merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
                 print 'There is not such type of file'    
-            
-            #get the divided file list
-            files_list_chunk = files_list[loop_low:loop_up]
-        
+                        
             # combined files into merged files
-            nco.ncrcat(input=files_list_chunk,output=merged_file, append = True)
+            nco.ncrcat(input=files_list,output=merged_file, append = True)
             
             print 'The Merged File below is saved:'
             print merged_file
             
-        merged_files = path.join(ncfile_in[:-11],'eraint_' + ncfile_in[-7:-5] + '_all_*.nc')     
-        
-        return merged_files                
-                                                                                                                                                                                                                       
+            #clear up the data
+            for fl in files_list:
+                remove(fl)
+                                                                                                                                                                                                                             
 class ERApl(ERAgeneric):
     """Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server.
@@ -902,8 +886,6 @@ class ERAinterpolate(object):
                 series. Defaluts to using all times available in ncfile_in.
   
         """
-        # get the merged netcdf file
-        # ncfile_in = ERAgeneric().netCDF_merge(ncfile_in)
                 
         # read in one type of mutiple netcdf files       
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
@@ -1208,7 +1190,8 @@ class ERAdownload(object):
             
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size            
-              
+
+                           
     def retrieve(self):
         """
         Retrieve all required ERA-Interim data from MARS server.
@@ -1245,8 +1228,12 @@ class ERAdownload(object):
         top.download()
         
         # report inventory
-        self.inventory()     
-                                                                                                                                                                                                     
+        self.inventory()  
+        
+        # # merge the netcdf file
+        # ERAgeneric().netCDF_merge(self.directory)
+
+                                                                                                                                                                                                           
     def inventory(self):
         """
         Report on data avaialbe in directory: time slice, variables, area 
@@ -1298,11 +1285,11 @@ class ERAdownload(object):
                 print("        E: " + str(max(lon)))
                             
                 ncf.close()
-        
+                   
     def __str__(self):
         return "Object for ERA-Interim data download and conversion"                
 
-
+                                                        
 class ERAscale(object):
     """
     Class for ERA-Interim data that has methods for scaling station data to
