@@ -170,7 +170,7 @@ class ERAgeneric(object):
         #Build the netCDF file
         rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
         rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'MERRA-2, interpolated bilinearly to stations'
+        rootgrp.source      = 'ERA_Interim, interpolated bilinearly to stations'
         rootgrp.featureType = "timeSeries"
                                                 
         # dimensions
@@ -282,7 +282,130 @@ class ERAgeneric(object):
             #clear up the data
             for fl in files_list:
                 remove(fl)
-                                                                                                                                                                                                                             
+
+    def mergeFiles(self, ncfile_in):
+        """
+        To combine mutiple downloaded eraint netCDF files into a large file. 
+        
+        Args:
+            ncfile_in: the full name of downloaded files (file directory + files names)
+        e.g.:
+              '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
+              '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+
+        Output: merged netCDF files
+        eraint_sa_all.nc, eraint_sf_all.nc, eraint_pl_all.nc
+                
+        """
+     
+        # read in one type of mutiple netcdf files       
+        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+
+        # is it a file with pressure levels?
+        pl = 'level' in ncf_in.dimensions.keys()
+
+        # get spatial dimensions
+        lat  = ncf_in.variables['latitude'][:]
+        lon  = ncf_in.variables['longitude'][:]
+        if pl: # only for pressure level files
+            lev  = ncf_in.variables['level'][:]
+            nlev = len(lev)
+            
+        # get time and convert to datetime object
+        nctime = ncf_in.variables['time'][:]
+    
+        #set up the name of merged file
+        if ncfile_in[-7:-5] == 'sa':
+            ncfile_out = path.join(ncfile_in[:-11],'eraint_sa_all' + '.nc')
+        elif ncfile_in[-7:-5] == 'sf':
+            ncfile_out = path.join(ncfile_in[:-11],'eraint_sf_all' + '.nc')
+        elif ncfile_in[-7:-5] == 'pl':
+            ncfile_out = path.join(ncfile_in[:-11],'eraint_pl_all' + '.nc')
+        else:
+            print 'There is not such type of file'    
+        
+        # get variables
+        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist.remove('time')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        if pl: #only for pressure level files
+            varlist.remove('level')
+        
+        #Build the netCDF file
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.source      = 'ERA_Interim, merged downloaded original files'
+        rootgrp.featureType = "timeSeries"
+                                                
+        # dimensions
+        latitude = rootgrp.createDimension('latitude', len(lat))
+        longitude = rootgrp.createDimension('longitude', len(lon))
+        time    = rootgrp.createDimension('time', None)
+                
+        # base variables
+        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time.long_name = 'time'
+        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.calendar  = 'gregorian'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('latitude'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('longitude'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east' 
+        
+        # assign station characteristics            
+        latitude[:]  = lat[:]
+        longitude[:] = lon[:]
+        time[:]    = nctime[:]
+        
+        # extra treatment for pressure level files
+        try:
+            lev = ncf_in.variables['level'][:]
+            print "== 3D: file has pressure levels"
+            level = rootgrp.createDimension('level', len(lev))
+            level           = rootgrp.createVariable('level','i4',('level'))
+            level.long_name = 'pressure_level'
+            level.units     = 'hPa'  
+            level[:] = lev 
+        except:
+            print "== 2D: file without pressure levels"
+            lev = []
+                    
+        # create and assign variables based on input file
+        for n, var in enumerate(varlist):
+            print "VAR: ", var
+            # extra treatment for pressure level files
+            vname = var            
+            if len(lev):
+                tmp = rootgrp.createVariable(vname,'f4',('time', 'level', 'latitude', 'longitude'))
+            else:
+                tmp = rootgrp.createVariable(vname,'f4',('time', 'latitude', 'longitude'))     
+            tmp.long_name = ncf_in.variables[var].long_name.encode('UTF8') # for eraint
+            tmp.units     = ncf_in.variables[var].units.encode('UTF8') 
+            
+            # assign values
+            if pl: # only for pressure level files
+                tmp[:] = ncf_in.variables[var][:,:,:,:]
+            else:
+                tmp[:] = ncf_in.variables[var][:,:,:]    
+              
+                    
+        #close the file
+        rootgrp.close()
+        ncf_in.close()
+        
+        #get the file list
+        files_list = glob.glob(ncfile_in)
+        files_list.sort()
+        
+        #clear up the data
+        for fl in files_list:
+            remove(fl)
+
+                                                                                                                                                                                                                                              
 class ERApl(ERAgeneric):
     """Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server.
@@ -1230,9 +1353,6 @@ class ERAdownload(object):
         # report inventory
         self.inventory()  
         
-        # # merge the netcdf file
-        # ERAgeneric().netCDF_merge(self.directory)
-
                                                                                                                                                                                                            
     def inventory(self):
         """
