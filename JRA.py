@@ -12,7 +12,6 @@ from fnmatch         import filter
 
 import netCDF4       as nc
 import numpy         as np
-import pygrib
 import time
 import sys
 import os.path
@@ -24,6 +23,11 @@ except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
 
+try:
+    import pygrib
+except ImportError:
+    print("*** pygrib not imported, JRA download not possible. ***")
+    pass   
 
 """
 Download ranges of data from the JRA-55 server

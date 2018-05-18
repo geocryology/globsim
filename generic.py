@@ -23,6 +23,7 @@
 from datetime import datetime
 import pandas  as pd
 import netCDF4 as nc
+import numpy as np
 
 class ParameterIO(object):
     """
@@ -154,6 +155,7 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
     successively write variables to it.
     
     '''
+    
     try:
         # read file if it exists
         rootgrp = nc.Dataset(ncfile_out, 'a')
@@ -175,15 +177,17 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         time    = rootgrp.createDimension('time', len(times_out))
 
         # base variables
-        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time           = rootgrp.createVariable('time', 'i8',('time'))
         time.long_name = 'time'
         
         if name == 'eraint':
-	   time.units = 'hours since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 	elif name == 'merra2' :
 	   time.units = 'hours since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
         else: 
 	   time.units = 'hours since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
+
+        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station', 'i4',('station'))
@@ -207,3 +211,107 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         height[:]    = nc_interpol.variables['height'][:]
 
     return rootgrp
+    
+
+def conv_sf(data):
+    """
+    Convert values that are serially cummulative, such as precipitation or 
+    radiation, into a cummulative series from start to finish that can be 
+    interpolated on for sacling. 
+    data: [time, station] 
+    """                       
+    # get increment per time step
+    diff = np.diff(data,1,axis=0)
+    diff = np.concatenate(([data[0,:]], diff))
+    
+    # where new forecast starts, the increment will be smaller than 0
+    # and the actual value is used
+    mask = diff < 0
+    diff[mask] = data[mask]
+    
+    #get full cummulative sum
+    return np.cumsum(diff, axis=0, dtype=np.float64)       
+
+def convert_cummulative(data):
+    """
+    Convert values that are serially cummulative, such as precipitation or 
+    radiation, into a cummulative series from start to finish that can be 
+    interpolated on for sacling. 
+    data: 1-dimensional time series 
+    """                       
+    # get increment per time step
+    diff = np.diff(data)
+    diff = np.concatenate(([data[0]], diff))
+    
+    # where new forecast starts, the increment will be smaller than 0
+    # and the actual value is used
+    mask = diff < 0
+    diff[mask] = data[mask]
+    
+    #get full cummulative sum
+    return np.cumsum(diff, dtype=np.float64)  
+    
+
+def series_interpolate(time_out, time_in, value_in, cum=False):
+    '''
+    Interpolate single time series. Convenience function for usage in scaling 
+    kernels.
+    time_out: Array of times [s] for which output is desired. Integer. 
+    time_in:  Array of times [s] for which value_in is given. Integer. 
+    value_in: Value time series. Must have same length as time_in.
+    cum:      Is valiable serially cummulative like LWin? Default: False.
+    '''
+    time_step_sec = time_out[1]-time_out[0]
+    
+    # convert to continuous cummulative, if values are serially cummulative
+    if cum:
+        value_in = convert_cummulative(value_in)
+
+    # interpolate            
+    vi = np.interp(time_out, time_in, value_in)
+ 
+    # convert from cummulative to noremal time series if needed
+    if cum:
+        vi = np.diff(vi) / time_step_sec
+        vi = np.float32(np.concatenate(([vi[0]], vi)))
+            
+    return vi        
+                                                  
+                
+def globsim2GEOtop(ncdf_globsim, txt_geotop):
+    """
+    Convert globsim scaled netCDF to GEOtop meteo file.
+    """
+        
+    outfile = '/Users/stgruber/Supervision/MSc/Mary_Pascale_Laurentian/reanalysis/station/Meteo_0001.txt'
+    
+    #read time object        
+    time = self.rg.variables['time']        
+    date = self.rg.variables['time'][:]
+    
+    #read all other values
+    columns = ['Date','AIRT_ERA_C_pl','AIRT_ERA_C_sur','PREC_ERA_mm_sur','RH_ERA_per_sur','SW_ERA_Wm2_sur','LW_ERA_Wm2_sur','WSPD_ERA_ms_sur','WDIR_ERA_deg_sur']
+    metdata = np.zeros((len(date),len(columns)))
+    metdata[:,0] = date
+    for n, vn in enumerate(columns[1:]):
+        metdata[:,n+1] = self.rg.variables[vn][:, 0]
+    
+    #make data frame
+    data = pd.DataFrame(metdata, columns=columns)
+    data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
+    
+    # round
+    decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
+    data.round(decimals)
+
+    #export to file
+    fmt_date = "%d/%m/%Y %H:%M"
+    data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
+        
+                   
+def globsim2CLASS(ncdf_globsim, met_class):
+    """
+    Convert globsim scaled netCDF to CLASS-CTEM .met file.
+    """
+                       
+                                           

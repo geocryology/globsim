@@ -21,7 +21,7 @@
 #
 #===============================================================================
 from era_interim import ERAdownload, ERAinterpolate, ERAscale
-from merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
+#from merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
 from JRA import JRAdownload, JRAinterpolate, JRAscale
 from multiprocessing.dummy import Pool as ThreadPool
 
