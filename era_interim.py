@@ -1071,8 +1071,10 @@ class ERAinterpolate(object):
                 tmask_chunk = (time < end_time) * (time >= beg_time)           
             else:
                 # on last chunk the final time should be included
+                print "now"
                 tmask_chunk = (time <= end_time) * (time >= beg_time) 
-                
+            
+            print np.sum(tmask_chunk)        
 	    # get the interpolated variables
             dfield, variables_out = self.ERA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
                      variables=None, date=None) 
