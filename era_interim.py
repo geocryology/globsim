@@ -1065,14 +1065,16 @@ class ERAinterpolate(object):
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
             end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
             
+            #'<= end_time', would damage appending
+            tmask_chunk = (time < end_time) * (time >= beg_time)
             # restrict tmask to chunk 
-            if n < (niter-1): 
-                #'<= end_time', would damage appending
-                tmask_chunk = (time < end_time) * (time >= beg_time)           
-            else:
-                # on last chunk the final time should be included
-                print "now"
-                tmask_chunk = (time <= end_time) * (time >= beg_time) 
+            # if n < (niter-1): 
+            #     #'<= end_time', would damage appending
+            #     tmask_chunk = (time < end_time) * (time >= beg_time)           
+            # else:
+            #     # on last chunk the final time should be included
+            #     print "now"
+            #     tmask_chunk = (time <= end_time) * (time >= beg_time) 
             
             print np.sum(tmask_chunk)        
 	    # get the interpolated variables
