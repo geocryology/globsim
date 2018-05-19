@@ -204,7 +204,7 @@ class ERAgeneric(object):
                     
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
-            if self.variables_skip(var):
+            if variables_skip(var):
                 continue                 
             print "VAR: ", var
             # extra treatment for pressure level files
