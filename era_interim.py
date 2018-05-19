@@ -675,7 +675,7 @@ class ERAinterpolate(object):
     
         # chunk size: how many tiem steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
-        self.cs  = par.chunk_size
+        self.cs  = int(par.chunk_size)
     
 #     def ERA2station(self, ncfile_in, ncfile_out, points,
 #                     variables=None, date=None):    
