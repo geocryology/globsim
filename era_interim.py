@@ -1051,7 +1051,7 @@ class ERAinterpolate(object):
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
         niter  = len(time_in)/cs
-        niter += ((time_in % cs) > 0)
+        niter += ((len(time_in) % cs) > 0)
 
         # loop in chunk size cs
         for n in range(niter):
