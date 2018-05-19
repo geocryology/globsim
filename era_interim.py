@@ -852,6 +852,11 @@ class ERAinterpolate(object):
                               
         # get time indices
         time_in = nctime[tmask]
+        
+        print time_in
+        print nctime
+        print tmask
+        
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
@@ -872,8 +877,12 @@ class ERAinterpolate(object):
             tmask_chunk = (time < end_time) * (time >= beg_time)
                  
 	    # get the interpolated variables
-            dfield, variables_out = self.ERA2station_interpolate(ncfile_in, ncf_in, self.stations, tmask_chunk,
-                     variables=None, date=None) 
+            dfield, variables_out = self.ERA2station_interpolate(ncfile_in, 
+                                                                 ncf_in, 
+                                                                 self.stations, 
+                                                                 tmask_chunk,
+                                                                 variables=None, 
+                                                                 date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
@@ -888,7 +897,6 @@ class ERAinterpolate(object):
                         vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
                         # extra treatment for pressure level files
                         try:
-                            #lev = ncf_in.variables['level'][:]
                             # dimension: time, level, latitude, longitude
                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                         except:
@@ -1040,6 +1048,16 @@ class ERAinterpolate(object):
         the more generically ERA-like interpolation functions.
         """                       
 
+        # 2D Interpolation for Invariant Data      
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys.            
+        dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
+                       'end' : datetime(1979, 1, 1, 12, 0)}        
+        self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
+                        path.join(self.dir_out,'era_to_' + 
+                                  self.list_name + '.nc'), self.stations,
+                                  ['z', 'lsm'], date = dummy_date)  
+                                  
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into ERA-Interim
         # pressure level variable keys. 
@@ -1069,16 +1087,7 @@ class ERAinterpolate(object):
                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
-                        
-        # 2D Interpolation for Invariant Data      
-        # dictionary to translate CF Standard Names into ERA-Interim
-        # pressure level variable keys.            
-        dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
-                       'end' : datetime(1979, 1, 1, 12, 0)}        
-        self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
-                        path.join(self.dir_out,'era_to_' + 
-                                  self.list_name + '.nc'), self.stations,
-                                  ['z', 'lsm'], date = dummy_date)   
+                         
         
         # === 2D Interpolation for Pressure Level Data ===
         # dictionary to translate CF Standard Names into ERA-Interim
