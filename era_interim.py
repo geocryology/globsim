@@ -902,22 +902,35 @@ class ERAinterpolate(object):
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
                                   
-                                                     
             #append variables
-            for n, var in enumerate(ncf_in.variables):
-                for i, name in enumerate(variables_out):
-                    if ERAgeneric().variables_skip(var):
-                        continue
+            for i, var in enumerate(variables_out):
+                if self.variables_skip(var):
+                    continue
 
-                    if var == name: 
-                        vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
-                        # extra treatment for pressure level files
-                        if pl:
-                            # dimension: time, level, station
-                            ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
-                        else:
-                            # time, station
-      		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
+                vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
+                # extra treatment for pressure level files
+                if pl:
+                    # dimension: time, level, station
+                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                else:
+                    # time, station
+      		    ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]	
+      		                                                                 
+#             #append variables
+#             for n, var in enumerate(ncf_in.variables):
+#                 for i, name in enumerate(variables_out):
+#                     if ERAgeneric().variables_skip(var):
+#                         continue
+# 
+#                     if var == name: 
+#                         vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
+#                         # extra treatment for pressure level files
+#                         if pl:
+#                             # dimension: time, level, station
+#                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+#                         else:
+#                             # time, station
+#       		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
         ncf_in.close()
