@@ -794,7 +794,7 @@ class ERAinterpolate(object):
         return dfield, variables_out
 
     def ERA_append(self, ncfile_in, ncfile_out, points,
-                         variables = None, date = None):
+                         variables = None, date = None, invariant=False):
         
         """
         Given the type of variables to interpoalted from ERAINT downloaded diretory
@@ -853,9 +853,9 @@ class ERAinterpolate(object):
         # get time indices
         time_in = nctime[tmask]
         
-        print time_in
-        print nctime
-        print tmask
+        #print time_in [692508]
+        #print nctime [692508]
+        #print tmask true
         
 
         # ensure that chunk sizes cover entire period even if
@@ -863,11 +863,13 @@ class ERAinterpolate(object):
         niter  = len(time_in)/self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
-        # loop in chunk size cs
+        # loop over chunks
         for n in range(niter):
             # indices
             beg = n * self.cs
             end = min(n*self.cs + self.cs, len(time_in))
+            if invariant:
+                end = 0
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
@@ -1056,7 +1058,8 @@ class ERAinterpolate(object):
         self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
                         path.join(self.dir_out,'era_to_' + 
                                   self.list_name + '.nc'), self.stations,
-                                  ['z', 'lsm'], date = dummy_date)  
+                                  ['z', 'lsm'], date = dummy_date,
+                                  invariant=True)  
                                   
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into ERA-Interim
