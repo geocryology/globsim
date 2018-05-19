@@ -24,7 +24,7 @@ from datetime import datetime
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
-
+from csv import QUOTE_NONE
 class ParameterIO(object):
     """
     Reads generic parameter files and makes values available as dictionary.
@@ -147,6 +147,10 @@ def variables_skip(variable_name):
             skip = 1
         if variable_name == 'longitude':
             skip = 1
+        if variable_name == 'station':
+            skip = 1    
+        if variable_name == 'height':
+            skip = 1      
         return skip 
 
 def StationListRead(sfile):  
@@ -272,8 +276,45 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
         vi = np.float32(np.concatenate(([vi[0]], vi)))
             
     return vi        
-                                                  
+
+def globsimScaled2Pandas(ncdf_in, station_nr):
+    '''
+    Read a scaled (or interpolated) globsim netCDF file and return all values
+    for one station as a Pandas data frame.
+    
+    ncdf_in: full path to a globsim netCDF (by station)
+    
+    station_nr: station_number, as given in the stations .csv file to identify 
+                the station.
+    
+    '''
+    # open file                                     
+    ncf = nc.Dataset(ncdf_in, 'r')
+    
+    # station mask
+    sm = ncf.variables['station'][:] == int(station_nr)                                                               
+    # list variables
+    varlist = [x.encode('UTF8') for x in ncf.variables.keys()]                                                                                                                                                                                             
+    
+    # get and convert time
+    time = ncf.variables['time'][:]
+    t_unit = ncf.variables['time'].units 
+    t_cal = ncf.variables['time'].calendar   
+    time = nc.num2date(time, units = t_unit, calendar = t_cal)
                 
+    # make data frame with time   
+    df = pd.DataFrame(data=time,columns=['time'])    
+    # add variables
+    for var in varlist:
+        if variables_skip(var):
+            continue
+        data = ncf.variables[var][:,sm]                                                                                                                                                                                                                                                                                                                                                                                               
+        df = pd.concat([df,pd.DataFrame(data=data,columns=[var])],axis=1) 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+    return df          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+              
 def globsim2GEOtop(ncdf_globsim, txt_geotop):
     """
     Convert globsim scaled netCDF to GEOtop meteo file.
@@ -305,9 +346,42 @@ def globsim2GEOtop(ncdf_globsim, txt_geotop):
     data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
         
                    
-def globsim2CLASS(ncdf_globsim, met_class):
+def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     """
     Convert globsim scaled netCDF to CLASS-CTEM .met file.
+    
+    ncdf_globsim: full path to a globsim scaled netCDF (by station)
+    
+    met_class: full path to the CLASS-CTEM met file to write.
+    
+    station_nr: station_number, as given in the stations .csv file to identify 
+                the station.
+    
+    The columns in CLASS-CTEM MET files are:            
+    1)  Hour
+    2)  Minute
+    3)  Day of year
+    4)  Year YYYY
+    5)  Shortwave Radiation (W/m2)
+    6)  Longwave Radiation (W/m2)
+    7)  Precip (mm/s)
+    8)  Temp.(°C)
+    9)  Specific Humidity (Kg/Kg)
+    10) Wind Speed (m/s)
+    11) Pressure (Pa)
     """
-                       
-                                           
+    
+    # format string for strftime (14 30  275  1971)
+    fmt = '%H %M %j %G'
+    columns = ['time','SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'PREC_ERA_mm_sur',
+               'AIRT_ERA_C_sur','SH_ERA_kgkg_sur', 'WSPD_ERA_ms_sur',
+               'AIRT_PRESS_Pa_pl']
+    
+    # get data
+    df = globsimScaled2Pandas(ncdf_globsim, station_nr)                   
+    print df[0:5]
+      
+    # write
+    df.to_csv(met_class, sep=',', columns=columns, quoting=QUOTE_NONE, escapechar='', index=False, header=True, date_format=fmt)   
+    
+                                                                         

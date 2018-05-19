@@ -665,8 +665,8 @@ class ERAinterpolate(object):
         self.cs  = int(par.chunk_size)
     
 
-    def ERA2station_interpolate(self, ncfile_in, ncf_in, points, tmask_chunk,
-                    variables=None, date=None):    
+    def ERAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
+                        variables=None, date=None):    
         """
         Biliner interpolation from fields on regular grid (latitude, longitude) 
         to individual point stations (latitude, longitude). This works for
@@ -674,8 +674,8 @@ class ERAinterpolate(object):
           
         Args:
             ncfile_in: Full path to an Era-Interim derived netCDF file. This can
-                        contain wildcards to point to multiple files if temporal
-                        chunking was used.
+                       contain wildcards to point to multiple files if temporal
+                       chunking was used.
               
             ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim 
                     multiple files (def ERA2station_append())
@@ -704,8 +704,6 @@ class ERAinterpolate(object):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # get spatial dimensions
-        #lat  = ncf_in.variables['latitude'][:]
-        #lon  = ncf_in.variables['longitude'][:]
         if pl: # only for pressure level files
             lev  = ncf_in.variables['level'][:]
             nlev = len(lev)
@@ -780,20 +778,24 @@ class ERAinterpolate(object):
 		    
         return dfield, variables_out
 
-    def ERA_append(self, ncfile_in, ncfile_out, points,
-                         variables = None, date = None):
+    def ERA2station(self, ncfile_in, ncfile_out, points,
+                    variables = None, date = None):
         
         """
-        Given the type of variables to interpoalted from ERAINT downloaded diretory
-        Create the empty of netCDF file to hold the interpolated results, by calling ERAgeneric().netCDF_empty
-        Get the interpolated results from MERRA2station
-        Append all variables into the empty netCDF file
-        Close all files
+        Biliner interpolation from fields on regular grid (latitude, longitude) 
+        to individual point stations (latitude, longitude). This works for
+        surface and for pressure level files (all Era_Interim files). The type 
+        of variable and file structure are determined from the input.
+        
+        This function creates an empty of netCDF file to hold the interpolated 
+        results, by calling ERAgeneric().netCDF_empty. Then, data is 
+        interpolated in temporal chunks and appended. The temporal chunking can 
+        be set in the interpolation parameter file.
         
         Args:
         ncfile_in: Full path to an Era-Interim derived netCDF file. This can
-                    contain wildcards to point to multiple files if temporal
-                    chunking was used.
+                   contain wildcards to point to multiple files if temporal
+                  chunking was used.
             
         ncfile_out: Full path to the output netCDF file to write.     
         
@@ -875,12 +877,9 @@ class ERAinterpolate(object):
                 tmask_chunk = [True]
                  
 	    # get the interpolated variables
-            dfield, variables_out = self.ERA2station_interpolate(ncfile_in, 
-                                                                 ncf_in, 
-                                                                 self.stations, 
-                                                                 tmask_chunk,
-                                                                 variables=None, 
-                                                                 date=None) 
+            dfield, variables_out = self.ERAinterp2D(ncfile_in, ncf_in, 
+                                                     self.stations, tmask_chunk,
+                                                     variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
@@ -898,22 +897,7 @@ class ERAinterpolate(object):
                 else:
                     # time, station (2D files)
       		    ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]	
-      		                                                                 
-#             #append variables
-#             for n, var in enumerate(ncf_in.variables):
-#                 for i, name in enumerate(variables_out):
-#                     if ERAgeneric().variables_skip(var):
-#                         continue
-# 
-#                     if var == name: 
-#                         vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
-#                         # extra treatment for pressure level files
-#                         if pl:
-#                             # dimension: time, level, station
-#                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
-#                         else:
-#                             # time, station
-#       		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
+      		                                                                 	    
                                      
         #close the file
         ncf_in.close()
@@ -996,7 +980,7 @@ class ERAinterpolate(object):
         varlist.append(var)
         tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
         tmp.long_name = var.encode('UTF8')
-        tmp.units     = 'Pa'.encode('UTF8') 
+        tmp.units     = 'hPa'.encode('UTF8') 
         # end file prepation ===================================================
                                                                                                 
         # loop over stations
@@ -1065,10 +1049,10 @@ class ERAinterpolate(object):
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
                        'end' : datetime(1979, 1, 1, 12, 0)}        
-        self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
-                        path.join(self.dir_out,'era_to_' + 
-                                  self.list_name + '.nc'), self.stations,
-                                  ['z', 'lsm'], date = dummy_date)  
+        self.ERA2station(path.join(self.dir_inp,'era_to.nc'), 
+                         path.join(self.dir_out,'era_to_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   ['z', 'lsm'], date = dummy_date)  
                                   
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into ERA-Interim
@@ -1080,10 +1064,10 @@ class ERAinterpolate(object):
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
-        self.ERA_append(path.join(self.dir_inp,'era_sa_*.nc'), 
-                        path.join(self.dir_out,'era_sa_' + 
-                                  self.list_name + '.nc'), self.stations,
-                                  varlist, date = self.date)          
+        self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
+                         path.join(self.dir_out,'era_sa_' + 
+                                   self.list_name + '.nc'), self.stations,
+                                   varlist, date = self.date)          
         
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd' 
         # dictionary to translate CF Standard Names into ERA-Interim
@@ -1095,8 +1079,8 @@ class ERAinterpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], 
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA_append(path.join(self.dir_inp,'era_sf_*.nc'), 
-                        path.join(self.dir_out,'era_sf_' + 
+        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
+                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
                          
@@ -1108,9 +1092,9 @@ class ERAinterpolate(object):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA_append(path.join(self.dir_inp,'era_pl_*.nc'), 
-                        path.join(self.dir_out,'era_pl_' + 
-                                  self.list_name + '.nc'), self.stations,
+        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
+                         path.join(self.dir_out,'era_pl_' + 
+                                   self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
         # 1D Interpolation for Pressure Level Data
@@ -1351,14 +1335,15 @@ class ERAscale(object):
         vn = 'AIRT_PRESS_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-I pressure levels only'
-        var.units     = self.nc_pl.variables['air_pressure'].units.encode('UTF8')  
+        var.units     = 'Pa'.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
         values  = self.nc_pl.variables['air_pressure'][:]                   
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            #scale from hPa to Pa 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                        time_in*3600, values[:, n])          
+                                        time_in*3600, values[:, n]) * 100          
 
     def AIRT_ERA_C_pl(self):
         """
@@ -1518,5 +1503,30 @@ class ERAscale(object):
         values  = self.nc_sf.variables['Surface thermal radiation downwards'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n], cum=True)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                          time_in*3600, values[:, n], cum=True)   
+                                          
+                                                  
+    def SH_ERA_kgkg_sur(self):
+        '''
+        Specific humidity [kg/kg]
+        https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
+        '''
+        
+        # add variable to ncdf file
+        vn = 'SH_ERA_kgkg_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Specific humidity ERA-I surface only'
+        var.units     = 'Kg/Kg'.encode('UTF8')  
+        
+                # quick and dirty https://en.wikipedia.org/wiki/Dew_point
+        SH = self.rg.variables['RH_ERA_per_sur'][:, :] / 50
+        self.rg.variables[vn][:, :] = SH  
+        
+        print "Kernel SH_ERA_kgkg_sur needs work"
+        
+        
+        
+        
+        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          

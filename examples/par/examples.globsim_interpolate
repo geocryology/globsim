@@ -3,6 +3,11 @@ project_directory = /home/xquan/src/globsim/examples
 station_list = siteslist.csv
 list_name = siteslist
 
+# How many time steps to interpolate at once? This helps memory management.
+# Keep small for large area files and small memory computer, make larger to get 
+# speed on big machines and when working with small area files.
+chunk_size = 20000
+
 # time slice [YYYY/MM/DD] assuming 00:00 hours
 beg = 1980/01/01
 end = 1980/01/30
