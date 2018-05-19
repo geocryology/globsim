@@ -134,6 +134,21 @@ class ParameterIO(object):
         # Make dictionary and return
         return {name: valu}
 
+def variables_skip(variable_name):
+        '''
+        Which variable names to use? Drop the ones that are dimensions.  
+        '''
+        skip = 0
+        if variable_name == 'time':
+            skip = 1
+        if variable_name == 'level':
+            skip = 1
+        if variable_name == 'latitude':
+            skip = 1
+        if variable_name == 'longitude':
+            skip = 1
+        return skip 
+
 def StationListRead(sfile):  
     '''
     Reads ASCII station list and returns a pandas dataframe.

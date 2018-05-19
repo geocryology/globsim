@@ -42,7 +42,7 @@ from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path, listdir
-from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate
+from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip
 from fnmatch import filter
 import numpy   as np
 import netCDF4 as nc
@@ -142,22 +142,6 @@ class ERAgeneric(object):
         string = ("List of generic variables to query ECMWF server for "
                   "ERA-Interim data: {0}")
         return string.format(self.getDictionary) 
-
-    def variables_skip(self, variable_name):
-        '''
-        Which variable names to use? Drop the ones that are dimensions.  
-        '''
-        skip = 0
-        if variable_name == 'time':
-            skip = 1
-        if variable_name == 'level':
-            skip = 1
-        if variable_name == 'latitude':
-            skip = 1
-        if variable_name == 'longitude':
-            skip = 1
-
-        return skip 
     
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
@@ -904,16 +888,15 @@ class ERAinterpolate(object):
                                   
             #append variables
             for i, var in enumerate(variables_out):
-                if self.variables_skip(var):
+                if variables_skip(var):
                     continue
 
                 vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
-                # extra treatment for pressure level files
                 if pl:
-                    # dimension: time, level, station
+                    # dimension: time, level, station (pressure level files)
                     ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                 else:
-                    # time, station
+                    # time, station (2D files)
       		    ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]	
       		                                                                 
 #             #append variables
