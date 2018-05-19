@@ -580,9 +580,12 @@ class ERAsf(ERAgeneric):
 
         # dictionary to translate CF Standard Names into ERA-Interim
         # pressure level variable names. 
-        dpar = {'precipitation_amount'              : '228.128',   # [m] total precipitation
-                'downwelling_shortwave_flux_in_air' : '169.128',   # [J m-2] short-wave downward
-                'downwelling_longwave_flux_in_air'  : '175.128'}   # [J m-2] long-wave downward
+        # [m] total precipitation
+        # [J m-2] short-wave downward
+        # [J m-2] long-wave downward
+        dpar = {'precipitation_amount'              : '228.128',   
+                'downwelling_shortwave_flux_in_air' : '169.128',   
+                'downwelling_longwave_flux_in_air'  : '175.128'}   
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
@@ -866,12 +869,16 @@ class ERAinterpolate(object):
             end = min(n*self.cs + self.cs, len(time_in))
             #if invariant:
                 # allow topography to work in same code
-             #   end = 0
+            #    end = 0
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
-            end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
-            
+            try:
+                end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
+            except:
+                # allow topography to work in same code, len(nctime) = 1
+                end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+                
             #'<= end_time', would damage appending
             tmask_chunk = (time < end_time) * (time >= beg_time)
             if invariant:
@@ -899,10 +906,10 @@ class ERAinterpolate(object):
                         vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
                         # extra treatment for pressure level files
                         try:
-                            # dimension: time, level, latitude, longitude
+                            # dimension: time, level, station
                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                         except:
-                            # time, latitude, longitude
+                            # time, station
                             print ncf_out.variables[vname][beg:end,:].shape
                             print dfield.data[i,:,:].shape
       		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
