@@ -797,7 +797,7 @@ class ERAinterpolate(object):
         return dfield, variables_out
 
     def ERA_append(self, ncfile_in, ncfile_out, points,
-                         variables = None, date = None, invariant=False):
+                         variables = None, date = None):
         
         """
         Given the type of variables to interpoalted from ERAINT downloaded diretory
@@ -830,6 +830,8 @@ class ERAinterpolate(object):
                 
         # read in one type of mutiple netcdf files       
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+        # is it a file with pressure levels?
+        pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
         ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
@@ -846,7 +848,13 @@ class ERAinterpolate(object):
         except AttributeError :  # attribute doesn't exist
             t_cal = u"gregorian" # standard
         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
-                                                                                    
+        
+        # detect invariant files (topography etc.)
+        if len(time) ==1:
+            invariant=True
+        else:
+            invariant=False                                                                         
+                                                                                                                                                                                                                                            
         # restrict to date/time range if given
         if date is None:
             tmask = time < datetime(3000, 1, 1)
@@ -867,17 +875,14 @@ class ERAinterpolate(object):
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
             end = min(n*self.cs + self.cs, len(time_in))
-            #if invariant:
-                # allow topography to work in same code
-            #    end = 0
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
-            try:
-                end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
-            except:
+            if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+            else:
+                end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
                 
             #'<= end_time', would damage appending
             tmask_chunk = (time < end_time) * (time >= beg_time)
@@ -896,6 +901,8 @@ class ERAinterpolate(object):
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
+                                  
+                                                     
             #append variables
             for n, var in enumerate(ncf_in.variables):
                 for i, name in enumerate(variables_out):
@@ -905,13 +912,11 @@ class ERAinterpolate(object):
                     if var == name: 
                         vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
                         # extra treatment for pressure level files
-                        try:
+                        if pl:
                             # dimension: time, level, station
                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
-                        except:
+                        else:
                             # time, station
-                            print ncf_out.variables[vname][beg:end,:].shape
-                            print dfield.data[i,:,:].shape
       		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
@@ -1067,8 +1072,7 @@ class ERAinterpolate(object):
         self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
                         path.join(self.dir_out,'era_to_' + 
                                   self.list_name + '.nc'), self.stations,
-                                  ['z', 'lsm'], date = dummy_date,
-                                  invariant=True)  
+                                  ['z', 'lsm'], date = dummy_date)  
                                   
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into ERA-Interim
