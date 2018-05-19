@@ -1045,7 +1045,7 @@ class ERAinterpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time < date['end']) * (time >= date['beg'])
+            tmask = (time <= date['end']) * (time >= date['beg'])
                               
         # get time indices
         time_in = nctime[tmask]
