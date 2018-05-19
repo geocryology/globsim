@@ -715,8 +715,8 @@ class ERAinterpolate(object):
         pl = 'level' in ncf.dimensions.keys()
 
         # get spatial dimensions
-        lat  = ncf.variables['latitude'][:]
-        lon  = ncf.variables['longitude'][:]
+        #lat  = ncf.variables['latitude'][:]
+        #lon  = ncf.variables['longitude'][:]
         if pl: # only for pressure level files
             lev  = ncf.variables['level'][:]
             nlev = len(lev)
@@ -988,7 +988,7 @@ class ERAinterpolate(object):
         return dfield, variables_out
 
     def ERA_append(self, ncfile_in, ncfile_out, points,
-                         variables = None, date = None):
+                         variables = None, date = None, cs = 40):
         
         """
         Given the type of variables to interpoalted from ERAINT downloaded diretory
@@ -1013,7 +1013,10 @@ class ERAinterpolate(object):
     
         date: Directory to specify begin and end time for the derived time 
                 series. Defaluts to using all times available in ncfile_in.
-  
+        
+        cs: chunk size, i.e. how many time steps to interpolate at once. This 
+            helps to manage overall memory usage (small cs is slower but less
+            memory intense).          
         """
                 
         # read in one type of mutiple netcdf files       
@@ -1022,17 +1025,17 @@ class ERAinterpolate(object):
         # build the output of empty netCDF file
         ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
                                      
-        # append to file
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
 
         # get time and convert to datetime object
         nctime = ncf_in.variables['time'][:]
-        t_unit = ncf_in.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        #"hours since 1900-01-01 00:00:0.0"
+        t_unit = ncf_in.variables['time'].units 
         try :
             t_cal = ncf_in.variables['time'].calendar
         except AttributeError : # Attribute doesn't exist
-            t_cal = u"gregorian" # or standard
+            t_cal = u"gregorian" # standard
         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
                                                                                     
         # restrict to date/time range if given
@@ -1043,20 +1046,23 @@ class ERAinterpolate(object):
                               
         # get time indices
         time_in = nctime[tmask]
-        time_out = ncf_out.variables['time'][:] 
+        #time_out = ncf_out.variables['time'][:] 
+
+        # ensure that chunk sizes cover entire period even if
+        # len(time_in) is not an integer multiple of cs
+        niter  = len(time_in)/cs
+        niter += ((time_in % cs) > 0)
 
         # loop in chunk size cs
-        cs = 40 
-
-        for n in range(len(time_in)/cs):
+        for n in range(niter):
             #make indices
             beg = n*cs
-            end = n*cs+cs
+            end = min(n*cs+cs, len(time_in)-1) # to not overshoot on last one
             
             #get tmask for chunk 
-            beg_time = nc.num2date(nctime[beg], units = t_unit, calendar = t_cal)
-            end_time = nc.num2date(nctime[end], units = t_unit, calendar = t_cal)
-            # !! CAN'T HAVE '<= end_time', NEED TO EXCLUDE THE RESIDUAL FRIST TIME OF END_TIME
+            beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
+            end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
+            # !! CAN'T HAVE '<= end_time', would damage appending
 	    tmask_chunk = (time < end_time) * (time >= beg_time)           
             
 	    # get the interpolated variables
@@ -1076,7 +1082,7 @@ class ERAinterpolate(object):
                         vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
                         # extra treatment for pressure level files
                         try:
-                            lev = ncf_in.variables['level'][:]
+                            #lev = ncf_in.variables['level'][:]
                             # dimension: time, level, latitude, longitude
                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                         except:
