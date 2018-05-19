@@ -1022,6 +1022,7 @@ class ERAinterpolate(object):
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
         rootgrp.close()
+        ncf.close()
         # closed file ==========================================================    
 
 
