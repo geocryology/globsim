@@ -669,9 +669,9 @@ class ERAinterpolate(object):
         #convert longitude to ERA notation if using negative numbers  
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360             
         
-        # time bounds
+        # time bounds, add one day to par.end to include entire last day
         self.date  = {'beg' : par.beg,
-                      'end' : par.end}
+                      'end' : par.end + timedelta(days=1)}
     
         # chunk size: how many tiem steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
@@ -1070,7 +1070,15 @@ class ERAinterpolate(object):
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
                         
-
+        # 2D Interpolation for Invariant Data      
+        # dictionary to translate CF Standard Names into ERA-Interim
+        # pressure level variable keys.            
+        dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
+                       'end' : datetime(1979, 1, 1, 12, 0)}        
+        self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
+                        path.join(self.dir_out,'era_to_' + 
+                                  self.list_name + '.nc'), self.stations,
+                                  ['z', 'lsm'], date = dummy_date)   
         
         # === 2D Interpolation for Pressure Level Data ===
         # dictionary to translate CF Standard Names into ERA-Interim
@@ -1088,17 +1096,7 @@ class ERAinterpolate(object):
         self.levels2elevation(path.join(self.dir_out,'era_pl_' + 
                                         self.list_name + '.nc'), 
                               path.join(self.dir_out,'era_pl_' + 
-                                        self.list_name + '_surface.nc'))
-        
-        # 2D Interpolation for Invariant Data      
-        # dictionary to translate CF Standard Names into ERA-Interim
-        # pressure level variable keys.            
-        dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
-                       'end' : datetime(1979, 1, 1, 12, 0)}        
-        self.ERA_append(path.join(self.dir_inp,'era_to.nc'), 
-                        path.join(self.dir_out,'era_to_' + 
-                                  self.list_name + '.nc'), self.stations,
-                                  ['z', 'lsm'], date = dummy_date)    
+                                        self.list_name + '_surface.nc')) 
         
         
 class ERAdownload(object):
