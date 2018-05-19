@@ -1037,7 +1037,7 @@ class ERAinterpolate(object):
         t_unit = ncf_in.variables['time'].units 
         try :
             t_cal = ncf_in.variables['time'].calendar
-        except AttributeError : # Attribute doesn't exist
+        except AttributeError :  # attribute doesn't exist
             t_cal = u"gregorian" # standard
         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
                                                                                     
@@ -1049,7 +1049,6 @@ class ERAinterpolate(object):
                               
         # get time indices
         time_in = nctime[tmask]
-        #time_out = ncf_out.variables['time'][:] 
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
@@ -1059,8 +1058,8 @@ class ERAinterpolate(object):
         # loop in chunk size cs
         for n in range(niter):
             # indices
-            beg = n*self.cs
-            end = min(n*self.cs+self.cs, len(time_in)-1)
+            beg = n * self.cs
+            end = min(n*self.cs + self.cs, len(time_in)-1)
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
@@ -1096,6 +1095,8 @@ class ERAinterpolate(object):
                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                         except:
                             # time, latitude, longitude
+                            print ncf_out.variables[vname][beg:end,:].shape
+                            print dfield.data[i,:,:].shape
       		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
