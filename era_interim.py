@@ -902,6 +902,8 @@ class ERAinterpolate(object):
                             ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                         except:
                             # time, latitude, longitude
+                            print ncf_out.variables[vname][beg:end,:].shape
+                            print dfield.data[i,:,:].shape
       		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
