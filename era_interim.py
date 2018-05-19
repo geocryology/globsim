@@ -42,7 +42,7 @@ from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path, listdir
-from generic import ParameterIO, StationListRead, ScaledFileOpen, conv_sf, series_interpolate
+from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate
 from fnmatch import filter
 import numpy   as np
 import netCDF4 as nc
@@ -777,7 +777,8 @@ class ERAinterpolate(object):
                         contain wildcards to point to multiple files if temporal
                         chunking was used.
               
-            ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim multiple files (def ERA2station_append())
+            ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim 
+                    multiple files (def ERA2station_append())
             
             points: A dictionary of locations. See method StationListRead in
                     generic.py for more details.
@@ -854,7 +855,8 @@ class ERAinterpolate(object):
                 sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
 
         # create locstream, CANNOT have third dimension!!!
-        locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
+        locstream = ESMF.LocStream(len(self.stations), 
+                                   coord_sys=ESMF.CoordSys.SPH_DEG)
         locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
         locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
 
@@ -1025,10 +1027,10 @@ class ERAinterpolate(object):
         time.long_name = 'time'
         time.units     = 'hours since 1900-01-01 00:00:0.0'
         time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station',  'i4',('station'))
+        station             = rootgrp.createVariable('station','i4',('station'))
         station.long_name   = 'station for time series data'
         station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude            = rootgrp.createVariable('latitude','f4',('station'))
         latitude.long_name  = 'latitude'
         latitude.units      = 'degrees_north'    
         longitude           = rootgrp.createVariable('longitude','f4',('station'))
@@ -1039,7 +1041,7 @@ class ERAinterpolate(object):
         height.units     = 'm'  
        
         # assign base variables
-        time[:] = ncf.variables['time'][:]
+        time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
         latitude[:]  = ncf.variables['latitude'][:]
         longitude[:] = ncf.variables['longitude'][:]
@@ -1051,18 +1053,22 @@ class ERAinterpolate(object):
             tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
+
+        # add air pressure as new variable
+        var = 'air_pressure'
+        varlist.append(var)
+        tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
+        tmp.long_name = var.encode('UTF8')
+        tmp.units     = 'Pa'.encode('UTF8') 
         # end file prepation ===================================================
-    
                                                                                                 
         # loop over stations
         for n, h in enumerate(height): 
-            # convert geopotential [millibar] to height [m]
-            # shape: (time, level)
+            # convert geopotential [mbar] to height [m], shape: (time, level)
             ele = ncf.variables['Geopotential'][:,:,n] / 9.80665
-            # TODO: check if height of stations in data range (+50m at top, lapse r.)
+            # TODO: check if height of stations in data range
             
-            # difference in elevation. 
-            # level directly above will be >= 0
+            # difference in elevation, level directly above will be >= 0
             dele = ele - h
             # vector of level indices that fall directly above station. 
             # Apply after ravel() of data.
@@ -1078,16 +1084,19 @@ class ERAinterpolate(object):
             # weights
             wa = np.absolute(dele.ravel()[vb]) 
             wb = np.absolute(dele.ravel()[va])
-            
             wt = wa + wb
-            
             wa /= wt # Apply after ravel() of data.
             wb /= wt # Apply after ravel() of data.
             
             #loop over variables and apply interpolation weights
             for v, var in enumerate(varlist):
-                #read data from netCDF
-                data = ncf.variables[var][:,:,n].ravel()
+                if var == 'air_pressure':
+                    # pressure [Pa] variable from levels, shape: (time, level)
+                    data = np.repeat([ncf.variables['level'][:]],
+                                      len(time),axis=0).ravel() 
+                else:    
+                    #read data from netCDF
+                    data = ncf.variables[var][:,:,n].ravel()
                 ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
@@ -1132,9 +1141,12 @@ class ERAinterpolate(object):
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd' 
         # dictionary to translate CF Standard Names into ERA-Interim
         # pressure level variable keys.       
-        dpar = {'precipitation_amount'              : ['tp'],   # [m] total precipitation
-                'downwelling_shortwave_flux_in_air' : ['ssrd'], # [J m-2] short-wave downward
-                'downwelling_longwave_flux_in_air'  : ['strd']} # [J m-2] long-wave downward
+        # [m] total precipitation
+        # [J m-2] short-wave downward
+        # [J m-2] long-wave downward
+        dpar = {'precipitation_amount'              : ['tp'],   
+                'downwelling_shortwave_flux_in_air' : ['ssrd'], 
+                'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
         self.ERA_append(path.join(self.dir_inp,'era_sf_*.nc'), 
                         path.join(self.dir_out,'era_sf_' + 
@@ -1157,7 +1169,7 @@ class ERAinterpolate(object):
         # pressure level variable keys. 
         dpar = {'air_temperature'   : ['t'],           # [K]
                 'relative_humidity' : ['r'],           # [%]
-                'wind_speed'        : ['u', 'v']}    # [m s-1]
+                'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
         self.ERA_append(path.join(self.dir_inp,'era_pl_*.nc'), 
                          path.join(self.dir_out,'era_pl_' + 
@@ -1216,9 +1228,7 @@ class ERAdownload(object):
     def retrieve(self):
         """
         Retrieve all required ERA-Interim data from MARS server.
-        """
-        #TODO: append to dataset while keeping chunk size
-        
+        """        
         # prepare time loop
         date_i = {}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
@@ -1332,42 +1342,47 @@ class ERAscale(object):
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
             
-        # input file names
-        self.nc_pl = nc.Dataset(path.join(par.project_directory,'eraint/era_pl_' + 
+        # input file handles
+        self.nc_pl = nc.Dataset(path.join(par.project_directory,
+                                'eraint/era_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(par.project_directory,'eraint/era_sa_' + 
+        self.nc_sa = nc.Dataset(path.join(par.project_directory,
+                                'eraint/era_sa_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(par.project_directory,'eraint/era_sf_' + 
+        self.nc_sf = nc.Dataset(path.join(par.project_directory,
+                                'eraint/era_sf_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nc_to = nc.Dataset(path.join(par.project_directory,'eraint/era_to_' + 
+        self.nc_to = nc.Dataset(path.join(par.project_directory,
+                                'eraint/era_to_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nstation = len(self.nc_to.variables['station'][:])
-        print self.nstation                        
+        self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # output file 
         self.outfile = par.output_file  
         
-        # time vector for output data
+        # time vector for output data 
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        # units here: "hours since 1900-01-01 00:00:0.0"
+        self.t_unit = self.nc_pl.variables['time'].units 
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
-        #number of time steps
+        #number of time steps for output
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
-                      / 3600 / par.time_step))
-        self.time_step = par.time_step * 3600 # sec
+                      / 3600 / par.time_step))+1 # +1 : include last value
+        self.time_step = par.time_step * 3600    # [s] scaled file
 
         # vector of output time steps as datetime object
+        # 'seconds since 1900-01-01 00:00:0.0'
         mt = min(time)
-        #'hours since 1900-01-01 00:00:0.0'
         self.times_out = [mt + timedelta(seconds = (x*self.time_step)) 
                           for x in range(0, self.nt)]                                                                   
                                       
-        # vector of output time steps as written in ncdf file, but now in second format
+        # vector of output time steps as written in ncdf file [s]
+        units = 'seconds since 1900-01-01 00:00:0.0'
         self.times_out_nc = nc.date2num(self.times_out, 
-                                        units = 'seconds since 1900-01-01 00:00:0.0', 
+                                        units = units, 
                                         calendar = self.t_cal) 
         
     def process(self):
@@ -1388,6 +1403,23 @@ class ERAscale(object):
         self.nc_sa.close()
         self.nc_to.close()
         
+    def PRESS_ERA_Pa_pl(self):
+        """
+        Surface air pressure from pressure levels.
+        """        
+        # add variable to ncdf file
+        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time','station'))    
+        var.long_name = 'air_pressure ERA-I pressure levels only'
+        var.units     = self.nc_pl.variables['air_pressure'].units.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
+        values  = self.nc_pl.variables['air_pressure'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                        time_in*3600, values[:, n])          
+
     def AIRT_ERA_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
@@ -1421,7 +1453,8 @@ class ERAscale(object):
         values  = self.nc_sa.variables['2 metre temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                                    time_in*3600, values[:, n]-273.15)           
+                                                    time_in*3600, 
+                                                    values[:, n]-273.15)           
         
         
     def AIRT_ERA_redcapp(self):
@@ -1452,20 +1485,15 @@ class ERAscale(object):
     def RH_ERA_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]
-        """   
-        # add variable to ncdf file
-        vn = 'DEWP_ERA_C_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '2 metre dewpoint temperature ERA-I surface only'
-        var.units     = self.nc_sa.variables['2 metre dewpoint temperature'].units.encode('UTF8')  
-        
-        # interpolate station by station
+        range [0.1,99.9]. Kernel AIRT_ERA_C_sur must be run before.
+        """         
+        # temporary variable,  interpolate station by station
+        dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
         values  = self.nc_sa.variables['2 metre dewpoint temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n]-273.15) 
+            dewp[:, n] = series_interpolate(self.times_out_nc, 
+                                            time_in*3600, values[:, n]-273.15) 
                                                     
         # add variable to ncdf file
         vn = 'RH_ERA_per_sur' # variable name
@@ -1474,66 +1502,44 @@ class ERAscale(object):
         var.units     = 'Percent'
         
         # quick and dirty https://en.wikipedia.org/wiki/Dew_point
-        RH = 100 - 5 * (self.rg.variables['AIRT_ERA_C_sur'][:, :] - 
-                        self.rg.variables['DEWP_ERA_C_sur'][:, :])
+        RH = 100 - 5 * (self.rg.variables['AIRT_ERA_C_sur'][:, :]-dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
         
         
     def WIND_ERA_sur(self):
         """
-        Wind speed and direction temperature derived from surface data, exclusively.
-        """   
-        
-        # add variable to ncdf file
-        vn = '10 metre U wind component' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre U wind component'
-        var.units     = self.nc_sa.variables['10 metre U wind component'].units.encode('UTF8')  
-        
-        # interpolate station by station
+        Wind speed and direction temperature derived from surface data, 
+        exclusively.
+        """    
+        # temporary variable, interpolate station by station
+        U = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sa.variables[var.long_name][:]                   
+        values  = self.nc_sa.variables['10 metre U wind component'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                                    time_in*3600, values[:, n]) 
-
-        # add variable to ncdf file
-        vn = '10 metre V wind component' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre V wind component'
-        var.units     = self.nc_sa.variables['10 metre V wind component'].units.encode('UTF8')  
+            U[:, n] = series_interpolate(self.times_out_nc, 
+                                         time_in*3600, values[:, n]) 
         
-        # interpolate station by station
+        # temporary variable, interpolate station by station
+        V = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sa.variables[var.long_name][:]                   
+        values  = self.nc_sa.variables['10 metre V wind component'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                                    time_in*3600, values[:, n]) 
+            V[:, n] = series_interpolate(self.times_out_nc, 
+                                         time_in*3600, values[:, n]) 
 
-        # add variable to ncdf file
+        # wind speed, add variable to ncdf file, convert
         vn = 'WSPD_ERA_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA-I surface only'
         var.units     = 'm s**-1'  
-        
-        # add variable to ncdf file
+        self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
+                
+        # wind direction, add variable to ncdf file, convert, relative to North 
         vn = 'WDIR_ERA_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-I surface only'
-        var.units     = 'deg'  
-                                
-        # convert
-        # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
-        # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
-        V = self.rg.variables['10 metre V wind component'][:, :]
-        U = self.rg.variables['10 metre U wind component'][:, :] 
-
-        WS = np.sqrt(np.power(V,2) + np.power(U,2))  
-        self.rg.variables['WSPD_ERA_ms_sur'][:, :] = WS                                          
-
-        WD = np.arctan2(V,U)               
-        WD = np.mod(np.degrees(WD)-90, 360) # make relative to North                                                                 
-        self.rg.variables['WDIR_ERA_deg_sur'][:, :] = WD 
+        var.units     = 'deg'                                                                 
+        self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
     def SW_ERA_Wm2_sur(self):
         """

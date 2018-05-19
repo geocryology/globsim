@@ -213,25 +213,6 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
     return rootgrp
     
 
-def conv_sf(data):
-    """
-    Convert values that are serially cummulative, such as precipitation or 
-    radiation, into a cummulative series from start to finish that can be 
-    interpolated on for sacling. 
-    data: [time, station] 
-    """                       
-    # get increment per time step
-    diff = np.diff(data,1,axis=0)
-    diff = np.concatenate(([data[0,:]], diff))
-    
-    # where new forecast starts, the increment will be smaller than 0
-    # and the actual value is used
-    mask = diff < 0
-    diff[mask] = data[mask]
-    
-    #get full cummulative sum
-    return np.cumsum(diff, axis=0, dtype=np.float64)       
-
 def convert_cummulative(data):
     """
     Convert values that are serially cummulative, such as precipitation or 
