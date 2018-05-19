@@ -1059,7 +1059,7 @@ class ERAinterpolate(object):
         for n in range(niter):
             # indices
             beg = n * self.cs
-            end = min(n*self.cs + self.cs, len(time_in)-1)
+            end = min(n*self.cs + self.cs, len(time_in))
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
