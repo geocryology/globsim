@@ -863,6 +863,9 @@ class ERAinterpolate(object):
             # indices
             beg = n * self.cs
             end = min(n*self.cs + self.cs, len(time_in))
+            if invariant:
+                # allow topography to work in same code
+                end = 0
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
@@ -871,6 +874,7 @@ class ERAinterpolate(object):
             #'<= end_time', would damage appending
             tmask_chunk = (time < end_time) * (time >= beg_time)
             if invariant:
+                # allow topography to work in same code
                 tmask_chunk = [True]
                  
 	    # get the interpolated variables
