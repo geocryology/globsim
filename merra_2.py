@@ -3143,23 +3143,6 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n]-273.15)            
 
-    def RH_MERRA_per_pl(self):
-        """
-        Relative Humidity derived from pressure levels, exclusively.
-        """   
-        
-        # add variable to ncdf file
-        vn = 'RH_MERRA2_per_pl' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'relative humidity MERRA2 pressure levels only'
-        var.units     = 'Percent'
-        
-        # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:]
-        values  = self.nc_pl.variables['relative_humidity'][:]                   
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) * 100
 
     def AIRT_MERRA_C_sur(self):
         """
@@ -3187,8 +3170,6 @@ class MERRAscale(object):
         """   
         
         # temporary variable,  interpolate station by station
-                
-        # interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['2-metre_dew_point_temperature'][:]                   
@@ -3202,7 +3183,7 @@ class MERRAscale(object):
         var.long_name = 'Relative humidity MERRA2 surface only'
         var.units     = 'Percent'
         
-        # quick and dirty https://en.wikipedia.org/wiki/Dew_point
+        # simple: https://en.wikipedia.org/wiki/Dew_point
         RH = 100 - 5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :] - dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
                                                     
@@ -3290,7 +3271,7 @@ class MERRAscale(object):
         vn = 'PREC_MERRA2_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation MERRA2 surface only'
-        var.units     = self.nc_sa.variables['precipitation_flux'].units.encode('UTF8')  
+        var.units     = 'mm'.units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
@@ -3299,6 +3280,7 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) * self.time_step            
 
+ 
     def conv_geotop(self):
         """
         preliminary geotop export
