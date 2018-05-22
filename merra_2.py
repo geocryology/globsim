@@ -817,10 +817,6 @@ class MERRAgeneric():
             skip = 1
         if variable_name == 'PRECTOT':
             skip = 1
-        if variable_name == 'DIFF_LWGDN_LWGAB':
-            skip = 1
-        if variable_name == 'DIFF_LWGDNCLR_LWGABCLR':
-            skip = 1
         if variable_name == 'LWGAB':   
             skip = 1
         if variable_name == 'LWGABCLR':   
@@ -1260,8 +1256,6 @@ class SaveNCDF_pl_3dmana():                                                     
                 #close the root group
                 rootgrp.close()
           
-
-
 class SaveNCDF_pl_3dmasm():                                                        
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
@@ -1931,23 +1925,10 @@ class SaveNCDF_sr():
             
             lwgdn_total = lwgnt_total + lwgem_total
             lwgdnclr_total = lwgntclr_total + lwgem_total
-            
-            # Analyzed Calcualtion:
-            # - DIFF_LWGDN_LWGAB: Difference between Calculated Downwelling Longwave Flux in Air and Surface Absorbed Longwave Radiation;
-            # - DIFF_LWGDNCLR_LWGABCLR: Difference between Calculated Downwelling Longwave Flux in Air Assuming Clear Sky and Surface Absorbed Longwave Radiation Assuming Clear Sky
-            
-            diff_lwgdn_lwgab_total = lwgdn_total - lwgab_total
-            diff_lwgdnclr_lwgabclr_total = lwgdnclr_total- lwgabclr_total
-            
-            # print 'Maximum of DIFF_LWGDN_LWGAB:', diff_lwgdn_lwgab_total.max()
-            # print 'Minimum of DIFF_LWGDN_LWGAB:' , diff_lwgdn_lwgab_total.min()
-            # print 'Maximum of DIFF_LWGDNCLR_LWGABCLR:' , diff_lwgdnclr_lwgabclr_total.max()
-            # print 'Minimum of DIFF_LWGDNCLR_LWGABCLR:' , diff_lwgdnclr_lwgabclr_total.min()  
-                 
+                        
+            #append LWGDN, LWGDNCLR     
             var_list.append(['LWGDN', 'downwelling_longwave_flux_in_air','downwelling_longwave_flux_in_air','W/m2', lwgdn_total])
             var_list.append(['LWGDNCLR','downwelling_longwave_flux_in_air_assuming_clear_sky','downwelling_longwave_flux_in_air_assuming_clear_sky','W/m2', lwgdnclr_total])
-            var_list.append(['DIFF_LWGDN_LWGAB', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation','W/m2', diff_lwgdn_lwgab_total])
-            var_list.append(['DIFF_LWGDNCLR_LWGABCLR', 'difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','difference_between_downwelling_longwave_flux_in_air_and_surface_absorbed_longwave_radiation_assuming_clear_sky','W/m2', diff_lwgdnclr_lwgabclr_total]) 
             
             # print len(var_list)
                
