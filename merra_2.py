@@ -895,7 +895,7 @@ class MERRAgeneric():
                            
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
-            if self.variables_skip(var):
+            if variables_skip(var):
                 continue                 
             print "VAR: ", var            
             # extra treatment for pressure level files
@@ -910,7 +910,7 @@ class MERRAgeneric():
         #close the file
         rootgrp.close()
 
-    def netCDF_merge(self, ncfile_in):
+    def netCDF_merge(self, directory):
         """
         To combine mutiple downloaded merra2 netCDF files into a large file with specified chunk_size(e.g. 500), 
         -- give the full name of merged file to the output = outfile
@@ -931,53 +931,37 @@ class MERRAgeneric():
         """
         #set up nco operator
         nco = Nco()
-        
-        #get the file list
-        files_list = glob.glob(ncfile_in)
-        files_list.sort()
-                
-        # divide file_list
-        chunk_size = 500
-        files_size = len(files_list)
-        int_size = files_size//chunk_size
-        res_type = files_size%chunk_size
-        
-        if (res_type > 0):
-            loop_size = [chunk_size*1]*int_size + [res_type]
-        else:
-            loop_size = [chunk_size*1]*int_size            
-        
-        # set up the combined files list and outfiles
-        loop_low = 0
-        loop_up = 0
-        for i in range(0, len(loop_size)):
-            size = loop_size[i]
-            loop_low = loop_up
-            loop_up = loop_low + size
+  
+        # loop over filetypes, read, report
+        file_type = ['merra_sa_*.nc', 'merra_sf_*.nc', 'merra_pl_*.nc']
+        for ft in file_type:
+            ncfile_in = path.join(directory, ft)
             
+            #get the file list
+            files_list = glob.glob(ncfile_in)
+            files_list.sort()
+            num = len(files_list)
+                        
             #set up the name of merged file
             if ncfile_in[-7:-5] == 'sa':
-                merged_file = path.join(ncfile_in[:-11],'merra2_sa_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'merra2_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
             elif ncfile_in[-7:-5] == 'sf':
-                merged_file = path.join(ncfile_in[:-11],'merra2_sf_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'merra2_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
             elif ncfile_in[-7:-5] == 'pl':
-                merged_file = path.join(ncfile_in[:-11],'merra2_pl_all_'+ str(i) +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'merra2_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
                 print 'There is not such type of file'    
-            
-            #get the divided file list
-            files_list_chunk = files_list[loop_low:loop_up]
-        
+                        
             # combined files into merged files
-            nco.ncrcat(input=files_list_chunk,output=merged_file, append = True)
+            nco.ncrcat(input=files_list,output=merged_file, append = True)
             
             print 'The Merged File below is saved:'
             print merged_file
             
-        merged_files = path.join(ncfile_in[:-11],'merra2_' + ncfile_in[-7:-5] + '_all_*.nc')     
-        
-        return merged_files                
-                                                                                                                                             
+            #clear up the data
+            for fl in files_list:
+                remove(fl)
+                                                                                                                                                     
 class MERRApl_ana():
     """Returns variables from downloaded MERRA 3d Analyzed Meteorological Fields datasets  
        which are abstracted with specific temporal and spatial range  
