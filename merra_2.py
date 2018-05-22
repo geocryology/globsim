@@ -90,7 +90,7 @@ from os                import path, listdir
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor
-from generic           import ParameterIO, StationListRead, ScaledFileOpen
+from generic           import ParameterIO, StationListRead, ScaledFileOpen, variables_skip
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time import sleep
@@ -3276,17 +3276,21 @@ class MERRAscale(object):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
         #number of time steps
-        nt = int(floor((max(time) - min(time)).total_seconds() 
-                       / 3600 / par.time_step))
-        self.time_step = par.time_step
+        self.nt = int(floor((max(time) - min(time)).total_seconds() 
+                      / 3600 / par.time_step))+1 # +1 : include last value
+        self.time_step = par.time_step * 3600 # [s] scaled file
         
         # vector of output time steps as datetime object
+        # 'seconds since 1900-01-01 00:00:0.0'
         mt = min(time)
-        self.times_out    = [mt + timedelta(hours=x) for x in range(0, nt)]
-        # vector of output time steps as written in ncdf file
-        self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
-                                        calendar = self.t_cal)
+        self.times_out = [mt + timedelta(seconds = (x*self.time_step)) 
+                          for x in range(0, self.nt)]                                                                   
 
+        # vector of output time steps as written in ncdf file
+        units = 'seconds since 1900-01-01 00:00:0.0'
+        self.times_out_nc = nc.date2num(self.times_out, 
+                                        units = units, 
+                                        calendar = self.t_cal) 
         
     def process(self):
         """
