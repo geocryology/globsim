@@ -42,7 +42,8 @@ from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path, listdir
-from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip
+from generic import ParameterIO, StationListRead, ScaledFileOpen
+from generic import series_interpolate, variables_skip, spec_hum_kgkg
 from fnmatch import filter
 import numpy   as np
 import netCDF4 as nc
@@ -889,7 +890,8 @@ class ERAinterpolate(object):
             for i, var in enumerate(variables_out):
                 if variables_skip(var):
                     continue
-
+                #next line can be removed and vaname replaced with var, below
+                # once the naming is fixed.
                 vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
                 if pl:
                     # dimension: time, level, station (pressure level files)
@@ -1392,20 +1394,22 @@ class ERAscale(object):
 
     def PREC_ERA_mm_sur(self):
         """
-        Precipitation derived from surface data, exclusively.
+        Precipitation sum in mm for the time step given.
         """   
         # add variable to ncdf file
         vn = 'PREC_ERA_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation ERA-I surface only'
-        var.units     = self.nc_sf.variables['Total precipitation'].units.encode('UTF8')  
+        var.units     = "mm".encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
         values  = self.nc_sf.variables['Total precipitation'][:]               
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n], cum=True)             
+                                          time_in*3600, values[:, n], 
+                                          cum=True) * (1000 * self.time_step) 
+                                          # from m to mm and from rate to sum             
             
 
     def RH_ERA_per_sur(self):
@@ -1427,7 +1431,7 @@ class ERAscale(object):
         var.long_name = 'Relative humidity ERA-I surface only'
         var.units     = 'Percent'
         
-        # quick and dirty https://en.wikipedia.org/wiki/Dew_point
+        # simple: https://doi.org/10.1175/BAMS-86-2-225
         RH = 100 - 5 * (self.rg.variables['AIRT_ERA_C_sur'][:, :]-dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
         
@@ -1513,21 +1517,22 @@ class ERAscale(object):
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
         '''
         
+        # temporary variable,  interpolate station by station
+        dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
+        values  = self.nc_sa.variables['2 metre dewpoint temperature'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            dewp[:, n] = series_interpolate(self.times_out_nc, 
+                                            time_in*3600, values[:, n]-273.15) 
+
+        # compute
+        SH = spec_hum_kgkg(dewp[:, :], 
+                           self.rg.variables['AIRT_PRESS_Pa_pl'][:, :])  
+        
         # add variable to ncdf file
         vn = 'SH_ERA_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA-I surface only'
         var.units     = 'Kg/Kg'.encode('UTF8')  
-        
-                # quick and dirty https://en.wikipedia.org/wiki/Dew_point
-        SH = self.rg.variables['RH_ERA_per_sur'][:, :] / 50
-        self.rg.variables[vn][:, :] = SH  
-        
-        print "Kernel SH_ERA_kgkg_sur needs work"
-        
-        
-        
-        
-        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+        self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          

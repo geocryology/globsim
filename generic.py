@@ -25,6 +25,8 @@ import pandas  as pd
 import netCDF4 as nc
 import numpy as np
 from csv import QUOTE_NONE
+
+
 class ParameterIO(object):
     """
     Reads generic parameter files and makes values available as dictionary.
@@ -270,7 +272,7 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
     # interpolate            
     vi = np.interp(time_out, time_in, value_in)
  
-    # convert from cummulative to noremal time series if needed
+    # convert from cummulative to normal time series if needed
     if cum:
         vi = np.diff(vi) / time_step_sec
         vi = np.float32(np.concatenate(([vi[0]], vi)))
@@ -369,19 +371,79 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     9)  Specific Humidity (Kg/Kg)
     10) Wind Speed (m/s)
     11) Pressure (Pa)
+    
     """
     
-    # format string for strftime (14 30  275  1971)
-    fmt = '%H %M %j %G'
-    columns = ['time','SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'PREC_ERA_mm_sur',
+    # columns to export
+    columns = ['time','SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'PREC_ERA_mmsec_sur',
                'AIRT_ERA_C_sur','SH_ERA_kgkg_sur', 'WSPD_ERA_ms_sur',
                'AIRT_PRESS_Pa_pl']
     
+    # output ASCII formatting
+    formatters={"time":             "  {:%H %M  %j  %G}".format,
+                "SW_ERA_Wm2_sur":   "{:8.2f}".format,
+                "LW_ERA_Wm2_sur":   "{:8.2f}".format,
+                "PREC_ERA_mmsec_sur":  "{:13.4E}".format,
+                "AIRT_ERA_C_sur":   "{:8.2f}".format,
+                "SH_ERA_kgkg_sur":  "{:11.3E}".format,
+                "WSPD_ERA_ms_sur":  "{:7.2f}".format,
+                "AIRT_PRESS_Pa_pl": "{:11.2f}".format}
+    
     # get data
     df = globsimScaled2Pandas(ncdf_globsim, station_nr)                   
-    print df[0:5]
-      
-    # write
-    df.to_csv(met_class, sep=',', columns=columns, quoting=QUOTE_NONE, escapechar='', index=False, header=True, date_format=fmt)   
     
-                                                                         
+    # convery precipitation
+    df["PREC_ERA_mmsec_sur"] = df["PREC_ERA_mm_sur"]/1800.
+    
+    # write FORTRAN formatted ASCII file
+    with open(met_class, 'w') as f:
+        f.write(' ')
+        f.write(df.to_string(columns = columns,
+                formatters=formatters, 
+                header=False, index=False))
+    f.close()    
+     
+     
+def satvapp_kPa_fT(T):
+    '''
+    Saturation water vapour pressure [kPa] following the Tetens formula, Eq 4.2
+    in Stull, Practical Meteorology.
+    
+    T: Temperature [C]
+    '''                          
+    e0 = 0.6113  # [kPa]
+    b  = 17.2694 # fitting constant
+    T1 = 273.15  # [K]
+    T2 = 35.86   # [K]
+    T += T1
+    return e0 * np.exp((b*(T-T1))/(T-T2))
+                                                                                                                       
+
+def vapp_kPa_fTd(Td): 
+    '''
+    Water vapour pressure [hPa] derived from dewpoint temperature [C]. Taken 
+    from www.eol.ucar.edu/projects/ceop/dm/documents/refdata_report/eqns.html
+    where it is attributed to (Bolton 1980) 
+    https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
+    
+    Td: Dew point temperature [C] 
+    
+    '''
+    #(Bolton 1980) 
+    #https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
+    return 6.112 * np.exp((17.67 * Td)/(Td + 243.5)) 
+    
+    #https://www.weather.gov/media/epz/wxcalc/vaporPressure.pdf
+    #return 6.112 * np.power(10,(7.5 * Td)/(237.3 + Td))
+                    
+def spec_hum_kgkg(Td, Pr):
+    '''
+    Specific humidity [Kg/Kg]. Eq 4.7 in Stull, Practical Meteorology.
+    Td: Dewpoint temperature [C]
+    Pr:  Air pressure [Pa]
+    '''
+    E = 0.622 # density of vater vapour / density of dry air
+    e  = vapp_kPa_fTd(Td) / 10
+    P = Pr/1000. # from Pa to kPa 
+    spec_hum = E * e / (P - e * (1 - E)) 
+    return spec_hum                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
