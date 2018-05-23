@@ -204,11 +204,11 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         if name == 'eraint':
 	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 	elif name == 'merra2' :
-	   time.units = 'hours since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
+	   time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
         else: 
-	   time.units = 'hours since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
+	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
 
-        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+#        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station', 'i4',('station'))
