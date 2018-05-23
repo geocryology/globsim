@@ -899,11 +899,12 @@ class MERRAgeneric():
                 continue                 
             print "VAR: ", var            
             # extra treatment for pressure level files
-#            vname = nc_in.variables[var].standard_name.encode('UTF8')         
+            vname = nc_in.variables[var].standard_name.encode('UTF8')
+#            vname = var         
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+                tmp = rootgrp.createVariable(vname,'f4',('time', 'level', 'station'))
             else:
-                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+                tmp = rootgrp.createVariable(vname,'f4',('time', 'station'))     
             tmp.long_name = nc_in.variables[var].standard_name.encode('UTF8') # for merra2
             tmp.units     = nc_in.variables[var].units.encode('UTF8')  
                     
@@ -2660,6 +2661,7 @@ class MERRAinterpolate(object):
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
+        variables_out = variables    
         
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
@@ -2707,7 +2709,7 @@ class MERRAinterpolate(object):
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
 		            
-        return dfield, variables
+        return dfield, variables_out
 
     def MERRA2station(self, ncfile_in, ncfile_out, points,
                              variables = None, date = None):
@@ -2802,25 +2804,25 @@ class MERRAinterpolate(object):
                 tmask_chunk = [True]
            
 	    # get the interpolated variables
-            dfield, variables = self.MERRA2interp2D(ncfile_in, ncf_in, self.stations, tmask_chunk,
+            dfield, variables_out = self.MERRA2interp2D(ncfile_in, ncf_in, self.stations, tmask_chunk,
                                     variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
             #append variables
-            for i, var in enumerate(variables):
+            for i, var in enumerate(variables_out):
                 if MERRAgeneric().variables_skip(var):
                     continue
 
-                    # vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
+                    vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
                     # extra treatment for pressure level files
                     if pl:
                         # dimension: time, level, latitude, longitude
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                        ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                     else:
                         # time, latitude, longitude
-  		        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]		    
+  		        ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
         ncf_in.close()
@@ -2849,7 +2851,7 @@ class MERRAinterpolate(object):
         varlist.remove('longitude')
         varlist.remove('level')
         varlist.remove('height')
-        varlist.remove('geopotential_height')
+        varlist.remove('H')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -2910,7 +2912,7 @@ class MERRAinterpolate(object):
         for n, h in enumerate(height): 
             # geopotential unit: height [m]
             # shape: (time, level)
-            ele = ncf.variables['H'][:,:,n]
+            ele = ncf.variables['geopotential_height'][:,:,n]
             # TODO: check if height of stations in data range (+50m at top, lapse r.)
             
             # difference in elevation. 
