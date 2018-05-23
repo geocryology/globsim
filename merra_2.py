@@ -2661,7 +2661,7 @@ class MERRAinterpolate(object):
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
-        variables_out = variables    
+    
         
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
@@ -2709,7 +2709,7 @@ class MERRAinterpolate(object):
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
 		            
-        return dfield, variables_out
+        return dfield, variables
 
     def MERRA2station(self, ncfile_in, ncfile_out, points,
                              variables = None, date = None):
@@ -2804,25 +2804,29 @@ class MERRAinterpolate(object):
                 tmask_chunk = [True]
            
 	    # get the interpolated variables
-            dfield, variables_out = self.MERRA2interp2D(ncfile_in, ncf_in, self.stations, tmask_chunk,
+            dfield, variables = self.MERRA2interp2D(ncfile_in, ncf_in, self.stations, tmask_chunk,
                                     variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
             #append variables
-            for i, var in enumerate(variables_out):
-                if MERRAgeneric().variables_skip(var):
-                    continue
+            for n, var in enumerate(ncf_in.variables):
+                for i, name in enumerate(variables):
+                    if MERRAgeneric().variables_skip(var):
+                        continue
 
-                    vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
-                    # extra treatment for pressure level files
-                    if pl:
-                        # dimension: time, level, latitude, longitude
-                        ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
-                    else:
-                        # time, latitude, longitude
-  		        ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
+                    # to make sure the matched varialbe to interpolate
+                    if var == name: 
+                        vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
+                        # extra treatment for pressure level files
+                        try:
+                            lev = ncf_in.variables['level'][:]
+                            # dimension: time, level, latitude, longitude
+                            ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                        except:
+                            # time, latitude, longitude
+      		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
         ncf_in.close()
@@ -2851,7 +2855,7 @@ class MERRAinterpolate(object):
         varlist.remove('longitude')
         varlist.remove('level')
         varlist.remove('height')
-        varlist.remove('H')
+        varlist.remove('geopotential_height')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
