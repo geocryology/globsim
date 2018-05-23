@@ -727,8 +727,7 @@ class ERAinterpolate(object):
             variables = varlist
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
-            raise ValueError('One or more variables not in netCDF file.')
-        variables_out = variables            
+            raise ValueError('One or more variables not in netCDF file.')           
 
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
@@ -777,7 +776,7 @@ class ERAinterpolate(object):
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
 		    
-        return dfield, variables_out
+        return dfield, variable
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
                     variables = None, date = None):
@@ -878,7 +877,7 @@ class ERAinterpolate(object):
                 tmask_chunk = [True]
                  
 	    # get the interpolated variables
-            dfield, variables_out = self.ERAinterp2D(ncfile_in, ncf_in, 
+            dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
                                                      self.stations, tmask_chunk,
                                                      variables=None, date=None) 
 
@@ -887,7 +886,7 @@ class ERAinterpolate(object):
                                                      time_in[beg:end])
                                   
             #append variables
-            for i, var in enumerate(variables_out):
+            for i, var in enumerate(variables):
                 if variables_skip(var):
                     continue
                 #next line can be removed and vaname replaced with var, below
