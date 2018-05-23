@@ -3276,7 +3276,7 @@ class MERRAscale(object):
         vn = 'PREC_MERRA2_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation MERRA2 surface only'
-        var.units     = 'mm'.units.encode('UTF8')  
+        var.units     = 'mm'.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
