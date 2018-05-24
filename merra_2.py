@@ -282,7 +282,7 @@ class MERRAgeneric():
            variable = ['T','U','V','H','lat','lon','lev','time']                                     # for extracting from 3d Analyzed Meteorological Fields datasets 
                     = ['RH','H','lat','lon','lev','time']                                     # for extracting from 3d Assimilated Meteorological Fields datasets
                     = ['U2M','T2M','TQL','V2M','V10M','U10M','QV2M','lat','lon','time']              # for extracting from 2d meteorological Diagnostics datasets
-                    = ['PRECTOT','lat','lon','time']                                                 # for extracting from 2d suface flux Diagnostics datasets  
+                    = ['PRECTOT','PRECTOTCOR', 'lat','lon','time']                                                 # for extracting from 2d suface flux Diagnostics datasets  
                     = ['SWGDN','LWGNT', 'SWGDNCLR', 'LWGNTCLR', 'LWGEM', 'lat','lon','time']         # for extracting from 2d radiation Diagnostics datasets 
                     = ['PHIS', 'FRLAND', 'FRLANDICE', 'lat', 'lon','time']                                                   # for extracing from 2d constant model parameters
                     
@@ -833,7 +833,32 @@ class MERRAgeneric():
             skip = 1
 
         return skip 
-    
+
+    def MERRA_skip(self, varlist):
+        '''
+        To remove the extra variables from downloaded MERRA2 data
+        '''
+        
+        for x in varlist:
+            if x == 'PRECTOTCOR':
+               varlist.remove(x)
+            if x == 'LWGAB': 
+               varlist.remove(x)
+            if x == 'LWGABCLR':
+               varlist.remove(x)
+            if x == 'LWGEM':
+               varlist.remove(x)
+            if x == 'LWGNT':
+               varlist.remove(x)
+            if x == 'LWGNTCLR':
+               varlist.remove(x)
+            if x == 'DIFF_LWGDN_LWGAB':
+               varlist.remove(x)
+            if x == 'DIFF_LWGDNCLR_LWGABCLR':
+               varlist.remove(x)            
+        
+        return varlist
+                      
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
         Creates an empty station file to hold interpolated reults. The number of 
