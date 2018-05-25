@@ -802,62 +802,31 @@ class MERRAgeneric():
         
         return rh_total
 
-    def variables_skip(self, variable_name):
-        '''
-        Which variable names to use? Drop the ones that are dimensions.  
-        '''
-        skip = 0
-        if variable_name == 'time':
-            skip = 1
-        if variable_name == 'level':
-            skip = 1
-        if variable_name == 'latitude':
-            skip = 1
-        if variable_name == 'longitude':
-            skip = 1
-        if variable_name == 'PRECTOT':
-            skip = 1
-        if variable_name == 'LWGAB':   
-            skip = 1
-        if variable_name == 'LWGABCLR':   
-            skip = 1
-        if variable_name == 'LWGEM':   
-            skip = 1
-        if variable_name == 'LWGNT':   
-            skip = 1
-        if variable_name == 'LWGNTCLR':   
-            skip = 1
-        if variable_name == 'DIFF_LWGDN_LWGAB':   
-            skip = 1
-        if variable_name == 'DIFF_LWGDNCLR_LWGABCLR':   
-            skip = 1
 
-        return skip 
-
-    def MERRA_skip(self, varlist):
+    def MERRA_skip(self, merralist):
         '''
         To remove the extra variables from downloaded MERRA2 data
         '''
         
-        for x in varlist:
-            if x == 'PRECTOTCOR':
-               varlist.remove(x)
+        for x in merralist:
+            if x == 'PRECTOT':
+               merralist.remove(x)
             if x == 'LWGAB': 
-               varlist.remove(x)
+               merralist.remove(x)
             if x == 'LWGABCLR':
-               varlist.remove(x)
+               merralist.remove(x)
             if x == 'LWGEM':
-               varlist.remove(x)
+               merralist.remove(x)
             if x == 'LWGNT':
-               varlist.remove(x)
+               merralist.remove(x)
             if x == 'LWGNTCLR':
-               varlist.remove(x)
+               merralist.remove(x)
             if x == 'DIFF_LWGDN_LWGAB':
-               varlist.remove(x)
+               merralist.remove(x)
             if x == 'DIFF_LWGDNCLR_LWGABCLR':
-               varlist.remove(x)            
+               merralist.remove(x)            
         
-        return varlist
+        return merralist
                       
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
@@ -917,19 +886,22 @@ class MERRAgeneric():
         except:
             print "== 2D: file without pressure levels"
             lev = []
-                           
+        
+        #remove extra varlables
+        varlist_merra = [x.encode('UTF8') for x in nc_in.variables.keys()]
+        varlist_merra = self.MERRA_skip(varlist_merra)                
+        
         # create and assign variables based on input file
-        for n, var in enumerate(nc_in.variables):
-            if MERRAgeneric().variables_skip(var):
-                continue                 
+        for n, var in enumerate(varlist_merra):
+            if variables_skip(var):
+                continue
+                                 
             print "VAR: ", var            
-            # extra treatment for pressure level files
-            vname = nc_in.variables[var].standard_name.encode('UTF8')
-#            vname = var         
+            # extra treatment for pressure level files        
             if len(lev):
-                tmp = rootgrp.createVariable(vname,'f4',('time', 'level', 'station'))
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
             else:
-                tmp = rootgrp.createVariable(vname,'f4',('time', 'station'))     
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
             tmp.long_name = nc_in.variables[var].standard_name.encode('UTF8') # for merra2
             tmp.units     = nc_in.variables[var].units.encode('UTF8')  
                     
@@ -2679,6 +2651,9 @@ class MERRAinterpolate(object):
         varlist.remove('longitude')
         if pl: #only for pressure level files
             varlist.remove('level')
+            
+        # remove extra variables 
+        varlist = MERRAgeneric().MERRA_skip(varlist)  
     
         #list variables that should be interpolated
         if variables is None:
@@ -2836,22 +2811,18 @@ class MERRAinterpolate(object):
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end])
             #append variables
-            for n, var in enumerate(ncf_in.variables):
-                for i, name in enumerate(variables):
-                    if MERRAgeneric().variables_skip(var):
-                        continue
-
-                    # to make sure the matched varialbe to interpolate
-                    if var == name: 
-                        vname = ncf_in.variables[var].standard_name.encode('UTF8')                                            
-                        # extra treatment for pressure level files
-                        try:
-                            lev = ncf_in.variables['level'][:]
-                            # dimension: time, level, latitude, longitude
-                            ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
-                        except:
-                            # time, latitude, longitude
-      		            ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]		    
+            for i, var in enumerate(variables):
+                if variables_skip(var):
+                    continue
+                                          
+                # extra treatment for pressure level files
+                try:
+                    lev = ncf_in.variables['level'][:]
+                    # dimension: time, level, latitude, longitude
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                except:
+                    # time, latitude, longitude
+                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]		    
                                      
         #close the file
         ncf_in.close()
@@ -2880,7 +2851,7 @@ class MERRAinterpolate(object):
         varlist.remove('longitude')
         varlist.remove('level')
         varlist.remove('height')
-        varlist.remove('geopotential_height')
+        varlist.remove('H')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -2924,8 +2895,7 @@ class MERRAinterpolate(object):
         
         # create and assign variables from input file
         for var in varlist:
-            vname = ncf.variables[var].long_name.encode('UTF8')
-            tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
+            tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')
         
@@ -2941,7 +2911,7 @@ class MERRAinterpolate(object):
         for n, h in enumerate(height): 
             # geopotential unit: height [m]
             # shape: (time, level)
-            ele = ncf.variables['geopotential_height'][:,:,n]
+            ele = ncf.variables['H'][:,:,n]
             # TODO: check if height of stations in data range (+50m at top, lapse r.)
             
             # difference in elevation. 
@@ -3014,7 +2984,6 @@ class MERRAinterpolate(object):
         # dictionary to translate CF Standard Names into MERRA2
         # pressure level variable keys. 
         dpar = {'air_temperature'   : ['T2M', 'T2MDEW'],  # [K] 2m values
-                #'precipitation_amount' : ['PRECTOT'],  # [kg/m2/s] total precipitation
                 'precipitation_amount' : ['PRECTOTCORR'],  # [kg/m2/s] total precipitation                                                            
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M']}   # [m s-1] 2m & 10m values   
         varlist = self.TranslateCF2short(dpar)                      
