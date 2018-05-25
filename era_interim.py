@@ -208,13 +208,12 @@ class ERAgeneric(object):
             if variables_skip(var):
                 continue                 
             print "VAR: ", var
-            # extra treatment for pressure level files
-            vname = nc_in.variables[var].long_name.encode('UTF8')            
+            # extra treatment for pressure level files           
             if len(lev):
-                tmp = rootgrp.createVariable(vname,'f4',('time', 'level', 'station'))
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
             else:
-                tmp = rootgrp.createVariable(vname,'f4',('time', 'station'))     
-            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') # for eraint
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') 
             tmp.units     = nc_in.variables[var].units.encode('UTF8')  
                     
         #close the file
@@ -366,12 +365,11 @@ class ERAgeneric(object):
         # create and assign variables based on input file
         for n, var in enumerate(varlist):
             print "VAR: ", var
-            # extra treatment for pressure level files
-            vname = var            
+            # extra treatment for pressure level files            
             if len(lev):
-                tmp = rootgrp.createVariable(vname,'f4',('time', 'level', 'latitude', 'longitude'))
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'latitude', 'longitude'))
             else:
-                tmp = rootgrp.createVariable(vname,'f4',('time', 'latitude', 'longitude'))     
+                tmp = rootgrp.createVariable(var,'f4',('time', 'latitude', 'longitude'))     
             tmp.long_name = ncf_in.variables[var].long_name.encode('UTF8') # for eraint
             tmp.units     = ncf_in.variables[var].units.encode('UTF8') 
             
@@ -776,7 +774,7 @@ class ERAinterpolate(object):
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
 		    
-        return dfield, variable
+        return dfield, variables
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
                     variables = None, date = None):
@@ -889,15 +887,13 @@ class ERAinterpolate(object):
             for i, var in enumerate(variables):
                 if variables_skip(var):
                     continue
-                #next line can be removed and vaname replaced with var, below
-                # once the naming is fixed.
-                vname = ncf_in.variables[var].long_name.encode('UTF8')                                            
+                                                              
                 if pl:
                     # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[vname][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
                 else:
                     # time, station (2D files)
-      		    ncf_out.variables[vname][beg:end,:] = dfield.data[i,:,:]	
+      		    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]	
       		                                                                 	    
                                      
         #close the file
@@ -927,7 +923,7 @@ class ERAinterpolate(object):
         varlist.remove('longitude')
         varlist.remove('level')
         varlist.remove('height')
-        varlist.remove('Geopotential')
+        varlist.remove('z')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -971,8 +967,7 @@ class ERAinterpolate(object):
         
         # create and assign variables from input file
         for var in varlist:
-            vname = ncf.variables[var].long_name.encode('UTF8')
-            tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
+            tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
             tmp.units     = ncf.variables[var].units.encode('UTF8')  
 
@@ -987,7 +982,7 @@ class ERAinterpolate(object):
         # loop over stations
         for n, h in enumerate(height): 
             # convert geopotential [mbar] to height [m], shape: (time, level)
-            ele = ncf.variables['Geopotential'][:,:,n] / 9.80665
+            ele = ncf.variables['z'][:,:,n] / 9.80665
             # TODO: check if height of stations in data range
             
             # difference in elevation, level directly above will be >= 0
@@ -1355,11 +1350,11 @@ class ERAscale(object):
         vn = 'AIRT_ERA_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA-I pressure levels only'
-        var.units     = self.nc_pl.variables['Temperature'].units.encode('UTF8')  
+        var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
-        values  = self.nc_pl.variables['Temperature'][:]                   
+        values  = self.nc_pl.variables['t'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                         time_in*3600, values[:, n]-273.15)          
@@ -1373,11 +1368,11 @@ class ERAscale(object):
         vn = 'AIRT_ERA_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-I surface only'
-        var.units     = self.nc_sa.variables['2 metre temperature'].units.encode('UTF8')  
+        var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)      
-        values  = self.nc_sa.variables['2 metre temperature'][:]                   
+        values  = self.nc_sa.variables['t2m'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                                     time_in*3600, 
@@ -1403,7 +1398,7 @@ class ERAscale(object):
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['Total precipitation'][:]               
+        values  = self.nc_sf.variables['tp'][:]               
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n], 
@@ -1419,7 +1414,7 @@ class ERAscale(object):
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sa.variables['2 metre dewpoint temperature'][:]                   
+        values  = self.nc_sa.variables['d2m'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             dewp[:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n]-273.15) 
@@ -1443,7 +1438,7 @@ class ERAscale(object):
         # temporary variable, interpolate station by station
         U = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sa.variables['10 metre U wind component'][:]                   
+        values  = self.nc_sa.variables['u10'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             U[:, n] = series_interpolate(self.times_out_nc, 
                                          time_in*3600, values[:, n]) 
@@ -1451,7 +1446,7 @@ class ERAscale(object):
         # temporary variable, interpolate station by station
         V = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sa.variables['10 metre V wind component'][:]                   
+        values  = self.nc_sa.variables['v10'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             V[:, n] = series_interpolate(self.times_out_nc, 
                                          time_in*3600, values[:, n]) 
@@ -1480,11 +1475,11 @@ class ERAscale(object):
         vn = 'SW_ERA_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA-I surface only'
-        var.units     = self.nc_sf.variables['Surface solar radiation downwards'].units.encode('UTF8')  
+        var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['Surface solar radiation downwards'][:]               
+        values  = self.nc_sf.variables['ssrd'][:]               
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n], cum=True) 
@@ -1500,11 +1495,11 @@ class ERAscale(object):
         vn = 'LW_ERA_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards ERA-I surface only'
-        var.units     = self.nc_sf.variables['Surface thermal radiation downwards'].units.encode('UTF8')  
+        var.units     = self.nc_sf.variables['strd'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['Surface thermal radiation downwards'][:]
+        values  = self.nc_sf.variables['strd'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n], cum=True)   
@@ -1519,7 +1514,7 @@ class ERAscale(object):
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sa.variables['2 metre dewpoint temperature'][:]                   
+        values  = self.nc_sa.variables['d2m'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             dewp[:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n]-273.15) 
