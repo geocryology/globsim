@@ -6,7 +6,7 @@ list_name = siteslist
 # How many time steps to interpolate at once? This helps memory management.
 # Keep small for large area files and small memory computer, make larger to get 
 # speed on big machines and when working with small area files.
-# suggest to set up < 2000, with the consideration of memory limit of computer
+# for small area, suggest to set up < 2000, with the consideration of memory limit of computer
 chunk_size = 2000
 
 # time slice [YYYY/MM/DD] assuming 00:00 hours
