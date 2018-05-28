@@ -1455,7 +1455,14 @@ class JRAinterpolate(object):
             vname = ncf.variables[var].long_name.encode('UTF8')
             tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
             tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
-            tmp.units     = ncf.variables[var].units.encode('UTF8')  
+            tmp.units     = ncf.variables[var].units.encode('UTF8')
+            
+        # add air pressure as new variable
+        var = 'air_pressure'
+        varlist.append(var)
+        tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
+        tmp.long_name = var.encode('UTF8')
+        tmp.units     = 'hPa'.encode('UTF8') 
         # end file prepation ===================================================
     
                                                                                                 
@@ -1491,12 +1498,18 @@ class JRAinterpolate(object):
             
             #loop over variables and apply interpolation weights
             for v, var in enumerate(varlist):
-                #read data from netCDF
-                data = ncf.variables[var][:,:,n].ravel()
+                if var == 'air_pressure':
+                    # pressure [Pa] variable from levels, shape: (time, level)
+                    data = np.repeat([ncf.variables['level'][:]],
+                                      len(time),axis=0).ravel()                 
+                else:
+                    #read data from netCDF
+                    data = ncf.variables[var][:,:,n].ravel()
                 ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
         rootgrp.close()
+        ncf.close()
         # closed file ==========================================================    
 
 
