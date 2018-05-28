@@ -6,6 +6,7 @@ from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
 from netCDF4         import Dataset
 from generic         import ParameterIO, StationListRead, ScaledFileOpen
+from generic         import series_interpolate, variables_skip, spec_hum_kgkg
 from os              import path, listdir
 from math            import exp, floor
 from fnmatch         import filter
@@ -820,9 +821,9 @@ class JRAdownload(object):
         self.elevation = {'min' : par.ele_min, 
                           'max' : par.ele_max}
         
-        # data directory for ERA-Interim  
+        # data directory for JRA-55  
         self.directory = par.project_directory
-        #self.directory = path.join(par.project_directory, "eraint")  
+        #self.directory = path.join(par.project_directory, "jra55")  
         #if path.isdir(self.directory) == False:
             #raise ValueError("Directory does not exist: " + self.directory)
             
@@ -1060,9 +1061,89 @@ class JRAinterpolate(object):
         
         # time bounds
         self.date  = {'beg' : par.beg,
-                      'end' : par.end}
+                      'end' : par.end + timedelta(days=1)}
 
-    def JRA2station(self, ncfile_in, ncfile_out, points,
+        # chunk size: how many time steps to interpolate at the same time?
+        # A small chunk size keeps memory usage down but is slow.
+        self.cs  = int(par.chunk_size)
+        
+    def netCDF_empty(self, ncfile_out, stations, nc_in):
+        '''
+        Creates an empty station file to hold interpolated reults. The number of 
+        stations is defined by the variable stations, variables are determined by 
+        the variable list passed from the gridded original netCDF.
+        
+        ncfile_out: full name of the file to be created
+        stations:   station list read with generic.StationListRead() 
+        variables:  variables read from netCDF handle
+        lev:        list of pressure levels, empty is [] (default)
+        '''
+        
+        #Build the netCDF file
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.source      = 'JRA55, interpolated bilinearly to stations'
+        rootgrp.featureType = "timeSeries"
+                                                
+        # dimensions
+        station = rootgrp.createDimension('station', len(stations))
+        time    = rootgrp.createDimension('time', None)
+                
+        # base variables
+        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time.long_name = 'time'
+        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.calendar  = 'gregorian'
+        station             = rootgrp.createVariable('station', 'i4',('station'))
+        station.long_name   = 'station for time series data'
+        station.units       = '1'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east' 
+        height           = rootgrp.createVariable('height','f4',('station'))
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm'  
+        
+        # assign station characteristics            
+        station[:]   = list(stations['station_number'])
+        latitude[:]  = list(stations['latitude_dd'])
+        longitude[:] = list(stations['longitude_dd'])
+        height[:]    = list(stations['elevation_m'])
+        
+        # extra treatment for pressure level files
+        try:
+            lev = nc_in.variables['level'][:]
+            print "== 3D: file has pressure levels"
+            level = rootgrp.createDimension('level', len(lev))
+            level           = rootgrp.createVariable('level','i4',('level'))
+            level.long_name = 'pressure_level'
+            level.units     = 'hPa'  
+            level[:] = lev 
+        except:
+            print "== 2D: file without pressure levels"
+            lev = []
+                    
+        # create and assign variables based on input file
+        for n, var in enumerate(nc_in.variables):
+            if variables_skip(var):
+                continue                 
+            print "VAR: ", var
+            # extra treatment for pressure level files           
+            if len(lev):
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+            tmp.long_name = nc_in.variables[var].standard_name.encode('UTF8') 
+            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
+                    
+        #close the file
+        rootgrp.close()
+        
+        
+    def JRAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                     variables=None, date=None):    
         """
         Biliner interpolation from fields on regular grid (latitude, longitude) 
@@ -1074,7 +1155,9 @@ class JRAinterpolate(object):
                         contain wildcards to point to multiple files if temporal
                         chunking was used.
               
-            ncfile_out: Full path to the output netCDF file to write.  
+            ncf_in: A netCDF4.MFDataset derived from reading in JRA-55 
+                    multiple files (def JRA2station())
+            
               
             points: A dictionary of locations. See method StationListRead in
                     generic.py for more details.
@@ -1095,45 +1178,24 @@ class JRAinterpolate(object):
                       'end' : datetime(2008,12,31)}
             variables  = [air_temperature, easteard_wind, northward_wind]       
             stations = StationListRead("points.csv")      
-            MERRA2station('jra_surf_*.nc', 'jra_sa_inter.nc', stations, 
+            JRA2station('jra_surf_*.nc', 'jra_sa_inter.nc', stations, 
                         variables=variables, date=date)        
         """   
-
-        # open netcdf file handle, can be one file of several with wildcards
-        ncf = nc.MFDataset(ncfile_in, 'r', aggdim ='time') 
-        
         # is it a file with pressure levels?
-        pl = 'level' in ncf.dimensions.keys()
+        pl = 'level' in ncf_in.dimensions.keys()
 
         # get spatial dimensions
-        lat  = ncf.variables['latitude'][:]
-        lon  = ncf.variables['longitude'][:]
         if pl: # only for pressure level files
-            lev  = ncf.variables['level'][:]
+            lev  = ncf_in.variables['level'][:]
             nlev = len(lev)
-    
-        # get time and convert to datetime object
-        nctime = ncf.variables['time'][:]
-        t_unit = ncf.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
-        try :
-            t_cal = ncf.variables['time'].calendar
-        except AttributeError : # Attribute doesn't exist
-            t_cal = u"gregorian" # or standard
-        time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
-        
-        # restrict to date/time range if given
-        if date is None:
-            tmask = time < datetime(3000, 1, 1)
-        else:
-            tmask = (time < date['end']) * (time >= date['beg'])
-          
+              
         # test if time steps to interpolate remain
-        nt = sum(tmask)
+        nt = sum(tmask_chunk)
         if nt == 0:
             raise ValueError('No time steps from netCDF file selected.')
     
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -1145,8 +1207,8 @@ class JRAinterpolate(object):
             variables = varlist
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
-            raise ValueError('One or more variables not in netCDF file.')
-        
+            raise ValueError('One or more variables not in netCDF file.')           
+
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
@@ -1162,16 +1224,17 @@ class JRAinterpolate(object):
             sfield = ESMF.Field(sgrid, name='sgrid',
                                 staggerloc=ESMF.StaggerLoc.CENTER,
                                 ndbounds=[len(variables), nt])
-                                                 
+
         # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
-                sfield.data[n,:,:,:,:] = ncf.variables[var][tmask,:,:,:].transpose((0,1,3,2)) 
+                sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
             else:
-                sfield.data[n,:,:,:] = ncf.variables[var][tmask,:,:].transpose((0,2,1))
+                sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
 
         # create locstream, CANNOT have third dimension!!!
-        locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
+        locstream = ESMF.LocStream(len(self.stations), 
+                                   coord_sys=ESMF.CoordSys.SPH_DEG)
         locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
         locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
 
@@ -1188,81 +1251,141 @@ class JRAinterpolate(object):
                                 regrid_method=ESMF.RegridMethod.BILINEAR,
                                 unmapped_action=ESMF.UnmappedAction.IGNORE,
                                 dst_mask_values=None)
-                          
+                  
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-		
-        # === write output netCDF file =========================================
-        # dimensions: station, time OR station, time, level
-        # variables: latitude(station), longitude(station), elevation(station)
-        #            others: ...(time, level, station) or (time, station)
-        # stations are integer numbers
-        # create a file (Dataset object, also the root group).
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'JRA-55, interpolated bilinearly to stations'
-        rootgrp.featureType = "timeSeries"
+		    
+        return dfield, variables
 
-        # dimensions
-        station = rootgrp.createDimension('station', len(self.stations))
-        time    = rootgrp.createDimension('time', nt)
-        if pl: # only for pressure level files
-            level = rootgrp.createDimension('level', nlev)
+    def JRA2station(self, ncfile_in, ncfile_out, points,
+                    variables = None, date = None):
+        
+        """
+        Biliner interpolation from fields on regular grid (latitude, longitude) 
+        to individual point stations (latitude, longitude). This works for
+        surface and for pressure level files (all JRA55 files). The type 
+        of variable and file structure are determined from the input.
+        
+        This function creates an empty of netCDF file to hold the interpolated 
+        results, by calling self.netCDF_empty(). Then, data is 
+        interpolated in temporal chunks and appended. The temporal chunking can 
+        be set in the interpolation parameter file.
+        
+        Args:
+        ncfile_in: Full path to an JRA-55 derived netCDF file. This can
+                   contain wildcards to point to multiple files if temporal
+                  chunking was used.
+            
+        ncfile_out: Full path to the output netCDF file to write.     
+        
+        points: A dictionary of locations. See method StationListRead in
+                generic.py for more details.
+    
+        variables:  List of variable(s) to interpolate such as 
+                    [air_temperature, easteard_wind, northward_wind, relative_humidy, surface_temperature, 
+                    downwelling_shortwave_flux_in_air, downwelling_longwave_flux_in_air,
+                    downwelling_shortwave_flux_in_air_assuming_clear_sky, 
+                    downwelling_longwave_flux_in_air_assuming_clear_sky].
+                    Defaults to using all variables available.
+    
+        date: Directory to specify begin and end time for the derived time 
+                series. Defaluts to using all times available in ncfile_in.
+        
+        cs: chunk size, i.e. how many time steps to interpolate at once. This 
+            helps to manage overall memory usage (small cs is slower but less
+            memory intense).          
+        """
+                
+        # read in one type of mutiple netcdf files       
+        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+        # is it a file with pressure levels?
+        pl = 'level' in ncf_in.dimensions.keys()
 
-        # base variables
-        time           = rootgrp.createVariable('time',     'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station',  'i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
-        if pl: # only for pressure level files
-            level           = rootgrp.createVariable('level','i4',('level'))
-            level.long_name = 'pressure_level'
-            level.units     = 'millibars'  
+        # build the output of empty netCDF file
+        self.netCDF_empty(ncfile_out, self.stations, ncf_in) 
+                                     
+        # open the output netCDF file, set it to be appendable ('a')
+        ncf_out = nc.Dataset(ncfile_out, 'a')
+
+        # get time and convert to datetime object
+        nctime = ncf_in.variables['time'][:]
+        #"hours since 1900-01-01 00:00:0.0"
+        t_unit = ncf_in.variables['time'].units 
+        try :
+            t_cal = ncf_in.variables['time'].calendar
+        except AttributeError :  # attribute doesn't exist
+            t_cal = u"gregorian" # standard
+        time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
         
-        # assign base variables
-        time[:] = nctime[tmask]
-        if pl: # only for pressure level files
-            level[:] = lev
-        station[:]   = list(self.stations['station_number'])
-        latitude[:]  = list(self.stations['latitude_dd'])
-        longitude[:] = list(self.stations['longitude_dd'])
-        height[:]    = list(self.stations['elevation_m'])
-      
-        # create and assign variables from input file
-        for n, var in enumerate(variables):
-            vname = ncf.variables[var].standard_name.encode('UTF8')
-            if pl: # only for pressure level files
-                tmp   = rootgrp.createVariable(vname,
-                                                'f4',('time', 'level', 'station'))
+        # detect invariant files (topography etc.)
+        if len(time) ==1:
+            invariant=True
+        else:
+            invariant=False                                                                         
+                                                                                                                                                                                                                                            
+        # restrict to date/time range if given
+        if date is None:
+            tmask = time < datetime(3000, 1, 1)
+        else:
+            tmask = (time <= date['end']) * (time >= date['beg'])
+                              
+        # get time indices
+        time_in = nctime[tmask]     
+
+        # ensure that chunk sizes cover entire period even if
+        # len(time_in) is not an integer multiple of cs
+        niter  = len(time_in)/self.cs
+        niter += ((len(time_in) % self.cs) > 0)
+
+        # loop over chunks
+        for n in range(niter):
+            # indices
+            beg = n * self.cs
+            # restrict last chunk to lenght of tmask plus one (to get last time)
+            end = min(n*self.cs + self.cs, len(time_in))
+            
+            # time to make tmask for chunk 
+            beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
+            if invariant:
+                # allow topography to work in same code, len(nctime) = 1
+                end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
             else:
-                tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))   
-                  
-            tmp.long_name = ncf.variables[var].standard_name.encode('UTF8')
-            tmp.units     = ncf.variables[var].units.encode('UTF8')  
-            # assign values
-            if pl: # only for pressure level files
-                tmp[:] = dfield.data[n,:,:,:]
-            else:
-                tmp[:] = dfield.data[n,:,:]    
-    
-        rootgrp.close()
-        ncf.close()
-        
-        # closed file ==========================================================
-    
+                end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
+                
+            #'<= end_time', would damage appending
+            tmask_chunk = (time < end_time) * (time >= beg_time)
+            if invariant:
+                # allow topography to work in same code
+                tmask_chunk = [True]
+                 
+	    # get the interpolated variables
+            dfield, variables = self.JRAinterp2D(ncfile_in, ncf_in, 
+                                                     self.stations, tmask_chunk,
+                                                     variables=None, date=None) 
+
+            # append time
+            ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
+                                                     time_in[beg:end])
+                                  
+            #append variables
+            for i, var in enumerate(variables):
+                if variables_skip(var):
+                    continue
+                                                              
+                if pl:
+                    # dimension: time, level, station (pressure level files)
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                else:
+                    # time, station (2D files)
+      		    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]	
+      		                                                                 	    
+                                     
+        #close the file
+        ncf_in.close()
+        ncf_out.close()         
+
+   
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
         Linear 1D interpolation of pressure level data available for individual
