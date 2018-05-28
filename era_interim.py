@@ -659,7 +659,7 @@ class ERAinterpolate(object):
         self.date  = {'beg' : par.beg,
                       'end' : par.end + timedelta(days=1)}
     
-        # chunk size: how many tiem steps to interpolate at the same time?
+        # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par.chunk_size)
     
@@ -677,7 +677,7 @@ class ERAinterpolate(object):
                        chunking was used.
               
             ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim 
-                    multiple files (def ERA2station_append())
+                    multiple files (def ERA2station())
             
             points: A dictionary of locations. See method StationListRead in
                     generic.py for more details.
