@@ -2939,9 +2939,12 @@ class MERRAinterpolate(object):
             #loop over variables and apply interpolation weights
             for v, var in enumerate(varlist):
                 if var == 'air_pressure':
+                    reversed_level = ncf.variables['level'][:][::-1]
                     # pressure [hPa] variable from levels, shape: (time, level)
-                    data = np.repeat([ncf.variables['level'][:]],
-                                      len(time),axis=0).ravel() 
+                    # data = np.repeat([ncf.variables['level'][:]],
+                    #                   len(time),axis=0).ravel()
+                    data = np.repeat(reversed_level,
+                                       len(time),axis=0).ravel()                     
                 else:    
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()
