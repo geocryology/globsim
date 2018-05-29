@@ -1490,9 +1490,7 @@ class JRAinterpolate(object):
             # weights
             wa = np.absolute(dele.ravel()[vb]) 
             wb = np.absolute(dele.ravel()[va])
-            
             wt = wa + wb
-            
             wa /= wt # Apply after ravel() of data.
             wb /= wt # Apply after ravel() of data.
             
