@@ -2917,7 +2917,7 @@ class MERRAinterpolate(object):
             
             # difference in elevation. 
             # level directly above will be >= 0
-            dele = ele - h
+            dele = -(ele - h)
             # vector of level indices that fall directly above station. 
             # Apply after ravel() of data.
             va = np.argmin(dele + (dele < 0) * 100000, axis=1) 
