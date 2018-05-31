@@ -3167,7 +3167,7 @@ class MERRAscale(object):
     def RH_MERRA_per_sur(self):
         """
         Relative Humdity derived from surface data, exclusively.Clipped to
-        range [0.1,99.9]. Kernel AIRT_ERA_C_sur must be run before.
+        range [0.1,99.9]. Kernel AIRT_MERRA_C_sur must be run before.
         """   
         
         # temporary variable,  interpolate station by station
