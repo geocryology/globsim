@@ -1617,18 +1617,23 @@ class JRAscale(object):
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
-        #number of time steps
-        nt = int(floor((max(time) - min(time)).total_seconds() 
-                       / 3600 / par.time_step))
-        self.time_step = par.time_step
+         #number of time steps
+        self.nt = int(floor((max(time) - min(time)).total_seconds() 
+                      / 3600 / par.time_step))+1 # +1 : include last value
+        self.time_step = par.time_step * 3600 # [s] scaled file
                               
         # vector of output time steps as datetime object
-        self.times_out    = [min(time) + timedelta(hours=x) for x in range(0, nt)]
-        # vector of output time steps as written in ncdf file
-        self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
-                                        calendar = self.t_cal)
-
+        # 'seconds since 1990-01-01 00:00:0.0'
+        mt = min(time)
+        self.times_out = [mt + timedelta(seconds = (x*self.time_step)) 
+                          for x in range(0, self.nt)]                                                                   
         
+        # vector of output time steps as written in ncdf file
+        units = 'seconds since 1990-01-01 00:00:0.0'
+        self.times_out_nc = nc.date2num(self.times_out, 
+                                        units = units, 
+                                        calendar = self.t_cal) 
+       
     def process(self):
         """
         Run all relevant processes and save data. Each kernel processes one 
@@ -1640,13 +1645,31 @@ class JRAscale(object):
         for kernel_name in self.kernels:
             getattr(self, kernel_name)()
             
-        self.conv_geotop()    
+        # self.conv_geotop()    
             
         # close netCDF files   
         self.rg.close()
         self.nc_pl.close()
         self.nc_sr.close()
         self.nc_sa.close()
+
+    def PRESS_JRA_Pa_pl(self):
+        """
+        Surface air pressure from pressure levels.
+        """        
+        # add variable to ncdf file
+        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time','station'))    
+        var.long_name = 'air_pressure JRA-55 pressure levels only'
+        var.units     = 'Pa'.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
+        values  = self.nc_pl.variables['air_pressure'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            #scale from hPa to Pa 
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                        time_in*3600, values[:, n]) * 100          
 
     def AIRT_JRA_C_pl(self):
         """
@@ -1658,13 +1681,12 @@ class JRAscale(object):
         var.units     = self.nc_pl.variables['air_temperature'].units.encode('UTF8')  
         
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:]
+        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
         values  = self.nc_pl.variables['air_temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])-273.15            
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                            time_in*3600, values[:, n]-273.15)            
                 
- 
     def AIRT_JRA_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -1677,14 +1699,17 @@ class JRAscale(object):
         var.units     = self.nc_sa.variables['surface_temperature'].units.encode('UTF8')  
         
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['surface_temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])-273.15  
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                                    time_in*3600, 
+                                                    values[:, n]-273.15)            
+
     def RH_JRA_per_sur(self):
         """
-        Relative Humidity derived from surface data, exclusively.
+        Relative Humidity derived from surface data, exclusively.Clipped to
+        range [0.1,99.9]. 
         """        
         # add variable to ncdf file
         vn = 'RH_JRA55_per_sur' # variable name
@@ -1693,68 +1718,49 @@ class JRAscale(object):
         var.units     = self.nc_sa.variables['relative_humidity'].units.encode('UTF8')  
         
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['relative_humidity'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])  
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                   time_in*3600, values[:, n]).clip(min=0.1, max=99.9)
+                                             
 
     def WIND_JRA_sur(self):
         """
         Wind at 10 metre derived from surface data, exclusively.
         """   
         
-        # add variable to ncdf file
-        vn = '10 metre U wind component' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre U wind component'
-        var.units     = self.nc_sa.variables['eastward_wind'].units.encode('UTF8')  
-        
-        # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
+        # temporary variable, interpolate station by station
+        U = np.zeros((self.nt, self.nstation), dtype=np.float32)        
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['eastward_wind'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) 
+            U[:, n] = series_interpolate(self.times_out_nc, 
+                                         time_in*3600, values[:, n]) 
 
-        # add variable to ncdf file
-        vn = '10 metre V wind component' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre V wind component'
-        var.units     = self.nc_sa.variables['northward_wind'].units.encode('UTF8')  
-        
-        # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
+        # temporary variable, interpolate station by station
+        V = np.zeros((self.nt, self.nstation), dtype=np.float32)        
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['northward_wind'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) 
-
+            V[:, n] = series_interpolate(self.times_out_nc, 
+                                         time_in*3600, values[:, n])
+                
         # add variable to ncdf file
         vn = 'WSPD_JRA55_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre wind speed JRA-55 surface only'
-        var.units     = 'm s**-1'  
+        var.units     = 'm s**-1'
+        self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
         
         # add variable to ncdf file
         vn = 'WDIR_JRA55_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre wind direction JRA-55 surface only'
-        var.units     = 'deg'  
+        var.units     = 'deg' 
+        self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
+ 
                                 
-        # convert
-        # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
-        # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
-        V = self.rg.variables['10 metre V wind component'][:, :]
-        U = self.rg.variables['10 metre U wind component'][:, :] 
-
-        WS = np.sqrt(np.power(V,2) + np.power(U,2))  
-        self.rg.variables['WSPD_JRA55_ms_sur'][:, :] = WS                                          
-
-        WD = np.arctan2(V,U)               
-        WD = np.mod(np.degrees(WD)-90, 360) # make relative to North                                                                 
-        self.rg.variables['WDIR_JRA55_deg_sur'][:, :] = WD 
-
     def SW_JRA_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
@@ -1767,11 +1773,11 @@ class JRAscale(object):
         var.units     = self.nc_sr.variables['downwelling_shortwave_flux_in_air'].units.encode('UTF8')  
 
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:]
+        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
         values  = self.nc_sr.variables['downwelling_shortwave_flux_in_air'][:]                                
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) 
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                          time_in*3600, values[:, n]) 
 
     def LW_JRA_Wm2_sur(self):
         """
@@ -1785,11 +1791,11 @@ class JRAscale(object):
         var.units     = self.nc_sr.variables['downwelling_longwave_flux_in_air'].units.encode('UTF8')  
 
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:]
+        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
         values  = self.nc_sr.variables['downwelling_longwave_flux_in_air'][:]                                
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) 
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                          time_in*3600, values[:, n]) 
 
     def PREC_JRA_mm_sur(self):
         """
@@ -1804,40 +1810,40 @@ class JRAscale(object):
         var.units     = self.nc_sr.variables['total_precipitation'].units.encode('UTF8')  
         
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:]
+        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
         values  = self.nc_sr.variables['total_precipitation'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) / 24 * self.time_step            
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                                    time_in*3600, values[:, n]) / 24 * self.time_step            
 
-    def conv_geotop(self):
-        """
-        preliminary geotop export
-        """
-        import pandas as pd
-        
-        outfile = '/home/xquan/src/globsim/examples/station/Meteo_mylist_jra55.txt'
-        
-        #read time object        
-        time = self.rg.variables['time']        
-        date = self.rg.variables['time'][:]
-        
-        #read all other values
-        columns = ['Date','AIRT_JRA55_C_pl','AIRT_JRA55_C_sur','PREC_JRA55_mm_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
-        metdata = np.zeros((len(date),len(columns)))
-        metdata[:,0] = date
-        for n, vn in enumerate(columns[1:]):
-            metdata[:,n+1] = self.rg.variables[vn][:, 0]
-        
-        #make data frame
-        data = pd.DataFrame(metdata, columns=columns)
-        data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
-
-        # round
-        decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
-        data.round(decimals)
-
-        #export to file
-        fmt_date = "%d/%m/%Y %H:%M"
-        data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
+#     def conv_geotop(self):
+#         """
+#         preliminary geotop export
+#         """
+#         import pandas as pd
+#         
+#         outfile = '/home/xquan/src/globsim/examples/station/Meteo_mylist_jra55.txt'
+#         
+#         #read time object        
+#         time = self.rg.variables['time']        
+#         date = self.rg.variables['time'][:]
+#         
+#         #read all other values
+#         columns = ['Date','AIRT_JRA55_C_pl','AIRT_JRA55_C_sur','PREC_JRA55_mm_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
+#         metdata = np.zeros((len(date),len(columns)))
+#         metdata[:,0] = date
+#         for n, vn in enumerate(columns[1:]):
+#             metdata[:,n+1] = self.rg.variables[vn][:, 0]
+#         
+#         #make data frame
+#         data = pd.DataFrame(metdata, columns=columns)
+#         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
+# 
+#         # round
+#         decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
+#         data.round(decimals)
+# 
+#         #export to file
+#         fmt_date = "%d/%m/%Y %H:%M"
+#         data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
 						              
