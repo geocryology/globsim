@@ -1606,9 +1606,10 @@ class JRAscale(object):
                                 par.list_name + '.nc'), 'r')
         self.nc_sr = nc.Dataset(path.join(par.project_directory,'jra55/jra_sr_' + 
                                 par.list_name + '.nc'), 'r')
-                               
+        self.nstation = len(self.nc_sr.variables['station'][:])                        
+                                               
         # output file 
-        self.outfile = par.output_file  
+        self.outfile = par.output_file
         
         # time vector for output data
         # get time and convert to datetime object
