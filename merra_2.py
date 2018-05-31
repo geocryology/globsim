@@ -2939,14 +2939,22 @@ class MERRAinterpolate(object):
             #loop over variables and apply interpolation weights
             for v, var in enumerate(varlist):
                 if var == 'air_pressure':
-#                    reversed_level = ncf.variables['level'][:][::-1]
                     # pressure [hPa] variable from levels, shape: (time, level)
                     data = np.repeat([ncf.variables['level'][:]],
                                       len(time),axis=0).ravel()
+		    ipol = data[va]*wa + data[vb]*wb   # interpolated value
+		    #---------------------------------------------------------
+		    #if mask[pixel] == false, pass the maxnium of pressre level to pixles
+		    level_highest = ncf.variables['level'][:][-1]
+		    level_lowest = ncf.variables['level'][:][0]
+		    for j, value in enumerate(ipol):
+		        if value == level_highest:
+			    ipol[j] = level_lowest
+	            #---------------------------------------------------------	    	    				                     
                 else:    
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()
-                ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
+                    ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
         rootgrp.close()
