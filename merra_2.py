@@ -803,29 +803,21 @@ class MERRAgeneric():
         
         return rh_total
 
-
     def MERRA_skip(self, merralist):
         '''
         To remove the extra variables from downloaded MERRA2 data
         '''
-        
         for x in merralist:
             if x == 'PRECTOT':
-               merralist.remove(x)
+               merralist.remove('PRECTOT')
             if x == 'LWGAB': 
-               merralist.remove(x)
-            if x == 'LWGABCLR':
-               merralist.remove(x)
-            if x == 'LWGEM':
-               merralist.remove(x)
-            if x == 'LWGNT':
-               merralist.remove(x)
-            if x == 'LWGNTCLR':
-               merralist.remove(x)
-            if x == 'DIFF_LWGDN_LWGAB':
-               merralist.remove(x)
-            if x == 'DIFF_LWGDNCLR_LWGABCLR':
-               merralist.remove(x)            
+               merralist.remove('LWGAB')
+               merralist.remove('LWGABCLR')
+               merralist.remove('LWGEM')
+               merralist.remove('LWGNT')
+               merralist.remove('LWGNTCLR')
+               merralist.remove('DIFF_LWGDN_LWGAB')
+               merralist.remove('DIFF_LWGDNCLR_LWGABCLR')
         
         return merralist
                       
@@ -2653,7 +2645,7 @@ class MERRAinterpolate(object):
         if pl: #only for pressure level files
             varlist.remove('level')
             
-        # remove extra variables 
+        # remove extra variables from merra2 
         varlist = MERRAgeneric().MERRA_skip(varlist)  
     
         #list variables that should be interpolated
@@ -2944,7 +2936,7 @@ class MERRAinterpolate(object):
                                       len(time),axis=0).ravel()
 		    ipol = data[va]*wa + data[vb]*wb   # interpolated value
 		    #---------------------------------------------------------
-		    #if mask[pixel] == false, pass the maxnium of pressre level to pixles
+		    #if mask[pixel] == false, pass the maximum of pressure level to pixles
 		    level_highest = ncf.variables['level'][:][-1]
 		    level_lowest = ncf.variables['level'][:][0]
 		    for j, value in enumerate(ipol):
