@@ -1925,9 +1925,7 @@ class SaveNCDF_sr():
             #append LWGDN, LWGDNCLR     
             var_list.append(['LWGDN', 'downwelling_longwave_flux_in_air','downwelling_longwave_flux_in_air','W/m2', lwgdn_total])
             var_list.append(['LWGDNCLR','downwelling_longwave_flux_in_air_assuming_clear_sky','downwelling_longwave_flux_in_air_assuming_clear_sky','W/m2', lwgdnclr_total])
-            
-            # print len(var_list)
-               
+                        
             var_low = 0
             var_up = 0
             for i in range(0, 1):
@@ -2158,7 +2156,6 @@ class SaveNCDF_sc():
         
         
             #close the root group
-
             rootgrp.close()          
     
 
@@ -2404,7 +2401,6 @@ class MERRAdownload(object):
                                             
                     print ("----------------------------------------Result NO.2: Completed----------------------------------------")
         
-                    # 
                     # Get merra-2 2d meteorological Diagnostics variables at surface level
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Meteorological Diagnostics-----")
                     
@@ -2432,8 +2428,7 @@ class MERRAdownload(object):
                     lat, lon, time = MERRAsm().getlatLon_2d(area, ds_2dm, out_variable_2dm, id_lat, id_lon)
                     
                     get_variables_2dm = get_variables
-                    
-                    
+                                     
                     # Get merra-2 2d suface flux Diagnostics variables at surface level
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Surface Flux Diagnostics-----")
                     
@@ -3311,35 +3306,4 @@ class MERRAscale(object):
         self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
 
   
-#     def conv_geotop(self):
-#         """
-#         preliminary geotop export
-#         """
-#         import pandas as pd
-#         
-#         outfile = '/home/xquan/src/globsim/examples/station/Meteo_mylist_merra2.txt'
-#         
-#         #read time object        
-#         time = self.rg.variables['time']        
-#         date = self.rg.variables['time'][:]
-#         
-#         #read all other values
-#         columns = ['Date','AIRT_MERRA2_C_pl','AIRT_MERRA2_C_sur','PREC_MERRA2_mm_sur','RH_MERRA2_per_sur','SW_MERRA2_Wm2_sur','LW_MERRA2_Wm2_sur','WSPD_MERRA2_ms_sur', 'WDIR_MERRA2_deg_sur']
-#         metdata = np.zeros((len(date),len(columns)))
-#         metdata[:,0] = date
-#         for n, vn in enumerate(columns[1:]):
-#             metdata[:,n+1] = self.rg.variables[vn][:, 0]
-#         
-#         #make data frame
-#         data = pd.DataFrame(metdata, columns=columns)
-#         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
-# 
-#         # round
-#         decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
-#         data.round(decimals)
-# 
-#         #export to file
-#         fmt_date = "%d/%m/%Y %H:%M"
-#         data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
-
 
