@@ -816,9 +816,11 @@ class MERRAgeneric():
                merralist.remove('LWGEM')
                merralist.remove('LWGNT')
                merralist.remove('LWGNTCLR')
-            if x == 'DIFF_LWGDN_LWGAB':  
-               merralist.remove('DIFF_LWGDN_LWGAB')
-               merralist.remove('DIFF_LWGDNCLR_LWGABCLR')
+
+        for x in merralist:
+              if  x == 'DIFF_LWGDN_LWGAB':  
+                 merralist.remove('DIFF_LWGDN_LWGAB')
+                 merralist.remove('DIFF_LWGDNCLR_LWGABCLR')
         
         return merralist
                       
