@@ -248,7 +248,6 @@ class MERRAgeneric():
         ds = {}
         for i in range(len(urls_chunks)):
             ds[i] = {}
-            ####ds[0] = {}
             url = urls_chunks[i]
             for j in range(len(url)): 
                 # try downloading and repeat ten times before giving up
@@ -265,11 +264,9 @@ class MERRAgeneric():
                         else:    
                             print "Error downloading file: " + url[j] + ". Giving up."
                             raise RuntimeError("==> Unsuccesfull after 60 attempts.")
-                ###ds[0][j] = open_url(url[j], session=session) 
                 print ('------COMPLETED------','CHUNK NO.:', i+1, 'URL NO.:', j+1 )
                 print url[j]
-            print ds[i][j].keys
-            ###return ds     
+            print ds[i][j].keys    
         print ('================ MERRA-2 SERVER ACCESS: COMPLETED ================')
         infor = urls[0].split('/')
         print 'Dataset:', infor[2], infor[3],infor[4]
@@ -2652,8 +2649,7 @@ class MERRAinterpolate(object):
         #test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
-    
-        
+       
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
