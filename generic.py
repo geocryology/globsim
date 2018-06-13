@@ -380,7 +380,7 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
                'AIRT_PRESS_Pa_pl']
     
     # output ASCII formatting
-    formatters={"time":             "  {:%H %M  %j  %G}".format,
+    formatters={"time":             "  {:%H %M  %j  %Y}".format,
                 "SW_ERA_Wm2_sur":   "{:8.2f}".format,
                 "LW_ERA_Wm2_sur":   "{:8.2f}".format,
                 "PREC_ERA_mmsec_sur":  "{:13.4E}".format,
