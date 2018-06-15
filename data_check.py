@@ -1,32 +1,28 @@
+#!/usr/bin/env python2.7
+# -*- coding: utf-8 -*-
+#
+# Copyright Xiaojing Quan & Stephan Gruber
 #==============================================================================
-# a script for checking the continurisity of Time with given the chunk for downloaded MERRA-2 variables,
+# a script for checking the continurisity of Time with given the chunk for downloaded netCDF files from ERA_Interim and MERRA-2,
 # 
 # -- Step 1: read in downloaded netCDF files with a wildcard expression;
 # -- Step 2: check the time coverage of varialbes to be continous; 
-# -- Step 3: combines many chunked netCDF files ( e,g. 5 or 10 days) into fewer larger files (e.g. one decade, or entire time period) 
+# -- Step 3: if there was any missing one, to list the missing series of time 
 #
-#------------------------------------------------------------------------------
-
-
+#===============================================================================
 from datetime          import datetime, timedelta, date
-from os                import path, listdir
+from os                import path
 from netCDF4           import Dataset, MFDataset
-from dateutil.rrule    import rrule, DAILY
-from math              import exp, floor
-from generic           import ParameterIO, StationListRead, ScaledFileOpen
-from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
-from time import sleep
+from generic           import ParameterIO, StationListRead
 
 import numpy as np
 import csv
 import netCDF4 as nc
 import math
-import itertools
-import pandas
 import time as tc
 import sys
-    
-    
+
+
 class MERRA2DataCheck(object):
     """
         To check  the continourity of the time coverage of from all the downloaded 
@@ -140,7 +136,7 @@ class ERADataCheck(object):
         netCDF files with a wildward expression
           
         Args:
-        ncfile_in: Full path to an MERRA-2 derived netCDF file. This can
+        ncfile_in: Full path to an ERA_Interim derived netCDF file. This can
         contain wildcards to point to multiple files if temporal
       
     """
@@ -233,29 +229,27 @@ class ERADataCheck(object):
         # === Pressure-level Data ===    
         # 
         #                
-#        self.DataReadin(path.join(self.dir_inp,'era_pl_*.nc'))          
+        self.DataReadin(path.join(self.dir_inp,'era_pl_*.nc'))          
 
         # === radiation Data ===    
         # 
         #                
-#        self.DataReadin(path.join(self.dir_inp,'era_sf_*.nc'))          
+        self.DataReadin(path.join(self.dir_inp,'era_sf_*.nc'))          
 
                 
 # ===========For Run DataCheck ================================================ 
 # Args:
-# ifile : Full path to a Globsim Interpolate Paramter file  
+# ifile : Full path to a Globsim Interpolate Paramter file under operating latap or virtual machine
   
 ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
 
-# merra2 data check
+# to check merra2 data 
 MERRA2check = MERRA2DataCheck(ifile)
 
 MERRA2check.process()
 
-# eraint data check
-ERAcheck = ERADataCheck(ifile)
+# # to check eraint data
+# ERAcheck = ERADataCheck(ifile)
+# 
+# ERAcheck.process()
 
-ERAcheck.process()
-
-
-                  
