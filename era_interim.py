@@ -844,8 +844,8 @@ class ERAinterpolate(object):
             tmask = time < datetime(3000, 1, 1)
         else:
             tmask = (time <= date['end']) * (time >= date['beg'])
-                              
-        # get time indices
+                          
+        # get time vector for output
         time_in = nctime[tmask]     
 
         # ensure that chunk sizes cover entire period even if
@@ -855,18 +855,18 @@ class ERAinterpolate(object):
 
         # loop over chunks
         for n in range(niter):
-            # indices
+            # indices (relative to index of the output file)
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
             end = min(n*self.cs + self.cs, len(time_in))
             
             # time to make tmask for chunk 
-            beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
+            beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
             else:
-                end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
+                end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
                 
             #'<= end_time', would damage appending
             tmask_chunk = (time < end_time) * (time >= beg_time)
