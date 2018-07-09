@@ -858,7 +858,7 @@ class ERAinterpolate(object):
             # indices (relative to index of the output file)
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n*self.cs + self.cs, len(time_in))
+            end = min(n*self.cs + self.cs, len(time_in)-1)
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
