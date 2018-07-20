@@ -122,21 +122,7 @@ class MERRAgeneric():
     """
            
     def getURLs(self, date):                                                                                                                                          
-        """ Set up urls by given range of date and type of data
-            to get objected url address (2d, 3d meterological fields and radiation datasets)
-            url_2dm: 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
-            url_3dm_ana: 3d,6-hourly,Instantaneous,Pressure-Level,Analyzed Meteorological Fields 
-            url_3dm_asm: 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields 
-            url_2dr: 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
-            
-            Return:
-            urls_3dmana: get type of url for 3d Analyzed Meteorological Fields data
-            urls_3dmasm: get type of url for 3d Assimilated Meteorological Fields data
-            urls_2dm:    get type of url for 2d meterological data
-            urls_2ds:    get type of url for 2d surface flux data
-            urls_2dr:    get type of url fro 2d radiation diagnostics data
-            
-        """
+        """ Set up urls by given range of date and type of data to get objected url address"""          
         #Setup the based url strings    
         baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 2d dataset
         baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') # baseurl for 3d dataset
@@ -169,7 +155,7 @@ class MERRAgeneric():
         baseurl_2ds_4 = ('M2T1NXFLX.5.12.4/','/MERRA2_400.tavg1_2d_flx_Nx.')            # sub url of 2d suface flux Diagnostics data                                                         
         baseurl_2dv_4 = ('M2T1NXSLV.5.12.4/','/MERRA2_400.tavg1_2d_slv_Nx.')            # sub url of 2d 1-Hourly,Time-Averaged,Single-Level,Assimilation,Single-Level Diagnostics V5.12.4                                                                                                                                                                                                  
 
-                
+        # netCDF4         
         format = ('.nc4')
                         
         #Setup the start and end of dates
@@ -180,8 +166,7 @@ class MERRAgeneric():
         res1 = [d.strftime("%Y/%m") for d in pandas.date_range(Begin,End)]
         res2 = [d.strftime("%Y%m%d") for d in pandas.date_range(Begin,End)]        
             
-       # get the urls list
-       
+       # build the urls list
         urls_3dmana = []
         urls_3dmasm = []
         urls_2dm = []
@@ -225,21 +210,7 @@ class MERRAgeneric():
         return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv
  
     def download(self, username, password, urls, chunk_size):
-        """ Access the MERRA server by account information and defiend urls
-            Args:
-            username = "xxxxxx"
-            password = "xxxxxx"
-            urls = urls_3dmana,urls_3dmasm,urls_2dm,urls_2ds, urls_2dr: a full list of urls by specific date range of wanted types of dataset
-            chunk_size: the wanted size of urls list for each chunk
-            Return:
-            ds: the each individual original dataset (The dictionary of basetype with children['variables']) 
-                                                           of 3d Analyzed Meteorological Fields, 
-                                                              3d Assimilated Meteorological Fields datasets,
-                                                              2d meteorological Diagnostics datasets,
-                                                              2d surface flux Diagnostics datasets,
-                                                              2d radiation Diagnostics datasets
-            ds_structure: [lengths of total_chunks * chunk_size]                                                                            
-        """
+        """ Access the MERRA server by account information and defiend urls"""
 
         urls_chunks = [urls[x:x+chunk_size] for x in xrange(0, len(urls), chunk_size)]      
 
@@ -276,23 +247,7 @@ class MERRAgeneric():
         return ds        
     
     def Variables(self, variable, ds):
-        """Get the objected variables from the specific MERRA-2 datasets        
-           variable = ['T','U','V','H','lat','lon','lev','time']                                     # for extracting from 3d Analyzed Meteorological Fields datasets 
-                    = ['RH','H','lat','lon','lev','time']                                     # for extracting from 3d Assimilated Meteorological Fields datasets
-                    = ['U2M','T2M','TQL','V2M','V10M','U10M','QV2M','lat','lon','time']              # for extracting from 2d meteorological Diagnostics datasets
-                    = ['PRECTOT','PRECTOTCOR', 'lat','lon','time']                                                 # for extracting from 2d suface flux Diagnostics datasets  
-                    = ['SWGDN','LWGNT', 'SWGDNCLR', 'LWGNTCLR', 'LWGEM', 'lat','lon','time']         # for extracting from 2d radiation Diagnostics datasets 
-                    = ['PHIS', 'FRLAND', 'FRLANDICE', 'lat', 'lon','time']                                                   # for extracing from 2d constant model parameters
-                    
-           ds = MERRAgeneric().download(username, password, urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, chunk_size)
-           Return:
-           out_variable: The extracted variables in the order of given list 
-                         Type: BaseType with the given data baseProxy
-                         
-           out_variable structure: [lenghs of total chunks * chunk_size * lenghs of variables]
-           
-        """
-
+        """Get the objected variables from the specific MERRA-2 datasets"""
         out_variable = {}
         for i in range(0, len(ds)):
             out_variable[i] = {}
@@ -319,15 +274,7 @@ class MERRAgeneric():
         return out_variable
     
     def getArea(self, area, ds): 
-        """Gets the specific indexs  of the latitudes and longitudes of given area
-           For example: 
-           area = {'north':65.0, 'south': 60.0, 'west':-115.0, 'east': -110.0}
-           ds = MERRAgeneric().download(username, password, urls_3dmana, urls_3dmasm, urls_2dm, urls_2dr, urls_2ds, chunk_size)
-           Return:
-           id_lat: wanted indexs of latitudes from the original merra global dataset
-           id_lon: wanted indexs of longitudes from the original merra global dataset
-        """
-             
+        """Gets the specific indexs  of the latitudes and longitudes of given area"""     
         # pass the value of individual row lat and lon to Lat and Lon for the area subset
         Lat = ds[0][0].lat[:]
         Lon = ds[0][0].lon[:]
@@ -339,7 +286,6 @@ class MERRAgeneric():
         # convert id_lat, id_lon from tuples to string
         id_lon = list(itertools.chain(*id_lon))   
         id_lat = list(itertools.chain(*id_lat))
-
         
         return id_lat, id_lon 
 
@@ -371,21 +317,7 @@ class MERRAgeneric():
     def latLon_3d(self, out_variable, id_lat, id_lon, id_lev): 
         """
         Get Latitude, Longitude, Levels, and Time for datasets at the pressure levels
-        Args:
-        out_variable = MERRAgeneric().getVariables(variable, ds) 
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        -4 = id_Latitude
-        -3 = id_Longitude
-        -2 = id_Level
-        -1 = id_Time 
-        Return: 
-        lat, lon, lev, time: the extracted latitudes, longitudes in the given area from 3D original dateset
-        lat_structure: lengths of total_chunks * chunk_size * lengths of extracted latitudes
-        lon_structure: lengths of total_chunks * chunk_size * lengths of extracted longitudes
-        lev_structure: lengths of total_chunks * chunk_size * total number of pressure levels from original dataset 
-        time_structure: lengths of total_chunks * chunk_size * total number of hours per day from original dataset                                        
         """   
-   
         Lat  = {}
         Lon  = {}
         Lev  = {}
@@ -436,19 +368,7 @@ class MERRAgeneric():
     def latLon_2d(self, out_variable, id_lat, id_lon): 
         """
         Get Latitude, Longitude, Levels, and Time for datasets at surface level
-        Args:
-        out_variable = MERRAgeneric().getVariables(variable, ds) 
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        -3 = id_Latitude
-        -2 = id_Longitude
-        -1 = id_Time 
-        Return:
-        lat, lon, lev, time: the extracted latitudes, longitudes in the given area from 2D original dateset
-        lat_structure: length of total_chunks * chunk_size * lengths of extracted latitudes
-        lon_structure: length of total_chunks * chunk_size * lengths of extracted longitudes
-        time_structure: length of total_chunks * chunk_size * total number of hours per day from original dataset                               
         """
-   
         Lat  = {}
         Lon  = {}
         time = {}
@@ -486,25 +406,8 @@ class MERRAgeneric():
         return lat, lon, time
 
     def dataStuff_3d(self, position, id_lat, id_lon, id_lev, out_variable):  
-        """Define the outputs ones &
-           pass the values of abstrated variables to the output ones and 
-           restrict the area 
-           Args:
-           id_lat, id_lon =  MERRAgeneric().getArea(area, ds) 
-           position: index of the variable in get_variables (setup automatically)
-
-           3d Analyzed Meteorological Fields datasets:
-           t = MERRAgeneric().dataStuff(position, lat, lon, lev, time, id_lat, id_lon, out_variable)
-           u = MERRAgeneric().dataStuff(position, lat, lon, lev, time, id_lat, id_lon, out_variable)
-           v = MERRAgeneric().dataStuff(position, lat, lon, lev, time, id_lat, id_lon, out_variable)
-           h = MERRAgeneric().dataStuff(position, lat, lon, lev, time, id_lat, id_lon, out_variable)
-           
-           3d Assimilated Meteorological Fields datasets:
-           rh = MERRAgeneric().dataStuff(position, lat, lon, lev, time, id_lat, id_lon, out_variable)    
-                  
-           Return:
-           data_area: the extracted individual variable at pressure levels at the given area
-           data_area_Structure: length of total_chunks * chunk_size * [time*level*lat*lon]
+        """Define the outputs ones & pass the values of abstrated variables to the output ones and 
+           restrict the area (3D data product) 
         """
         print "Get Data"
         data = {}
@@ -542,36 +445,9 @@ class MERRAgeneric():
 
         return data_area
 
-        
     def dataStuff_2d(self, position, id_lat, id_lon, out_variable):  
-        """Define the outputs ones &
-           pass the values of abstrated variables to the output ones and 
-           restrict the area 
-         Args:            
-           id_lat, id_lon =  MERRAgeneric().getArea(area, ds) 
-           position: index of the variable in get_variables (setup automatically)
-          
-           2d meteorological Diagnostics datasets:
-           t2m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)
-           u2m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)
-           v2m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)       
-           u10m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)
-           v10m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)
-           
-           2d suface flux Diagnostics datasets:
-           prectot = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable
-           
-           2d radiation Diagnostics datasets:
-           t2m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)
-           u2m = MERRAgeneric().dataStuff_2d(position, lat, lon, time, id_lat, id_lon, out_variable)
-           
-           2d constant model parameters
-           phis = MERRAgeneric().dataStuff_2d(position, lat, lon, time)
-           
-           Return:
-           data_area: the extracted individual variable at surface levels at the given area
-           data_area_structure: length of total_chunks * chunk_size * [time*lat*lon]
-           
+        """Define the outputs ones & pass the values of abstrated variables to the output ones and 
+           restrict the area (2D data products)           
         """
         print "Get Data"
         data = {}
@@ -608,14 +484,7 @@ class MERRAgeneric():
         return data_area
         
     def getTime(self, date):                                                                                                                                          
-        """set up date and time series for netCDF output results 
-            Return: 
-            date_ind: a string list of date in the range of begin and end (format: yearmonthday)
-            time_ind1: the time series for 6-hours step in the range of begin and end dates  
-            time_ind2: the time series for 3-hours step in the range of begin and end dates
-            time_ind3: the time series for 1-hour step in the range of begin and end dates
-        """ 
-        
+        """set up date and time series for netCDF output results""" 
         Start = date['beg']
         End   = date['end']
  
@@ -645,10 +514,8 @@ class MERRAgeneric():
         return date_ind, time_ind1, time_ind2, time_ind3
  
     def restruDatastuff(self, data_area):                                                                                                                                          
-        """ Restructuring the dimension of abstracted data stuff for preparing to save netCDF output results furtherly
-            return: 
-            data_total: for 3d: (len(date)*len(time/day), level, lat, lon)
-                        for 2d: (len(date)*len(time/day), lat, lon)
+        """ Restructuring the dimension of abstracted data stuff for preparing 
+        to save netCDF output results furtherly
         """ 
         data_total = []                                                   
         for i in range(0, len(data_area)):                                           
@@ -663,9 +530,6 @@ class MERRAgeneric():
     def tempExtrapolate(self, t_total, h_total, elevation):
         """ Processing 1D vertical extrapolation for Air Temperature at specific levels, 
             at where the values are lacking  (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
-            IMPORTANT TIP: to set up 'ele_max = 2500' (meter) or higher
-                           reason: to make sure get enough levels of geopotential height 
-                           for conducting 1dinterp (linear)(2 points of values needed at least)          
         """  
 
         #restructure t_total [time*lev*lat*lon] to [lat*lon*time*lev]
@@ -801,9 +665,7 @@ class MERRAgeneric():
         return rh_total
 
     def MERRA_skip(self, merralist):
-        '''
-        To remove the extra variables from downloaded MERRA2 data
-        '''
+        ''' To remove the extra variables from downloaded MERRA2 data'''
         for x in merralist:
             if x == 'PRECTOT':
                merralist.remove('PRECTOT')
@@ -823,14 +685,7 @@ class MERRAgeneric():
                       
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
-        Creates an empty station file to hold interpolated reults. The number of 
-        stations is defined by the variable stations, variables are determined by 
-        the variable list passed from the gridded original netCDF.
-        
-        ncfile_out: full name of the file to be created
-        stations:   station list read with generic.StationListRead() 
-        variables:  variables read from netCDF handle
-        lev:        list of pressure levels, empty is [] (default)
+        Creates an empty station file to hold interpolated reults. 
         '''
         
         #Build the netCDF file
@@ -903,22 +758,7 @@ class MERRAgeneric():
 
     def netCDF_merge(self, directory):
         """
-        To combine mutiple downloaded merra2 netCDF files into a large file with specified chunk_size(e.g. 500), 
-        -- give the full name of merged file to the output = outfile
-        -- pass all data from the first input netfile to the merged file name
-        -- loop over the files_list, append file one by one into the merge file
-        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
-        
-        Args:
-            ncfile_in: the full name of downloaded files (file directory + files names)
-        e.g.:
-             '/home/xquan/src/globsim/examples/merra2/merra_sa_*.nc' 
-             '/home/xquan/src/globsim/examples/merra2/merra_pl_*.nc'
-             '/home/xquan/src/globsim/examples/merra2/merra_sf_*.nc'
-
-        Output: merged netCDF files
-        merra2_all_0.nc, merra2_all_1.nc, ...,
-               
+        To combine mutiple downloaded merra2 netCDF files into a large file with specified chunk_size(e.g. 500)
         """
         #set up nco operator
         nco = Nco()
