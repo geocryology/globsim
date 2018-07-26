@@ -1098,7 +1098,7 @@ class SaveNCDF_sa():
         and suface flux Diagnostics datasets"""
 
         def varList(self, date, get_variables_2dm, get_variables_2ds, get_variables_2dv, id_lat, id_lon, out_variable_2dm, out_variable_2ds, out_variable_2dv, chunk_size, time, lat, lon, dir_data):
-            """ build the variable list for output netcdf file"""            
+            """ build the variables list for output netcdf file (T2M,U2M, V2M, U10M,V10M, PRECTOT, PRECTOTCORR,T2MDEW, lat, lon, time)"""            
             
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
             
@@ -1177,7 +1177,7 @@ class SaveNCDF_sa():
             return var_list, time_ind3, date_ind, size_type
           
         def saveData(self, date, get_variables_2dm, get_variables_2ds, get_variables_2dv, id_lat, id_lon, out_variable_2dm, out_variable_2ds, out_variable_2dv, chunk_size, time, lat, lon, dir_data):
-            """build a NetCDF file for saving output variables (t2m,u2m, v2m, u10m, v10m, prectot, prectotcorr,t2mdew, lat, lon, time) """
+            """build a NetCDF file for saving output variables (T2M,U2M, V2M, U10M,V10M, PRECTOT, PRECTOTCORR,T2MDEW, lat, lon, time)"""
             
             # get the varable list and time indices
             var_list, time_ind3, date_ind, size_type = self.varList(date, get_variables_2dm, get_variables_2ds, get_variables_2dv, id_lat, id_lon, 
@@ -1281,7 +1281,7 @@ class SaveNCDF_sr():
 
         def varList(self, date, get_variables, id_lat, id_lon, out_variable_2dr, chunk_size, time, lat, lon, dir_data):
             
-            """   """
+            """build the variables list for output netcdf file (SWGDN, SWGDNCLR, LWRNT, LWGEM, LWGNTCLR, LWGAB, LWGABCLR, lat,lon,time)"""
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
 
             #Set up time_ind3 with the begin at year-mm-dd 00:30:00 
@@ -1344,7 +1344,6 @@ class SaveNCDF_sr():
             # - downwelling longwave flux in air =  Upwelling longwave flux from surface + surface net downward longwave flux
             # - downwelling longwave flux in air assuming clear sky =  Upwelling longwave flux from surface + surface net downward longwave flux assuming clear sky
             
-            
             lwgdn_total = lwgnt_total + lwgem_total
             lwgdnclr_total = lwgntclr_total + lwgem_total
                         
@@ -1355,7 +1354,7 @@ class SaveNCDF_sr():
             return var_list, time_ind3, date_ind, size_type
 
         def saveData(self, date, get_variables, id_lat, id_lon, out_variable_2dr, chunk_size, time, lat, lon, dir_data):
-            """creat a NetCDF file for saving output variables (Dataset object, also the root group)"""
+            """build a NetCDF file for saving output variables (SWGDN, SWGDNCLR,LWRNT, LWGEM, LWGNTCLR, LWGAB, LWGABCLR, lat, lon, time)"""
                         
             # get variable list and time indices 
             var_list, time_ind3, date_ind, size_type = self.varList(date, get_variables, id_lat, id_lon, out_variable_2dr, chunk_size, time, lat, lon, dir_data)
@@ -1609,15 +1608,51 @@ class MERRAdownload(object):
         
         # the diretory for storing downloaded data
         self.dir_data = self.directory
-    
+
+    def getVariables(self, full_variables_dic, full_variables_type):
+        """
+        build the major variable list for retriving between lists from download parameter file and the product
+        """
+        
+        get_variables = []
+
+        for i in range(0, len(self.variables)):
+            for var in full_variables_dic.keys():
+                if  var == self.variables[i]:
+                    var_names = full_variables_dic[var]
+                    #  Set up the variables list for accassing original type of MERRA-2 datasets (3D and 2D)
+                    for j in range(0, len(var_names)):
+                        for var1 in full_variables_type.keys():
+                            if var1 == var_names[j]:
+                                get_variables.append(full_variables_type[var1])
+
+        # chain the the list for precipitation specifically
+        if full_variables_type.keys()[0] == 'precipitation_flux':
+           get_variables = list(itertools.chain(*get_variables)) 
+           get_variables = list(set(get_variables)) 
+        else:
+           get_variables = list(set(get_variables))                                                                   
+
+        #add the basic variables into the list
+        if full_variables_type.keys()[0] == 'relative_humidity':
+            get_variables.extend(['lat','lon','lev','time'])
+        elif full_variables_type.keys()[0] == 'air_temperature':
+            # !ADD Geopotential Height in the first element of downloading list. Must be the first one
+            get_variables.insert(0,'H')
+            # add the variables names of latitude, longitude, levels and time
+            get_variables.extend(['lat','lon','lev','time'])
+        else:
+            # add the variables names of latitude, longitude and time
+            get_variables.extend(['lat','lon','time'])
+   
+        return get_variables
+        
     def retrieve(self):
         """
         Retrive all required MERRA-2 data from NASA Goddard Earth Sciences Data and Information Services Center
-
         """                   
         
-        # Get merra-2 3d meteorological analysis variables at pressure levels
-                
+        # Get merra-2 3d meteorological analysis variables at pressure levels 
         t_start = tc.time()
         
         #settings directory to store downloaded data 
@@ -1712,21 +1747,7 @@ class MERRAdownload(object):
                     print ("-----Get Wanted Variables From Merra-2 3d, 3-hourly, Pressure-Level, Assimilated Meteorological Fields-----")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 3d Assimilated Meteorological Fields dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_pl_asm.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_pl_asm[var1])
-                    
-                    get_variables = list(set(get_variables))                                                                
-                    
-                    # add the variables names of latitude, longitude, levels and time
-                    get_variables.extend(['lat','lon','lev','time'])
+                    get_variables = self.getVariables(full_variables_dic,full_variables_pl_asm)
                     
                     print get_variables
                     
@@ -1746,22 +1767,7 @@ class MERRAdownload(object):
                     print ("-----Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields-----")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 3d Analyzed Meteorological Fields dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_pl_ana.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_pl_ana[var1])
-                    get_variables = list(set(get_variables))                                            
-                   
-                    # !ADD Geopotential Height in the first element of downloading list.Must be the first one
-                    get_variables.insert(0,'H')
-                     # add the variables names of geopotental height, latitude, longitude, levels and time
-                    get_variables.extend(['lat','lon','lev','time'])
+                    get_variables = self.getVariables(full_variables_dic, full_variables_pl_ana)
                       
                     print get_variables
                       
@@ -1788,20 +1794,8 @@ class MERRAdownload(object):
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Meteorological Diagnostics-----")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 2d Meteorological Diagnostics dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_sm.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_sm[var1])
-                    get_variables = list(set(get_variables))                                            
-                    # add the variables names of latitude, longitude and time
-                    get_variables.extend(['lat','lon','time'])
-                    
+                    get_variables = self.getVariables(full_variables_dic, full_variables_sm)
+
                     print get_variables
                     
                     ds_2dm = MERRAsm().getDs(date, username, password, chunk_size)
@@ -1816,20 +1810,7 @@ class MERRAdownload(object):
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Surface Flux Diagnostics-----")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 2d Surface Flux Diagnostics dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_sf.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_sf[var1])
-                    get_variables = list(itertools.chain(*get_variables))
-                    get_variables = list(set(get_variables))                                          
-                    # add the variables names of latitude, longitude and time
-                    get_variables.extend(['lat','lon','time'])
+                    get_variables = self.getVariables(full_variables_dic, full_variables_sf)
 
                     print get_variables                   
                     
@@ -1844,20 +1825,8 @@ class MERRAdownload(object):
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-Level,Assimilation,Single-Level Diagnostics-----")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 2d Assimilation Single Level Diagnostics dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_sv.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_sv[var1])
-                    get_variables = list(set(get_variables))                                          
-                    # add the variables names of latitude, longitude and time
-                    get_variables.extend(['lat','lon','time'])
-
+                    get_variables = self.getVariables(full_variables_dic, full_variables_sv)
+                    
                     print get_variables                   
                     
                     ds_2dv = MERRAsv().getDs(date, username, password, chunk_size)
@@ -1876,20 +1845,8 @@ class MERRAdownload(object):
                     # Get merra-2 2d radiation variables
                     print ("-----Get Wanted Variables From Merra-2 2d, 1-Hourly, Single-Level, Radiation Diagnostics-----")
                     
-                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
-                    get_variables = []
-                    for i in range(0, len(variables)):
-                        for var in full_variables_dic.keys():
-                            if  var == variables[i]:
-                                var_names = full_variables_dic[var]
-                                #  Set up the variables list for accassing original MERRA-2 2d Radiation Diagnostics dataset
-                                for j in range(0, len(var_names)):
-                                    for var1 in full_variables_sr.keys():
-                                        if var1 == var_names[j]:
-                                            get_variables.append(full_variables_sr[var1])
-                    get_variables = list(set(get_variables))                                            
-                    # add the variables names of latitude, longitude and time
-                    get_variables.extend(['lat','lon','time'])
+                    # get the shared variables dictionaries and pass the information to the build-in dictionaries
+                    get_variables = self.getVariables(full_variables_dic, full_variables_sr)
                     
                     print get_variables
                     
@@ -1904,7 +1861,7 @@ class MERRAdownload(object):
                     
                     print ("----------------------------------------Result NO.3: Completed----------------------------------------")
         
-        # Get merra-2 2d Constant Model Parameters (being outside of time & date looping!!)
+        # Get merra-2 2d Constant Model Parameters (needed to be outside of time & date looping!)
         print ("-----Get Wanted Variables From Merra-2 2d, Time-Invariant, Single-level, Constant Model Parameters-----")
         
         # get the shared variables dictionaries and pass the information to the build-in dictionaries
