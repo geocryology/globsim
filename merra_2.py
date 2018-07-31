@@ -1490,10 +1490,7 @@ class MERRAdownload(object):
         # download all variables by looping over the date with chunk_size
         startDay = self.date['beg']
         endDay   = self.date['end']
-        
-        # get the urls for all types of data products
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)
-                                                      
+                                                              
         x = 0
         for dt in rrule(DAILY, dtstart = startDay, until = endDay):
                 currentDay = (str(dt.strftime("%Y")) + "/" + str(dt.strftime("%m")) + "/" + str(dt.strftime("%d")))
@@ -1517,14 +1514,20 @@ class MERRAdownload(object):
                     #convert date['beg'] from string back to datetime object
                     self.date['end'] = datetime.strptime(self.date['end'],'%Y/%m/%d')
 
+                    # get the urls for all types of data products
+                    urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)
+              
                     # Get merra-2 3d meteorological assimilated variables at pressure levels
-                    print ("-----Get Wanted Variables From Merra-2 3d, 3-hourly, Pressure-Level, Assimilated Meteorological Fields-----")
+                    print ("==========Get Wanted Variables From Merra-2 3d, 3-hourly, Pressure-Level, Assimilated Meteorological Fields==========")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic,self.full_variables_pl_asm)
                     
                     print get_variables
                                         
+                    # get the urls for all types of data products
+                    urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)
+
                     ds_asm = MERRAgeneric().download(self.username, self.password, urls_3dmasm, chunk_size)
                     
                     id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_asm)
@@ -1538,7 +1541,7 @@ class MERRAdownload(object):
                     lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, id_lat, id_lon, id_lev)
 
                     #get merra-2 meterological varaibles at pressure levels
-                    print ("-----Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields-----")
+                    print ("==========Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields==========")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_pl_ana)
@@ -1560,10 +1563,10 @@ class MERRAdownload(object):
                     SaveNCDF_pl_3dm().saveData(self.date, get_variables_3dmasm, get_variables_3dmana, id_lat, id_lon, id_lev, 
                                                out_variable_3dmasm, out_variable_3dmana, chunk_size, time, lev, lat, lon, self.dir_data, self.elevation)
                                             
-                    print ("----------------------------------------Result NO.1: Completed----------------------------------------")
+                    print ("---------------------------------------------Result NO.1: Completed---------------------------------------------")
         
                     # Get merra-2 2d meteorological Diagnostics variables at surface level
-                    print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Meteorological Diagnostics-----")
+                    print ("==========Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Meteorological Diagnostics==========")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sm)
@@ -1581,7 +1584,7 @@ class MERRAdownload(object):
                     get_variables_2dm = get_variables
                                      
                     # Get merra-2 2d suface flux Diagnostics variables at surface level
-                    print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Surface Flux Diagnostics-----")
+                    print ("==========Get Wanted Variables From Merra-2 2d, 1-hourly, Single-level, Surface Flux Diagnostics==========")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sf)
@@ -1596,7 +1599,7 @@ class MERRAdownload(object):
                     
                     get_variables_2ds = get_variables               
                     
-                    print ("-----Get Wanted Variables From Merra-2 2d, 1-hourly, Single-Level,Assimilation,Single-Level Diagnostics-----")
+                    print ("==========Get Wanted Variables From Merra-2 2d, 1-hourly, Single-Level,Assimilation,Single-Level Diagnostics==========")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sv)
@@ -1615,10 +1618,10 @@ class MERRAdownload(object):
                     SaveNCDF_sa().saveData(self.date, get_variables_2dm, get_variables_2ds, get_variables_2dv, id_lat, id_lon, 
                                            out_variable_2dm, out_variable_2ds, out_variable_2dv, chunk_size, time, lat, lon, self.dir_data)
                     
-                    print ("----------------------------------------Result NO.2: Completed----------------------------------------")
+                    print ("---------------------------------------------Result NO.2: Completed---------------------------------------------")
         
                     # Get merra-2 2d radiation variables
-                    print ("-----Get Wanted Variables From Merra-2 2d, 1-Hourly, Single-Level, Radiation Diagnostics-----")
+                    print ("==========Get Wanted Variables From Merra-2 2d, 1-Hourly, Single-Level, Radiation Diagnostics==========")
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sr)
@@ -1636,10 +1639,10 @@ class MERRAdownload(object):
                     #Output merra-2 radiation variables 
                     SaveNCDF_sr().saveData(self.date, get_variables, id_lat, id_lon, out_variable_2dr, chunk_size, time, lat, lon, self.dir_data)
                     
-                    print ("----------------------------------------Result NO.3: Completed----------------------------------------")
+                    print ("---------------------------------------------Result NO.3: Completed---------------------------------------------")
         
         # Get merra-2 2d Constant Model Parameters (needed to be outside of time & date looping!)
-        print ("-----Get Wanted Variables From Merra-2 2d, Time-Invariant, Single-level, Constant Model Parameters-----")
+        print ("==========Get Wanted Variables From Merra-2 2d, Time-Invariant, Single-level, Constant Model Parameters==========")
         
         # get the shared variables dictionaries and pass the information to the build-in dictionaries
         get_variables_2dc = ['PHIS','FRLAKE','FRLAND','FRLANDICE','FROCEAN','SGH','lat','lon','time']
@@ -1657,7 +1660,7 @@ class MERRAdownload(object):
         # Output marra-2 variable at surface level 
         SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, out_variable_2dc, chunk_size, time, lat, lon, self.dir_data)
         
-        print ("----------------------------------------Result NO.4: Completed----------------------------------------")
+        print ("---------------------------------------------Result NO.4: Completed---------------------------------------------")
    
         t_end = tc.time()
         t_total = int((t_end - t_start)/60)
@@ -2405,9 +2408,9 @@ class MERRAscale(object):
 #==============================================================================    
 # 
 # Download 
-# pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
-# 
-# MERRAdownl = MERRAdownload(pfile)
-# 
-# MERRAdownl.retrieve()
+pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
+
+MERRAdownl = MERRAdownload(pfile)
+
+MERRAdownl.retrieve()
 
