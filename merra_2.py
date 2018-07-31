@@ -601,7 +601,6 @@ class MERRAgeneric():
             at where the values are lacking (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological Fields datasets
             Wind (U,V) and Relative Humidity (RH) are utilized the value of at lowest pressure levels to the ones with value gaps
         """ 
-
         #restructure u_total,v_total [time*lev*lat*lon] to [lat*lon*time*lev]
         data_total = data_total[:,:,:,:].transpose((2,3,0,1))
 
@@ -760,79 +759,7 @@ class MERRAgeneric():
             #clear up the data
             for fl in files_list:
                 remove(fl)
-                                                                                                                                                     
-class MERRApl_ana():
-    """Returns variables from downloaded MERRA 3d Analyzed Meteorological Fields datasets  
-       which are abstracted with specific temporal and spatial range  
-    """
-    
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 3d Analyzed Meteotological 
-           Fields data products
-        """    
-
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = urls_3dmana
-        
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-        
-        return ds
-    
-    def getVariables(self, get_variables, ds):                                    
-        """Return the objected variables from the specific MERRA-2 3D Analyzed Meteorological Fields datasets        
-           
-        """
-        out_variable_3dmana = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_3dmana 
-        
-    def getlatLon_3d (self, area, ds, elevation, out_variable_3dmana, id_lat, id_lon, id_lev):
-        # old: def getlatLon (self, area, ds, out_variable_3dmana, p1, p2, p3, p4, id_lat, id_lon):
-        """
-        Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 3D datasets
-        """       
             
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        
-        id_lev = MERRAgeneric().getPressureLevels(elevation)
-
-        lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, id_lat, id_lon, id_lev)
-        
-        return lat, lon, lev, time
-    
-class MERRApl_asm():
-    """Returns variables from downloaded MERRA 3d Assimilated Meteorological Fields data, 
-       which are abstracted with specific temporal and spatial range        
-    """
-
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 3d Analyzed Meteotological 
-           Fields data products
-        """    
-        
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = urls_3dmasm
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-        return ds
-        
-
-    def getVariables(self, get_variables, ds):
-        """Return the objected variables from the specific MERRA-2 3D datasets"""
-        out_variable_3dmasm = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_3dmasm
-        
-    def getlatLon_3d (self, area, ds, elevation, out_variable_3dmasm, id_lat, id_lon, id_lev): 
-        """Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 3D datasets"""       
-        
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        
-        id_lev = MERRAgeneric().getPressureLevels(elevation)
-        
-        lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, id_lat, id_lon, id_lev)
-        
-        return lat, lon, lev, time
-
 class SaveNCDF_pl_3dm():                                                        
         """ write output netCDF file for abstracted variables from original meteorological data 
             at pressure levels
@@ -1009,96 +936,6 @@ class SaveNCDF_pl_3dm():
                 #close the root group
                 rootgrp.close()
           
-class MERRAsm():
-    """Returns variables from downloaded MERRA 2d meteorological Diagnostics data, 
-       which are abstracted with specific temporal and spatial range        
-     """
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 3d Analyzed Meteotological 
-           Fields data products
-        """    
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = urls_2dm
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-        
-        return ds
-  
-    def getVariables(self, get_variables, ds):
-        """Return the objected variables from the specific MERRA-2 3D datasets"""
-        out_variable_2dm = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_2dm
-         
-    def getlatLon_2d(self, area, ds, out_variable_2dm, id_lat, id_lon):
-        """Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 3D datasets"""       
-        
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-
-        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dm, id_lat, id_lon)
-        
-        return lat, lon, time
-        
-class MERRAsf():
-    """Returns variables from downloaded MERRA 2d suface flux Diagnostics data, 
-       which are abstracted with specific temporal and spatial range        
-    """
-    
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 3d Analyzed Meteotological 
-           Fields data products """    
-        
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = urls_2ds
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-        
-        return ds
-    
-    def getVariables(self, get_variables, ds):
-        """Return the objected variables from the specific MERRA-2 2D suface flux Diagnostics data"""        
-        
-        out_variable_2ds = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_2ds
-
-    def getlatLon_2d(self, area, ds, out_variable_2ds, id_lat, id_lon):
-        """Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 2D datasets"""       
-
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        
-        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2ds, id_lat, id_lon)
-        
-        return lat, lon, time
-
-
-class MERRAsv():
-    """Returns variables from downloaded MERRA 2d Single-Level, Assimilation,Single-Level Diagnostics data, 
-        which are abstracted with specific temporal and spatial range"""
-    
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 2d Assimilation,Single-Level Diagnostics"""    
-        
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = urls_2dv
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-        
-        return ds
-    
-    def getVariables(self, get_variables, ds):
-        """Return the objected variables from the specific MERRA-2 2d Assimilation Single-Level Diagnostics data data"""        
-        
-        out_variable_2dv = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_2dv
-
-    def getlatLon_2d(self, area, ds, out_variable_2dv, id_lat, id_lon):
-        """Return the objected Latitude, Longitude, Levels, Time from specific MERRA-2 2D datasets"""       
-
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        
-        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dv, id_lat, id_lon)
-        
-        return lat, lon, time
-
 class SaveNCDF_sa():                                  
         """ write output netCDF file for abstracted variables from original 2d meteorological Diagnostics dataset
         and suface flux Diagnostics datasets"""
@@ -1257,35 +1094,7 @@ class SaveNCDF_sa():
             
                 #close the root group
                 rootgrp.close() 
-                                  
-class MERRAsr():
-    """Returns variables from downloaded MERRA 2d radiation Diagnostics datasets, 
-       which are abstracted with specific temporal and spatial range        
-    """
-    
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 2d radiation Diagnostics datasets"""    
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = urls_2dr
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-
-        return ds
-    
-    def getVariables(self, get_variables, ds):
-        """Return the objected variables from the specific MERRA-2 2D radiation Diagnostics datasets"""
-       
-        out_variable_2dr = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_2dr
-         
-    def getlatLon_2d(self, area, ds, out_variable_2dr, id_lat, id_lon):
-        """Return the objected Latitude, Longitude, Time from specific MERRA-2 2D datasets"""       
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-
-        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dr, id_lat, id_lon)
-        
-        return lat, lon, time
-        
+                                          
 class SaveNCDF_sr():                                  
         """ write output netCDF file for abstracted variables from original 2d radiation Diagnostics datasets  datasets"""
 
@@ -1429,36 +1238,6 @@ class SaveNCDF_sr():
             
                 #close the root group
                 rootgrp.close()          
-
-class MERRAsc():
-    """Returns variables from downloaded MERRA 2d Constant model parameters, 
-       which are abstracted with specific spatial range"""
-    
-    def getDs(self, date, username, password, chunk_size):
-        """Return the orginal datasets structured with defined chuncks form the specific MERRA-2 3d Analyzed Meteotological 
-           Fields data products"""    
-        
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(date)
-        urls = url_2dc
-        ds = MERRAgeneric().download(username, password, urls, chunk_size)
-        
-        return ds
-    
-    def getVariables(self, get_variables, ds):
-        """Return the objected variables from the specific MERRA-2 2D constant model parameters"""        
-        
-        out_variable_2dc = MERRAgeneric().Variables(get_variables, ds)
-
-        return out_variable_2dc
-
-    def getlatLon_2d(self, area, ds, out_variable_2dc, id_lat, id_lon):
-        """Return the objected Latitude, Longitude from specific MERRA-2 2D constant model parameters"""       
-
-        id_lat, id_lon =  MERRAgeneric().getArea(area, ds)
-        
-        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dc, id_lat, id_lon)
-        
-        return lat, lon, time
 
 class SaveNCDF_sc():                                  
         """ write output netCDF file for abstracted variables from original 2d Constant Model Parameters"""
@@ -1711,7 +1490,10 @@ class MERRAdownload(object):
         # download all variables by looping over the date with chunk_size
         startDay = self.date['beg']
         endDay   = self.date['end']
-                                
+        
+        # get the urls for all types of data products
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)
+                                                      
         x = 0
         for dt in rrule(DAILY, dtstart = startDay, until = endDay):
                 currentDay = (str(dt.strftime("%Y")) + "/" + str(dt.strftime("%m")) + "/" + str(dt.strftime("%d")))
@@ -1742,19 +1524,19 @@ class MERRAdownload(object):
                     get_variables = self.getVariables(self.full_variables_dic,self.full_variables_pl_asm)
                     
                     print get_variables
-                    
-                    ds_asm = MERRApl_asm().getDs(self.date, self.username, self.password, chunk_size)
+                                        
+                    ds_asm = MERRAgeneric().download(self.username, self.password, urls_3dmasm, chunk_size)
                     
                     id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_asm)
                       
                     id_lev = MERRAgeneric().getPressureLevels(self.elevation)
 
-                    out_variable_3dmasm = MERRApl_asm().getVariables(get_variables, ds_asm)
-                    
-                    lat, lon, lev, time = MERRApl_asm().getlatLon_3d(self.area, ds_asm, self.elevation, out_variable_3dmasm, id_lat, id_lon, id_lev)
-                    
+                    out_variable_3dmasm = MERRAgeneric().Variables(get_variables, ds_asm)
+                                        
                     get_variables_3dmasm = get_variables
-                                          
+                                                  
+                    lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, id_lat, id_lon, id_lev)
+
                     #get merra-2 meterological varaibles at pressure levels
                     print ("-----Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields-----")
                     
@@ -1762,16 +1544,14 @@ class MERRAdownload(object):
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_pl_ana)
                       
                     print get_variables
-                      
-                    ds_ana = MERRApl_ana().getDs(self.date, self.username, self.password, chunk_size)
-                      
+                                          
+                    ds_ana = MERRAgeneric().download(self.username, self.password, urls_3dmana, chunk_size)
+                     
                     id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_ana)
-                      
-                    id_lev = MERRAgeneric().getPressureLevels(self.elevation)
-                      
-                    out_variable_3dmana = MERRApl_ana().getVariables(get_variables, ds_ana)
-                      
-                    lat, lon, lev, time = MERRApl_ana().getlatLon_3d(self.area, ds_ana, self.elevation, out_variable_3dmana, id_lat, id_lon, id_lev)
+                                          
+                    out_variable_3dmana = MERRAgeneric().Variables(get_variables, ds_ana)
+                    
+                    lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, id_lat, id_lon, id_lev)
                     
                     get_variables_3dmana = get_variables
                       
@@ -1789,13 +1569,15 @@ class MERRAdownload(object):
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sm)
 
                     print get_variables
+                                        
+                    ds_2dm = MERRAgeneric().download(self.username, self.password, urls_2dm, chunk_size)
                     
-                    ds_2dm = MERRAsm().getDs(self.date, self.username, self.password, chunk_size)
+                    out_variable_2dm = MERRAgeneric().Variables(get_variables, ds_2dm)
                     
-                    out_variable_2dm = MERRAsm().getVariables(get_variables, ds_2dm)
-        
-                    lat, lon, time = MERRAsm().getlatLon_2d(self.area, ds_2dm, out_variable_2dm, id_lat, id_lon)
-                    
+                    id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_2dm)
+
+                    lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dm, id_lat, id_lon)
+
                     get_variables_2dm = get_variables
                                      
                     # Get merra-2 2d suface flux Diagnostics variables at surface level
@@ -1805,12 +1587,12 @@ class MERRAdownload(object):
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sf)
 
                     print get_variables                   
+                                        
+                    ds_2ds = MERRAgeneric().download(self.username, self.password, urls_2ds, chunk_size)
                     
-                    ds_2ds = MERRAsf().getDs(self.date, self.username, self.password, chunk_size)
-        
-                    out_variable_2ds = MERRAsf().getVariables(get_variables, ds_2ds)
-                    
-                    lat, lon, time = MERRAsf().getlatLon_2d(self.area, ds_2ds, out_variable_2ds, id_lat, id_lon)
+                    out_variable_2ds = MERRAgeneric().Variables(get_variables, ds_2ds)
+
+                    lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2ds, id_lat, id_lon)
                     
                     get_variables_2ds = get_variables               
                     
@@ -1820,13 +1602,13 @@ class MERRAdownload(object):
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sv)
                     
                     print get_variables                   
+                                        
+                    ds_2dv = MERRAgeneric().download(self.username, self.password, urls_2dv, chunk_size)
                     
-                    ds_2dv = MERRAsv().getDs(self.date, self.username, self.password, chunk_size)
-        
-                    out_variable_2dv = MERRAsv().getVariables(get_variables, ds_2dv)
-                    
-                    lat, lon, time = MERRAsv().getlatLon_2d(self.area, ds_2dv, out_variable_2dv, id_lat, id_lon)
-                    
+                    out_variable_2dv = MERRAgeneric().Variables(get_variables, ds_2dv)
+
+                    lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dv, id_lat, id_lon)
+
                     get_variables_2dv = get_variables                                    
                                        
                     # Output marra-2 variable at surface level 
@@ -1843,12 +1625,14 @@ class MERRAdownload(object):
                     
                     print get_variables
                     
-                    ds_2dr = MERRAsr().getDs(self.date, self.username, self.password, chunk_size)
-        
-                    out_variable_2dr = MERRAsr().getVariables(get_variables, ds_2dr)
-        
-                    lat, lon, time = MERRAsr().getlatLon_2d(self.area, ds_2dr, out_variable_2dr, id_lat, id_lon)
-        
+                    ds_2dr = MERRAgeneric().download(self.username, self.password, urls_2dr, chunk_size)
+                    
+                    out_variable_2dr = MERRAgeneric().Variables(get_variables, ds_2dr)
+                    
+                    id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_2dr)
+
+                    lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dr, id_lat, id_lon)
+
                     #Output merra-2 radiation variables 
                     SaveNCDF_sr().saveData(self.date, get_variables, id_lat, id_lon, out_variable_2dr, chunk_size, time, lat, lon, self.dir_data)
                     
@@ -1861,13 +1645,15 @@ class MERRAdownload(object):
         get_variables_2dc = ['PHIS','FRLAKE','FRLAND','FRLANDICE','FROCEAN','SGH','lat','lon','time']
         
         print get_variables_2dc                   
+                
+        ds_2dc = MERRAgeneric().download(self.username, self.password, url_2dc, chunk_size)
         
-        ds_2dc = MERRAsc().getDs(self.date, self.username, self.password, chunk_size)
-    
-        out_variable_2dc = MERRAsc().getVariables(get_variables_2dc, ds_2dc)
+        out_variable_2dc = MERRAgeneric().Variables(get_variables_2dc, ds_2dc)
         
-        lat, lon, time = MERRAsc().getlatLon_2d(self.area, ds_2dc, out_variable_2dc, id_lat, id_lon)
-                         
+        id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_2dc)
+        
+        lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dc, id_lat, id_lon)
+                     
         # Output marra-2 variable at surface level 
         SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, out_variable_2dc, chunk_size, time, lat, lon, self.dir_data)
         
@@ -1876,7 +1662,6 @@ class MERRAdownload(object):
         t_end = tc.time()
         t_total = int((t_end - t_start)/60)
         print ("Total Time (Minutes):", t_total)
-
                       
 class MERRAinterpolate(object):
     """
