@@ -1266,16 +1266,16 @@ class ERAscale(object):
             
         # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
-                                'eraint/era_pl_' + 
+                                'station/era_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
-                                'eraint/era_sa_' + 
+                                'station/era_sa_' + 
                                 par.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'eraint/era_sf_' + 
+                                'station/era_sf_' + 
                                 par.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'eraint/era_to_' + 
+                                'station/era_to_' + 
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
