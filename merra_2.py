@@ -2146,13 +2146,13 @@ class MERRAscale(object):
             self.kernels = [self.kernels]
             
         # input file names
-        self.nc_pl = nc.Dataset(path.join(par.project_directory,'merra2/merra_pl_' + 
+        self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/merra_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(par.project_directory,'merra2/merra_sa_' + 
+        self.nc_sa = nc.Dataset(path.join(par.project_directory,'station/merra_sa_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nc_sr = nc.Dataset(path.join(par.project_directory,'merra2/merra_sr_' + 
+        self.nc_sr = nc.Dataset(path.join(par.project_directory,'station/merra_sr_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nc_sc = nc.Dataset(path.join(par.project_directory,'merra2/merra_sc_' + 
+        self.nc_sc = nc.Dataset(path.join(par.project_directory,'station/merra_sc_' + 
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_sc.variables['station'][:])                        
                               
