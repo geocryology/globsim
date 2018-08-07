@@ -2265,8 +2265,8 @@ class MERRAscale(object):
         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.nc_sa.variables['T2MDEW'][:]                   
+        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
+        values  = self.nc_sr.variables['T2MDEW'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             dewp[:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n]-273.15) 
@@ -2366,8 +2366,8 @@ class MERRAscale(object):
         var.units     = 'mm'.encode('UTF8')  
         
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.nc_sa.variables['PRECTOTCORR'][:]
+        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
+        values  = self.nc_sr.variables['PRECTOTCORR'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) * self.time_step            
