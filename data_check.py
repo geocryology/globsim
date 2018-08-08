@@ -3,7 +3,7 @@
 #
 # Copyright Xiaojing Quan & Stephan Gruber
 #==============================================================================
-# a script for checking the continurisity of Time with given the chunk for downloaded netCDF files from ERA_Interim and MERRA-2,
+# a script for checking the continuity of Time with given the chunk for downloaded netCDF files from ERA_Interim and MERRA-2,
 # 
 # -- Step 1: read in downloaded netCDF files with a wildcard expression;
 # -- Step 2: check the time coverage of varialbes to be continous; 
@@ -25,7 +25,7 @@ import sys
 
 class MERRA2DataCheck(object):
     """
-        To check  the continourity of the time coverage of from all the downloaded 
+        To check  the continuity of the time coverage of from all the downloaded 
         netCDF files with a wildward expression
           
         Args:

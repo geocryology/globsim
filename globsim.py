@@ -92,11 +92,11 @@ def GlobsimScale(sfile):
     ERAsc = ERAscale(sfile)
     ERAsc.process()
     
-    # === MERRA-2 ===
-    MERRAsc = MERRAscale(sfile)
-    MERRAsc.process()
-        
-    # === JRA-55 ===
-    JRAsc = JRAscale(sfile)
-    JRAsc.process()
+    # # === MERRA-2 ===
+    # MERRAsc = MERRAscale(sfile)
+    # MERRAsc.process()
+    #     
+    # # === JRA-55 ===
+    # JRAsc = JRAscale(sfile)
+    # JRAsc.process()
                   

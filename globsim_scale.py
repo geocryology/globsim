@@ -23,7 +23,7 @@
 from globsim import GlobsimScale
 
 
-#===interpolate the variables from mutiple re-analysis data to individual stations===
+#===scale the variables from mutiple re-analysis data at stations===
 
 sfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_scale'
 
