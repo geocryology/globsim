@@ -23,11 +23,6 @@
 from globsim import GlobsimScale
 
 
-#=====download the wanted varialbe from multiple re-analysis date sources======
-# pfile = '/home/xquan/src/globsim/examples/par/examples.globsim_download'
-# 
-# GlobsimDownload(pfile)
-
 #===interpolate the variables from mutiple re-analysis data to individual stations===
 
 sfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_scale'

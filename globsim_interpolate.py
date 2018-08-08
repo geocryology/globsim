@@ -20,13 +20,8 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
-from globsim import GlobsimDownload, GlobsimInterpolateStation
+from globsim import GlobsimInterpolateStation
 
-
-#=====download the wanted varialbe from multiple re-analysis date sources======
-# pfile = '/home/xquan/src/globsim/examples/par/examples.globsim_download'
-# 
-# GlobsimDownload(pfile)
 
 #===interpolate the variables from mutiple re-analysis data to individual stations===
 
