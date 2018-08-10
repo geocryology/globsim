@@ -934,7 +934,7 @@ class SaveNCDF_sa():
         and suface flux Diagnostics datasets"""
 
         def varList(self, date, get_variables_2dm, id_lat, id_lon, out_variable_2dm, chunk_size, time, lat, lon, dir_data):
-            """ build the variables list for output netcdf file (T2M,U2M, V2M, U10M,V10M,QV2M, PRECTOT, PRECTOTCORR,T2MDEW, lat, lon, time)"""            
+            """ build the variables list for output netcdf file (T2M,U2M, V2M, U10M,V10M,QV2M, lat, lon, time)"""            
             
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
             
@@ -1057,7 +1057,7 @@ class SaveNCDF_sr():
         def varList(self, date, get_variables_2dr, get_variables_2ds, get_variables_2dv, id_lat, id_lon, out_variable_2dr,out_variable_2ds, out_variable_2dv, 
                                                                             chunk_size, time, lat, lon, dir_data):
             
-            """build the variables list for output netcdf file (SWGDN, SWGDNCLR, LWRNT, LWGEM, LWGNTCLR, LWGAB, LWGABCLR, lat,lon,time)"""
+            """build the variables list for output netcdf file (PRECTOT, PRECTOTCORR,T2MDEW,SWGDN, SWGDNCLR, LWRNT, LWGEM, LWGNTCLR, lat,lon,time)"""
             date_ind, time_ind1, time_ind2, time_ind3 = MERRAgeneric().getTime(date)
 
             #Set up time_ind3 with the begin at year-mm-dd 00:30:00 
@@ -1423,7 +1423,7 @@ class MERRAdownload(object):
 
     def getVariables(self, full_variables_dic, full_variables_type):
         """
-        build the major variable list for retriving between lists from download parameter file and the product
+        build the major variable list for retrieving between lists from download parameter file and the product
         """       
         get_variables = []
 
