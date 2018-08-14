@@ -780,19 +780,40 @@ class SaveNCDF_pl_3dm():
                 size_type = [chunk_size*hour_size]*int_size           
 
             #Get the wanted variables and Set up the list of output variables
+            rh_total = []
             h_total = []
             t_total = []
             u_total = []
             v_total = []
-            rh_total = []
-
-            var_out = {'H':['geopotential_height','geopotential_height', 'm', h_total],
+          
+            var_out = {'RH':['relative_humidity','relative humidity','1', rh_total],
+                       'H':['geopotential_height','geopotential_height', 'm', h_total],
                        'T':['air_temperature', 'air_temperature','K', t_total],
                        'U':['eastward_wind','eastward_wind_component','m/s', u_total],
-                       'V':['northward_wind','northward_wind_component', 'm/s', v_total],
-                       'RH':['relative_humidity','relative humidity','1', rh_total]}            
+                       'V':['northward_wind','northward_wind_component', 'm/s', v_total]}            
             
             var_list = []
+            # get RH 
+            for i in range(0, len(get_variables_3dmasm[0:-4])):
+                for x in var_out.keys():
+                    if x == get_variables_3dmasm[i]:
+                        print ("------Get Subset of Variable at Pressure Levels------", get_variables_3dmasm[i])
+                        var = MERRAgeneric().dataStuff_3d(i, id_lat, id_lon, id_lev, out_variable_3dmasm)
+                        # restructing the shape 
+                        var_total = MERRAgeneric().restruDatastuff(var)
+                        if x == 'RH':
+                           rh_total = var_total
+                           print "Conduct 1D Extrapolation for 'RH'"
+                           var_total = MERRAgeneric().wind_rh_Extrapolate(rh_total)   #1D Extrapolation for Relative Humidity
+                           rh_total = var_total
+                           
+                           # Extracting RH at same time indice as geopotential height 
+                           # rh_total[double_time, level, lat, lon] to rh_total[even position of time, level, lat, lon]            
+                           rh_total = rh_total[::2,:,:,:]
+                        del var
+                        var_out[x][3] = rh_total
+                        var_list.append([get_variables_3dmasm[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
+            #get H,T,U,V
             for i in range(0, len(get_variables_3dmana[0:-4])):
                 for x in var_out.keys():
                     if x == get_variables_3dmana[i]:
@@ -820,26 +841,6 @@ class SaveNCDF_pl_3dm():
                         
                         var_list.append([get_variables_3dmana[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
 
-            # get RH 
-            for i in range(0, len(get_variables_3dmasm[0:-4])):
-                for x in var_out.keys():
-                    if x == get_variables_3dmasm[i]:
-                        print ("------Get Subset of Variable at Pressure Levels------", get_variables_3dmasm[i])
-                        var = MERRAgeneric().dataStuff_3d(i, id_lat, id_lon, id_lev, out_variable_3dmasm)
-                        # restructing the shape 
-                        var_total = MERRAgeneric().restruDatastuff(var)
-                        if x == 'RH':
-                           rh_total = var_total
-                           print "Conduct 1D Extrapolation for 'RH'"
-                           var_total = MERRAgeneric().wind_rh_Extrapolate(rh_total)   #1D Extrapolation for Relative Humidity
-                           rh_total = var_total
-                           
-                           # Extracting RH at same time indice as geopotential height 
-                           # rh_total[double_time, level, lat, lon] to rh_total[even position of time, level, lat, lon]            
-                           rh_total = rh_total[::2,:,:,:]
-                        del var
-                        var_out[x][3] = rh_total
-                        var_list.append([get_variables_3dmasm[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
                         
             return var_list, time_ind1, date_ind, size_type
             
@@ -1507,9 +1508,6 @@ class MERRAdownload(object):
                     
                     print get_variables
                                         
-                    # get the urls for all types of data products
-                    urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)
-
                     ds_asm = MERRAgeneric().download(self.username, self.password, urls_3dmasm, chunk_size)
                     
                     id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_asm)
@@ -1520,8 +1518,6 @@ class MERRAdownload(object):
                                         
                     get_variables_3dmasm = get_variables
                                                   
-                    lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmasm, id_lat, id_lon, id_lev)
-
                     #get merra-2 meterological varaibles at pressure levels
                     print ("==========Get Wanted Variables From Merra-2 3d, 6-hourly, Pressure-Level, Analyzed Meteorological Fields==========")
                     
@@ -1559,8 +1555,6 @@ class MERRAdownload(object):
                     
                     out_variable_2dm = MERRAgeneric().Variables(get_variables, ds_2dm)
                     
-                    id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_2dm)
-
                     lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dm, id_lat, id_lon)
 
                     get_variables_2dm = get_variables
@@ -1581,8 +1575,6 @@ class MERRAdownload(object):
                     ds_2ds = MERRAgeneric().download(self.username, self.password, urls_2ds, chunk_size)
                     
                     out_variable_2ds = MERRAgeneric().Variables(get_variables, ds_2ds)
-
-                    lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2ds, id_lat, id_lon)
                     
                     get_variables_2ds = get_variables               
                     
@@ -1596,8 +1588,6 @@ class MERRAdownload(object):
                     ds_2dv = MERRAgeneric().download(self.username, self.password, urls_2dv, chunk_size)
                     
                     out_variable_2dv = MERRAgeneric().Variables(get_variables, ds_2dv)
-
-                    lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dv, id_lat, id_lon)
 
                     get_variables_2dv = get_variables                                    
           
@@ -1613,8 +1603,6 @@ class MERRAdownload(object):
                     
                     out_variable_2dr = MERRAgeneric().Variables(get_variables, ds_2dr)
                     
-                    id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_2dr)
-
                     lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dr, id_lat, id_lon)
                     
                     get_variables_2dr = get_variables 
