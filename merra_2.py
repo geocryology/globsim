@@ -213,10 +213,12 @@ class MERRAgeneric():
         return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv
  
     def download(self, username, password, urls, chunk_size):
-        """ Access the MERRA server by account information and defiend urls"""
+        """ Access the MERRA server by account information and defined urls"""
 
         urls_chunks = [urls[x:x+chunk_size] for x in xrange(0, len(urls), chunk_size)]      
-
+        # move the session out of loop
+        # check the availibity of session (pydap)
+        # close the session
         print ('================ MERRA-2 SERVER ACCESS: START ================')
         print ('TIME TO GET A COFFEE')        
         ds = {}
@@ -634,8 +636,6 @@ class MERRAgeneric():
     def MERRA_skip(self, merralist):
         ''' To remove the extra variables from downloaded MERRA2 data'''
         for x in merralist:
-            if x == 'PRECTOT':
-               merralist.remove('PRECTOT')
             if x == 'LWGEM': 
                merralist.remove('LWGEM')
                merralist.remove('LWGNT')
@@ -1086,8 +1086,8 @@ class SaveNCDF_sr():
             lwgem_total = []
             lwgntclr_total = []
 
-            var_out = {'PRECTOT':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectot_total],
-                       'PRECTOTCORR':['precipitation_flux','total_surface_precipitation_flux', 'kg/m2/s', prectotcorr_total],
+            var_out = {'PRECTOT':['total_precipitation','total_surface_precipitation_flux', 'kg/m2/s', prectot_total],
+                       'PRECTOTCORR':['total_precipitation_corrected','total_surface_precipitation_flux_corrected', 'kg/m2/s', prectotcorr_total],
                        'T2MDEW': ['2-metre_dew_point_temperature', 'dew_point_temperature_at_2m','K',  t2mdew_total],
                        'SWGDN': ['surface_incoming_shortwave_flux', 'surface_incoming_shortwave_flux', 'W/m2', swgdn_total],
                        'SWGDNCLR': ['surface_incoming_shortwave_flux_assuming_clear_sky', 'surface_incoming_shortwave_flux_assuming_clear_sky', 'W/m2', swgdnclr_total],
@@ -1137,10 +1137,6 @@ class SaveNCDF_sr():
                             lwgntclr_total = var_total
                         elif x == 'LWGEM':
                             lwgem_total = var_total
-                        # elif x == 'LWGAB':  
-                        #     lwgab_total = var_total
-                        # elif x == 'LWGABCLR':
-                        #     lwgabclr_total = var_total      
                         del var_total
                         var_list.append([get_variables_2dr[i],var_out[x][0],var_out[x][1],var_out[x][2],var_out[x][3]])            
           
@@ -1388,7 +1384,7 @@ class MERRAdownload(object):
         #build full dictionary between variable names from input parameter file and original merra2 data products
         self.full_variables_dic = {'air_temperature': ['air_temperature', '2-meter_air_temperature'],
                                    'relative_humidity' : ['relative_humidity','2-metre_dewpoint_temperature','2-metre_specific_humidity'],
-                                   'precipitation_amount': ['precipitation_flux'],
+                                   'precipitation_amount': ['total_precipitation','total_precipitation_corrected'],
                                    'wind_from_direction':['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
                                    'wind_speed': ['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
                                    'downwelling_shortwave_flux_in_air': ['surface_incoming_shortwave_flux'],
@@ -1412,7 +1408,8 @@ class MERRAdownload(object):
                                   '10-meter_northward_wind':'V10M',
                                   '2-metre_specific_humidity':'QV2M'}
         # 2D surface flux diagnostics data
-        self.full_variables_sf = {'precipitation_flux': ['PRECTOT','PRECTOTCORR']}
+        self.full_variables_sf = {'total_precipitation': 'PRECTOT',
+                                  'total_precipitation_corrected': 'PRECTOTCORR'}
         # 2D single-level diagnostics (time-averageed)
         self.full_variables_sv = {'2-metre_dewpoint_temperature': 'T2MDEW'}
         # 2D radiation diagnostics data                
@@ -1437,13 +1434,8 @@ class MERRAdownload(object):
                         for var1 in full_variables_type.keys():
                             if var1 == var_names[j]:
                                 get_variables.append(full_variables_type[var1])
-
-        # chain the the list for precipitation specifically
-        if full_variables_type.keys()[0] == 'precipitation_flux':
-           get_variables = list(itertools.chain(*get_variables)) 
-           get_variables = list(set(get_variables)) 
-        else:
-           get_variables = list(set(get_variables))                                                                   
+        # set the list
+        get_variables = list(set(get_variables))                                                                   
 
         #add the basic variables into the list
         if full_variables_type.keys()[0] == 'relative_humidity':
@@ -2034,7 +2026,7 @@ class MERRAinterpolate(object):
 
     def TranslateCF2short(self, dpar):
         """
-        Map CF Standard Names into short codes used in ERA-Interim netCDF files.
+        Map CF Standard Names into short codes used in MERRA2 netCDF files.
         """
         varlist = [] 
         for var in self.variables:
@@ -2077,7 +2069,7 @@ class MERRAinterpolate(object):
         # dictionary to translate CF Standard Names into MERRA2
         # pressure level variable keys.       
         dpar = {'air_temperature'   : ['T2MDEW'],  # [K] 2m values
-                'precipitation_amount' : ['PRECTOTCORR'], # [kg/m2/s] total precipitation 
+                'precipitation_amount' : ['PRECTOT','PRECTOTCORR'], # [kg/m2/s] total precipitation 
                 'downwelling_shortwave_flux_in_air' : ['SWGDN'], # [W/m2] short-wave downward
                 'downwelling_longwave_flux_in_air'  : ['LWGDN'], # [W/m2] long-wave downward
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'], # [W/m2] short-wave downward assuming clear sky
@@ -2355,10 +2347,31 @@ class MERRAscale(object):
         
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:].astype(np.int64)
+        values  = self.nc_sr.variables['PRECTOT'][:]
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                          time_in*3600, values[:, n]) * self.time_step            
+
+    def PRECCORR_MERRA_mm_sur(self):
+        """
+        Corrected Precipitation derived from surface data, exclusively.
+        Convert units: kg/m2/s to mm/time_step (hours)
+        1 kg/m2 = 1mm
+        """   
+        
+        # add variable to ncdf file
+        vn = 'PRECCORR_MERRA2_mm_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Corrected Total precipitation MERRA2 surface only'
+        var.units     = 'mm'.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
         values  = self.nc_sr.variables['PRECTOTCORR'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) * self.time_step            
+
 
     def SH_MERRA_kgkg_sur(self):
         '''
