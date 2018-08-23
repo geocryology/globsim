@@ -1602,11 +1602,11 @@ class JRAscale(object):
             self.kernels = [self.kernels]
             
         # input file names
-        self.nc_pl = nc.Dataset(path.join(par.project_directory,'jra55/jra_pl_' + 
+        self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/jra_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(par.project_directory,'jra55/jra_sa_' + 
+        self.nc_sa = nc.Dataset(path.join(par.project_directory,'station/jra_sa_' + 
                                 par.list_name + '.nc'), 'r')
-        self.nc_sr = nc.Dataset(path.join(par.project_directory,'jra55/jra_sr_' + 
+        self.nc_sr = nc.Dataset(path.join(par.project_directory,'station/jra_sr_' + 
                                 par.list_name + '.nc'), 'r')
                                
         # output file 
@@ -1649,6 +1649,25 @@ class JRAscale(object):
         self.nc_pl.close()
         self.nc_sr.close()
         self.nc_sa.close()
+
+    def PRESS_JRA_Pa_pl(self):
+        """
+        Surface air pressure from pressure levels.
+        """        
+        # add variable to ncdf file
+        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time','station'))    
+        var.long_name = 'air_pressure JRA-55 pressure levels only'
+        var.units     = 'Pa'.encode('UTF8')  
+        
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
+        values  = self.nc_pl.variables['air_pressure'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            #scale from hPa to Pa 
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                        time_in*3600, values[:, n]) * 100          
+
 
     def AIRT_JRA_C_pl(self):
         """
@@ -1811,6 +1830,7 @@ class JRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) / 24 * self.time_step            
+
 
 #     def conv_geotop(self):
 #         """
