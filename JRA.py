@@ -1642,7 +1642,7 @@ class JRAscale(object):
         for kernel_name in self.kernels:
             getattr(self, kernel_name)()
             
-        self.conv_geotop()    
+        # self.conv_geotop()    
             
         # close netCDF files   
         self.rg.close()
@@ -1710,7 +1710,7 @@ class JRAscale(object):
         # add variable to ncdf file
         vn = 'RH_JRA55_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'relative humidity JRA55-2 surface only'
+        var.long_name = 'relative humidity JRA55 surface only'
         var.units     = self.nc_sa.variables['relative_humidity'].units.encode('UTF8')  
         
         # interpolate station by station
@@ -1754,13 +1754,13 @@ class JRAscale(object):
         # add variable to ncdf file
         vn = 'WSPD_JRA55_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre wind speed JRA-55 surface only'
+        var.long_name = '10 metre wind speed JRA55 surface only'
         var.units     = 'm s**-1'  
         
         # add variable to ncdf file
         vn = 'WDIR_JRA55_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre wind direction JRA-55 surface only'
+        var.long_name = '10 metre wind direction JRA55 surface only'
         var.units     = 'deg'  
                                 
         # convert
