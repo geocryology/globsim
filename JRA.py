@@ -1343,15 +1343,16 @@ class JRAinterpolate(object):
             # indices
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n*self.cs + self.cs, len(time_in))
+            end = min(n*self.cs + self.cs, len(time_in)-1)
             
             # time to make tmask for chunk 
-            beg_time = nc.num2date(nctime[beg], units=t_unit, calendar=t_cal)
+            beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+                end = 1
             else:
-                end_time = nc.num2date(nctime[end], units=t_unit, calendar=t_cal)
+                end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
                 
             #'<= end_time', would damage appending
             tmask_chunk = (time < end_time) * (time >= beg_time)
