@@ -30,7 +30,11 @@ import pandas  as pd
 import netCDF4 as nc
 import numpy as np
 
-
+# handle python 3 string types
+try:
+    basestring
+except:
+    basestring = str
 
 class ParameterIO(object):
     """
@@ -72,7 +76,8 @@ class ParameterIO(object):
         for line in inpts_str:
             d = self.line2dict(line)
             if d is not None:
-                self.__dict__[d.keys()[0]] = d.values()[0]
+                setattr(self, d.keys()[0],  d.values()[0])
+                # self.__dict__[d.keys()[0]] = d.values()[0] old code: python3 incompatible
 
     def __is_only_comment(self, lin):
         # checks whether line contains nothing but comment
