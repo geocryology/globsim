@@ -10,6 +10,7 @@ from generic         import series_interpolate, variables_skip, spec_hum_kgkg
 from os              import path, listdir
 from math            import exp, floor
 from fnmatch         import filter
+from __future__      import print_function
 
 import netCDF4       as nc
 import numpy         as np
@@ -55,20 +56,20 @@ class JRA_Download:
             end_data = date(int(end.rsplit("-")[0]), int(end.rsplit("-")[1]), int(end.rsplit("-")[2].rsplit(" ")[0]))
             first_data = date(1979, 01, 31)
         except:
-            print "Invalid start day or end day"
+            print("Invalid start day or end day")
             sys.exit(0)
         # Make sure the day is suitable for our reanalysis       
         try:          
             if (start_data > end_data): # Make sure the start day is before the end day
-                print"\nInvalid data entered"
-                print "*The end day you chose is before the start day you chose" 
+                print("\nInvalid data entered")
+                print("*The end day you chose is before the start day you chose" )
                 sys.exit(0)
             elif (start_data < first_data or end_data < first_data):
-                print"\nInvalid data entered"
-                print "*There is no data available for this time frame"  
+                print("\nInvalid data entered")
+                print("*There is no data available for this time frame"  )
                 sys.exit(0)
         except:
-            print "***Invalid start day or end day"
+            print("***Invalid start day or end day")
             sys.exit(0)
     
         return(start_data, end_data)
@@ -97,11 +98,11 @@ class JRA_Download:
                     latBottomPosition = 144
                 run1 = False
             else:
-                print "\nThe bounds must be  between -90 and 90 (inclusively)"
+                print("\nThe bounds must be  between -90 and 90 (inclusively)")
                 sys.exit(0)  
         except:
-            print "\nInvalid Entry"
-            print "Please make sure your latitude position is between -90 and 90 (inclusively)"
+            print("\nInvalid Entry")
+            print("Please make sure your latitude position is between -90 and 90 (inclusively)")
             sys.exit(0)
             
         try:
@@ -113,11 +114,11 @@ class JRA_Download:
                     lonRightPosition = 287
                 run2 = False
             else:
-                print "\nThe bounds must be  between 0 and 358.75 (inclusively)"
+                print("\nThe bounds must be  between 0 and 358.75 (inclusively)")
                 sys.exit(0)
         except:
-            print "\nInvalid Entry"
-            print "Please make sure your longitude position is between 0 and 358.75 (inclusively)"
+            print("\nInvalid Entry")
+            print("Please make sure your longitude position is between 0 and 358.75 (inclusively)")
             sys.exit(0)
     
         return (latTopPosition, latBottomPosition, lonLeftPosition, lonRightPosition) # Return latTopPosition before latBottomPosition because JRA goes from 90 to -90   
@@ -182,7 +183,7 @@ class JRA_Download:
     """
     def ftp_Download(self, start_day, end_day, download_list, savePath, ftp):   
           
-        print "\nDownloading GRIB Files....."  
+        print("\nDownloading GRIB Files....."  )
         for dt in rrule(DAILY, dtstart = start_day, until = end_day): # Loop from start day to end day
             for var in range(0,len(download_list)):
                 path = "/JRA-55/Hist/Daily/" + download_list[var][0] + "/" + dt.strftime("%Y") + dt.strftime("%m") # Generate the path  
@@ -199,7 +200,7 @@ class JRA_Download:
                     try:
                         completeName = os.path.join(savePath, filename) # Generate the filename and save it to the proper folder
                     except:
-                        print "Make sure you have a Grib and netCDF folder in your directory"
+                        print("Make sure you have a Grib and netCDF folder in your directory")
                         sys.exit(0)
                     
                     # try downloading and repeat for up to ten hours times before giving up
@@ -211,15 +212,15 @@ class JRA_Download:
                             break
                         except:
                             if delay < 599:
-                                print "Error downloading file: " + filename + ". Trying again (" + str(delay) + ")"
+                                print("Error downloading file: " + filename + ". Trying again (" + str(delay) + ")")
                                 time.sleep(min(delay, 60))
                                 pass
                             else:    
-                                print "Error downloading file: " + filename + ". Giving up."
+                                print("Error downloading file: " + filename + ". Giving up.")
                                 raise RuntimeError("==> Unsuccesfull after 10h and 600 attempts.")
                      
-            print "Downloaded all the data for:", str(dt.strftime("%Y")) + "-" + str(dt.strftime("%m")) + "-" + str(dt.strftime("%d"))  
-        print "\nAll Downloads Finished :) \n"
+            print("Downloaded all the data for:", str(dt.strftime("%Y")) + "-" + str(dt.strftime("%m")) + "-" + str(dt.strftime("%d"))  )
+        print("\nAll Downloads Finished :) \n")
             
                          
     """
@@ -242,8 +243,8 @@ class JRA_Download:
                 ftp = FTP("ds.data.jma.go.jp")
                 server = True 
             except EOFError: # Catch server disconection error
-                print "\nConnection to server terminated :("
-                print "Try: " + str(tries) + " " + data_type + middle
+                print("\nConnection to server terminated :(")
+                print("Try: " + str(tries) + " " + data_type + middle)
                 server = False
             tries += 1
        
@@ -275,9 +276,9 @@ class JRA_Download:
                 ftp.quit() # Close Connection   
               
             else:     
-                print "\nAttempted to download" + data_type + middle
-                print "Tried to connect 5 times but failed"   
-                print "Please retry later"
+                print("\nAttempted to download" + data_type + middle)
+                print("Tried to connect 5 times but failed"   )
+                print("Please retry later")
                 sys.exit(0)   
 
 
@@ -349,8 +350,8 @@ class Grib2CDF:
                 name =(str(date[z].strftime("%Y")) + str(date[z].strftime("%m")) + str(date[z].strftime("%d")) + str(date[z].strftime("%H")))
                 grbs = pygrib.open(os.path.join(fileLocation, filename + name))
             except:
-                print "file: " + filename + name +  " not found :("
-                print "Quiting program"
+                print("file: " + filename + name +  " not found :(")
+                print("Quiting program")
                 sys.exit(0)
                         
             # Loop through the Grib file and extract the data you need
@@ -465,13 +466,13 @@ class Grib2CDF:
         try:
             shutil.rmtree(newlocation) 
         except:
-            print "Unable to delete the used Grib files"
+            print("Unable to delete the used Grib files")
             sys.exit(0)
         try:
             if not os.path.exists(newlocation):
                 os.makedirs(newlocation)
         except:
-            print "Unable to create the new Grib folder"
+            print("Unable to create the new Grib folder")
             sys.exit(0)
 
    
@@ -507,8 +508,8 @@ class fcst_phy2m:
             completeName = os.path.join(savePath, 'jra55', "JRA_fcst_" + startName + "_" + endName + ".nc")
             f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created  
         except:
-            print "Make sure you have a netCDF folder in your directory"
-            print "Once the netCDF files are created they will be stored in there"
+            print("Make sure you have a netCDF folder in your directory")
+            print("Once the netCDF files are created they will be stored in there")
             sys.exit(0)
         
         # Create the Latitude and Longitude
@@ -539,7 +540,7 @@ class fcst_phy2m:
             dataVariable.standard_name = dataName
             dataVariable.units = JRA_Dictionary[dataName][3]
             dataVariable[:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
-            print "Converted:", dataName
+            print("Converted:", dataName)
 
         # Description
         f.source = "JRA converted data"
@@ -579,8 +580,8 @@ class anl_surf:
             completeName = os.path.join(savePath, 'jra55', "JRA_surf_" + startName + "_" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created 
         except:
-            print "Make sure you have a netCDF folder in your directory"
-            print "Once the netCDF files are created they will be stored in there"
+            print("Make sure you have a netCDF folder in your directory")
+            print("Once the netCDF files are created they will be stored in there")
             sys.exit(0)
         
         
@@ -612,7 +613,7 @@ class anl_surf:
             dataVariable.standard_name = dataName
             dataVariable.units = JRA_Dictionary[dataName][3]
             dataVariable[:,:,:] = Grib2CDF().SubsetTheData(data, timeSize, bottomLat, topLat, leftLon, rightLon)
-            print "Converted:", dataName
+            print("Converted:", dataName)
         
         # Description
         f.source = "JRA converted data"
@@ -645,8 +646,8 @@ class Isobaric:
                 name =(str(date[z].strftime("%Y")) + str(date[z].strftime("%m")) + str(date[z].strftime("%d")) + str(date[z].strftime("%H")))
                 grbs = pygrib.open(os.path.join(fileLocation, filename + name))
             except:
-                print "file: " + filename + name +  " not found :("
-                print "Quiting program"
+                print("file: " + filename + name +  " not found :(")
+                print("Quiting program")
                 sys.exit(0)
                         
               # Loop through the Grib file and extract the data you need
@@ -716,8 +717,8 @@ class Isobaric:
             completeName = os.path.join(savePath, 'jra55', "JRA_Isobaric_" + startName + "_" + endName + ".nc") 
             f = Dataset(completeName, "w", format = "NETCDF4_CLASSIC") # Name of the netCDF being created
         except:
-            print "Make sure you have a netCDF folder in your directory"
-            print "Once the netCDF files are created they will be stored in there"
+            print("Make sure you have a netCDF folder in your directory")
+            print("Once the netCDF files are created they will be stored in there")
             sys.exit(0) 
         
         
@@ -783,7 +784,7 @@ class Isobaric:
                 dataVariable.standard_name = dataName
                 dataVariable.units = JRA_Dictionary[dataName][3]
                 dataVariable[:,:,:,:] = self.SubsetTheData(data, timeSize, bottomLat, topLat, leftLon,  rightLon, tempMinRange, tempMaxRange)
-            print "Converted:", dataName
+            print("Converted:", dataName)
         
         # Description
         f.source = "JRA converted data"
@@ -828,7 +829,7 @@ class JRAdownload(object):
             #raise ValueError("Directory does not exist: " + self.directory)
             
         self.credential = path.join(par.credentials_directory, ".jrarc")
-        #print self.credential
+        #print(self.credential)
         self.account = open(self.credential, "r")
         self.inf = self.account.readlines()
         self.username = ''.join(self.inf[0].split())
@@ -880,14 +881,14 @@ class JRAdownload(object):
                 
             latBottomPosition, latTopPosition, lonLeftPosition, lonRightPosition = JRA_Download().ConvertLatLon(latBottom, latTop, lonLeft,lonRight)
         except:
-            print "Invalid area format"
+            print("Invalid area format")
             sys.exit(0)
         
         # Chunk data
         try:
             chunk_size = int(self.chunk_size)
         except:
-            print "Invalid chunk size"
+            print("Invalid chunk size")
             sys.exit(0)
         
         # Date data
@@ -896,8 +897,8 @@ class JRAdownload(object):
             end = str(self.date["end"])
             startDay, endDay = JRA_Download().TimeSet(start, end) # Get the time period for the data
         except:
-            print "Invalid date"
-            print "Please make sure your date is in YYYY-MM-DD format"
+            print("Invalid date")
+            print("Please make sure your date is in YYYY-MM-DD format")
             sys.exit(0)
         
         # Elevation data 
@@ -906,7 +907,7 @@ class JRAdownload(object):
             elevationMax = self.elevation["max"]
             elevationMinRange, elevationMaxRange = JRA_Download().ElevationCalculator(elevationMin, elevationMax) 
         except:
-            print "Invalid elevation entered"
+            print("Invalid elevation entered")
             sys.exit(0)
     
         # Directory Information
@@ -924,14 +925,14 @@ class JRAdownload(object):
             if not os.path.exists(gribFolder):
                 os.makedirs(gribFolder)
         except:
-            print "Unable to create a Grib folder"
+            print("Unable to create a Grib folder")
             sys.exit(0)
             
         try:
             if not os.path.exists(netFolder):
                 os.makedirs(netFolder)
         except:
-            print "Unable to create a netCDF folder"
+            print("Unable to create a netCDF folder")
             sys.exit(0)
         ######### TO FINISH
         
@@ -1016,11 +1017,11 @@ class JRAdownload(object):
         
         # Empty out the GRIB files remaining in the folder
         Grib2CDF().EmptyFolder(save_path) 
-        print "\nAll Conversions Finished!"
-        print "Have a nice day! "  
+        print("\nAll Conversions Finished!")
+        print("Have a nice day! "  )
         t1 = time.time()
         total = t1 - t0
-        print "Total run time:", total  
+        print("Total run time:", total  )
         
         # Write time to textfile
         file = open("time.txt", "w")
@@ -1116,21 +1117,21 @@ class JRAinterpolate(object):
         # extra treatment for pressure level files
         try:
             lev = nc_in.variables['level'][:]
-            print "== 3D: file has pressure levels"
+            print("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print "== 2D: file without pressure levels"
+            print("== 2D: file without pressure levels")
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
             if variables_skip(var):
                 continue                 
-            print "VAR: ", var
+            print("VAR: ", var)
             # extra treatment for pressure level files           
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))

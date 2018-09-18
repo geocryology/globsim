@@ -38,13 +38,14 @@
 #
 #===============================================================================
 
-from datetime import datetime, timedelta
+from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
-from math     import exp, floor
-from os       import path, listdir
-from generic import ParameterIO, StationListRead, ScaledFileOpen
-from generic import series_interpolate, variables_skip, spec_hum_kgkg
-from fnmatch import filter
+from math         import exp, floor
+from os           import path, listdir
+from generic      import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg
+from fnmatch      import filter
+from __future__   import print_function
+
 import numpy   as np
 import netCDF4 as nc
 import glob
@@ -123,9 +124,9 @@ class ERAgeneric(object):
     def download(self):
         #TODO test for file existence
         server = ECMWFDataServer()
-        print server.trace('=== ERA Interim: START ====')
+        print(server.trace('=== ERA Interim: START ===='))
         server.retrieve(self.getDictionary())
-        print server.trace('=== ERA Interim: STOP =====')  
+        print(server.trace('=== ERA Interim: STOP =====')  )
 
     def TranslateCF2ERA(self, variables, dpar):
         """
@@ -193,21 +194,21 @@ class ERAgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = nc_in.variables['level'][:]
-            print "== 3D: file has pressure levels"
+            print("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print "== 2D: file without pressure levels"
+            print("== 2D: file without pressure levels")
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
             if variables_skip(var):
                 continue                 
-            print "VAR: ", var
+            print("VAR: ", var)
             # extra treatment for pressure level files           
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
@@ -259,13 +260,13 @@ class ERAgeneric(object):
             elif ncfile_in[-7:-5] == 'pl':
                 merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
-                print 'There is not such type of file'    
+                print('There is not such type of file'    )
                         
             # combined files into merged files
             nco.ncrcat(input=files_list,output=merged_file, append = True)
             
-            print 'The Merged File below is saved:'
-            print merged_file
+            print('The Merged File below is saved:')
+            print(merged_file)
             
             #clear up the data
             for fl in files_list:
@@ -311,7 +312,7 @@ class ERAgeneric(object):
         elif ncfile_in[-7:-5] == 'pl':
             ncfile_out = path.join(ncfile_in[:-11],'eraint_pl_all' + '.nc')
         else:
-            print 'There is not such type of file'    
+            print('There is not such type of file'    )
         
         # get variables
         varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
@@ -352,19 +353,19 @@ class ERAgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = ncf_in.variables['level'][:]
-            print "== 3D: file has pressure levels"
+            print("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print "== 2D: file without pressure levels"
+            print("== 2D: file without pressure levels")
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(varlist):
-            print "VAR: ", var
+            print("VAR: ", var)
             # extra treatment for pressure level files            
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'latitude', 'longitude'))

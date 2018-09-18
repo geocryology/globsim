@@ -20,11 +20,14 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
-from datetime import datetime
+from datetime    import datetime
+from csv         import QUOTE_NONE
+from __future__  import print_function
+
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
-from csv import QUOTE_NONE
+
 
 
 class ParameterIO(object):
@@ -141,17 +144,8 @@ def variables_skip(variable_name):
         Which variable names to use? Drop the ones that are dimensions.  
         '''
         skip = 0
-        if variable_name == 'time':
-            skip = 1
-        if variable_name == 'level':
-            skip = 1
-        if variable_name == 'latitude':
-            skip = 1
-        if variable_name == 'longitude':
-            skip = 1
-        if variable_name == 'station':
-            skip = 1    
-        if variable_name == 'height':
+        dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height')
+        if variable_name in dims:
             skip = 1      
         return skip 
 
