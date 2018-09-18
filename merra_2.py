@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*- 
 #
 # Copyright Xiaojing Quan & Stephan Gruber
 # =============================================================================    
@@ -85,7 +85,7 @@
 # downwelling_longwave_flux_in_air_assuming_clear_sky = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux Assuming Clear Sky
             
 #==============================================================================
-
+from __future__        import print_function
 from pydap.client      import open_url
 from pydap.cas.urs     import setup_session
 from datetime          import datetime, timedelta, date
@@ -100,7 +100,7 @@ from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, Neare
 from time              import sleep
 from numpy.random      import uniform
 from nco               import Nco
-from __future__        import print_function
+
 
 import pydap.lib
 import numpy as np
@@ -1885,7 +1885,7 @@ class MERRAinterpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-		            
+        
         return dfield, variables
 
     def MERRA2station(self, ncfile_in, ncfile_out, points,
@@ -1977,12 +1977,12 @@ class MERRAinterpolate(object):
                 end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
             
             # !! CAN'T HAVE '<= end_time', would damage appeding 
-	    tmask_chunk = (time < end_time) * (time >= beg_time)
-	    if invariant:
+            tmask_chunk = (time < end_time) * (time >= beg_time)
+            if invariant:
                 # allow topography to work in same code
                 tmask_chunk = [True]
            
-	    # get the interpolated variables
+            # get the interpolated variables
             dfield, variables = self.MERRA2interp2D(ncfile_in, ncf_in, self.stations, tmask_chunk,
                                     variables=None, date=None) 
 
@@ -1998,10 +1998,10 @@ class MERRAinterpolate(object):
                 try:
                     lev = ncf_in.variables['level'][:]
                     # dimension: time, level, latitude, longitude
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
                 except:
                     # time, latitude, longitude
-                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]		    
+                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
                                      
         #close the file
         ncf_in.close()
@@ -2120,15 +2120,15 @@ class MERRAinterpolate(object):
                     # pressure [hPa] variable from levels, shape: (time, level)
                     data = np.repeat([ncf.variables['level'][:]],
                                       len(time),axis=0).ravel()
-		    ipol = data[va]*wa + data[vb]*wb   # interpolated value
-		    #---------------------------------------------------------
-		    #if mask[pixel] == false, pass the maximum of pressure level to pixles
-		    level_highest = ncf.variables['level'][:][-1]
-		    level_lowest = ncf.variables['level'][:][0]
-		    for j, value in enumerate(ipol):
-		        if value == level_highest:
-			    ipol[j] = level_lowest
-	            #---------------------------------------------------------	    	    				                     
+                    ipol = data[va]*wa + data[vb]*wb   # interpolated value
+                    #---------------------------------------------------------
+                    #if mask[pixel] == false, pass the maximum of pressure level to pixles
+                    level_highest = ncf.variables['level'][:][-1]
+                    level_lowest = ncf.variables['level'][:][0]
+                    for j, value in enumerate(ipol):
+                        if value == level_highest:
+                            ipol[j] = level_lowest
+                    #---------------------------------------------------------
                 else:    
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()

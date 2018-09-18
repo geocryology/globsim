@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
-
+from __future__      import print_function
 from datetime        import date, datetime, timedelta
 from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
@@ -10,7 +10,7 @@ from generic         import series_interpolate, variables_skip, spec_hum_kgkg
 from os              import path, listdir
 from math            import exp, floor
 from fnmatch         import filter
-from __future__      import print_function
+
 
 import netCDF4       as nc
 import numpy         as np
@@ -160,14 +160,14 @@ class JRA_Download:
         maxNum = min(total_elevations, key=lambda x:abs(x-elevationMax))
         
         if (minNum > elevationMin and total_elevations.index(minNum) > 0 ):
-        	elevationMinRange = total_elevations.index(minNum) - 1
+            elevationMinRange = total_elevations.index(minNum) - 1
         else:
-        	elevationMinRange = total_elevations.index(minNum)
-        	
+            elevationMinRange = total_elevations.index(minNum)
+        
         if (maxNum < elevationMin and total_elevations.index(maxNum) < 36 ):
-        	elevationMaxnRange = total_elevations.index(maxNum) - 1
+            elevationMaxnRange = total_elevations.index(maxNum) - 1
         else:
-        	elevationMaxRange = total_elevations.index(maxNum)
+            elevationMaxRange = total_elevations.index(maxNum)
         
         return (elevationMinRange, elevationMaxRange)
     
@@ -1256,7 +1256,7 @@ class JRAinterpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-		    
+
         return dfield, variables
 
     def JRA2station(self, ncfile_in, ncfile_out, points,
@@ -1361,7 +1361,7 @@ class JRAinterpolate(object):
                 # allow topography to work in same code
                 tmask_chunk = [True]
                  
-	    # get the interpolated variables
+            # get the interpolated variables
             dfield, variables = self.JRAinterp2D(ncfile_in, ncf_in, 
                                                      self.stations, tmask_chunk,
                                                      variables=None, date=None) 
@@ -1377,15 +1377,15 @@ class JRAinterpolate(object):
                                                               
                 if pl:
                     # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]
                 else:
                     # time, station (2D files)
-      		    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]	
-      		                                                                 	    
-                                     
+                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                    
+                    
         #close the file
         ncf_in.close()
-        ncf_out.close()         
+        ncf_out.close()
 
    
     def levels2elevation(self, ncfile_in, ncfile_out):    
@@ -1864,4 +1864,4 @@ class JRAscale(object):
 #         #export to file
 #         fmt_date = "%d/%m/%Y %H:%M"
 #         data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
-						              
+

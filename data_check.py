@@ -10,11 +10,12 @@
 # -- Step 3: if there was any missing one, to list the missing series of time 
 #
 #===============================================================================
+from __future__        import print_function
 from datetime          import datetime, timedelta, date
 from os                import path
 from netCDF4           import Dataset, MFDataset
 from generic           import ParameterIO, StationListRead
-from __future__        import print_function
+
 
 import numpy as np
 import csv
@@ -172,9 +173,9 @@ class ERADataCheck(object):
               
             ncfile_out: Full path to the output netCDF file to write.  
           """
-	  
-	# open netcdf file handle, can be one file of several with wildcards
-	ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
+    
+        # open netcdf file handle, can be one file of several with wildcards
+        ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
                   
         #get variable 'time' 
         nctime = ncf.variables['time'][:]

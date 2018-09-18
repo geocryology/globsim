@@ -37,6 +37,7 @@
 #  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl 
 #
 #===============================================================================
+from __future__   import print_function
 
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
@@ -44,7 +45,7 @@ from math         import exp, floor
 from os           import path, listdir
 from generic      import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg
 from fnmatch      import filter
-from __future__   import print_function
+
 
 import numpy   as np
 import netCDF4 as nc
@@ -774,7 +775,7 @@ class ERAinterpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-		    
+            
         return dfield, variables
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
@@ -876,7 +877,7 @@ class ERAinterpolate(object):
                 # allow topography to work in same code
                 tmask_chunk = [True]
                  
-	    # get the interpolated variables
+            # get the interpolated variables
             dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
                                                      self.stations, tmask_chunk,
                                                      variables=None, date=None) 
@@ -892,11 +893,10 @@ class ERAinterpolate(object):
                                                               
                 if pl:
                     # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]        
                 else:
                     # time, station (2D files)
-      		    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]	
-      		                                                                 	    
+                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
                                      
         #close the file
         ncf_in.close()
