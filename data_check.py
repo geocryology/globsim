@@ -172,9 +172,9 @@ class ERADataCheck(object):
               
             ncfile_out: Full path to the output netCDF file to write.  
           """
-	  
-	# open netcdf file handle, can be one file of several with wildcards
-	ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
+      
+    # open netcdf file handle, can be one file of several with wildcards
+    ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
                   
         #get variable 'time' 
         nctime = ncf.variables['time'][:]

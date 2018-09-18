@@ -196,11 +196,11 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         time.long_name = 'time'
         
         if name == 'eraint':
-	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
-	elif name == 'merra2' :
-	   time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
+       time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+    elif name == 'merra2' :
+       time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
         else: 
-	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
+       time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
 
 #        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 

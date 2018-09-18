@@ -774,7 +774,7 @@ class ERAinterpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-		    
+            
         return dfield, variables
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
@@ -876,7 +876,7 @@ class ERAinterpolate(object):
                 # allow topography to work in same code
                 tmask_chunk = [True]
                  
-	    # get the interpolated variables
+        # get the interpolated variables
             dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
                                                      self.stations, tmask_chunk,
                                                      variables=None, date=None) 
@@ -892,11 +892,11 @@ class ERAinterpolate(object):
                                                               
                 if pl:
                     # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]    		    
+                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]                
                 else:
                     # time, station (2D files)
-      		    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]	
-      		                                                                 	    
+                ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]    
+                                                                                     
                                      
         #close the file
         ncf_in.close()
