@@ -76,8 +76,7 @@ class ParameterIO(object):
         for line in inpts_str:
             d = self.line2dict(line)
             if d is not None:
-                setattr(self, d.keys()[0],  d.values()[0])
-                # self.__dict__[d.keys()[0]] = d.values()[0] old code: python3 incompatible
+                self.__dict__[list(d.keys())[0]] = list(d.values())[0]
 
     def __is_only_comment(self, lin):
         # checks whether line contains nothing but comment
