@@ -2506,6 +2506,27 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n])            
   
+    def LW_MERRA_Wm2_topo(self):
+        """
+        Long-wave radiation downwards [W/m2]
+        https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
+        """             
+        # compute
+        PV = water_vap_pressure(self.rg.variables['RH_MERRA2_per_sur'][:, :], 
+                                self.rg.variables['AIRT_MERRA2_C_sur'][:, :])
+        E_clear = emissivity_clear_sky(PV[:,:],self.rg.variables['AIRT_MERRA2_C_sur'][:, :])
+                              
+        LW = LW_downward(E_clear[:,:],N[:],self.rg.variables['AIRT_MERRA2_C_sur'][:, :])
+
+        # add variable to ncdf file
+        vn = 'LW_MERRA2_Wm2_topo' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Incoming long-wave radiation MERRA-2 surface only'
+        var.units     = 'W/m2'.encode('UTF8')
+        self.rg.variables[vn][:, :] = LW 
+
+
+
 #==============================================================================    
 # 
 # Download 
