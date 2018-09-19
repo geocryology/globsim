@@ -10,10 +10,12 @@
 # -- Step 3: if there was any missing one, to list the missing series of time 
 #
 #===============================================================================
+from __future__        import print_function
 from datetime          import datetime, timedelta, date
 from os                import path
 from netCDF4           import Dataset, MFDataset
 from generic           import ParameterIO, StationListRead
+
 
 import numpy as np
 import csv
@@ -80,35 +82,35 @@ class MERRA2DataCheck(object):
         if file_in == path.join(self.dir_inp,'merra_pl_*.nc'):
              missingIndex = list(set(xrange(nctime[0], nctime[-1] + 1, 6)) - set(nctime))       
              if missingIndex == []:
-                print "NO MISSING TIME FOR", file_in
+                print("NO MISSING TIME FOR", file_in)
              else:    
                  missingIndex.sort()
                  missingTime = nc.num2date(missingIndex, units = t_unit, calendar = t_cal)
                  
-                 print 'FOR', file_in
+                 print('FOR', file_in)
                  
-                 print "Number of Missing Indices of Time : ", len(missingIndex)
+                 print("Number of Missing Indices of Time : ", len(missingIndex))
                  
-                 print "Unit of Time: ", t_unit
+                 print("Unit of Time: ", t_unit)
                  
-                 print 'Missing Time List:', list(missingTime)              
+                 print('Missing Time List:', list(missingTime))
         
             
         else:
              missingIndex = list(set(xrange(nctime[0], nctime[-1] + 1)) - set(nctime))      
              if missingIndex == []:
-                print "NO MISSING TIME FOR", file_in
+                print("NO MISSING TIME FOR", file_in)
              else:    
                  missingIndex.sort()
                  missingTime = nc.num2date(missingIndex, units = t_unit, calendar = t_cal)
 
-                 print 'FOR', file_in
+                 print('FOR', file_in)
 
-                 print "Number of Missing Indices of Time : ", len(missingIndex)
+                 print("Number of Missing Indices of Time : ", len(missingIndex))
                  
-                 print "Unit of Time: ", t_unit
+                 print("Unit of Time: ", t_unit)
 
-                 print 'Missing Time List:', list(missingTime)              
+                 print('Missing Time List:', list(missingTime)              )
 
     def process(self):
         """
@@ -171,9 +173,9 @@ class ERADataCheck(object):
               
             ncfile_out: Full path to the output netCDF file to write.  
           """
-	  
-	# open netcdf file handle, can be one file of several with wildcards
-	ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
+    
+        # open netcdf file handle, can be one file of several with wildcards
+        ncf = nc.MFDataset(file_in, 'r', aggdim ='time') 
                   
         #get variable 'time' 
         nctime = ncf.variables['time'][:]
@@ -187,35 +189,35 @@ class ERADataCheck(object):
         if file_in == path.join(self.dir_inp,'era_sf_*.nc'):
              missingIndex = list(set(xrange(nctime[0], nctime[-1] + 1, 3)) - set(nctime))       
              if missingIndex == []:
-                print "NO MISSING TIME FOR", file_in
+                print("NO MISSING TIME FOR", file_in)
              else:    
                  missingIndex.sort()
                  missingTime = nc.num2date(missingIndex, units = t_unit, calendar = t_cal)
                  
-                 print 'FOR', file_in
+                 print('FOR', file_in)
                  
-                 print "Number of Missing Indices of Time : ", len(missingIndex)
+                 print("Number of Missing Indices of Time : ", len(missingIndex))
                  
-                 print "Unit of Time: ", t_unit
+                 print("Unit of Time: ", t_unit)
                  
-                 print 'Missing Time List:', list(missingTime)              
+                 print('Missing Time List:', list(missingTime)              )
         
             
         else:
              missingIndex = list(set(xrange(nctime[0], nctime[-1] + 1, 6)) - set(nctime))      
              if missingIndex == []:
-                print "NO MISSING TIME FOR", file_in
+                print("NO MISSING TIME FOR", file_in)
              else:    
                  missingIndex.sort()
                  missingTime = nc.num2date(missingIndex, units = t_unit, calendar = t_cal)
 
-                 print 'FOR', file_in
+                 print('FOR', file_in)
 
-                 print "Number of Missing Indices of Time : ", len(missingIndex)
+                 print("Number of Missing Indices of Time : ", len(missingIndex))
                  
-                 print "Unit of Time: ", t_unit
+                 print("Unit of Time: ", t_unit)
 
-                 print 'Missing Time List:', list(missingTime)              
+                 print('Missing Time List:', list(missingTime)              )
 
     def process(self):
         """

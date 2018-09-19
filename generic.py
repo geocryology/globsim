@@ -20,12 +20,21 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
-from datetime import datetime
+from __future__  import print_function
+
+from datetime    import datetime
+from csv         import QUOTE_NONE
+
+
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
-from csv import QUOTE_NONE
 
+# handle python 3 string types
+try:
+    basestring
+except:
+    basestring = str
 
 class ParameterIO(object):
     """
@@ -67,7 +76,7 @@ class ParameterIO(object):
         for line in inpts_str:
             d = self.line2dict(line)
             if d is not None:
-                self.__dict__[d.keys()[0]] = d.values()[0]
+                self.__dict__[list(d.keys())[0]] = list(d.values())[0]
 
     def __is_only_comment(self, lin):
         # checks whether line contains nothing but comment
@@ -141,17 +150,8 @@ def variables_skip(variable_name):
         Which variable names to use? Drop the ones that are dimensions.  
         '''
         skip = 0
-        if variable_name == 'time':
-            skip = 1
-        if variable_name == 'level':
-            skip = 1
-        if variable_name == 'latitude':
-            skip = 1
-        if variable_name == 'longitude':
-            skip = 1
-        if variable_name == 'station':
-            skip = 1    
-        if variable_name == 'height':
+        dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height')
+        if variable_name in dims:
             skip = 1      
         return skip 
 
@@ -202,11 +202,11 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         time.long_name = 'time'
         
         if name == 'eraint':
-	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
-	elif name == 'merra2' :
-	   time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
+            time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+        elif name == 'merra2' :
+            time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
         else: 
-	   time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
+            time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
 
 #        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 
