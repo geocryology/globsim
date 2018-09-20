@@ -448,7 +448,7 @@ def spec_hum_kgkg(Td, Pr):
     spec_hum = E * e / (P - e * (1 - E)) 
     return spec_hum   
    
-def water_vap_pressure(RH, Tair):
+def water_vap_pressure(RH,T):
     '''
     water vapour pressure [unit:1], Eq C9,C10 in Fiddes and Gruber (2014)
     RH: relative humidity (%)
@@ -458,28 +458,30 @@ def water_vap_pressure(RH, Tair):
     T0 = 273.15 # Kelvin     
     lv = 2.5 * 1000000 #latent heat of vaporization of water 
     Rv = 461.5 # gas constant for water vapour 
-    es = es0 * np.exp((lv)/Rv * (1/T0 - 1/Tair)) 
+    es = es0 * np.exp((lv)/Rv * (1/T0 - 1/T)) 
     pv = (RH * es)/100  
     return pv
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-def emissivity_clear_sky(pv,T): 
+def emissivity_clear_sky(RH,T): 
     '''
     clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)
     pv: water vapour pressure (1)
     T: air temperature (kelvin)
     '''  
+    pv = water_vap_pressure(RH, T)
     x1 = 0.43 
     x2 = 5.7 
     e_clear = 0.23 + x1*(pv/T)**(1/x2)  
     return e_clear
 
-def LW_downward(e_clear,N,T):
+def LW_downward(RH,T,N):
     '''
     incoming longware radiation [W/m2], Eq(14) in Fiddes and Gruber (2014)
     e_clear: clear sky emissivity
     N: cloud cover 
     T: air temperature 
     ''' 
+    e_clear = emissivity_clear_sky(RH,T)
     p1 = 6
     p2 = 4
     e_as = 0.979
