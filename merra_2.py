@@ -95,6 +95,7 @@ from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor
 from generic           import ParameterIO, StationListRead, ScaledFileOpen
 from generic           import series_interpolate, variables_skip, spec_hum_kgkg
+from generic           import LW_downward
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
@@ -2278,6 +2279,13 @@ class MERRAscale(object):
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = units, 
                                         calendar = self.t_cal) 
+
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        #read station points 
+        self.stations = StationListRead(self.stations_csv)  
+                                                                                
         
     def process(self):
         """
@@ -2512,12 +2520,17 @@ class MERRAscale(object):
         Long-wave radiation downwards [W/m2]
         https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
         """             
-        # compute
-        PV = water_vap_pressure(self.rg.variables['RH_MERRA2_per_sur'][:, :], 
-                                self.rg.variables['AIRT_MERRA2_C_sur'][:, :])
-        E_clear = emissivity_clear_sky(PV[:,:],self.rg.variables['AIRT_MERRA2_C_sur'][:, :])
-                              
-        LW = LW_downward(E_clear[:,:],N[:],self.rg.variables['AIRT_MERRA2_C_sur'][:, :])
+        # get sky view, and interpolate in time
+        # N = np.zeros((self.nt, self.nstation), dtype=np.float32)
+        # time_in = self.nc_sa.variables['time'][:].astype(np.int64)
+        N = np.asarray(list(self.stations['sky_view'][:]))
+        # values = np.repeat(n,len(time_in), axis=0)
+        # for n,s in enumerate(self.rg.variables['station'][:].tolist()):
+        #     N[:, n] = series_interpolate(self.times_out_nc, 
+        #                                     time_in*3600, values[:, n])          
+        # compute                              
+        LW = LW_downward(self.rg.variables['RH_MERRA2_per_sur'][:, :],
+             self.rg.variables['AIRT_MERRA2_C_sur'][:, :], N[:])
 
         # add variable to ncdf file
         vn = 'LW_MERRA2_Wm2_topo' # variable name
