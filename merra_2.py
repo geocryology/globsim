@@ -294,7 +294,7 @@ class MERRAgeneric():
             for x in range(0,len(variable)):
                 outputVar.append(variable[x])
 
-            var = ds[i].keys()
+            var = list(ds[i].keys())
             for j in range(len(outputVar)):
                 foundVariable = False
                 if outputVar[j] in var:
