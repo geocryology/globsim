@@ -294,7 +294,7 @@ class MERRAgeneric():
             for x in range(0,len(variable)):
                 outputVar.append(variable[x])
 
-            var = ds[i].keys()
+            var = list(ds[i].keys())
             for j in range(len(outputVar)):
                 foundVariable = False
                 if outputVar[j] in var:
@@ -1549,9 +1549,9 @@ class MERRAdownload(object):
         get_variables = list(set(get_variables))                                                                   
 
         #add the basic variables into the list
-        if full_variables_type.keys()[0] == 'relative_humidity':
+        if list(full_variables_type.keys())[0] == 'relative_humidity':
             get_variables.extend(['lat','lon','lev','time'])
-        elif full_variables_type.keys()[0] == 'air_temperature':
+        elif list(full_variables_type.keys())[0] == 'air_temperature':
             # !ADD Geopotential Height in the first element of downloading list. Must be the first one
             get_variables.insert(0,'H')
             # add the variables names of latitude, longitude, levels and time

@@ -474,6 +474,18 @@ def emissivity_clear_sky(RH,T):
     e_clear = 0.23 + x1*(pv/T)**(1/x2)  
     return e_clear
 
+
+def str_encode(value, encoding = "UTF8"):
+    '''
+    handles encoding to allow compatibility between python 2 and 3
+    specifically with regards to netCDF variables.   Python 2 imports 
+    variable names as unicode, whereas python 3 imports them as str.
+    '''
+    if type(value) == str:
+        return(value)
+    else:
+        return(value.encode(encoding))
+        
 def LW_downward(RH,T,N):
     '''
     incoming longware radiation [W/m2], Eq(14) in Fiddes and Gruber (2014)
