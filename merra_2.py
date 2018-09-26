@@ -94,8 +94,7 @@ from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor
 from generic           import ParameterIO, StationListRead, ScaledFileOpen
-from generic           import series_interpolate, variables_skip, spec_hum_kgkg
-from generic           import LW_downward
+from generic           import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
@@ -2523,19 +2522,18 @@ class MERRAscale(object):
         # get sky view, and interpolate in time
         N = np.asarray(list(self.stations['sky_view'][:]))
 
-        # compute
-	for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):
-	    for n,s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_MERRA2_per_sur'][i, n],
-                     self.rg.variables['AIRT_MERRA2_C_sur'][i, n]+273.15, N[n])
-
         # add variable to ncdf file
         vn = 'LW_MERRA2_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation MERRA-2 surface only'
-        var.units     = 'W/m2'.encode('UTF8')
-        self.rg.variables[vn][:, :] = LW
+        var.units     = 'W/m2'.encode('UTF8')       
 
+        # compute                            
+	for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):
+	    for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+                LW = LW_downward(self.rg.variables['RH_MERRA2_per_sur'][i, n],
+                     self.rg.variables['AIRT_MERRA2_C_sur'][i, n]+273.15, N[n])
+                self.rg.variables[vn][i, n] = LW
 
 #==============================================================================    
 # 
