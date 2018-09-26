@@ -1858,6 +1858,13 @@ class JRAscale(object):
                      self.rg.variables['AIRT_JRA55_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
 
+    # def SH_JRA_kgkg_sur(self):
+    #     '''
+    #     Specific humidity [kg/kg]
+    #     https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
+    #     '''
+
+
 #     def conv_geotop(self):
 #         """
 #         preliminary geotop export
