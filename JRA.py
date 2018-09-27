@@ -6,7 +6,7 @@ from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
 from netCDF4         import Dataset
 from generic         import ParameterIO, StationListRead, ScaledFileOpen
-from generic         import series_interpolate, variables_skip, spec_hum_kgkg
+from generic         import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward
 from os              import path, listdir
 from math            import exp, floor
 from fnmatch         import filter
@@ -1631,7 +1631,11 @@ class JRAscale(object):
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
                                         calendar = self.t_cal)
-
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        #read station points 
+        self.stations = StationListRead(self.stations_csv)
         
     def process(self):
         """
@@ -1832,6 +1836,33 @@ class JRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) / 24 * self.time_step            
+
+    def LW_JRA_Wm2_topo(self):
+        """
+        Long-wave radiation downwards [W/m2]
+        https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
+        """             
+        # get sky view, and interpolate in time
+        N = np.asarray(list(self.stations['sky_view'][:]))
+
+        # add variable to ncdf file
+        vn = 'LW_JRA55_Wm2_topo' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'Incoming long-wave radiation JRA-55 surface only'
+        var.units     = 'W/m2'.encode('UTF8')       
+
+        # compute                            
+	for i in range(0, len(self.rg.variables['RH_JRA55_per_sur'][:])):
+	    for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+                LW = LW_downward(self.rg.variables['RH_JRA55_per_sur'][i, n],
+                     self.rg.variables['AIRT_JRA55_C_sur'][i, n]+273.15, N[n])
+                self.rg.variables[vn][i, n] = LW
+
+    # def SH_JRA_kgkg_sur(self):
+    #     '''
+    #     Specific humidity [kg/kg]
+    #     https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
+    #     '''
 
 
 #     def conv_geotop(self):
