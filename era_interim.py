@@ -323,7 +323,7 @@ class ERAgeneric(object):
             print('There is not such type of file'    )
         
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -710,7 +710,6 @@ class ERAinterpolate(object):
         
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
-        print('keys: ', ncf_in.dimensions.keys())
 
 
         # get spatial dimensions
@@ -784,7 +783,7 @@ class ERAinterpolate(object):
         else:
             dfield = ESMF.Field(locstream, name='dfield', 
                                 ndbounds=[len(variables), nt])    
-        print(dfield.data.shape)
+        
         # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
                                 regrid_method=ESMF.RegridMethod.BILINEAR,
@@ -1345,7 +1344,9 @@ class ERAscale(object):
         """
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
-        """    
+        """
+        if path.isfile(self.outfile):
+            print("Warning, output file already exists. This may cause problems")    
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
         
         # iterate thorugh kernels and start process
@@ -1578,8 +1579,8 @@ class ERAscale(object):
         var.units     = 'W/m2'.encode('UTF8')       
 
         # compute                            
-	for i in range(0, len(self.rg.variables['RH_ERA_per_sur'][:])):
-	    for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+        for i in range(0, len(self.rg.variables['RH_ERA_per_sur'][:])):
+            for n, s in enumerate(self.rg.variables['station'][:].tolist()):
                 LW = LW_downward(self.rg.variables['RH_ERA_per_sur'][i, n],
                      self.rg.variables['AIRT_ERA_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
