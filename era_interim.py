@@ -43,13 +43,14 @@ from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
 from os           import path, listdir
-from generic      import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg
+from generic      import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, str_encode
 from fnmatch      import filter
 
 
 import numpy   as np
 import netCDF4 as nc
 import glob
+import re
 
 try:
     from nco import Nco
@@ -63,7 +64,10 @@ try:
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
-            
+
+# Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+ESMFnew = ESMFv > 701    
 
 class ERAgeneric(object):
     """
@@ -703,6 +707,8 @@ class ERAinterpolate(object):
         
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
+        print('keys: ', ncf_in.dimensions.keys())
+
 
         # get spatial dimensions
         if pl: # only for pressure level files
@@ -715,7 +721,7 @@ class ERAinterpolate(object):
             raise ValueError('No time steps from netCDF file selected.')
     
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -733,8 +739,9 @@ class ERAinterpolate(object):
         # file rather than an MFDataset, give first file in directory.
         ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
         ncsingle = path.join(self.dir_inp, ncsingle)
+        
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
-
+        
         # create source field on source grid
         if pl: #only for pressure level files
             sfield = ESMF.Field(sgrid, name='sgrid',
@@ -747,10 +754,19 @@ class ERAinterpolate(object):
 
         # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
+
             if pl: # only for pressure level files
-                sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                if ESMFnew:
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
+                else:
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) # original
+
             else:
-                sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+                if ESMFnew:
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
+                else:
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1)) # original
+                
 
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), 
@@ -765,7 +781,7 @@ class ERAinterpolate(object):
         else:
             dfield = ESMF.Field(locstream, name='dfield', 
                                 ndbounds=[len(variables), nt])    
-
+        print(dfield.data.shape)
         # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
                                 regrid_method=ESMF.RegridMethod.BILINEAR,
@@ -852,7 +868,7 @@ class ERAinterpolate(object):
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter  = len(time_in)/self.cs
+        niter  = len(time_in) // self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
         # loop over chunks
@@ -892,11 +908,19 @@ class ERAinterpolate(object):
                     continue
                                                               
                 if pl:
-                    # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]        
+                    if ESMFnew:
+                        # dfield has dimensions (station, variables, time, pressure levels
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
+                    else:
+                        # dimension: time, level, station (pressure level files)
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]        
                 else:
-                    # time, station (2D files)
-                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                    if ESMFnew:
+                        # dfield has dimensions (station, variables, time)
+                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                    else:
+                        # dfield has dimensions time, station (2D files)
+                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
                                      
         #close the file
         ncf_in.close()
@@ -918,7 +942,7 @@ class ERAinterpolate(object):
         nl = len(ncf.variables['level'][:])
         
         # list variables
-        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+        varlist = [str_encode(x) for x in ncf.variables.keys()]
         varlist.remove('time')
         varlist.remove('station')
         varlist.remove('latitude')
@@ -1203,7 +1227,8 @@ class ERAdownload(object):
                 ncf = nc.MFDataset(infile, 'r')
                 
                 # list variables
-                keylist = [x.encode('UTF8') for x in ncf.variables.keys()]
+                keylist = [str_encode(x) for x in ncf.variables.keys()]                
+                    
                 print("    VARIABLES:")
                 print("        " + str(len(keylist)) + 
                       " variables, inclusing dimensions")
