@@ -64,13 +64,15 @@ except ImportError:
 
 try:
     import ESMF
+    
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701   
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
 
-# Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
-ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
-ESMFnew = ESMFv > 701    
+ 
 
 class ERAgeneric(object):
     """
