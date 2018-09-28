@@ -261,7 +261,7 @@ class MERRAgeneric():
                         raise RuntimeError("==> Unsuccesfull after 60 attempts.")
             print('------COMPLETED------','URL NO.:', i+1)
             print(urls[i])
-        print(ds[0].keys    )
+        print(ds[0].keys()    )
         print('================ MERRA-2 SERVER ACCESS: COMPLETED ================')
         infor = urls[0].split('/')
         print('Dataset:', infor[2], infor[3],infor[4])
@@ -308,7 +308,7 @@ class MERRAgeneric():
         return out_variable
     
     def getArea(self, area, ds): 
-        """Get the specific indexs  of the latitudes and longitudes of given area
+        """Get the specific indices  of the latitudes and longitudes of given area
         An example: 
             area = {'north':65.0, 'south': 60.0, 'west': -115.0, 'east': -110.0}
             ds = MERRAgeneric().download(username, password, urls_3dmana, urls_3dmasm,   
@@ -394,7 +394,7 @@ class MERRAgeneric():
                         pass
                     else:    
                         print("Error downloading data: " + ". Giving up.")
-                        raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                        raise RuntimeError("==> Unsuccessful after 60 attempts.")
                 
         #For Latitude and Longitude   
         lat = {}
@@ -442,7 +442,7 @@ class MERRAgeneric():
                         pass
                     else:    
                         print("Error downloading data: " + ". Giving up.")
-                        raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                        raise RuntimeError("==> Unsuccessful after 60 attempts.")
                 
         #For Latitude and Longitude 
         lat = {}
@@ -454,7 +454,7 @@ class MERRAgeneric():
         return lat, lon, time
 
     def dataStuff_3d(self, position, id_lat, id_lon, id_lev, out_variable):  
-        """Define the outputs ones and pass the values of abstrated variables 
+        """Define the outputs ones and pass the values of extracted variables 
         to the output ones and restrict the area (3D data product).
         Args:
         id_lat, id_lon = MERRAgeneric().getArea(area, ds) 
@@ -488,7 +488,7 @@ class MERRAgeneric():
                        pass
                     else:    
                         print("Error downloading data: " + ". Giving up.")
-                        raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                        raise RuntimeError("==> Unsuccessful after 60 attempts.")
                              
         # Restrict the area for data set
         print("Restrict Area and Elevation")
@@ -507,7 +507,7 @@ class MERRAgeneric():
         return data_area
 
     def dataStuff_2d(self, position, id_lat, id_lon, out_variable):  
-        """Define the outputs ones and pass the values of abstrated variables 
+        """Define the outputs ones and pass the values of extracted variables 
         to the output ones and restrict the area (2D data products).
         Args: 
         id_lat, id_lon = MERRAgeneric().getArea(area, ds) 
@@ -543,7 +543,7 @@ class MERRAgeneric():
                         pass
                     else:    
                         print("Error downloading data: " + ". Giving up.")
-                        raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                        raise RuntimeError("==> Unsuccessful after 60 attempts.")
                     
         # Restrict the area for data set
         print("Restrict Area")
@@ -577,15 +577,20 @@ class MERRAgeneric():
         #get extra one one more day for getting the full range of time series
         End1 = End + timedelta(days=1)           
             
-        #get the Datetimeindex with time_step 
+        #get the Datetime index associated with time_step 
         time_ind1 = (pandas.date_range(Start, End1, freq = time_step1))[0:-1]       
         time_ind2 = (pandas.date_range(Start, End1, freq = time_step2))[0:-1] 
         time_ind3 = (pandas.date_range(Start, End1, freq = time_step3))[0:-1]
 
-        # To Datetime Objects
-        time_ind1.to_datetime()
-        time_ind2.to_datetime()
-        time_ind3.to_datetime()
+        # Convert datetime
+        try:                         # for pandas 0.19 
+            time_ind1.to_datetime()
+            time_ind2.to_datetime()
+            time_ind3.to_datetime()
+        except:                       # for pandas 0.23
+            time_ind1 = pandas.to_datetime(time_ind1)
+            time_ind2 = pandas.to_datetime(time_ind2)
+            time_ind3 = pandas.to_datetime(time_ind3)
                                  
         # get list of wanted date series
         date_diff = End - Start
@@ -596,7 +601,7 @@ class MERRAgeneric():
  
     def restruDatastuff(self, data_area):                                                                                                                                          
         """ Restructuring the dimension of abstracted data stuff for preparing 
-        to save netCDF output results furtherly.
+        to save netCDF output results.
         return: 
         data_total: [len(date)*len(time/day), level, lat, lon] (3D)
                     [len(date)*len(time/day), lat, lon] (2D)
@@ -634,7 +639,7 @@ class MERRAgeneric():
                      h_lev = h_time[k][:]
                      id_interp = [] 
                      for z in range(0, len(t_lev)):
-                         # find the indice of levels with missing values
+                         # find the indices of levels with missing values
                          if t_lev[z] > 99999:
                             id_interp.append(z)
 
@@ -654,7 +659,7 @@ class MERRAgeneric():
                                     f = interp1d(lev_3p, t_3p, kind = 'linear', fill_value = 'extrapolate')
                                     # use built function to calculate the values of air temperature at the found missing-values levels
                                     t_interp = f(lev_interp)    
-                                    # fill the calcaulated values into missing-values levels
+                                    # fill the calculated values into missing-values levels
                                     t_lev[id_interp] = t_interp
                                 else:
                                     print('Numbers of points for extrapolation are too low (less then 2):', len(lev_3p))
@@ -682,7 +687,7 @@ class MERRAgeneric():
         return t_total
                          
     def wind_rh_Extrapolate(self, data_total):
-        """Processing 1D vertical extraplation for UV and RH, at where the values 
+        """Processing 1D vertical extrapolation for UV and RH, at where the values 
            are lacking (marked by 9.9999999E14) from merra-2 3d Analyzed Meteorological 
            Fields datasets.
            Wind (U,V) and Relative Humidity (RH) are utilized the value of at 
@@ -710,7 +715,7 @@ class MERRAgeneric():
                                            
                     data_time[k][:] = data_lev
 
-                #replace the interpoaltion value to each single pixel
+                #replace the interpolation value to each single pixel
                 data_total[i][j][:] = data_time
                            
         #restructure back    
@@ -783,7 +788,7 @@ class MERRAgeneric():
             print("== 2D: file without pressure levels")
             lev = []
         
-        #remove extra varlables
+        #remove extra variables
         varlist_merra = [x.encode('UTF8') for x in nc_in.variables.keys()]
         varlist_merra = self.MERRA_skip(varlist_merra)                
         
@@ -898,7 +903,7 @@ class SaveNCDF_pl_3dm():
                     if x == get_variables_3dmasm[i]:
                         print("------Get Subset of Variable at Pressure Levels------", get_variables_3dmasm[i])
                         var = MERRAgeneric().dataStuff_3d(i, id_lat, id_lon, id_lev, out_variable_3dmasm)
-                        # restructing the shape 
+                        # restructuring the shape 
                         var_total = MERRAgeneric().restruDatastuff(var)
                         if x == 'RH':
                            rh_total = var_total
@@ -965,7 +970,7 @@ class SaveNCDF_pl_3dm():
                 var_up = var_low + var
                 
                 #set up file path and names 
-                file_ncdf  = path.join(dir_data,("merra_pl" + "_" + (date_ind[var_low/len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0]) - 1]) + ".nc"))      
+                file_ncdf  = path.join(dir_data,("merra_pl" + "_" + (date_ind[var_low // len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up // len(time[0]) - 1]) + ".nc"))      
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 print("Saved File Type:", rootgrp.file_format)
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at pressure levels'
@@ -975,6 +980,7 @@ class SaveNCDF_pl_3dm():
                 LEV = lev[0]
                 LAT = lat[0]
                 LON = lon[0]
+                
                 #dimensions
                 time  = rootgrp.createDimension('time', None)
                 level = rootgrp.createDimension('level', len(LEV))
@@ -1043,14 +1049,14 @@ class SaveNCDF_sa():
             #Setup size of saving file
             date_size = len(date_ind)
             hour_size = len(time[0])
-            int_size = date_size//chunk_size
+            int_size = date_size // chunk_size
             res_type = (date_size*hour_size)%(chunk_size*hour_size)
                         
             if (res_type > 0):
-                size_type = [chunk_size*hour_size]*int_size + [res_type]
+                size_type = [chunk_size * hour_size] * int_size + [res_type]
             
             else:
-                size_type = [chunk_size*hour_size]*int_size           
+                size_type = [chunk_size * hour_size] * int_size           
 
             #Get the wanted variables and set up the list for saving in netCDF file
             t2m_total = []
@@ -1060,21 +1066,22 @@ class SaveNCDF_sa():
             v10m_total = []
             sh2m_total = []
             
-            var_out = {'T2M':['2-metre_air_temperature', 'temperature_at_2m_above_the_displacement_height','K', t2m_total],
-                       'U2M':['2-metre_eastward_wind','eastward_wind_at _2m_above_the_displacement_height','m/s', u2m_total],
-                       'V2M':['2-metre_northward_wind','northward_wind_at_2m_above_the_displacement_height','m/s', v2m_total],
-                       'U10M':['10-metre_eastward_wind','eastward_wind_at_10m_above_displacement_height','m/s', u10m_total],
-                       'V10M':['10-metre_northward_wind','northward_wind_at_10m_above_the_displacement_height', 'm/s', v10m_total],
-                       'QV2M':['2-metre_specific_humidity', 'specific_humidity_at_2m','kg/kg', sh2m_total]}
+            var_out = {'T2M': ['2-metre_air_temperature',   'temperature_at_2m_above_the_displacement_height',     'K',     t2m_total],
+                       'U2M': ['2-metre_eastward_wind',     'eastward_wind_at _2m_above_the_displacement_height',  'm/s',   u2m_total],
+                       'V2M': ['2-metre_northward_wind',    'northward_wind_at_2m_above_the_displacement_height',  'm/s',   v2m_total],
+                       'U10M':['10-metre_eastward_wind',    'eastward_wind_at_10m_above_displacement_height',      'm/s',   u10m_total],
+                       'V10M':['10-metre_northward_wind',   'northward_wind_at_10m_above_the_displacement_height', 'm/s',   v10m_total],
+                       'QV2M':['2-metre_specific_humidity', 'specific_humidity_at_2m',                             'kg/kg', sh2m_total]}
                         
             var_list = []
-            for i in range(0, len(get_variables_2dm[0:-3])):
+            for i in range(0, len(get_variables_2dm[0: -3])):
                 for x in var_out.keys():
                     if x == get_variables_2dm[i]:
                         print("------Get Subset of Variable at Surface Level------", get_variables_2dm[i])
                         # the position of T2M, U2M, V2M, U10M, V10M in out_variable_2ds is the position in the get_variables
                         var = MERRAgeneric().dataStuff_2d(i, id_lat, id_lon, out_variable_2dm)   
-                        # restructing the shape 
+                        
+                        # restructure the shape 
                         var_total = MERRAgeneric().restruDatastuff(var)
                         del var
                         var_out[x][3] = var_total
@@ -1092,6 +1099,7 @@ class SaveNCDF_sa():
             #save nc file
             var_low = 0
             var_up = 0
+            
             for i in range(0, 1):
             # for i in range(0, len(size_type)):
                 var = size_type[i]
@@ -1101,7 +1109,9 @@ class SaveNCDF_sa():
                 #set up file path and names 
                 file_ncdf  = path.join(dir_data,("merra_sa" + "_" + (date_ind[var_low/len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0]) - 1]) + ".nc"))
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
+                
                 print("Saved File Type:", rootgrp.file_format)
+                
                 rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at surface level'
                 rootgrp.featureType = "2_Dimension"
             
@@ -1111,8 +1121,8 @@ class SaveNCDF_sa():
                 
                 #dimensions
                 time  = rootgrp.createDimension('time', None)
-                lats   = rootgrp.createDimension('lats', len(LAT))
-                lons   = rootgrp.createDimension('lons', len(LON))
+                lats  = rootgrp.createDimension('lats', len(LAT))
+                lons  = rootgrp.createDimension('lons', len(LON))
                 
                 #Output the results of extracted variables
                 for x in range(0,len(var_list)):
@@ -1170,13 +1180,13 @@ class SaveNCDF_sr():
             #Setup size of saving file
             date_size = len(date_ind)
             hour_size = len(time[0])
-            int_size = date_size//chunk_size
-            res_type = (date_size*hour_size)%(chunk_size*hour_size)
+            int_size = date_size // chunk_size
+            res_type = (date_size * hour_size) % (chunk_size*hour_size)
             
             if (res_type > 0):
-                size_type = [chunk_size*hour_size]*int_size + [res_type]
+                size_type = [chunk_size * hour_size] * int_size + [res_type]
             else:
-                size_type = [chunk_size*hour_size]*int_size           
+                size_type = [chunk_size * hour_size] * int_size           
 
             #Get the wanted variables and Set up the list of output variables
     
@@ -1189,23 +1199,25 @@ class SaveNCDF_sr():
             lwgem_total = []
             lwgntclr_total = []
 
-            var_out = {'PRECTOT':['total_precipitation','total_surface_precipitation_flux', 'kg/m2/s', prectot_total],
-                       'PRECTOTCORR':['total_precipitation_corrected','total_surface_precipitation_flux_corrected', 'kg/m2/s', prectotcorr_total],
-                       'T2MDEW': ['2-metre_dew_point_temperature', 'dew_point_temperature_at_2m','K',  t2mdew_total],
-                       'SWGDN': ['surface_incoming_shortwave_flux', 'surface_incoming_shortwave_flux', 'W/m2', swgdn_total],
-                       'SWGDNCLR': ['surface_incoming_shortwave_flux_assuming_clear_sky', 'surface_incoming_shortwave_flux_assuming_clear_sky', 'W/m2', swgdnclr_total],
-                       'LWGNT':['surface_net_downward_longwave_flux','surface_net_downward_longwave_flux','W/m2', lwgnt_total],
-                       'LWGEM': ['longwave_flux_emitted_from_surface','longwave_flux_emitted_from_surface', 'W/m2', lwgem_total],
-                       'LWGNTCLR':['surface_net_downward_longwave_flux_assuming_clear_sky','surface_net_downward_longwave_flux_assuming_clear_sky', 'W/m2', lwgntclr_total]}
+            var_out = {'PRECTOT':    ['total_precipitation',             'total_surface_precipitation_flux',           'kg/m2/s', prectot_total],
+                       'PRECTOTCORR':['total_precipitation_corrected',   'total_surface_precipitation_flux_corrected', 'kg/m2/s', prectotcorr_total],
+                       'T2MDEW':     ['2-metre_dew_point_temperature',   'dew_point_temperature_at_2m',                'K',       t2mdew_total],
+                       'SWGDN':      ['surface_incoming_shortwave_flux', 'surface_incoming_shortwave_flux',            'W/m2',    swgdn_total],
+                       'SWGDNCLR':   ['surface_incoming_shortwave_flux_assuming_clear_sky', 'surface_incoming_shortwave_flux_assuming_clear_sky', 'W/m2', swgdnclr_total],
+                       'LWGNT':      ['surface_net_downward_longwave_flux', 'surface_net_downward_longwave_flux',      'W/m2', lwgnt_total],
+                       'LWGEM':      ['longwave_flux_emitted_from_surface', 'longwave_flux_emitted_from_surface',      'W/m2', lwgem_total],
+                       'LWGNTCLR':   ['surface_net_downward_longwave_flux_assuming_clear_sky','surface_net_downward_longwave_flux_assuming_clear_sky', 'W/m2', lwgntclr_total]}
                        
             var_list = []
             for i in range(0, len(get_variables_2ds[0:-3])):
                 for x in var_out.keys():
                     if x == get_variables_2ds[i]:
                         print("------Get Subset of Variable at Surface Level------", get_variables_2ds[i])
+                        
                         # the position of PRECTOT in out_variable_2ds is 0
                         var = MERRAgeneric().dataStuff_2d(i, id_lat, id_lon, out_variable_2ds) 
-                        # restructing the shape 
+                        
+                        # restructure the shape 
                         var_total = MERRAgeneric().restruDatastuff(var)
                         del var
                         var_out[x][3] = var_total
@@ -1230,16 +1242,19 @@ class SaveNCDF_sr():
                     if x == get_variables_2dr[i]:
                         print("------Get Subset of Variable at Surface Level------", get_variables_2dr[i])
                         var = MERRAgeneric().dataStuff_2d(i, id_lat, id_lon, out_variable_2dr)
-                        # restructing the shape 
+                        
+                        # restructure the shape 
                         var_total = MERRAgeneric().restruDatastuff(var)
                         del var
                         var_out[x][3] = var_total
+                        
                         if x == 'LWGNT':
                             lwgnt_total = var_total
                         elif x == 'LWGNTCLR':
                             lwgntclr_total = var_total
                         elif x == 'LWGEM':
                             lwgem_total = var_total
+                        
                         del var_total
                         var_list.append([get_variables_2dr[i],var_out[x][0],var_out[x][1],var_out[x][2],var_out[x][3]])            
           
@@ -1275,9 +1290,11 @@ class SaveNCDF_sr():
                 var_up = var_low + var
     
                 # set up file path and names  
-                file_ncdf  = path.join(dir_data,("merra_sr" + "_" + (date_ind[var_low/len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0]) - 1]) + ".nc"))
+                file_ncdf  = path.join(dir_data, ("merra_sr" + "_" + (date_ind[var_low //len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up // len(time[0]) - 1]) + ".nc"))
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
+                
                 print("Saved File Type:", rootgrp.file_format)
+                
                 rootgrp.source      = 'Merra, abstrated radiation variables from metadata at surface level'
                 rootgrp.featureType = "2_Dimension"
             
@@ -1287,8 +1304,8 @@ class SaveNCDF_sr():
     
                 #dimensions
                 time  = rootgrp.createDimension('time', None)
-                lats   = rootgrp.createDimension('lats', len(LAT))
-                lons   = rootgrp.createDimension('lons', len(LON))
+                lats  = rootgrp.createDimension('lats', len(LAT))
+                lons  = rootgrp.createDimension('lons', len(LON))
             
                 #Output the results of extracted variables
                 for x in range(0,len(var_list)):
@@ -1548,9 +1565,9 @@ class MERRAdownload(object):
         get_variables = list(set(get_variables))                                                                   
 
         #add the basic variables into the list
-        if list(full_variables_type.keys())[0] == 'relative_humidity':
+        if 'relative_humidity' in list(full_variables_type.keys()) :
             get_variables.extend(['lat','lon','lev','time'])
-        elif list(full_variables_type.keys())[0] == 'air_temperature':
+        elif 'air_temperature' in list(full_variables_type.keys()):
             # !ADD Geopotential Height in the first element of downloading list. Must be the first one
             get_variables.insert(0,'H')
             # add the variables names of latitude, longitude, levels and time
@@ -1558,7 +1575,7 @@ class MERRAdownload(object):
         else:
             # add the variables names of latitude, longitude and time
             get_variables.extend(['lat','lon','time'])
-   
+        
         return get_variables
         
     def retrieve(self):
@@ -1626,7 +1643,7 @@ class MERRAdownload(object):
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_pl_ana)
-                      
+                    print("full_pl_ana = ",self.full_variables_pl_ana) # debug only
                     print(get_variables)
                                           
                     ds_ana = MERRAgeneric().download(self.username, self.password, urls_3dmana)
@@ -1635,6 +1652,24 @@ class MERRAdownload(object):
                                           
                     out_variable_3dmana = MERRAgeneric().Variables(get_variables, ds_ana)
                     
+                    # print("got this far. about to run latLon_3d") # debug only
+                    # try:
+                        # print("id lat")
+                        # print(id_lat)
+                    # except:
+                        # pass
+                    # try:
+                        # print("id lon")
+                        # print(id_lon)
+                    # except:
+                        # pass
+                    # try:
+                        # print("id_lev")
+                        # print(id_lev)
+                    # except:
+                        # pass
+
+                    # print(out_variable_3dmana)
                     lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, id_lat, id_lon, id_lev)
                     
                     get_variables_3dmana = get_variables
@@ -1673,7 +1708,7 @@ class MERRAdownload(object):
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_sf)
 
-                    print(get_variables                   )
+                    print(get_variables )
                                         
                     ds_2ds = MERRAgeneric().download(self.username, self.password, urls_2ds)
                     
@@ -2529,8 +2564,8 @@ class MERRAscale(object):
         var.units     = 'W/m2'.encode('UTF8')       
 
         # compute                            
-	for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):
-	    for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+        for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):
+            for n, s in enumerate(self.rg.variables['station'][:].tolist()):
                 LW = LW_downward(self.rg.variables['RH_MERRA2_per_sur'][i, n],
                      self.rg.variables['AIRT_MERRA2_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
