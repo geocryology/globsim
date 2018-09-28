@@ -1,6 +1,6 @@
 # logistics
 project_directory = /home/xquan/src/globsim/examples
-output_file = /home/xquan/src/globsim/examples/scale/siteslist.nc
+output_file = /home/xquan/src/globsim/examples/scale/siteslist_eraint.nc
 
 station_list = siteslist.csv
 list_name = siteslist
