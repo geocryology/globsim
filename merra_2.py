@@ -2291,14 +2291,13 @@ class MERRAscale(object):
         self.nstation = len(self.nc_sc.variables['station'][:])                        
                               
         # check if output file exists and remove if overwrite parameter is set
-        import pdb; pdb.set_trace()
         self.outfile = par.output_file  
         if path.isfile(self.outfile):
             try:
                 if par.overwrite is True:
                     remove(self.outfile)
                     print("Output file {} overwritten".format(self.outfile))
-            except e as ValueError:
+            except Exception as e:
                 exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
         
         # time vector for output data
@@ -2308,10 +2307,10 @@ class MERRAscale(object):
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
-        #number of time steps
+        #number of time steps for output
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
                       / 3600 / par.time_step))+1 # +1 : include last value
-        self.time_step = par.time_step * 3600 # [s] scaled file
+        self.time_step = par.time_step * 3600    # [s] scaled file
         
         # vector of output time steps as datetime object
         # 'seconds since 1980-01-01 00:00:0.0'
@@ -2357,7 +2356,7 @@ class MERRAscale(object):
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        vn = 'PRESS_MERRA_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure MERRA-2 pressure levels only'
         var.units     = str_encode('Pa')  
@@ -2464,8 +2463,8 @@ class MERRAscale(object):
         var.long_name = '10 metre wind direction MERRA-2 surface only'
         var.units     = 'deg' 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-    def SW_MERRA_Wm2_sur(self):
+
+        def SW_MERRA_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
         """   
@@ -2552,7 +2551,7 @@ class MERRAscale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity MERRA-2 surface only'
         var.units     = str_encode(self.nc_sa.variables['QV2M'].units) 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['QV2M'][:]                   
