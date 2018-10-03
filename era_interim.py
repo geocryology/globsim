@@ -1309,8 +1309,15 @@ class ERAscale(object):
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
-        # output file 
+        # check if output file exists and remove if overwrite parameter is set
         self.outfile = par.output_file  
+        if path.isfile(self.outfile):
+            try:
+                if par.overwrite is True:
+                    remove(self.outfile)
+                    print("Output file {} overwritten".format(self.outfile))
+            except e as ValueError:
+                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
         
         # time vector for output data 
         # get time and convert to datetime object
