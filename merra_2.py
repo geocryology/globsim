@@ -2062,13 +2062,8 @@ class MERRAinterpolate(object):
         
         # list variables
         varlist = [str_encode(x) for x in ncf.variables.keys()]
-        varlist.remove('time')
-        varlist.remove('station')
-        varlist.remove('latitude')
-        varlist.remove('longitude')
-        varlist.remove('level')
-        varlist.remove('height')
-        varlist.remove('H')
+        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'H']:
+            varlist.remove(V)
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -2338,9 +2333,11 @@ class MERRAscale(object):
         """    
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
         
-        # iterate thorugh kernels and start process
+        # iterate through kernels and start process
         for kernel_name in self.kernels:
-            getattr(self, kernel_name)()
+            if hasattr(self, kernel_name):
+                print(kernel_name)
+                getattr(self, kernel_name)()
             
         # self.conv_geotop()    
             

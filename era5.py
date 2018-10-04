@@ -939,13 +939,8 @@ class ERAinterpolate(object):
         
         # list variables
         varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
-        varlist.remove('time')
-        varlist.remove('station')
-        varlist.remove('latitude')
-        varlist.remove('longitude')
-        varlist.remove('level')
-        varlist.remove('height')
-        varlist.remove('z')
+        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'z']:
+            varlist.remove(V)
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -1285,7 +1280,7 @@ class ERAscale(object):
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
             
-        # input file handles
+        # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                 'station/era_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
@@ -1300,14 +1295,20 @@ class ERAscale(object):
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
-        # output file 
+        # check if output file exists and remove if overwrite parameter is set
         self.outfile = par.output_file  
+        if path.isfile(self.outfile):
+            try:
+                if par.overwrite is True:
+                    remove(self.outfile)
+                    print("Output file {} overwritten".format(self.outfile))
+            except Exception as e:
+                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e)) 
         
         # time vector for output data 
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
-        # units here: "hours since 1900-01-01 00:00:0.0"
-        self.t_unit = self.nc_pl.variables['time'].units 
+        self.t_unit = self.nc_pl.variables['time'].units  # "hours since 1900-01-01 00:00:0.0"
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
@@ -1335,9 +1336,11 @@ class ERAscale(object):
         """    
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
         
-        # iterate thorugh kernels and start process
+        # iterate through kernels and start process
         for kernel_name in self.kernels:
-            getattr(self, kernel_name)()   
+            if hasattr(self, kernel_name):
+                print(kernel_name)
+                getattr(self, kernel_name)()  
             
         # close netCDF files   
         self.rg.close()
