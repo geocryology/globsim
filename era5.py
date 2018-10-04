@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+ï»¿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Methods for downloading ERA5 data from the ECMWF server for limited
 # areas and limited times.
 #
 #
-# (C) Copyright Stephan Gruber (2013–2017)
+# (C) Copyright Stephan Gruber (2013â€“2017)
 #         
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -37,17 +37,18 @@
 #  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl 
 #
 #===============================================================================
-from __future__        import print_function
+
 from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
 from os       import path, listdir
-from generic import ParameterIO, StationListRead, ScaledFileOpen
-from generic import series_interpolate, variables_skip, spec_hum_kgkg
+from generic  import ParameterIO, StationListRead, ScaledFileOpen 
+from generic  import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 from fnmatch import filter
 import numpy   as np
 import netCDF4 as nc
 import glob
+import re
 
 try:
     from nco import Nco
@@ -61,6 +62,10 @@ except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
             
+
+# Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+#ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+#ESMFnew = ESMFv > 701
 
 class ERAgeneric(object):
     """
@@ -84,7 +89,7 @@ class ERAgeneric(object):
     def getPressure(self, elevation):
         """Convert elevation into air pressure using barometric formula"""
         g  = 9.80665   #Gravitational acceleration [m/s2]
-        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
+        R  = 8.31432   #Universal gas constant for air [NÂ·m /(molÂ·K)]    
         M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
         P0 = 101325    #Pressure at sea level [Pa]
         T0 = 288.15    #Temperature at sea level [K]
@@ -122,9 +127,9 @@ class ERAgeneric(object):
     def download(self):
         #TODO test for file existence
         server = ECMWFDataServer()
-        print(server.trace('=== ERA5: START ===='))
+        print server.trace('=== ERA5: START ====')
         server.retrieve(self.getDictionary())
-        print(server.trace('=== ERA5: STOP ====='))
+        print server.trace('=== ERA5: STOP =====')  
 
     def TranslateCF2ERA(self, variables, dpar):
         """
@@ -193,21 +198,21 @@ class ERAgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = nc_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
+            print "== 3D: file has pressure levels"
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print("== 2D: file without pressure levels")
+            print "== 2D: file without pressure levels"
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
             if variables_skip(var):
                 continue                 
-            print("VAR: ", var)
+            print "VAR: ", var
             # extra treatment for pressure level files           
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
@@ -259,13 +264,13 @@ class ERAgeneric(object):
             elif ncfile_in[-7:-5] == 'pl':
                 merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
-                print('There is not such type of file')   
+                print 'There is not such type of file'    
                         
             # combined files into merged files
             nco.ncrcat(input=files_list,output=merged_file, append = True)
             
-            print('The Merged File below is saved:')
-            print(merged_file)
+            print 'The Merged File below is saved:'
+            print merged_file
             
             #clear up the data
             for fl in files_list:
@@ -311,10 +316,10 @@ class ERAgeneric(object):
         elif ncfile_in[-7:-5] == 'pl':
             ncfile_out = path.join(ncfile_in[:-11],'eraint_pl_all' + '.nc')
         else:
-            print('There is not such type of file'    )
+            print 'There is not such type of file'    
         
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -352,19 +357,19 @@ class ERAgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = ncf_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
+            print "== 3D: file has pressure levels"
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print("== 2D: file without pressure levels")
+            print "== 2D: file without pressure levels"
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(varlist):
-            print("VAR: ", var)
+            print "VAR: ", var
             # extra treatment for pressure level files            
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'latitude', 'longitude'))
@@ -735,7 +740,7 @@ class ERAinterpolate(object):
             raise ValueError('No time steps from netCDF file selected.')
     
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -767,10 +772,19 @@ class ERAinterpolate(object):
 
         # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
+            
             if pl: # only for pressure level files
-                sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                if ESMFnew:
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
+                else:
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) # original
+
             else:
-                sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+                if ESMFnew:
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
+                else:
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1)) # original
+                
 
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), 
@@ -784,7 +798,9 @@ class ERAinterpolate(object):
                                 ndbounds=[len(variables), nt, nlev])
         else:
             dfield = ESMF.Field(locstream, name='dfield', 
-                                ndbounds=[len(variables), nt])    
+                                ndbounds=[len(variables), nt])
+        
+        print(dfield.data.shape)
 
         # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
@@ -795,7 +811,7 @@ class ERAinterpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-        
+		    
         return dfield, variables
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
@@ -872,7 +888,7 @@ class ERAinterpolate(object):
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter  = len(time_in)/self.cs
+        niter  = len(time_in)//self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
         # loop over chunks
@@ -897,7 +913,7 @@ class ERAinterpolate(object):
                 # allow topography to work in same code
                 tmask_chunk = [True]
                  
-            # get the interpolated variables
+	    # get the interpolated variables
             dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
                                                      self.stations, tmask_chunk,
                                                      variables=None, date=None) 
@@ -912,11 +928,20 @@ class ERAinterpolate(object):
                     continue
                                                               
                 if pl:
-                    # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]
-                else:
-                    # time, station (2D files)
-                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                    if ESMFnew:
+                        # dfield has dimensions (station, variables, time, pressure levels
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
+                    else:
+                        # dimension: time, level, station (pressure level files)
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]        
+                else:   
+                    if ESMFnew:
+                        # dfield has dimensions (station, variables, time)
+                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                    else:
+                        # dfield has dimensions time, station (2D files)
+                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+      		                                                                 	    
                                      
         #close the file
         ncf_in.close()
@@ -938,9 +963,14 @@ class ERAinterpolate(object):
         nl = len(ncf.variables['level'][:])
         
         # list variables
-        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'z']:
-            varlist.remove(V)
+        varlist = [str_encode(x) for x in ncf.variables.keys()]
+        varlist.remove('time')
+        varlist.remove('station')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        varlist.remove('level')
+        varlist.remove('height')
+        varlist.remove('z')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -1031,6 +1061,7 @@ class ERAinterpolate(object):
                 else:    
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()
+                    
                 ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
@@ -1218,7 +1249,7 @@ class ERAdownload(object):
                 ncf = nc.MFDataset(infile, 'r')
                 
                 # list variables
-                keylist = [x.encode('UTF8') for x in ncf.variables.keys()]
+                keylist = [str_encode(x) for x in ncf.variables.keys()]
                 print("    VARIABLES:")
                 print("        " + str(len(keylist)) + 
                       " variables, inclusing dimensions")
@@ -1280,7 +1311,7 @@ class ERAscale(object):
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
             
-        # input file names
+        # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                 'station/era_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
@@ -1295,20 +1326,14 @@ class ERAscale(object):
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
-        # check if output file exists and remove if overwrite parameter is set
+        # output file 
         self.outfile = par.output_file  
-        if path.isfile(self.outfile):
-            try:
-                if par.overwrite is True:
-                    remove(self.outfile)
-                    print("Output file {} overwritten".format(self.outfile))
-            except Exception as e:
-                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e)) 
         
         # time vector for output data 
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units  # "hours since 1900-01-01 00:00:0.0"
+        # units here: "hours since 1900-01-01 00:00:0.0"
+        self.t_unit = self.nc_pl.variables['time'].units 
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
@@ -1336,11 +1361,9 @@ class ERAscale(object):
         """    
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
         
-        # iterate through kernels and start process
+        # iterate thorugh kernels and start process
         for kernel_name in self.kernels:
-            if hasattr(self, kernel_name):
-                print(kernel_name)
-                getattr(self, kernel_name)()  
+            getattr(self, kernel_name)()   
             
         # close netCDF files   
         self.rg.close()
