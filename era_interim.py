@@ -42,7 +42,7 @@ from __future__   import print_function
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
-from os           import path, listdir
+from os           import path, listdir, remove
 
 from generic      import ParameterIO, StationListRead, ScaledFileOpen 
 from generic      import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
@@ -1568,7 +1568,7 @@ class ERAscale(object):
 
         # compute
         SH = spec_hum_kgkg(dewp[:, :], 
-                           self.rg.variables['AIRT_PRESS_Pa_pl'][:, :])  
+                           self.rg.variables['PRESS_ERA_Pa_pl'][:, :])  
         
  
         self.rg.variables[vn][:, :] = SH
