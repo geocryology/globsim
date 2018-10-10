@@ -2462,22 +2462,22 @@ class MERRAscale(object):
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
 
         def SW_MERRA_Wm2_sur(self):
-        """
-        solar radiation downwards derived from surface data, exclusively.
-        """   
+            """
+            solar radiation downwards derived from surface data, exclusively.
+            """   
         
-        # add variable to ncdf file
-        vn = 'SW_MERRA2_Wm2_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
-        var.units     = str_encode(self.nc_sr.variables['SWGDN'].units)  
+            # add variable to ncdf file
+            vn = 'SW_MERRA2_Wm2_sur' # variable name
+            var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+            var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
+            var.units     = str_encode(self.nc_sr.variables['SWGDN'].units)  
 
-        # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sr.variables['SWGDN'][:]                                
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n]) 
+            # interpolate station by station
+            time_in = self.nc_sr.variables['time'][:].astype(np.int64)  
+            values  = self.nc_sr.variables['SWGDN'][:]                                
+            for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+                self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                              time_in*3600, values[:, n]) 
 
     def LW_MERRA_Wm2_sur(self):
         """
