@@ -37,11 +37,12 @@
 #  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl 
 #
 #===============================================================================
+from __future__ import print_function
 
 from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math     import exp, floor
-from os       import path, listdir
+from os       import path, listdir, remove
 from generic  import ParameterIO, StationListRead, ScaledFileOpen 
 from generic  import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 from fnmatch import filter
@@ -58,14 +59,16 @@ except ImportError:
 
 try:
     import ESMF
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701
+    
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
             
 
-# Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
-#ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
-#ESMFnew = ESMFv > 701
+
 
 class ERAgeneric(object):
     """
@@ -127,9 +130,10 @@ class ERAgeneric(object):
     def download(self):
         #TODO test for file existence
         server = ECMWFDataServer()
-        print server.trace('=== ERA5: START ====')
+        print(server.trace('=== ERA5: START ===='))
+        import pdb; pdb.set_trace()
         server.retrieve(self.getDictionary())
-        print server.trace('=== ERA5: STOP =====')  
+        print(server.trace('=== ERA5: STOP =====')  )
 
     def TranslateCF2ERA(self, variables, dpar):
         """
@@ -198,21 +202,21 @@ class ERAgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = nc_in.variables['level'][:]
-            print "== 3D: file has pressure levels"
+            print("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print "== 2D: file without pressure levels"
+            print("== 2D: file without pressure levels")
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(nc_in.variables):
             if variables_skip(var):
                 continue                 
-            print "VAR: ", var
+            print("VAR: ", str_encode(var))
             # extra treatment for pressure level files           
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
@@ -264,13 +268,13 @@ class ERAgeneric(object):
             elif ncfile_in[-7:-5] == 'pl':
                 merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
-                print 'There is not such type of file'    
+                print('There is not such type of file'    )
                         
             # combined files into merged files
             nco.ncrcat(input=files_list,output=merged_file, append = True)
             
-            print 'The Merged File below is saved:'
-            print merged_file
+            print('The Merged File below is saved:')
+            print(merged_file)
             
             #clear up the data
             for fl in files_list:
@@ -316,7 +320,7 @@ class ERAgeneric(object):
         elif ncfile_in[-7:-5] == 'pl':
             ncfile_out = path.join(ncfile_in[:-11],'eraint_pl_all' + '.nc')
         else:
-            print 'There is not such type of file'    
+            print('There is not such type of file')
         
         # get variables
         varlist = [str_encode(x) for x in ncf_in.variables.keys()]
@@ -357,19 +361,19 @@ class ERAgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = ncf_in.variables['level'][:]
-            print "== 3D: file has pressure levels"
+            print("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
             level[:] = lev 
         except:
-            print "== 2D: file without pressure levels"
+            print("== 2D: file without pressure levels")
             lev = []
                     
         # create and assign variables based on input file
         for n, var in enumerate(varlist):
-            print "VAR: ", var
+            print("VAR: ", var)
             # extra treatment for pressure level files            
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'latitude', 'longitude'))
@@ -800,7 +804,6 @@ class ERAinterpolate(object):
             dfield = ESMF.Field(locstream, name='dfield', 
                                 ndbounds=[len(variables), nt])
         
-        print(dfield.data.shape)
 
         # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
@@ -1328,6 +1331,13 @@ class ERAscale(object):
                               
         # output file 
         self.outfile = par.output_file  
+        if path.isfile(self.outfile):
+            try:
+                if par.overwrite is True:
+                    remove(self.outfile)
+                    print("Output file {} overwritten".format(self.outfile))
+            except Exception as e:
+                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
         
         # time vector for output data 
         # get time and convert to datetime object
@@ -1363,7 +1373,9 @@ class ERAscale(object):
         
         # iterate thorugh kernels and start process
         for kernel_name in self.kernels:
-            getattr(self, kernel_name)()   
+            if hasattr(self, kernel_name):
+                print(kernel_name)
+                getattr(self, kernel_name)()
             
         # close netCDF files   
         self.rg.close()
