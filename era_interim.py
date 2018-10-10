@@ -1359,7 +1359,9 @@ class ERAscale(object):
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
-            getattr(self, kernel_name)()   
+            if hasattr(self, kernel_name):
+                print(kernel_name)
+                getattr(self, kernel_name)() 
             
         # close netCDF files   
         self.rg.close()
