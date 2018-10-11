@@ -24,7 +24,7 @@ from __future__  import print_function
 
 from datetime    import datetime
 from csv         import QUOTE_NONE
-
+from os          import mkdir, path
 
 import pandas  as pd
 import netCDF4 as nc
@@ -482,7 +482,7 @@ def water_vap_pressure(RH,T):
     es = es0 * np.exp((lv)/Rv * (1/T0 - 1/T)) 
     pv = (RH * es)/100  
     return pv
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+  
 def emissivity_clear_sky(RH,T): 
     '''
     clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)
@@ -521,4 +521,95 @@ def LW_downward(RH,T,N):
     con = 5.67 * 10**(-8) # J/s/m/K4 Stefan-Boltzmann constant 
     lw = e_clear*(1-N**p1)+(e_as*(N**p2))*con*T**4
     return lw
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+
+def create_globsim_directory(target_dir, name):
+    """
+    creates globsim directory
+    """
+    # create top-level
+    TL = path.join(target_dir, name)
+    mkdir(TL)
+    
+    # create subdirectories
+    mkdir(path.join(TL, "eraint"))
+    mkdir(path.join(TL, "Grib"))
+    mkdir(path.join(TL, "jra55"))
+    mkdir(path.join(TL, "merra2"))
+    mkdir(path.join(TL, "par"))
+    mkdir(path.join(TL, "scale"))
+    mkdir(path.join(TL, "station"))
+    mkdir(path.join(TL, "era5"))
+    
+    return(True)    
+    
+def nc_to_met(ncd, out_dir, src="ERA", start=None, end=None):
+    """
+    @args
+    ncd: netcdf dataset
+    src: data source ("ERA", "MERRA", "JRA")
+    """
+    #open netcdf if string provided
+    if type(ncd) is str:
+        n = nc.Dataset(ncd)
+    
+    # find number of stations
+    nstn = len(n['station'][:])
+    
+    # get date / time columns
+    time = nc.num2date(n['time'][:], 
+                        units=n['time'].units, 
+                        calendar=n['time'].calendar)
+        
+    HH =   [x.hour   for x in time]
+    MM =   [x.minute for x in time]
+    DDD =  [x.day    for x in time]
+    YYYY = [x.year   for x in time]
+    
+    TIME = np.stack((HH, MM, DDD, YYYY))
+    
+    # get shortwave
+    SW = "SW_{}_Wm2_sur".format(src)
+    SW = n[SW][:]
+    
+    # get longwave
+    LW = "LW_{}_Wm2_sur".format(src)
+    LW = n[LW][:]
+    
+    # get precip
+    PREC = "PREC_{}_mm_sur".format(src)
+    PREC = n[PREC][:]
+    
+    # get temp
+    AIRT = "AIRT_{}_C_sur".format(src)
+    AIRT = n[AIRT][:]
+    
+    # get specific humidity
+    SH = "SH_{}_kgkg_sur".format(src)
+    SH = n[SH][:]
+    
+    # get wind speed
+    WSPD = "WSPD_{}_ms_sur".format(src)
+    WSPD = n[WSPD][:]
+    
+    # get pressure
+    PRESS = "PRESS_{}_Pa_pl".format(src)
+    PRESS = n[PRESS][:]
+    
+    data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
+    
+    # write output files
+    for i in range(nstn):
+        
+        # massage data into the right shape
+        out_array = data[:,:,i]
+        out_array = np.concatenate((TIME, out_array), 0)
+        out_array = np.transpose(out_array)
+        
+        #get station name (TODO)
+        filename = "station_{}_{}.MET".format(i, src)
+        savepath = path.join(out_dir, filename)
+        
+        # create file
+        np.savetxt(savepath, out_array, 
+                fmt = [" %02u", "%02u", " %03u", " %2u", "%8.2f", "%8.2f", 
+                        "%13.4E", "%8.2f", "%11.3E", "%7.2f", "%11.2f" ])
