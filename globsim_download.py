@@ -22,9 +22,24 @@
 #===============================================================================
 from globsim import GlobsimDownload
 
+import argparse
+import configparser
 
 #=====download the wanted varialbe from multiple re-analysis date sources======
-pfile = '/home/xquan/src/globsim/examples/par/examples.globsim_download'
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Get MET data",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--f',    default=None, type=str, help="file path to download parameter file")
+    parser.add_argument('--d',    default=None, nargs="*", type=str, help="What data sources should run? ERAI, ERA5, MERRA, JRA")
+    
+    
+    args = parser.parse_args()
 
-GlobsimDownload(pfile)
-
+    pfile = args.f
+    
+    ERAI =  True if args.d is None or "ERAI"  in args.d else False
+    ERA5 =  True if args.d is None or "ERA5"  in args.d else False
+    JRA =   True if args.d is None or "JRA"   in args.d else False
+    MERRA = True if args.d is None or "MERRA" in args.d else False
+    
+    GlobsimDownload(pfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
