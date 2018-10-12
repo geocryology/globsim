@@ -131,7 +131,6 @@ class ERAgeneric(object):
         #TODO test for file existence
         server = ECMWFDataServer()
         print(server.trace('=== ERA5: START ===='))
-        import pdb; pdb.set_trace()
         server.retrieve(self.getDictionary())
         print(server.trace('=== ERA5: STOP =====')  )
 
@@ -1359,9 +1358,9 @@ class ERAscale(object):
                           for x in range(0, self.nt)]                                                                   
                                       
         # vector of output time steps as written in ncdf file [s]
-        units = 'seconds since 1900-01-01 00:00:0.0'
+        self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
         self.times_out_nc = nc.date2num(self.times_out, 
-                                        units = units, 
+                                        units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
         
     def process(self):
@@ -1369,7 +1368,8 @@ class ERAscale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc,
+        t_unit = self.scaled_t_units)
         
         # iterate thorugh kernels and start process
         for kernel_name in self.kernels:

@@ -192,7 +192,7 @@ def StationListRead(sfile):
     return(raw)
 
 
-def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
+def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit):
     '''
     Open netCDF file for scaled results (same for all reanalyses) or create it 
     if it does not exist. Returns the file object so that kernel functions can 
@@ -224,14 +224,14 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
         time           = rootgrp.createVariable('time', 'i8',('time'))
         time.long_name = 'time'
         
-        if name == 'eraint':
-            time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
-        elif name == 'merra2' :
-            time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
-        else: 
-            time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
-
-#        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+        time.units = t_unit
+        # if name == 'eraint':
+            # time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+        # elif name == 'merra2' :
+            # time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
+        # else: 
+            # time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
+        
 
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station', 'i4',('station'))

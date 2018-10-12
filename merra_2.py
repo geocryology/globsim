@@ -2314,9 +2314,9 @@ class MERRAscale(object):
                           for x in range(0, self.nt)]                                                                   
 
         # vector of output time steps as written in ncdf file
-        units = 'seconds since 1980-01-01 00:00:0.0'
+        self.scaled_t_units = 'seconds since 1980-01-01 00:00:0.0'
         self.times_out_nc = nc.date2num(self.times_out, 
-                                        units = units, 
+                                        units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
 
         # get the station file
@@ -2331,7 +2331,8 @@ class MERRAscale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
+        t_unit = self.scaled_t_units)
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
