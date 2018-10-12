@@ -542,7 +542,7 @@ def create_globsim_directory(target_dir, name):
     
     return(True)    
     
-def nc_to_met(ncd, out_dir, src="ERA", start=None, end=None):
+def nc_to_met(ncd, out_dir, src, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
@@ -613,3 +613,84 @@ def nc_to_met(ncd, out_dir, src="ERA", start=None, end=None):
         np.savetxt(savepath, out_array, 
                 fmt = [" %02u", "%02u", " %03u", " %2u", "%8.2f", "%8.2f", 
                         "%13.4E", "%8.2f", "%11.3E", "%7.2f", "%11.2f" ])
+                        
+                        
+def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
+    """
+    @args
+    ncd: netcdf dataset
+    src: data source ("ERA", "MERRA", "JRA")
+    """
+    #open netcdf if string provided
+    if type(ncd) is str:
+        n = nc.Dataset(ncd)
+    
+    # find number of stations
+    nstn = len(n['station'][:])
+    
+    # get date / time column
+    time = nc.num2date(n['time'][:], 
+                        units=n['time'].units, 
+                        calendar=n['time'].calendar)
+    
+    time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
+    time = pd.DataFrame(time)
+    
+    # get precip
+    PREC = "PREC_{}_mm_sur".format(src)
+    PREC = n[PREC][:]
+    print("warning!  Precipitation intensity units in NetCDF are mm",
+    "but units of mm/hr are required for geotop!!")
+    
+    # get wind velocity
+    WSPD = "WSPD_{}_ms_sur".format(src)
+    WSPD = n[WSPD][:]
+    
+    # get wind direction
+    WDIR = "WDIR_{}_deg_sur".format(src)
+    WDIR = n[WDIR][:]
+    
+    # get windx and windy
+    
+    # get RH 
+    RH = "RH_{}_per_sur".format(src)
+    RH = n[RH][:]
+        
+    # get air temp
+    AIRT = "AIRT_{}_C_sur".format(src)
+    AIRT = n[AIRT][:]
+    
+    # get dew temp (missing?)
+    
+    # get air pressure
+    PRESS = "PRESS_{}_Pa_pl".format(src)
+    PRESS = n[PRESS][:]
+    PRESS *= 1e-5      # convert to bar for geotop
+   
+    # get shortwave solar global (direct / diffuse missing?)
+    SW = "SW_{}_Wm2_sur".format(src)
+    SW = n[SW][:]
+    
+    # get longwave incoming
+    LW = "LW_{}_Wm2_sur".format(src)
+    LW = n[LW][:]
+
+    # combine data variables into array
+    data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
+    
+    # write output files
+    for i in range(nstn):
+        
+        # massage data into the right shape
+        out_df = pd.DataFrame(np.transpose(data[:,:,i]))
+        out_df = pd.concat([time, out_df], axis=1)
+        out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
+                            "AirTemp", "AirPress", "SWglobal", "LWin"]
+        
+
+        #get station name (TODO)
+        filename = "{}_Forcing_{:04d}.txt".format(src, i)
+        savepath = path.join(out_dir, filename)
+        
+        # create file
+        out_df.to_csv(savepath, index=False, float_format="%10.5f")
