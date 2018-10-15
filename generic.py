@@ -99,6 +99,19 @@ class ParameterIO(object):
         except ValueError:
             pass
         return valu
+        
+    def __string2logical(self, valu):
+        # checks if value is a true / false. If true, a logical object is
+        # returned. If false, value is returned unchanged.
+        if not isinstance(valu, basestring):
+            return valu
+
+        # see if time conversion is possible
+        if valu.lower() == "false":
+            valu = False
+        if valu.lower() == "true":
+            valu = True
+        return valu
 
     def __string2datetime_list(self, dates):
         # convert list of date strings to datetime
@@ -141,7 +154,10 @@ class ParameterIO(object):
                     
         # Convert to datetime if it is datetime
         valu = self.__string2datetime(valu)
-
+        
+        # Convert to logical if logical
+        valu = self.__string2logical(valu)
+        
         # Make dictionary and return
         return {name: valu}
 

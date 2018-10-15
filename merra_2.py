@@ -89,11 +89,11 @@ from __future__        import print_function
 from pydap.client      import open_url
 from pydap.cas.urs     import setup_session
 from datetime          import datetime, timedelta, date
-from os                import path, listdir
+from os                import path, listdir, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor
-from generic           import ParameterIO, StationListRead, ScaledFileOpen
+from generic           import ParameterIO, StationListRead, ScaledFileOpen, str_encode
 from generic           import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -113,13 +113,18 @@ import time as tc
 import sys
 import glob
 import nco
-
+import re
 try:
     import ESMF
+    
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701   
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
 
+    
 class MERRAgeneric():
     """
     Parent class for other merra classes.
@@ -789,7 +794,7 @@ class MERRAgeneric():
             lev = []
         
         #remove extra variables
-        varlist_merra = [x.encode('UTF8') for x in nc_in.variables.keys()]
+        varlist_merra = [str_encode(x) for x in nc_in.variables.keys()]
         varlist_merra = self.MERRA_skip(varlist_merra)                
         
         # create and assign variables based on input file
@@ -803,8 +808,8 @@ class MERRAgeneric():
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
-            tmp.long_name = nc_in.variables[var].standard_name.encode('UTF8') # for merra2
-            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
+            tmp.long_name = str_encode(nc_in.variables[var].standard_name) # for merra2
+            tmp.units     = str_encode(nc_in.variables[var].units)  
                     
         #close the file
         rootgrp.close()
@@ -916,7 +921,7 @@ class SaveNCDF_pl_3dm():
                            rh_total = rh_total[::2,:,:,:]
                         del var
                         var_out[x][3] = rh_total
-                        var_list.append([get_variables_3dmasm[i],var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
+                        var_list.append([get_variables_3dmasm[i], var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
             #get H,T,U,V
             for i in range(0, len(get_variables_3dmana[0:-4])):
                 for x in var_out.keys():
@@ -982,56 +987,55 @@ class SaveNCDF_pl_3dm():
                 LON = lon[0]
                 
                 #dimensions
-                time  = rootgrp.createDimension('time', None)
+                time  = rootgrp.createDimension('time',  None)
                 level = rootgrp.createDimension('level', len(LEV))
-                lats   = rootgrp.createDimension('lats', len(LAT))
-                lons   = rootgrp.createDimension('lons', len(LON))
+                lats  = rootgrp.createDimension('lats',  len(LAT))
+                lons  = rootgrp.createDimension('lons',  len(LON))
                 
                 #Output the results of output variables
-                for x in range(0,len(var_list)):
+                for x in range(0, len(var_list)):
                     out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time', 'level', 'lats', 'lons'),fill_value=9.9999999E14)
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
-                    out_var.missing_value = (9.9999999E14)
-                    out_var.fmissing_value = (9.9999999E14, 'f')
-                    out_var.vmin = (-9.9999999E14, 'f')   
-                    out_var.vmax = (9.9999999E14, 'f')
+                    out_var.missing_value = 9.9999999E14
+
+                    # out_var.fmissing_value = (9.9999999E14, 'f')
+                    # out_var.vmin = (-9.9999999E14, 'f')   
+                    # out_var.vmax = (9.9999999E14, 'f')
+
                     out_var[:,:,:,:] = var_list[x][4][var_low:var_up,:,:,:]    #data generic name with data stored in it
     
                 Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 Time.units  = "hours since 1980-1-1 00:00:0.0"                 
                 Time.calendar = "gregorian"   
+                
                 # pass the values
                 netCDFTime = []
                 for x in range(0, len(time_ind1)):
                     netCDFTime.append(nc.date2num(time_ind1[x], units = Time.units, calendar = Time.calendar))
                 Time[:] = netCDFTime[var_low:var_up] 
-                                                                                                                                                                                                                                                                      
+                
                 Level = rootgrp.createVariable('level','i4', ('level'))
                 Level.standard_name = "air_pressure"
                 Level.long_name = "vertical level"
                 Level.units = "hPa"
                 Level.positive = "down"
                 Level.axis = "Z"
-                # pass the values
-                netCDFLevel = []
-                for x in range(0, len(lev[0])):
-                    netCDFLevel.append(lev[0][x])
-                Level[:] = netCDFLevel[:]                    
-
+                Level[:] = [L for L in lev[0]] 
+                
                 Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = "Y"
-                Latitudes[:]  = lat[0][:]                                   
+                Latitudes[:]  = [L for L in lat[0]]                                   
 
                 Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = "X"
-                Longitudes[:] = lon[0][:]                                   
+                Longitudes[:] = [L for L in lon[0]]                                   
     
                 #close the root group
                 rootgrp.close()
@@ -1050,7 +1054,7 @@ class SaveNCDF_sa():
             date_size = len(date_ind)
             hour_size = len(time[0])
             int_size = date_size // chunk_size
-            res_type = (date_size*hour_size)%(chunk_size*hour_size)
+            res_type = (date_size * hour_size) % (chunk_size * hour_size)
                         
             if (res_type > 0):
                 size_type = [chunk_size * hour_size] * int_size + [res_type]
@@ -1107,7 +1111,7 @@ class SaveNCDF_sa():
                 var_up = var_low + var
     
                 #set up file path and names 
-                file_ncdf  = path.join(dir_data,("merra_sa" + "_" + (date_ind[var_low/len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up/len(time[0]) - 1]) + ".nc"))
+                file_ncdf  = path.join(dir_data,("merra_sa" + "_" + (date_ind[var_low // len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up // len(time[0]) - 1]) + ".nc"))
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 
                 print("Saved File Type:", rootgrp.file_format)
@@ -1125,15 +1129,15 @@ class SaveNCDF_sa():
                 lons  = rootgrp.createDimension('lons', len(LON))
                 
                 #Output the results of extracted variables
-                for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats','lons'),fill_value=9.9999999E14)       
+                for x in range(0, len(var_list)):
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats','lons'), fill_value=9.9999999E14)       
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
                     out_var.missing_value = 9.9999999E14
-                    out_var.fmissing_value = (9.9999999E14, 'f')
-                    out_var.vmax = (9.9999999E14, 'f')
-                    out_var.vmin = (-9.9999999E14, 'f')   
+                    #out_var.fmissing_value = (9.9999999E14, 'f')
+                    #out_var.vmax = (9.9999999E14, 'f')
+                    #out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:] = var_list[x][4][var_low:var_up,:,:]        #data generic name with data stored in it
         
                 Time  = rootgrp.createVariable('time', 'i4', ('time'))
@@ -1151,13 +1155,13 @@ class SaveNCDF_sa():
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = "Y"
-                Latitudes[:]  = lat[0][:]                    # pass the values of latitude
+                Latitudes[:]  = [L for L in lat[0]]                    # pass the values of latitude
     
                 Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = "X"
-                Longitudes[:] = lon[0][:]                    # pass the values of longitudes
+                Longitudes[:] = [L for L in lon[0]]                    # pass the values of longitudes
             
             
                 #close the root group
@@ -1290,7 +1294,7 @@ class SaveNCDF_sr():
                 var_up = var_low + var
     
                 # set up file path and names  
-                file_ncdf  = path.join(dir_data, ("merra_sr" + "_" + (date_ind[var_low //len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up // len(time[0]) - 1]) + ".nc"))
+                file_ncdf  = path.join(dir_data, ("merra_sr" + "_" + (date_ind[var_low // len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up // len(time[0]) - 1]) + ".nc"))
                 rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
                 
                 print("Saved File Type:", rootgrp.file_format)
@@ -1308,15 +1312,15 @@ class SaveNCDF_sr():
                 lons  = rootgrp.createDimension('lons', len(LON))
             
                 #Output the results of extracted variables
-                for x in range(0,len(var_list)):
-                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats', 'lons'),fill_value=9.9999999E14)    
+                for x in range(0, len(var_list)):
+                    out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time', 'lats', 'lons'), fill_value=9.9999999E14)    
                     out_var.standard_name = var_list[x][1]
                     out_var.long_name = var_list[x][2]
                     out_var.units         = var_list[x][3] 
                     out_var.missing_value = 9.9999999E14
-                    out_var.fmissing_value = (9.9999999E14, 'f')
-                    out_var.vmax = (9.9999999E14, 'f')
-                    out_var.vmin = (-9.9999999E14, 'f')   
+                    #out_var.fmissing_value = (9.9999999E14, 'f')
+                    #out_var.vmax = (9.9999999E14, 'f')
+                    #out_var.vmin = (-9.9999999E14, 'f')   
                     out_var[:,:,:] = var_list[x][4][var_low:var_up,:,:]         
                                     
                 Time               = rootgrp.createVariable('time', 'i4', ('time'))
@@ -1329,17 +1333,17 @@ class SaveNCDF_sr():
                     netCDFTime.append(nc.date2num(time_ind3[x], units = Time.units, calendar = Time.calendar))
                 Time[:] = netCDFTime[var_low:var_up]                                                                                                        
     
-                Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
+                Latitudes               = rootgrp.createVariable('latitude', 'f4', ('lats'))
                 Latitudes.standard_name = "latitude"
                 Latitudes.units         = "degrees_north"
                 Latitudes.axis          = 'Y'
-                Latitudes[:]  = lat[0][:]                    # pass the values of latitude
+                Latitudes[:]  = [L for L in lat[0]]                    # pass the values of latitude
     
-                Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
+                Longitudes               = rootgrp.createVariable('longitude', 'f4', ('lons'))
                 Longitudes.standard_name = "longitude"
                 Longitudes.units         = "degrees_east"
                 Longitudes.axis          = 'X'
-                Longitudes[:] = lon[0][:]                    # pass the values of longitudes
+                Longitudes[:] = [L for L in lon[0]]                    # pass the values of longitudes
             
                 #close the root group
                 rootgrp.close()          
@@ -1373,9 +1377,11 @@ class SaveNCDF_sc():
                 for x in var_out.keys():
                     if x == get_variables_2dc[i]:
                         print("------Get Subset of Constant Model Paramters------", get_variables_2dc[i])
+                        
                         # the position of T2M, U2M, V2M, U10M, V10M in out_variable_2ds is the position in the get_variables
                         var = MERRAgeneric().dataStuff_2d(i, id_lat, id_lon, out_variable_2dc)   
-                        # restructing the shape 
+                        
+                        # restructure the shape 
                         var_total = MERRAgeneric().restruDatastuff(var)
                         del var
                         var_out[x][3] = var_total
@@ -1396,27 +1402,24 @@ class SaveNCDF_sc():
             print("Saved File Type:", rootgrp.file_format)
             rootgrp.source      = 'Merra, abstrated constant model parameters'
             rootgrp.featureType = "2_Dimension"
-        
+
             #Arrange the format of dimensions for time, levels, latitude and longitude for dimension setup 
-            TIME = time[0]/60
-            LAT = lat[0]
-            LON = lon[0]
             
             #dimensions
             time  = rootgrp.createDimension('time', None)
-            lats   = rootgrp.createDimension('lats', len(LAT))
-            lons   = rootgrp.createDimension('lons', len(LON))
+            lats  = rootgrp.createDimension('lats', len(lat[0]))
+            lons  = rootgrp.createDimension('lons', len(lon[0]))
             
             #Output the results of extracted variables
-            for x in range(0,len(var_list)):
-                out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats','lons'),fill_value=9.9999999E14)       
+            for x in range(0, len(var_list)):
+                out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time','lats','lons'), fill_value=9.9999999E14)       
                 out_var.standard_name = var_list[x][1]
                 out_var.long_name = var_list[x][2]
                 out_var.units         = var_list[x][3] 
                 out_var.missing_value = 9.9999999E14
-                out_var.fmissing_value = (9.9999999E14, 'f')
-                out_var.vmax = (9.9999999E14, 'f')
-                out_var.vmin = (-9.9999999E14, 'f')   
+                #out_var.fmissing_value = (9.9999999E14, 'f')
+                #out_var.vmax = (9.9999999E14, 'f')
+                #out_var.vmin = (-9.9999999E14, 'f')   
                 out_var[:,:,:] = var_list[x][4][:,:,:]        #data generic name with data stored in it
     
             Time  = rootgrp.createVariable('time', 'i4', ('time'))
@@ -1425,7 +1428,7 @@ class SaveNCDF_sc():
             Time.calendar      = "gregorian"
 
             #Set up the value of time (one single value)
-            time_ind4 = datetime.combine(datetime.strptime("1992-01-02", "%Y-%m-%d") ,datetime.strptime("0300","%H%M").time())
+            time_ind4 = datetime.combine(datetime.strptime("1992-01-02", "%Y-%m-%d"), datetime.strptime("0300","%H%M").time())
             time_ind4 = (pandas.date_range(time_ind4, time_ind4, freq = '1H'))
 
             # pass the values
@@ -1434,17 +1437,17 @@ class SaveNCDF_sc():
                  netCDFTime.append(nc.date2num(time_ind4[x], units = Time.units, calendar = Time.calendar))
             Time[:] = netCDFTime[:]                                                                                                        
                                                                                                   
-            Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
+            Latitudes               = rootgrp.createVariable('latitude', 'f4', ('lats'))
             Latitudes.standard_name = "latitude"
             Latitudes.units         = "degrees_north"
             Latitudes.axis          = "Y"
-            Latitudes[:]  = lat[0][:]                    # pass the values of latitude
+            Latitudes[:]  = [L for L in lat[0]]                    # pass the values of latitude
 
-            Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
+            Longitudes               = rootgrp.createVariable('longitude', 'f4', ('lons'))
             Longitudes.standard_name = "longitude"
             Longitudes.units         = "degrees_east"
             Longitudes.axis          = "X"
-            Longitudes[:] = lon[0][:]                    # pass the values of longitudes
+            Longitudes[:] = [L for L in lon[0]]                    # pass the values of longitudes
                
             #close the root group
             rootgrp.close()          
@@ -1643,32 +1646,14 @@ class MERRAdownload(object):
                     
                     # get the shared variables dictionaries and pass the information to the build-in dictionaries
                     get_variables = self.getVariables(self.full_variables_dic, self.full_variables_pl_ana)
-                    print("full_pl_ana = ",self.full_variables_pl_ana) # debug only
                     print(get_variables)
-                                          
+                    
                     ds_ana = MERRAgeneric().download(self.username, self.password, urls_3dmana)
                      
                     id_lat, id_lon =  MERRAgeneric().getArea(self.area, ds_ana)
                                           
                     out_variable_3dmana = MERRAgeneric().Variables(get_variables, ds_ana)
                     
-                    # print("got this far. about to run latLon_3d") # debug only
-                    # try:
-                        # print("id lat")
-                        # print(id_lat)
-                    # except:
-                        # pass
-                    # try:
-                        # print("id lon")
-                        # print(id_lon)
-                    # except:
-                        # pass
-                    # try:
-                        # print("id_lev")
-                        # print(id_lev)
-                    # except:
-                        # pass
-
                     # print(out_variable_3dmana)
                     lat, lon, lev, time = MERRAgeneric().latLon_3d(out_variable_3dmana, id_lat, id_lon, id_lev)
                     
@@ -1766,13 +1751,13 @@ class MERRAdownload(object):
         
         lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dc, id_lat, id_lon)
                      
-        # Output marra-2 variable at surface level 
+        # Output merra-2 variable at surface level 
         SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, out_variable_2dc, chunk_size, time, lat, lon, self.dir_data)
         
         print("---------------------------------------------Result NO.4: Completed---------------------------------------------")
    
         t_end = tc.time()
-        t_total = int((t_end - t_start)/60)
+        t_total = int((t_end - t_start) // 60)
         print("Total Time (Minutes):", t_total)
                       
 class MERRAinterpolate(object):
@@ -1790,6 +1775,7 @@ class MERRAinterpolate(object):
         self.dir_inp = path.join(par.project_directory,'merra2') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
+        
         self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
@@ -1858,7 +1844,7 @@ class MERRAinterpolate(object):
             raise ValueError('No time steps from netCDF file selected.')
     
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x)for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -1894,9 +1880,15 @@ class MERRAinterpolate(object):
         # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
-                sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                if ESMFnew:
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
+                else:
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
             else:
-                sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+                if ESMFnew:
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
+                else:
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
 
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
@@ -1986,13 +1978,16 @@ class MERRAinterpolate(object):
             tmask = time < datetime(3000, 1, 1)
         else:
             tmask = (time <= date['end']) * (time >= date['beg'])
-                              
+        
+        if not any(tmask):
+            sys.exit("\n Error: No downloaded data exist within date range specified by interpolation control file. \n  Download new data or change 'beg' / 'end' in interpolation control file ")
+            
         # get time indices
         time_in = nctime[tmask]
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter  = len(time_in)/self.cs
+        niter  = len(time_in) // self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
         # loop in chunk size cs
@@ -2030,13 +2025,20 @@ class MERRAinterpolate(object):
                     continue
                                           
                 # extra treatment for pressure level files
-                try:
+                if pl:
                     lev = ncf_in.variables['level'][:]
-                    # dimension: time, level, latitude, longitude
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
-                except:
-                    # time, latitude, longitude
-                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                    
+                    if ESMFnew:
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]
+                    else:
+                        # dimension: time, level, latitude, longitude
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
+                else:
+                    if ESMFnew:
+                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                    else:
+                        # time, latitude, longitude
+                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
                                      
         #close the file
         ncf_in.close()
@@ -2052,13 +2054,14 @@ class MERRAinterpolate(object):
         
         """
         # open file 
+        
         ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
         
         # list variables
-        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+        varlist = [str_encode(x) for x in ncf.variables.keys()]
         varlist.remove('time')
         varlist.remove('station')
         varlist.remove('latitude')
@@ -2099,7 +2102,7 @@ class MERRAinterpolate(object):
         height           = rootgrp.createVariable('height','f4',('station'))
         height.long_name = 'height_above_reference_ellipsoid'
         height.units     = 'm'  
-       
+        
         # assign base variables
         time[:] = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
@@ -2110,15 +2113,15 @@ class MERRAinterpolate(object):
         # create and assign variables from input file
         for var in varlist:
             tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
-            tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
-            tmp.units     = ncf.variables[var].units.encode('UTF8')
+            tmp.long_name = str_encode(ncf.variables[var].long_name)
+            tmp.units     = str_encode(ncf.variables[var].units)
         
         # add air pressure as new variable
         var = 'air_pressure'
         varlist.append(var)
         tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
-        tmp.long_name = var.encode('UTF8')
-        tmp.units     = 'hPa'.encode('UTF8')            
+        tmp.long_name = str_encode(var)
+        tmp.units     = str_encode('hPa')            
         # end file prepation ===================================================
                                                                                              
         # loop over stations
@@ -2287,8 +2290,15 @@ class MERRAscale(object):
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_sc.variables['station'][:])                        
                               
-        # output file 
+        # check if output file exists and remove if overwrite parameter is set
         self.outfile = par.output_file  
+        if path.isfile(self.outfile):
+            try:
+                if par.overwrite is True:
+                    remove(self.outfile)
+                    print("Output file {} overwritten".format(self.outfile))
+            except Exception as e:
+                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
         
         # time vector for output data
         # get time and convert to datetime object
@@ -2297,10 +2307,10 @@ class MERRAscale(object):
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
-        #number of time steps
+        #number of time steps for output
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
                       / 3600 / par.time_step))+1 # +1 : include last value
-        self.time_step = par.time_step * 3600 # [s] scaled file
+        self.time_step = par.time_step * 3600    # [s] scaled file
         
         # vector of output time steps as datetime object
         # 'seconds since 1980-01-01 00:00:0.0'
@@ -2346,10 +2356,10 @@ class MERRAscale(object):
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        vn = 'PRESS_MERRA_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure MERRA-2 pressure levels only'
-        var.units     = 'Pa'.encode('UTF8')  
+        var.units     = str_encode('Pa')  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -2366,7 +2376,7 @@ class MERRAscale(object):
         vn = 'AIRT_MERRA2_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature MERRA2 pressure levels only'
-        var.units     = self.nc_pl.variables['T'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_pl.variables['T'].units)  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
@@ -2385,7 +2395,7 @@ class MERRAscale(object):
         vn = 'AIRT_MERRA2_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature MERRA2 surface only'
-        var.units     = self.nc_sa.variables['T2M'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sa.variables['T2M'].units)  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
@@ -2453,8 +2463,8 @@ class MERRAscale(object):
         var.long_name = '10 metre wind direction MERRA-2 surface only'
         var.units     = 'deg' 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-    def SW_MERRA_Wm2_sur(self):
+
+        def SW_MERRA_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
         """   
@@ -2463,7 +2473,7 @@ class MERRAscale(object):
         vn = 'SW_MERRA2_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
-        var.units     = self.nc_sr.variables['SWGDN'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sr.variables['SWGDN'].units)  
 
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:].astype(np.int64)  
@@ -2481,7 +2491,7 @@ class MERRAscale(object):
         vn = 'LW_MERRA2_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards MERRA-2 surface only'
-        var.units     = self.nc_sr.variables['LWGDN'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sr.variables['LWGDN'].units)  
 
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:].astype(np.int64)
@@ -2501,7 +2511,7 @@ class MERRAscale(object):
         vn = 'PREC_MERRA2_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation MERRA2 surface only'
-        var.units     = 'mm'.encode('UTF8')  
+        var.units     = str_encode('mm')  
         
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:].astype(np.int64)
@@ -2521,7 +2531,7 @@ class MERRAscale(object):
         vn = 'PRECCORR_MERRA2_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Corrected Total precipitation MERRA2 surface only'
-        var.units     = 'mm'.encode('UTF8')  
+        var.units     = str_encode('mm')  
         
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:].astype(np.int64)
@@ -2540,8 +2550,8 @@ class MERRAscale(object):
         vn = 'SH_MERRA_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity MERRA-2 surface only'
-        var.units     = self.nc_sa.variables['QV2M'].units.encode('UTF8') 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+        var.units     = str_encode(self.nc_sa.variables['QV2M'].units) 
+
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['QV2M'][:]                   
@@ -2561,7 +2571,7 @@ class MERRAscale(object):
         vn = 'LW_MERRA2_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation MERRA-2 surface only'
-        var.units     = 'W/m2'.encode('UTF8')       
+        var.units     = str_encode('W/m2')       
 
         # compute                            
         for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):

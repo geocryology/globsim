@@ -5,9 +5,9 @@ from datetime        import date, datetime, timedelta
 from dateutil.rrule  import rrule, DAILY
 from ftplib          import FTP
 from netCDF4         import Dataset
-from generic         import ParameterIO, StationListRead, ScaledFileOpen
+from generic         import ParameterIO, StationListRead, ScaledFileOpen, str_encode
 from generic         import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward
-from os              import path, listdir
+from os              import path, listdir, remove
 from math            import exp, floor
 from fnmatch         import filter
 
@@ -18,9 +18,14 @@ import time
 import sys
 import os.path
 import shutil
+import re
 
 try:
     import ESMF
+    
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701  
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
@@ -54,7 +59,7 @@ class JRA_Download:
         try:
             start_data = date(int(start.rsplit("-")[0]), int(start.rsplit("-")[1]), int(start.rsplit("-")[2].rsplit(" ")[0]))
             end_data = date(int(end.rsplit("-")[0]), int(end.rsplit("-")[1]), int(end.rsplit("-")[2].rsplit(" ")[0]))
-            first_data = date(1979, 01, 31)
+            first_data = date(1979, 1, 31) # Y M D
         except:
             print("Invalid start day or end day")
             sys.exit(0)
@@ -236,6 +241,7 @@ class JRA_Download:
     -surf_list: The surf data that we need to download
     """  
     def DownloadGribFile(self, username, password, startDay, endDay, save_path, isobaric_list, fcst_list, surf_list):
+        #return #debug only
         tries = 1
         server = False
         while (tries <= 5 and server == False): # Try to connect to server (try 5 times)
@@ -461,6 +467,7 @@ class Grib2CDF:
     -location: The directory where the GRIB folder is
     """
     def EmptyFolder(self, location):
+        return #debug only
         "Try to remove the GRIB folder"
         newlocation = os.path.join(location, "Grib")
         try:
@@ -663,7 +670,7 @@ class Isobaric:
     """
     Subsets the data in to the desired Latitude and Longitude coordinates
     Parameters:
-    -dataValues: The array containing the reanlysis data
+    -dataValues: The array containing the reanalysis data
     -numDays: The total amount of time segments in the netCDF file
     -latBottom: The bottom latitude coordinate
     -latTop: The top latitude coordinate
@@ -683,6 +690,7 @@ class Isobaric:
             for c in range(latBottom, latTop + 1):
               ssDay[a][b - elevationMinRange].append([])
               for d in range(lonLeft, lonRight + 1):
+                #import pdb; pdb.set_trace()
                 ssDay[a][b - elevationMinRange][c - latBottom].append(dataValues[a][b][c][d])      
         return (ssDay)
        
@@ -779,7 +787,7 @@ class Isobaric:
                 else:
                     tempMinRange = elevationMinRange
                     tempMaxRange = elevationMaxRange
-                    
+   
                 dataVariable = f.createVariable(dataName, "f4", ("time","level", "latitude", "longitude"))
                 dataVariable.standard_name = dataName
                 dataVariable.units = JRA_Dictionary[dataName][3]
@@ -976,7 +984,7 @@ class JRAdownload(object):
       
         isobaric_dictionary = { 
                               "geopotential_height"  : ["gh", "anl_p125_hgt.", 37, "gpm"],
-                              "air_temperature"     : ["t", "anl_p125_tmp.", 37, "K"],
+                              "air_temperature"      : ["t", "anl_p125_tmp.", 37, "K"],
                               "eastward_wind"        : ["u", "anl_p125_ugrd.", 37, "m/s"],
                               "northward_wind"       : ["v", "anl_p125_vgrd.", 37, "m/s"],
                               "relative_humidity"    : ["r", "anl_p125_rh.", 27, "%"]
@@ -1137,8 +1145,8 @@ class JRAinterpolate(object):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
-            tmp.long_name = nc_in.variables[var].standard_name.encode('UTF8') 
-            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
+            tmp.long_name = str_encode(nc_in.variables[var].standard_name)
+            tmp.units     = str_encode(nc_in.variables[var].units)  
                     
         #close the file
         rootgrp.close()
@@ -1196,7 +1204,7 @@ class JRAinterpolate(object):
             raise ValueError('No time steps from netCDF file selected.')
     
         # get variables
-        varlist = [x.encode('UTF8') for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -1229,9 +1237,15 @@ class JRAinterpolate(object):
         # assign data from ncdf: (variable, time, latitude, longitude) 
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
-                sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                if ESMFnew:
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
+                else:
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
             else:
-                sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+                if ESMFnew:
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
+                else:
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
 
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), 
@@ -1336,7 +1350,7 @@ class JRAinterpolate(object):
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter  = len(time_in)/self.cs
+        niter  = len(time_in) // self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
         # loop over chunks
@@ -1376,11 +1390,19 @@ class JRAinterpolate(object):
                     continue
                                                               
                 if pl:
-                    # dimension: time, level, station (pressure level files)
-                    ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]
+                    lev = ncf_in.variables['level'][:]
+                    
+                    if ESMFnew:
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]
+                    else:
+                        # dimension: time, level, latitude, longitude
+                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
                 else:
-                    # time, station (2D files)
-                    ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                    if ESMFnew:
+                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                    else:
+                        # time, latitude, longitude
+                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
                     
                     
         #close the file
@@ -1403,7 +1425,7 @@ class JRAinterpolate(object):
         nl = len(ncf.variables['level'][:])
         
         # list variables
-        varlist = [x.encode('UTF8') for x in ncf.variables.keys()]
+        varlist = [str_encode(x) for x in ncf.variables.keys()]
         varlist.remove('time')
         varlist.remove('station')
         varlist.remove('latitude')
@@ -1454,18 +1476,18 @@ class JRAinterpolate(object):
         
         # create and assign variables from input file
         for var in varlist:
-            vname = ncf.variables[var].long_name.encode('UTF8')
+            vname = str_encode(ncf.variables[var].long_name)
             tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))    
-            tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
-            tmp.units     = ncf.variables[var].units.encode('UTF8')
+            tmp.long_name = str_encode(ncf.variables[var].long_name)
+            tmp.units     = str_encode(ncf.variables[var].units)
             
         # add air pressure as new variable
         var = 'air_pressure'
         varlist.append(var)
         tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
-        tmp.long_name = var.encode('UTF8')
-        tmp.units     = 'hPa'.encode('UTF8') 
-        # end file prepation ===================================================
+        tmp.long_name = str_encode(var)
+        tmp.units     = str_encode('hPa') 
+        # end file preparation ===================================================
     
                                                                                                 
         # loop over stations
@@ -1571,7 +1593,7 @@ class JRAinterpolate(object):
                           path.join(self.dir_out,'jra_pl_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                          
         # 1D Interpolation for Pressure Level Data 
         self.levels2elevation(path.join(self.dir_out,'jra_pl_' + 
                                         self.list_name + '.nc'), 
@@ -1611,8 +1633,15 @@ class JRAscale(object):
         self.nc_sr = nc.Dataset(path.join(par.project_directory,'station/jra_sr_' + 
                                 par.list_name + '.nc'), 'r')
                                
-        # output file 
+        # check if output file exists and remove if overwrite parameter is set
         self.outfile = par.output_file  
+        if path.isfile(self.outfile):
+            try:
+                if par.overwrite is True:
+                    remove(self.outfile)
+                    print("Output file {} overwritten".format(self.outfile))
+            except Exception as e:
+                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e)) 
         
         # time vector for output data
         # get time and convert to datetime object
@@ -1644,7 +1673,7 @@ class JRAscale(object):
         """    
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
         
-        # iterate thorugh kernels and start process
+        # iterate through kernels and start process
         for kernel_name in self.kernels:
             getattr(self, kernel_name)()
             
@@ -1661,10 +1690,10 @@ class JRAscale(object):
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        vn = 'PRESS_JRA_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure JRA-55 pressure levels only'
-        var.units     = 'Pa'.encode('UTF8')  
+        var.units     = str_encode('Pa')  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1682,7 +1711,7 @@ class JRAscale(object):
         vn = 'AIRT_JRA55_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature JRA55 pressure levels only'
-        var.units     = self.nc_pl.variables['air_temperature'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_pl.variables['air_temperature'].units)  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:]
@@ -1701,7 +1730,7 @@ class JRAscale(object):
         vn = 'AIRT_JRA55_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature JRA55 surface only'
-        var.units     = self.nc_sa.variables['surface_temperature'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sa.variables['surface_temperature'].units)  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
@@ -1717,7 +1746,7 @@ class JRAscale(object):
         vn = 'RH_JRA55_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'relative humidity JRA55 surface only'
-        var.units     = self.nc_sa.variables['relative_humidity'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sa.variables['relative_humidity'].units)  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
@@ -1735,7 +1764,7 @@ class JRAscale(object):
         vn = '10 metre U wind component' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre U wind component'
-        var.units     = self.nc_sa.variables['eastward_wind'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sa.variables['eastward_wind'].units)  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
@@ -1748,7 +1777,7 @@ class JRAscale(object):
         vn = '10 metre V wind component' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre V wind component'
-        var.units     = self.nc_sa.variables['northward_wind'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sa.variables['northward_wind'].units)  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
@@ -1791,7 +1820,7 @@ class JRAscale(object):
         vn = 'SW_JRA55_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards JRA-55 surface only'
-        var.units     = self.nc_sr.variables['downwelling_shortwave_flux_in_air'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sr.variables['downwelling_shortwave_flux_in_air'].units)  
 
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:]
@@ -1809,7 +1838,7 @@ class JRAscale(object):
         vn = 'LW_JRA55_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards JRA-55 surface only'
-        var.units     = self.nc_sr.variables['downwelling_longwave_flux_in_air'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sr.variables['downwelling_longwave_flux_in_air'].units)  
 
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:]
@@ -1828,7 +1857,7 @@ class JRAscale(object):
         vn = 'PREC_JRA55_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation JRA55 surface only'
-        var.units     = self.nc_sr.variables['total_precipitation'].units.encode('UTF8')  
+        var.units     = str_encode(self.nc_sr.variables['total_precipitation'].units)  
         
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:]
@@ -1849,21 +1878,21 @@ class JRAscale(object):
         vn = 'LW_JRA55_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation JRA-55 surface only'
-        var.units     = 'W/m2'.encode('UTF8')       
+        var.units     = str_encode('W/m2')       
 
         # compute                            
-	for i in range(0, len(self.rg.variables['RH_JRA55_per_sur'][:])):
-	    for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+        for i in range(0, len(self.rg.variables['RH_JRA55_per_sur'][:])):
+            for n, s in enumerate(self.rg.variables['station'][:].tolist()):
                 LW = LW_downward(self.rg.variables['RH_JRA55_per_sur'][i, n],
                      self.rg.variables['AIRT_JRA55_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
 
-    # def SH_JRA_kgkg_sur(self):
-    #     '''
-    #     Specific humidity [kg/kg]
-    #     https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
-    #     '''
-
+    def SH_JRA_kgkg_sur(self):
+        '''
+        Specific humidity [kg/kg]
+        https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
+        '''
+        print("Warning: SH_JRA_kgkg_sur is not defined. Specific humidity data are not currently available")
 
 #     def conv_geotop(self):
 #         """
