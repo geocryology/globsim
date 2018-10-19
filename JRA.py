@@ -1666,7 +1666,8 @@ class JRAscale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, t_unit = self.t_unit)
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
+        t_unit = self.t_unit, station_names = self.stations['station_name'])
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:

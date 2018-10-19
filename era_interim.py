@@ -1354,7 +1354,7 @@ class ERAscale(object):
         variable and adds it to the netCDF file.
         """  
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
-        t_unit = self.scaled_t_units)
+        t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:

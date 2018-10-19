@@ -192,7 +192,7 @@ def StationListRead(sfile):
     return(raw)
 
 
-def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit):
+def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=None):
     '''
     Open netCDF file for scaled results (same for all reanalyses) or create it 
     if it does not exist. Returns the file object so that kernel functions can 
@@ -253,7 +253,21 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit):
         latitude[:]  = nc_interpol.variables['latitude'][:]
         longitude[:] = nc_interpol.variables['longitude'][:]
         height[:]    = nc_interpol.variables['height'][:]
-
+        
+        # add station names to netcdf
+        if station_names:
+            # first convert to character array
+            names_out = nc.stringtochar(np.array(station_names, 'S32'))
+            
+            # create space in the netcdf
+            nchar        = rootgrp.createDimension('name_strlen', 32) 
+            st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
+            st.standard_name = 'platform_name'
+            st.units     = ''
+            
+            # add data
+            st[:] = names_out
+            
     return rootgrp
     
 

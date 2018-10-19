@@ -1362,6 +1362,12 @@ class ERAscale(object):
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
+                                        
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        #read station points 
+        self.stations = StationListRead(self.stations_csv)  
         
     def process(self):
         """
@@ -1369,7 +1375,8 @@ class ERAscale(object):
         variable and adds it to the netCDF file.
         """    
         self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc,
-        t_unit = self.scaled_t_units)
+        t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
+        
         
         # iterate thorugh kernels and start process
         for kernel_name in self.kernels:
