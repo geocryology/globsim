@@ -1,0 +1,17 @@
+SoilRoughness = 10
+ThresSnowSoilRough = 10
+VegHeight = 3000
+ThresSnowVegUp = 2500
+ThresSnowVegDown = 2500
+LSAI = 5               !LSAI from 1 to 6, according to the forest thickness
+CanopyFraction = 1
+DecayCoeffCanopy = 3.5
+VegSnowBurying = 1
+RootDepth = 2500
+MinStomatalRes = 30
+VegReflectVis = 0.11
+VegReflNIR = 0.45
+VegTransVis = 0.07
+VegTransNIR = 0.25
+LeafAngles = 0.01
+CanDensSurface = 5.0
