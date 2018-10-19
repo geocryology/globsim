@@ -5,10 +5,7 @@ output_file = /home/xquan/src/globsim/examples/scale/siteslist.nc
 station_list = siteslist.csv
 list_name = siteslist
 
-# processing kernels to be used
-# kernels = AIRT_ERA_C_sur
-# kernels = AIRT_MERRA_C_sur
-# kernels = AIRT_JRA_C_sur
+# processing kernels to be used.  Unavailable kernels will be ignored
 
 kernels = PRESS_ERA_Pa_pl, AIRT_ERA_C_pl, AIRT_ERA_C_sur, PREC_ERA_mm_sur, RH_ERA_per_sur, WIND_ERA_sur, SW_ERA_Wm2_sur, LW_ERA_Wm2_sur, SH_ERA_kgkg_sur
 
