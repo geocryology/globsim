@@ -1,5 +1,7 @@
 from generic import ParameterIO
 from shutil import rmtree, copyfile
+from geotop import geotop_interaction as GI
+
 import os 
 import time
 import glob
@@ -10,7 +12,7 @@ class ModelDirectory():
     def __init__(self, model, forcing):
         pass
    
-class BaseModelDir():
+class BaseModelDir(object):
     ''' shared code for creating CLASS and GeoTOP directories'''
     def __init__(self, rootdir, jobname, overwrite=True):
         self.rootdir = rootdir
@@ -96,6 +98,15 @@ class GTDirectory(BaseModelDir):
         GTD = cls(rootdir, jobname, **kwargs)
         GTD.inpts_file = inpts_file
         GTD.forcing_file = forcing_file
+        
+        # create geotop object
+        GTD.gtpy = GI.DirectoryReader(GTD.jobdir, 'geotop')
+        GTD.gtpy.inpts_read(inpts_file)
+        GTD.raw_forcing = GTD.gtpy.ascii_read(forcing_file, convert_geotop2=False) # read in forcing data
+        
+        # ensure start and end dates are appropriate
+        GTD.gtpy.inpts['InitDateDDMMYYYYhhmm'] = min(GTD.raw_forcing['Date'])
+        GTD.gtpy.inpts['EndDateDDMMYYYYhhmm'] = max(GTD.raw_forcing['Date'])
         return(GTD)
         
     @classmethod
@@ -105,13 +116,17 @@ class GTDirectory(BaseModelDir):
         return(GTD)
 
     def write_parameters(self):
-        out_params = os.path.join(self.jobdir, "geotop.inpts")
-        copyfile(self.inpts_file, out_params)
-
+        #out_params = os.path.join(self.jobdir, "geotop.inpts")
+        #copyfile(self.inpts_file, out_params)
+        self.gtpy.inpts_write()
+        
     def write_forcing(self):
-        par = ParameterIO(self.inpts_file)
-        out_forcing = os.path.join(self.jobdir, par.MeteoFile.strip("\"") + "0001.txt")
-        copyfile(self.forcing_file, out_forcing)
+        ''' write forcing data from gtpy object '''
+        #par = ParameterIO(self.inpts_file)
+        #out_forcing = os.path.join(self.jobdir, par.MeteoFile.strip("\"") + "0001.txt")
+        #copyfile(self.forcing_file, out_forcing)
+        meteofile = os.path.join(self.jobdir, self.gtpy.inpts['MeteoFile'].strip("\"") + "0001.txt")
+        self.gtpy.ascii_write(meteofile, self.raw_forcing)
         
     def build(self):
         # write parameters file
@@ -138,6 +153,11 @@ class GTDirectory(BaseModelDir):
         return False
 
 
+# GTDirectory.from_file_paths("/home/nbrown/storage/Projects/GLOBSIM/temp/jobs2", "gtjob3",
+# "/home/nbrown/storage/Projects/GLOBSIM/temp/data/geotop.inpts",
+# "/home/nbrown/storage/Projects/GLOBSIM/temp/data/meteo1.txt").build()
+
+# print(GTDirectory.is_valid("/home/nbrown/storage/Projects/GLOBSIM/temp/jobs2/gtjob3"))
 
 # GTDirectory.from_file_paths("E:/NB/jobs", "cats2",
 # r"E:\Users\Nick\Desktop\temp\geotop.inpts",
