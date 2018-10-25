@@ -2,12 +2,15 @@ from generic import ParameterIO
 from shutil import rmtree, copyfile
 from geotop import geotop_interaction as GI
 
+import pandas as pd
+
+import shutil
 import os 
 import time
 import glob
 
 
-class ModelDirectory():
+class Jobs():
     
     def __init__(self, model, forcing):
         pass
@@ -151,7 +154,69 @@ class GTDirectory(BaseModelDir):
             pass
         
         return False
+        
+class jobs_from_csv:
+    def __init__(self, csv, rootdir, overwrite=True):
+        
+        self.rootdir   = rootdir
+        self.overwrite = overwrite 
+        
+        # make root directory
+        if os.path.isdir(rootdir) and overwrite:
+            shutil.rmtree(rootdir)
+        os.mkdir(rootdir)
+    
+        # read csv 
+        self.df = pd.read_csv(csv)
+    
+    def build(self):
+        for index, row in self.df.iterrows():
+            model = row['MODEL'].upper()
+            
+            if model == 'GEOTOP':
+                self.build_GT(row)
+                
+            elif model == 'CLASS':
+                self.build_CLASS(row)
+                
+            else:
+                print("I don't understand: {}".format(model))
+            
+    def build_GT(self, line):
+        inpts   = line['INPTS']
+        forcing = line['FORCING']
+        site    = line['SITE']
+        ID      = line['ID']
+        jobname = "{}-{}-{}".format(ID, site, "GT")  
+        
+        D = GTDirectory.from_file_paths(rootdir=self.rootdir, 
+                                        jobname=jobname,  
+                                        inpts_file=inpts,
+                                        forcing_file=forcing,
+                                        overwrite=self.overwrite)
+        D.build()
+        
+    def build_CLASS(self, line):
+        ini   = line['INI']
+        ctm   = line['CTM']
+        loop  = line['LOOP']
+        met   = line['FORCING']
+        site    = line['SITE']
+        ID      = line['ID']
+        jobname = "{}-{}-{}".format(ID, site, "CLS")  
+        
+        D = CLASSDirectory.from_file_paths(rootdir=self.rootdir, 
+                                           jobname=jobname,  
+                                           MET=met, 
+                                           INI=ini, 
+                                           CTM=ctm, 
+                                           LOOP=loop, 
+                                           overwrite=self.overwrite)
+        D.build()
 
+
+
+jobs_from_csv("/home/nbrown/storage/Projects/GLOBSIM/temp/todo.csv", "/home/nbrown/storage/Projects/GLOBSIM/jobs3" ).build()
 
 # GTDirectory.from_file_paths("/home/nbrown/storage/Projects/GLOBSIM/temp/jobs2", "gtjob3",
 # "/home/nbrown/storage/Projects/GLOBSIM/temp/data/geotop.inpts",
