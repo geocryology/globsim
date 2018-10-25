@@ -86,12 +86,14 @@ class RunJobs():
 
 def global_run_job(job):
     ''' 
-    Runs a model with a .run() method.  If the model is successful ( run() returns
+    Launches any model with a .run() method.  If the model is successful ( run() returns
     True), then returns True.  Returns false otherwise and prints any errors to the terminal
     '''
     try:
         result = job.run()
     except subprocess.CalledProcessError as e:
+        if not hasattr(job, "JOBID"):
+            job.JOBID = "UNKNOWN"
         print("Job '{}' crashed with the following error: \n {}".format(job.JOBID, e))
         result = False
     return(result)
