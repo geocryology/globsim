@@ -24,32 +24,41 @@ from era_interim import ERAdownload, ERAinterpolate, ERAscale
 from merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
 from JRA import JRAdownload, JRAinterpolate, JRAscale
 from multiprocessing.dummy import Pool as ThreadPool
+from era5 import ERAdownload as ERA5download
 
-def GlobsimDownload(pfile, multithread = True):
+def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     """
     Download data from multiple re-analyses. Each re-analysis is run as one 
     separate thread if 'multithread = True'. If 'multithread = False', each
     download is run sequentially. This is easier for interpreting the output.
     """
     # make list of objects to execute
-    objects = []
+    objects = [] 
     
     # === ERA-Interim ===
-    ERAdownl = ERAdownload(pfile)
-    objects.append(ERAdownl)
+    if ERAI:
+        ERAdownl = ERAdownload(pfile)
+        objects.append(ERAdownl)
+    
+    # === ERA-5 ===
+    if ERA5:
+        ERA5downl = ERA5download(pfile)
+        objects.append(ERA5downl)
     
     # === MERRA-2 ===
-    MERRAdownl = MERRAdownload(pfile)
-    objects.append(MERRAdownl)
+    if MERRA:
+        MERRAdownl = MERRAdownload(pfile)
+        objects.append(MERRAdownl)
 
     # === JRA-55 ===
-    JRAdownl = JRAdownload(pfile)
-    objects.append(JRAdownl)
+    if JRA:
+        JRAdownl = JRAdownload(pfile)
+        objects.append(JRAdownl)
 
     # serial of parallel execution
     if multithread == True:
         # Make the Pool of workers and run as lambda functions
-        pool = ThreadPool(3) 
+        pool = ThreadPool(len(objects)) 
         results = pool.map(lambda ob: ob.retrieve(), objects)
         #close the pool and wait for the work to finish 
         pool.close() 

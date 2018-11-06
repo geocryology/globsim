@@ -1,0 +1,13 @@
+
+ThetaRes = 0.2              !Based on Gubler et al. 2013
+ThetaSat = 0.85           !Based on Gubler et al. 2013
+AlphaVanGenuchten = 0.03   !Based on Gubler et al. 2013
+NVanGenuchten = 1.8         !Based on Gubler et al. 2013
+
+NormalHydrConductivity = 0.3    !Based on Gubler et al. 2013
+LateralHydrConductivity = 0.3   !Based on Gubler et al. 2013
+
+TfreezingSoil = -0.1                  !Estimate
+ThermalConductivitySoilSolids = 2.5   !Estimate
+ThermalCapacitySoilSolids =  2250000  !Estimate
+

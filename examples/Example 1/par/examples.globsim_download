@@ -14,8 +14,6 @@ bbS = 62#25.0
 bbW = -112#70.0
 bbE = -108#110.0
 
-
-
 # ground elevation range within area [m]
 ele_min = 0
 ele_max = 2500

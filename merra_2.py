@@ -985,7 +985,7 @@ class SaveNCDF_pl_3dm():
                 LEV = lev[0]
                 LAT = lat[0]
                 LON = lon[0]
-                
+
                 #dimensions
                 time  = rootgrp.createDimension('time',  None)
                 level = rootgrp.createDimension('level', len(LEV))
@@ -1479,6 +1479,10 @@ class MERRAdownload(object):
                       'south':  par.bbS,
                       'west' :  par.bbW,
                       'east' :  par.bbE}
+        
+        # sanity check to make sure area is good
+        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
+            raise Exception("Bounding box is invalid: {}".format(self.area))
                   
         # time bounds
         self.date  = {'beg' : par.beg,
@@ -2241,7 +2245,7 @@ class MERRAinterpolate(object):
                          path.join(self.dir_out,'merra_pl_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                       
         # 1D Interpolation for Pressure Level Analyzed Meteorological Data 
         self.levels2elevation(path.join(self.dir_out,'merra_pl_' + 
                                         self.list_name + '.nc'), 
@@ -2314,9 +2318,9 @@ class MERRAscale(object):
                           for x in range(0, self.nt)]                                                                   
 
         # vector of output time steps as written in ncdf file
-        units = 'seconds since 1980-01-01 00:00:0.0'
+        self.scaled_t_units = 'seconds since 1980-01-01 00:00:0.0'
         self.times_out_nc = nc.date2num(self.times_out, 
-                                        units = units, 
+                                        units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
 
         # get the station file
@@ -2331,7 +2335,21 @@ class MERRAscale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
+        t_unit = self.scaled_t_units)
+        
+        # add station names to netcdf
+        # first convert to character array
+        names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))
+        
+        # create space in the netcdf
+        nchar        = self.rg.createDimension('name_strlen', 32) 
+        st           = self.rg.createVariable('station_name', "S1", ('station', 'name_strlen'))
+        st.standard_name = 'platform_name'
+        st.units     = ''
+        
+        # add data
+        st[:] = names_out
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
@@ -2462,22 +2480,22 @@ class MERRAscale(object):
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
 
         def SW_MERRA_Wm2_sur(self):
-        """
-        solar radiation downwards derived from surface data, exclusively.
-        """   
+            """
+            solar radiation downwards derived from surface data, exclusively.
+            """   
         
-        # add variable to ncdf file
-        vn = 'SW_MERRA2_Wm2_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
-        var.units     = str_encode(self.nc_sr.variables['SWGDN'].units)  
+            # add variable to ncdf file
+            vn = 'SW_MERRA2_Wm2_sur' # variable name
+            var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+            var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
+            var.units     = str_encode(self.nc_sr.variables['SWGDN'].units)  
 
-        # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sr.variables['SWGDN'][:]                                
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n]) 
+            # interpolate station by station
+            time_in = self.nc_sr.variables['time'][:].astype(np.int64)  
+            values  = self.nc_sr.variables['SWGDN'][:]                                
+            for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+                self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
+                                              time_in*3600, values[:, n]) 
 
     def LW_MERRA_Wm2_sur(self):
         """
