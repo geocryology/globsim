@@ -985,7 +985,7 @@ class SaveNCDF_pl_3dm():
                 LEV = lev[0]
                 LAT = lat[0]
                 LON = lon[0]
-                
+
                 #dimensions
                 time  = rootgrp.createDimension('time',  None)
                 level = rootgrp.createDimension('level', len(LEV))
@@ -1479,6 +1479,10 @@ class MERRAdownload(object):
                       'south':  par.bbS,
                       'west' :  par.bbW,
                       'east' :  par.bbE}
+        
+        # sanity check to make sure area is good
+        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
+            raise Exception("Bounding box is invalid: {}".format(self.area))
                   
         # time bounds
         self.date  = {'beg' : par.beg,

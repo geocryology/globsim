@@ -1154,7 +1154,11 @@ class ERAdownload(object):
                       'south':  par.bbS,
                       'west' :  par.bbW,
                       'east' :  par.bbE}
-                 
+        
+        # sanity check to make sure area is good
+        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
+            raise Exception("Bounding box is invalid: {}".format(self.area))
+            
         # time bounds
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
