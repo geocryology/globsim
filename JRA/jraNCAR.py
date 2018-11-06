@@ -1,26 +1,3 @@
-#! /usr/bin/env python
-
-###############################################################################
-###
-###     Title: rdams-client.py
-###    Author: Doug Schuster, schuster@ucar.edu
-###      Date: 10/24/2013
-###   Purpose: List dataset metadata, subset data subset requests, check on request
-###            status.
-###
-###  SVN File: $HeadURL: https://subversion.ucar.edu/svndss/schuster/rest_client/rdams-client.py $
-###
-###  Usage:
-###   rdams-client.py -get_summary <dsnnn.n>
-###   rdams-client.py -get_metadata <dsnnn.n> <-f>
-###   rdams-client.py -get_param_summary <dsnnn.n> <-f>
-###   rdams-client.py -submit [control_file_name]
-###   rdams-client.py -get_status <RequestIndex> <-proc_status>
-###   rdams-client.py -download [RequestIndex]
-###   rdams-client.py -globus_download [RequestIndex]
-###   rdams-client.py -get_control_file_template <dsnnn.n>
-###   rdams-client.py -help
-###############################################################################
 
 import sys
 import urllib.request
@@ -31,6 +8,9 @@ import getpass
 import http.cookiejar
 import json
 import tarfile
+import time
+
+import numpy as np
 
 from math import exp, floor
 from datetime     import datetime, timedelta
@@ -78,9 +58,8 @@ class RDA(object):
             url = opener.open(request)
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print('RDA username and password invalid.  Please try again\n')
-                (username, password) = get_userinfo()
-                opener = add_http_auth(theurl, username, password)
+                print('RDA username and password invalid. Please try again\n')
+                opener = self.makeOpener(theurl)
                 try:
                     url = opener.open(request)
                 except urllib.error.HTTPError as e:
@@ -235,7 +214,7 @@ class RDA(object):
             percentcomplete = (float(filecount) / float(length))
         self.update_progress(percentcomplete, directory)
         
-        
+    
     def update_progress(self, progress, outdir):
         barLength = 20  # Modify this to change the length of the progress bar
         status = ""
@@ -256,93 +235,82 @@ class RDA(object):
             outdir, "="*block + " " * (barLength-block), progress*100, status)
         sys.stdout.write(text)
         sys.stdout.flush()
-    
-    def download(self, directory, dsIndex):
         
-        theurl = self.base + 'request/' + str(dsIndex) + '/filelist'
+    def getDSindex(self):
+        '''get the index of submitted dataset index'''
+        
+        theurl = self.base + 'request/'
         url = self.urlOpen(theurl)
         
         authdata = 'email='+self.username+'&password='+self.password+'&action=login'
         authdata = authdata.encode()
         
-        jsonfilelist = url.read().decode()
+        responses = url.read().decode()
+        responses = responses.split('\n')
+        responses = [item for item in responses if item.startswith("RequestIndex")]
+        
+        status = [item.split('- ')[1] for item in responses]
+        status = np.where(np.asarray(status) == 'Online')[0]
+        dsIndex = [item.split(':  ')[1] for item in responses]
+        dsIndex = [item.split(', ')[0] for item in dsIndex]
+        dsIndex = np.asarray(dsIndex)[status]
+        
+        return dsIndex
 
-        if jsonfilelist[0] != "{":
-            print(jsonfilelist)
-            sys.exit()
     
-        filelist = json.loads(jsonfilelist)
-    
-        # get cookie required to download data files
-        self.add_http_cookie(self.loginurl, authdata)
-    
-        print("\n\nStarting Download.\n\n")
-    
-        self.downloadFile(filelist, directory)
-    
-        sys.exit()
+    def download(self, directory, dsIndex):
         
+        for ds in dsIndex:
+            if not isinstance(ds, str):
+                ds = str(ds)
+                
+            theurl = self.base + 'request/' + ds + '/filelist'
+            url = self.urlOpen(theurl)
+            
+            authdata = 'email='+self.username+'&password='+self.password+'&action=login'
+            authdata = authdata.encode()
+            
+            jsonfilelist = url.read().decode()
+    
+            if not jsonfilelist[0] != "{":
+                
+                filelist = json.loads(jsonfilelist)
 
-class JRADownload(object):
-    
-    #TODO add credential
-    def __init__(self, pfile, username, password):
-        self.dsID = 'ds628.0'
-        self.pfile = pfile
-        #self.credential = path.join(par.credentials_directory, ".jrarc")
-        self.username = username
-        self.password = password
-        par = ParameterIO(self.pfile)
-        
-        # assign bounding box
-        self.area  = {'north':  par.bbN,
-                      'south':  par.bbS,
-                      'west' :  par.bbW,
-                      'east' :  par.bbE}
-                 
-        # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end}
-
-        # elevation
-        self.elevation = {'min' : par.ele_min, 
-                          'max' : par.ele_max}
-        
-        # data directory for JRA-55  
-        self.directory = par.project_directory + '/jra55'
-     
-        # variables
-        self.variables = par.variables
+                # get cookie required to download data files
+                self.add_http_cookie(self.loginurl, authdata)
             
-        # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size     
-        
-    
-    def retrieve(self):
-        
-        date_i = {}
-        slices = floor(float((self.date['end'] - self.date['beg']).days)/
-                       self.chunk_size)+1
-        
-        rda = RDA(self.username, self.password)
-        
-        for ind in range (0, int(slices)): 
-            #prepare time slices   
-            date_i['beg'] = self.date['beg'] + timedelta(days = 
-                            self.chunk_size * ind)
-            date_i['end'] = self.date['beg'] + timedelta(days = 
-                            self.chunk_size * (ind+1) - 1)
-            if ind == (slices-1):
-                date_i['end'] = self.date['end']
+                print("\n\nStarting Download.\n\n")
             
-            pl = JRApl(date_i, self.area, self.elevation, 
-                       self.variables, rda)
-            sa = JRAsa(date_i, self.area, self.variables, rda)
-            sf = JRAsf(date_i, self.area, self.variables, rda)
+                self.downloadFile(filelist, directory)
+                
+    def purge(self, dsIndex):
+        '''delete dataset from NCAR server based on given dsIndex'''
+        
+        for ds in dsIndex:
+            if not isinstance(ds, str):
+                ds = str(ds)
+            theurl = self.base + 'request/' + ds
             
-            #JRAli = [sa, sf]
-            #for jra in JRAli:
-                #jra.download(self.directory, 325710)
+            opener = self.makeOpener(theurl)
+            request = urllib.request.Request(theurl)
+            request.get_method = lambda: 'DELETE'
+            
+            try:
+                url = opener.open(request)
+            except urllib.error.HTTPError as e:
+                if e.code == 401:
+                    print('RDA username and password invalid.  Please try again\n')
+                    opener = self.makeOpener(theurl)
+                    try:
+                        url = opener.open(request)
+                    except urllib.error.HTTPError as e:
+                        if e.code == 401:
+                            print(
+                                'RDA username and password invalid, or you are not authorized to access this dataset.\n')
+                            print('Please verify your login information at http://rda.ucar.edu\n.')
+                            sys.exit()
+            
+            print(url.read().decode())   
 
 
 class JRApl(object):
@@ -445,11 +413,6 @@ class JRApl(object):
                 }
         
         return self.dictionary
-    
-    #TODO get dsIndex automatic
-    def download(self, directory, dsIndex):
-        rda.submit(self.getDictionary())
-        #rda.download(directory, dsIndex)
                
 
 class JRAsa(object):
@@ -509,11 +472,6 @@ class JRAsa(object):
         
         return self.dictionary
     
-    #TODO get dsIndex automatic
-    def download(self, directory, dsIndex):
-        rda.submit(self.getDictionary())
-        #rda.download(directory, dsIndex)
-    
 
 class JRAsf(object):
     
@@ -524,7 +482,6 @@ class JRAsf(object):
         self.date = date
         self.area = area
         self.variables = variables
-        #self.directory = directory
         
         dpar = {'precipitation_amount'              :
                     'Total precipitation',
@@ -577,37 +534,117 @@ class JRAsf(object):
                 }
         
         return self.dictionary
+
+
+class JRADownload(object):
     
-    #TODO get dsIndex automatic
-    def download(self, directory, dsIndex):
-        rda.submit(self.getDictionary())
-        rda.download(directory, dsIndex)
+    #TODO add credential
+    def __init__(self, pfile, username, password):
+        self.dsID = 'ds628.0'
+        self.pfile = pfile
+        #self.credential = path.join(par.credentials_directory, ".jrarc")
+        self.username = username
+        self.password = password
+        par = ParameterIO(self.pfile)
+        
+        # assign bounding box
+        self.area  = {'north':  par.bbN,
+                      'south':  par.bbS,
+                      'west' :  par.bbW,
+                      'east' :  par.bbE}
+                 
+        # time bounds
+        self.date  = {'beg' : par.beg,
+                      'end' : par.end}
 
+        # elevation
+        self.elevation = {'min' : par.ele_min, 
+                          'max' : par.ele_max}
+        
+        # data directory for JRA-55  
+        self.directory = par.project_directory + '/jra55'
+     
+        # variables
+        self.variables = par.variables
+            
+        # chunk size for downloading and storing data [days]        
+        self.chunk_size = par.chunk_size     
+        
+    
+    
+    def retrieve(self):
+        
+        date_i = {}
+        slices = floor(float((self.date['end'] - self.date['beg']).days)/
+                       self.chunk_size)+1
+        
+        rda = RDA(self.username, self.password)
+        
+        # submit request
+        dsN = 0
+        for ind in range (0, int(slices)): 
+            #prepare time slices   
+            date_i['beg'] = self.date['beg'] + timedelta(days = 
+                            self.chunk_size * ind)
+            date_i['end'] = self.date['beg'] + timedelta(days = 
+                            self.chunk_size * (ind+1) - 1)
+            if ind == (slices-1):
+                date_i['end'] = self.date['end']
+            
+            pl = JRApl(date_i, self.area, self.elevation, 
+                       self.variables, rda)
+            sa = JRAsa(date_i, self.area, self.variables, rda)
+            sf = JRAsf(date_i, self.area, self.variables, rda)
+            
+            JRAli = [pl, sa, sf]
+            for jrai in JRAli:
+                rda.submit(jrai.getDictionary())
+                dsN += 1
+        
+        # download dataset
+        
+        doneI = []
+        while len(doneI) < dsN:
+            print('\nGeting available dataset... Please wait as this may take'\
+                  ' awhile\n')
+            dsIndex = rda.getDSindex()
+            dsIndex = [item for item in dsIndex if item not in doneI]
+            if len(dsIndex) > 1:
+                rda.download(self.directory, dsIndex)
+                doneI += dsIndex
+            time.sleep(10)
 
-
-
-# =============================================================================
+        #dsIndex = rda.getDSindex()
+        #rda.download(self.directory, dsIndex)
+        
+###############################################################################
+###############################################################################
 # -----------------------------------------------------------------------------
-# ------------------------------------ TEST -----------------------------------
-
+# --------------------------------- TEST --------------------------------------
+# -----------------------------------------------------------------------------
+        
 # ==== SETTING-UP =============================================================
 #pfile = 'C:/OneDrive/GitHub/globsim/examples/par/examples.globsim_download'
 pfile = '/Users/bincao/OneDrive/GitHub/globsim/examples/par/examples.globsim_download'
 username = 'caobin198912@outlook.com'
 password = 'caobin1989.12.24'
 
-# =============================================================================
+# ==== RUN ====================================================================
 
 jra = JRADownload(pfile, username, password)
 #jra.retrieve()
 
+###############################################################################
+###############################################################################
 
 date_i = {}
 slices = floor(float((jra.date['end'] - jra.date['beg']).days)/
                jra.chunk_size)+1
-               
+
 rda = RDA(jra.username, jra.password)
 
+# submit request
+dsN = 0
 for ind in range (0, int(slices)): 
     #prepare time slices   
     date_i['beg'] = jra.date['beg'] + timedelta(days = 
@@ -618,44 +655,25 @@ for ind in range (0, int(slices)):
         date_i['end'] = jra.date['end']
     
     pl = JRApl(date_i, jra.area, jra.elevation, 
-                       jra.variables, rda)
+               jra.variables, rda)
     sa = JRAsa(date_i, jra.area, jra.variables, rda)
     sf = JRAsf(date_i, jra.area, jra.variables, rda)
     
-    JRAli = [sa, sf]
+    JRAli = [pl, sa, sf]
     for jrai in JRAli:
-        #jrai.download(jra.username, jra.password, jra.directory, 325859)
         rda.submit(jrai.getDictionary())
+        dsN += 1
 
-# -----------------------------------------------------------------------------   
-# =============================================================================
+# download dataset
 
-    
-# ==== RUN ====================================================================
-
-'''
-# ==== SETTING-UP =============================================================
-
-#dir_jra = '/Users/bincao/OneDrive/GitHub/globsim/JRA/'
-dir_jra = 'C:/OneDrive/GitHub/globsim/JRA'
-
-username = 'caobin198912@outlook.com'
-password = 'caobin1989.12.24'
-
-dsID = 'ds628.0'
-dsIndex = '325543'
-controlFile = 'ds628.0_control_file_sf'
-
-controlFile = os.path.join(dir_jra, controlFile)
-
-
-# RDA
-rda = RDA(username, password)
-rda.getStatus()
-rda.getSummary(dsID)
-rda.getHelp()
-rda.getMeta(dsID)
-rda.getParaSummary(dsID)
-rda.submit(controlparms)
-rda.download(dsIndex)
-'''
+doneI = []
+while len(doneI) < dsN:
+    print(len(doneI))
+    #print('\nGeting available dataset... Please wait as this may take'\
+          #' awhile\n')
+    dsIndex = rda.getDSindex()
+    dsIndex = [item for item in dsIndex if item not in doneI]
+    if len(dsIndex) > 1:
+        rda.download(jra.directory, dsIndex)
+        doneI += dsIndex
+    time.sleep(10)
