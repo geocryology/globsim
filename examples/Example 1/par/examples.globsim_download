@@ -2,25 +2,27 @@
 # Use extension like this: 'project_a.globsim_download'
 
 # logistics
-project_directory = /home/xquan/src/globsim/examples/
-credentials_directory = /home/xquan/
+project_directory = /users/bincao/OneDrive/GitHub/globsim/examples#C:/OneDrive/GitHub/globsim/examples#
+credentials_directory = /users/bincao
 
 # chunk size for splitting files and download [days]
-chunk_size = 5
+chunk_size = 2
 
 # area bounding box [decimal degrees]
-bbN = 70.0 
-bbS = 50.0 
-bbW = -120.0
-bbE = -100.0
+bbN = 66#45.0 
+bbS = 62#25.0 
+bbW = -112#70.0
+bbE = -108#110.0
 
 # ground elevation range within area [m]
 ele_min = 0
 ele_max = 2500
 
 # time slice [YYYY/MM/DD]
-beg = 2016/01/01
-end = 2016/01/10
+beg = 2017/07/01
+end = 2017/07/10
 
 # variables to download [CF Standard Name Table]
-variables = air_temperature, relative_humidity, precipitation_amount, downwelling_longwave_flux_in_air, downwelling_longwave_flux_in_air_assuming_clear_sky, downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky,  wind_from_direction, wind_speed
+variables = precipitation_amount,downwelling_longwave_flux_in_air, downwelling_longwave_flux_in_air_assuming_clear_sky,downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, relative_humidity,2-metre_air_temperature,10-metre_eastward_wind,10-metre_northward_wind
+air_temperature, relative_humidity, precipitation_amount,
+wind_from_direction, wind_speed

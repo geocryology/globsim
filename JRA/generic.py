@@ -22,9 +22,9 @@
 #===============================================================================
 from __future__  import print_function
 
-from datetime    import datetime
+from datetime    import datetime, timedelta
 from csv         import QUOTE_NONE
-from os          import mkdir, path
+
 
 import pandas  as pd
 import netCDF4 as nc
@@ -87,7 +87,7 @@ class ParameterIO(object):
                 else:
                     return False
 
-    def __string2datetime(self, valu):
+    def __string2datetime(self, name, valu):
         # checks if value is a date string. If true, a datetime object is
         # returned. If false, value is returned unchanged.
         if not isinstance(valu, basestring):
@@ -96,6 +96,8 @@ class ParameterIO(object):
         # see if time conversion is possible
         try:
             valu = datetime.strptime(valu, self.fmt_date)
+            if name == 'end':
+                valu = valu + timedelta(hours = 23)
         except ValueError:
             pass
         return valu
@@ -113,9 +115,6 @@ class ParameterIO(object):
             valu = True
         return valu
 
-    def __string2datetime_list(self, dates):
-        # convert list of date strings to datetime
-        return [self.__string2datetime(date) for date in dates]
 
     def line2dict(self, lin):
         """
@@ -153,7 +152,7 @@ class ParameterIO(object):
                 pass
                     
         # Convert to datetime if it is datetime
-        valu = self.__string2datetime(valu)
+        valu = self.__string2datetime(name, valu)
         
         # Convert to logical if logical
         valu = self.__string2logical(valu)
@@ -185,7 +184,7 @@ def StationListRead(sfile):
     return(raw)
 
 
-def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=None):
+def ScaledFileOpen(ncfile_out, nc_interpol, times_out):
     '''
     Open netCDF file for scaled results (same for all reanalyses) or create it 
     if it does not exist. Returns the file object so that kernel functions can 
@@ -217,14 +216,14 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
         time           = rootgrp.createVariable('time', 'i8',('time'))
         time.long_name = 'time'
         
-        time.units = t_unit
-        # if name == 'eraint':
-            # time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
-        # elif name == 'merra2' :
-            # time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
-        # else: 
-            # time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
-        
+        if name == 'eraint':
+            time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
+        elif name == 'merra2' :
+            time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
+        else: 
+            time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
+
+#        time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
 
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station', 'i4',('station'))
@@ -246,21 +245,7 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
         latitude[:]  = nc_interpol.variables['latitude'][:]
         longitude[:] = nc_interpol.variables['longitude'][:]
         height[:]    = nc_interpol.variables['height'][:]
-        
-        # add station names to netcdf
-        if station_names:
-            # first convert to character array
-            names_out = nc.stringtochar(np.array(station_names, 'S32'))
-            
-            # create space in the netcdf
-            nchar        = rootgrp.createDimension('name_strlen', 32) 
-            st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
-            st.standard_name = 'platform_name'
-            st.units     = ''
-            
-            # add data
-            st[:] = names_out
-            
+
     return rootgrp
     
 
@@ -491,7 +476,7 @@ def water_vap_pressure(RH,T):
     es = es0 * np.exp((lv)/Rv * (1/T0 - 1/T)) 
     pv = (RH * es)/100  
     return pv
-  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
 def emissivity_clear_sky(RH,T): 
     '''
     clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)
@@ -530,176 +515,4 @@ def LW_downward(RH,T,N):
     con = 5.67 * 10**(-8) # J/s/m/K4 Stefan-Boltzmann constant 
     lw = e_clear*(1-N**p1)+(e_as*(N**p2))*con*T**4
     return lw
-
-def create_globsim_directory(target_dir, name):
-    """
-    creates globsim directory
-    """
-    # create top-level
-    TL = path.join(target_dir, name)
-    mkdir(TL)
-    
-    # create subdirectories
-    mkdir(path.join(TL, "eraint"))
-    mkdir(path.join(TL, "Grib"))
-    mkdir(path.join(TL, "jra55"))
-    mkdir(path.join(TL, "merra2"))
-    mkdir(path.join(TL, "par"))
-    mkdir(path.join(TL, "scale"))
-    mkdir(path.join(TL, "station"))
-    mkdir(path.join(TL, "era5"))
-    
-    return(True)    
-    
-def nc_to_met(ncd, out_dir, src, start=None, end=None):
-    """
-    @args
-    ncd: netcdf dataset
-    src: data source ("ERA", "MERRA", "JRA")
-    """
-    #open netcdf if string provided
-    if type(ncd) is str:
-        n = nc.Dataset(ncd)
-    
-    # find number of stations
-    nstn = len(n['station'][:])
-    
-    # get date / time columns
-    time = nc.num2date(n['time'][:], 
-                        units=n['time'].units, 
-                        calendar=n['time'].calendar)
-        
-    HH =   [x.hour   for x in time]
-    MM =   [x.minute for x in time]
-    DDD =  [x.day    for x in time]
-    YYYY = [x.year   for x in time]
-    
-    TIME = np.stack((HH, MM, DDD, YYYY))
-    
-    # get shortwave
-    SW = "SW_{}_Wm2_sur".format(src)
-    SW = n[SW][:]
-    
-    # get longwave
-    LW = "LW_{}_Wm2_sur".format(src)
-    LW = n[LW][:]
-    
-    # get precip
-    PREC = "PREC_{}_mm_sur".format(src)
-    PREC = n[PREC][:]
-    
-    # get temp
-    AIRT = "AIRT_{}_C_sur".format(src)
-    AIRT = n[AIRT][:]
-    
-    # get specific humidity
-    SH = "SH_{}_kgkg_sur".format(src)
-    SH = n[SH][:]
-    
-    # get wind speed
-    WSPD = "WSPD_{}_ms_sur".format(src)
-    WSPD = n[WSPD][:]
-    
-    # get pressure
-    PRESS = "PRESS_{}_Pa_pl".format(src)
-    PRESS = n[PRESS][:]
-    
-    data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
-    
-    # write output files
-    for i in range(nstn):
-        
-        # massage data into the right shape
-        out_array = data[:,:,i]
-        out_array = np.concatenate((TIME, out_array), 0)
-        out_array = np.transpose(out_array)
-        
-        #get station name (TODO)
-        filename = "station_{}_{}.MET".format(i, src)
-        savepath = path.join(out_dir, filename)
-        
-        # create file
-        np.savetxt(savepath, out_array, 
-                fmt = [" %02u", "%02u", " %03u", " %2u", "%8.2f", "%8.2f", 
-                        "%13.4E", "%8.2f", "%11.3E", "%7.2f", "%11.2f" ])
-                        
-                        
-def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
-    """
-    @args
-    ncd: netcdf dataset
-    src: data source ("ERA", "MERRA", "JRA")
-    """
-    #open netcdf if string provided
-    if type(ncd) is str:
-        n = nc.Dataset(ncd)
-    
-    # find number of stations
-    nstn = len(n['station'][:])
-    
-    # get date / time column
-    time = nc.num2date(n['time'][:], 
-                        units=n['time'].units, 
-                        calendar=n['time'].calendar)
-    
-    time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
-    time = pd.DataFrame(time)
-    
-    # get precip
-    PREC = "PREC_{}_mm_sur".format(src)
-    PREC = n[PREC][:]
-    print("warning!  Precipitation intensity units in NetCDF are mm",
-    "but units of mm/hr are required for geotop!!")
-    
-    # get wind velocity
-    WSPD = "WSPD_{}_ms_sur".format(src)
-    WSPD = n[WSPD][:]
-    
-    # get wind direction
-    WDIR = "WDIR_{}_deg_sur".format(src)
-    WDIR = n[WDIR][:]
-    
-    # get windx and windy
-    
-    # get RH 
-    RH = "RH_{}_per_sur".format(src)
-    RH = n[RH][:]
-        
-    # get air temp
-    AIRT = "AIRT_{}_C_sur".format(src)
-    AIRT = n[AIRT][:]
-    
-    # get dew temp (missing?)
-    
-    # get air pressure
-    PRESS = "PRESS_{}_Pa_pl".format(src)
-    PRESS = n[PRESS][:]
-    PRESS *= 1e-5      # convert to bar for geotop
-   
-    # get shortwave solar global (direct / diffuse missing?)
-    SW = "SW_{}_Wm2_sur".format(src)
-    SW = n[SW][:]
-    
-    # get longwave incoming
-    LW = "LW_{}_Wm2_sur".format(src)
-    LW = n[LW][:]
-
-    # combine data variables into array
-    data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
-    
-    # write output files
-    for i in range(nstn):
-        
-        # massage data into the right shape
-        out_df = pd.DataFrame(np.transpose(data[:,:,i]))
-        out_df = pd.concat([time, out_df], axis=1)
-        out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
-                            "AirTemp", "AirPress", "SWglobal", "LWin"]
-        
-
-        #get station name (TODO)
-        filename = "{}_Forcing_{:04d}.txt".format(src, i)
-        savepath = path.join(out_dir, filename)
-        
-        # create file
-        out_df.to_csv(savepath, index=False, float_format="%10.5f")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
