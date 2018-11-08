@@ -1,0 +1,5 @@
+Name,RSMN,QA50,VPDA,VPDB,PSGA,PSGB
+Needleleaf_trees ,200,30,0.65,1.05,100,5
+Broadleaf_trees,125,40,0.5,0.6,100,5
+Crops,85,30,0.5,1,100,5
+Grass,100,30,0.5,1,100,5
