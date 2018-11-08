@@ -238,19 +238,19 @@ class ERAgeneric(object):
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
         e.g.:
-              '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
-              '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
-              '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era5_sa_*.nc' 
+              '/home/xquan/src/globsim/examples/eraint/era5_pl_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era5_sf_*.nc'
 
         Output: merged netCDF files
-        era_all_0.nc, era_all_1.nc, ...,
+        era5_all_0.nc, era5_all_1.nc, ...,
                 
         """
         #set up nco operator
         nco = Nco()
   
         # loop over filetypes, read, report
-        file_type = ['era_sa_*.nc', 'era_sf_*.nc', 'era_pl_*.nc']
+        file_type = ['era5_sa_*.nc', 'era5_sf_*.nc', 'era5_pl_*.nc']
         for ft in file_type:
             ncfile_in = path.join(directory, ft)
             
@@ -286,9 +286,9 @@ class ERAgeneric(object):
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
         e.g.:
-              '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
-              '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
-              '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era5_sa_*.nc' 
+              '/home/xquan/src/globsim/examples/eraint/era5_pl_*.nc'
+              '/home/xquan/src/globsim/examples/eraint/era5_sf_*.nc'
 
         Output: merged netCDF files
         eraint_sa_all.nc, eraint_sf_all.nc, eraint_pl_all.nc
@@ -440,7 +440,7 @@ class ERApl(ERAgeneric):
         self.area       = area
         self.elevation  = elevation
         self.directory  = directory
-        outfile = 'era_pl' + self.getDstring() + '.nc'
+        outfile = 'era5_pl' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
  
         # dictionary to translate CF Standard Names into ERA5
@@ -507,7 +507,7 @@ class ERAsa(ERAgeneric):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        outfile = 'era_sa' + self.getDstring() + '.nc'
+        outfile = 'era5_sa' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
         
         # dictionary to translate CF Standard Names into ERA5
@@ -582,7 +582,7 @@ class ERAsf(ERAgeneric):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        outfile = 'era_sf' + self.getDstring() + '.nc'
+        outfile = 'era5_sf' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
 
         # dictionary to translate CF Standard Names into ERA5
@@ -643,7 +643,7 @@ class ERAto(ERAgeneric):
         self.date       = {'beg' : datetime(2017, 1, 1),
                            'end' : datetime(2017, 1, 1)}
         self.directory  = directory
-        self.file_ncdf  = path.join(self.directory,'era_to.nc')
+        self.file_ncdf  = path.join(self.directory,'era5_to.nc')
 
     def getDictionary(self):
         self.dictionary = {
@@ -725,7 +725,7 @@ class ERAinterpolate(object):
                       'end' : datetime(2008,12,31)}
             variables  = ['t','u', 'v']       
             stations = StationListRead("points.csv")      
-            ERA2station('era_sa.nc', 'era_sa_inter.nc', stations, 
+            ERA2station('era5_sa.nc', 'era5_sa_inter.nc', stations, 
                         variables=variables, date=date)        
         """   
         
@@ -1096,8 +1096,8 @@ class ERAinterpolate(object):
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
                        'end' : datetime(1979, 1, 1, 12, 0)}        
-        self.ERA2station(path.join(self.dir_inp,'era_to.nc'), 
-                         path.join(self.dir_out,'era_to_' + 
+        self.ERA2station(path.join(self.dir_inp,'era5_to.nc'), 
+                         path.join(self.dir_out,'era5_to_' + 
                                    self.list_name + '.nc'), self.stations,
                                    ['z', 'lsm'], date = dummy_date)  
                                   
@@ -1111,8 +1111,8 @@ class ERAinterpolate(object):
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
-        self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
-                         path.join(self.dir_out,'era_sa_' + 
+        self.ERA2station(path.join(self.dir_inp,'era5_sa_*.nc'), 
+                         path.join(self.dir_out,'era5_sa_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
         
@@ -1126,8 +1126,8 @@ class ERAinterpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], 
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
-                         path.join(self.dir_out,'era_sf_' + 
+        self.ERA2station(path.join(self.dir_inp,'era5_sf_*.nc'), 
+                         path.join(self.dir_out,'era5_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
                          
@@ -1139,15 +1139,15 @@ class ERAinterpolate(object):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
-                         path.join(self.dir_out,'era_pl_' + 
+        self.ERA2station(path.join(self.dir_inp,'era5_pl_*.nc'), 
+                         path.join(self.dir_out,'era5_pl_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.dir_out,'era_pl_' + 
+        self.levels2elevation(path.join(self.dir_out,'era5_pl_' + 
                                         self.list_name + '.nc'), 
-                              path.join(self.dir_out,'era_pl_' + 
+                              path.join(self.dir_out,'era5_pl_' + 
                                         self.list_name + '_surface.nc')) 
         
         
@@ -1244,7 +1244,7 @@ class ERAdownload(object):
         print("=== INVENTORY FOR GLOBSIM ERA5 DATA === \n")
         print("Download parameter file: \n" + self.pfile + "\n")
         # loop over filetypes, read, report
-        file_type = ['era_pl_*.nc', 'era_sa_*.nc', 'era_sf_*.nc', 'era_t*.nc']
+        file_type = ['era5_pl_*.nc', 'era5_sa_*.nc', 'era5_sf_*.nc', 'era5_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
@@ -1319,16 +1319,16 @@ class ERAscale(object):
             
         # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
-                                'station/era_pl_' + 
+                                'station/era5_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
-                                'station/era_sa_' + 
+                                'station/era5_sa_' + 
                                 par.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'station/era_sf_' + 
+                                'station/era5_sf_' + 
                                 par.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'station/era_to_' + 
+                                'station/era5_to_' + 
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
