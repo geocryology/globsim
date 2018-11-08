@@ -1,6 +1,7 @@
 from generic import ParameterIO
 from shutil import rmtree, copyfile
-from geotop import geotop_interaction as GI
+from geotop.geotop_interaction import DirectoryReader
+from globsim.CLASS_interaction import classp, INI
 
 import pandas as pd
 
@@ -103,7 +104,7 @@ class GTDirectory(BaseModelDir):
         GTD.forcing_file = forcing_file
         
         # create geotop object
-        GTD.gtpy = GI.DirectoryReader(GTD.jobdir, 'geotop')
+        GTD.gtpy = DirectoryReader(GTD.jobdir, 'geotop')
         GTD.gtpy.inpts_read(inpts_file)
         GTD.raw_forcing = GTD.gtpy.ascii_read(forcing_file, convert_geotop2=False) # read in forcing data
         
@@ -216,7 +217,7 @@ class jobs_from_csv:
 
 
 
-jobs_from_csv("/home/nbrown/storage/Projects/GLOBSIM/temp/todo.csv", "/home/nbrown/storage/Projects/GLOBSIM/jobs3" ).build()
+#jobs_from_csv("/home/nbrown/storage/Projects/GLOBSIM/temp/todo.csv", "/home/nbrown/storage/Projects/GLOBSIM/jobs3" ).build()
 
 # GTDirectory.from_file_paths("/home/nbrown/storage/Projects/GLOBSIM/temp/jobs2", "gtjob3",
 # "/home/nbrown/storage/Projects/GLOBSIM/temp/data/geotop.inpts",
