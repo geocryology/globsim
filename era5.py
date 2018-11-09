@@ -1207,7 +1207,11 @@ class ERAdownload(object):
         date_i = {}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
                        self.chunk_size)+1
-
+        
+        # topography
+        top = ERAto(self.area, self.directory)
+        top.download()
+        
         for ind in range (0, int(slices)): 
             #prepare time slices   
             date_i['beg'] = self.date['beg'] + timedelta(days = 
@@ -1228,9 +1232,7 @@ class ERAdownload(object):
             for era in ERAli:
                 era.download()          
                                          
-        # topography
-        top = ERAto(self.area, self.directory)
-        top.download()
+
         
         # report inventory
         self.inventory()  
