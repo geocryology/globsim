@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 import subprocess
 import pandas as pd
 from datetime import datetime
 from os import path, remove
 import numpy as np
+import re
 
 class classp():
     """
@@ -81,7 +83,38 @@ class INI():
     
     def __init__(self, inifile):
         self.file = inifile
+        self.readINI()
     
+    def __repr__(self):
+        x = self.columndefs()
+        defs = list(x.keys() )
+        defs.sort()
+        
+        print('{:*^81}'.format(' GLOBAL PARAMETERS '))
+        for key in defs:
+            if key in self.params.keys():
+                print("{}: {}".format(key, x[key]))
+                print(self.params[key])
+        
+        print('{:*^81}'.format(' MOSAIC PARAMETERS '))
+        
+        M = -1 
+        
+        while True:
+            M += 1
+            if not "M{}".format(M) in self.params.keys():
+                break
+                
+            else:
+                mos = "M{}".format(M)
+                print('{:-^81}'.format(' Mosaic ' + mos + ' '))
+                
+                for key in defs:
+                    if key in self.params.keys():
+                        print("{}: {}".format(key, x[key]))
+                        print(self.params[key])
+        return('')
+
     def nlayers(self, raw_ini): 
         ''' determines how many soil layers are represented in an INI file'''
         ix = -3    # starting index (start at the end and work backwards)
@@ -97,12 +130,21 @@ class INI():
                 break
                 
         return(n_layers)
+        
+    def inpts_read(self, inpts_file):
+        ''' reads keyword inputs into INI dictionary.'''
+        pass
     
     def readINI(self):
+        ''' 
+        read CLASS *.INI file into a dictionary, accounting for the possibility
+        of more than 3 layers
+        '''
         with open(self.file) as f:
             raw = f.readlines()
             raw = [x.strip() for x in raw]
             raw[3:] = [x.split() for x in raw[3:]]
+            raw[3:] = [[float(x) for x in line]  for line in raw[3:]]
         
         self.raw = raw 
         
@@ -117,8 +159,13 @@ class INI():
         n_mos = int((len(raw) - (6 + n_lyr)) / 15) 
 
         x = dict()
+
+        # first 3 lines are general information
+        x['info1'] = raw[0]
+        x['info2'] = raw[1]
+        x['info3'] = raw[2]
         
-        # first line
+        # first line of actual data
         x['DEGLAT'] = [raw[3][0]]
         x['DEGLON'] = [raw[3][1]]
         x['ZRFM']   = [raw[3][2]]
@@ -159,8 +206,10 @@ class INI():
             mos['SDEP'] = [raw[11 + d][1]]
             mos['FARE'] = [raw[11 + d][2]]
             
-            mos['XSLP'] = [raw[12 + d][0]]
-            # skip 3 unused parameters
+            mos['XSLP'] = [raw[12 + d][0]]         
+            mos['GRKF'] = [raw[12 + d][1]] # unused
+            mos['WFSF'] = [raw[12 + d][2]] # unused
+            mos['WFCI'] = [raw[12 + d][3]] # unused         
             mos['MID']  = [raw[12 + d][4]]
             
             mos['SAND'] = raw[13 + d]
@@ -186,22 +235,178 @@ class INI():
             x['M{}'.format(M)] = mos            
         
         # end mosaics
-
-        os = (n_mos - 1) * 15 # index offset
         
-        x['DELZ'] = [z[0] for z in raw[(19 + os):(22 + os)]]
-        x['ZBOT'] = [z[1] for z in raw[(19 + os):(22 + os)]]
+        mos = (n_mos - 1) * 15 # extra mosaic index offset
+        los = (n_lyr - 3)      # extra layer index offset
         
-        x['hrly_out_days']   = raw[22 + os][0:2]
-        x['hrly_out_years']  = raw[23 + os][0:2]
-        x['dly_out_days']    = raw[22 + os][2:4]
-        x['dly_out_years']   = raw[23 + os][2:4]
+        x['DELZ'] = [z[0] for z in raw[(19 + mos):(19 + n_lyr + mos)]]
+        x['ZBOT'] = [z[1] for z in raw[(19 + mos):(19 + n_lyr + mos)]]
+        
+        x['hrly_out_days']   = raw[22 + mos + los][0:2]
+        x['hrly_out_years']  = raw[23 + mos + los][0:2]
+        x['dly_out_days']    = raw[22 + mos + los][2:4]
+        x['dly_out_years']   = raw[23 + mos + los][2:4]
         
         self.params = x
+        
+    def writeINI(self, out_file):
+        '''
+        write stored dictionary to an *.INI file for CLASS, using the
+        proper formatting.  Automatically detects the number of layers and
+        the number of mosaics
+        '''
+        ini = self.params
+        
+        # get number of soil layers and mosaics
+        n_lyr = len(ini['DELZ'])
+        n_mos = sum([1 if re.match("M\\d", x) else 0 for x in ini.keys()])
+        
+        # Write lines to output file
+        with open(out_file, 'w') as f:
+            
+            # define writer to automatically add line return
+            writenew = lambda line: f.writelines(line + "\n")
+                 
+            # write top 3 info lines
+            writenew("  {}".format(ini['info1']))
+            writenew("  {}".format(ini['info2']))
+            writenew("  {}".format(ini['info3']))
+            
+            # write first data line
+            L1 = "{:10.2f}{:10.2f}{:9.2f}{:9.2f}{:10.2f}{:7.1f}{:5.0f}{:5.0f}"
+            writenew(L1.format( ini['DEGLAT'][0], ini['DEGLON'][0], 
+                                    ini['ZRFM'][0],   ini['ZRFH'][0], 
+                                    ini['ZBLD'][0] ,  ini['GC'][0],  
+                                    ini['NLTEST'][0], ini['NMTEST'] [0]))
 
-## Soil layer thicknesses defined by Sapriza-Azuri et al. (2018)
-def Gonzalo(n):  
-    x = [0.1, 0.35, 0.86, 1.77, 3.09, 4.10, 4.81, 6.9, 9.5, 12.4, 15.8, 
+            # BEGIN MOSAICS
+            
+            # define formatting strings for mosaics
+            F1 = "{:8.3f}{:8.3f}{:8.3f}{:8.3f}{:8.3f}{:8.3f}{:8.3f}{:8.3f}{:8.3f}"
+            F2 = "{:8.3f}{:8.3f}{:8.3f}{:8.3f}{:16.3f}{:8.3f}{:8.3f}{:8.3f}"
+            F3 = "{:8.3f}{:8.3f}{:8.3f}"
+            F4 = "{:8.1E}{:8.1E}{:8.1E}{:8.1E}{:8.0f}"
+            F5 = "{:10.1f}" * n_lyr
+            F6 = "{:10.2f}" * (n_lyr + 3)
+            F7 = "{:10.3f}" * (2 * n_lyr + 1)
+            F8 = "{:10.4f}{:10.4f}{:10.1f}{:10.3f}{:10.4f}{:10.3f}"
+
+            # write mosaics
+
+            for M in range(n_mos):
+                
+                # subset main dictionary for this mosaic
+                D = ini['M{}'.format(M)]
+
+                writenew(F1.format(*(D['FCAN'] + D['PAMX'])))
+                writenew(F1.format(*(D['LNZ0'] + D['PAMN'])))
+                writenew(F1.format(*(D['ALVC'] + D['CMAS'])))
+                writenew(F1.format(*(D['ALIC'] + D['ROOT'])))
+
+                writenew(F2.format(*(D['RSMN'] + D['QA50'])))
+                writenew(F2.format(*(D['VPDA'] + D['VPDB'])))
+                writenew(F2.format(*(D['PSGA'] + D['PSGB'])))
+
+                writenew(F3.format(*(D['DRN'] + D['SDEP'] + D['FARE'])))
+
+                LF4 = D['XSLP'] + D['GRKF'] + D['WFSF'] + D['WFCI'] + D['MID']
+                writenew(F4.format(*LF4))
+             
+                # write sand / silt / clay thicknesses
+                writenew(F5.format(*D['SAND']))
+                writenew(F5.format(*D['CLAY']))
+                writenew(F5.format(*D['ORGM']))
+
+                # write starting temperatures
+                LF6 = D['TBAR'] + D['TCAN'] + D['TSNO'] + D['TPND']
+                writenew(F6.format(*LF6))
+
+                # write starting moisture
+                LF7 = D['THLQ'] + D['THIC'] + D['ZPND']
+                writenew(F7.format(*LF7))
+
+                # write snow & vegetation
+                LF8 = D['RCAN'] + D['SCAN'] + D['SNO'] + D['ALBS'] + D['RHOS'] + D['GRO']
+                writenew(F8.format(*LF8))
+                
+                ## END MOSAIC
+
+       
+            # write soil layers thickness / bottom depths
+
+            for (dz, zb) in zip(ini['DELZ'], ini['ZBOT']):
+                writenew("  {:8.2f}{:8.2f}".format(dz, zb))
+            
+            # write dates (last and second last lines)
+
+            Ls2 = "{:10.0f}{:10.0f}{:10.0f}{:10.0f}"
+            Ls2_vals = ini['hrly_out_days'] + ini['dly_out_days']
+            writenew(Ls2.format(*Ls2_vals))
+            
+            Ls1 = "{:10.0f}{:10.0f}{:10.0f}{:10.0f}"
+            Ls1_vals = ini['hrly_out_years'] + ini['dly_out_years']
+            writenew(Ls1.format(*Ls1_vals))
+
+    
+    @staticmethod
+    def columndefs():
+        defs = {
+        'DEGLAT' : 'Latitude',
+        'DEGLON' : 'Longitude',
+        'ZRFM'   : 'Ref.height',
+        'ZRFH'   : 'Ref.height',
+        'ZBLD'   : 'Blend ht.',
+        'NLTEST' : '???',
+        'NMTEST' : '???',
+        'GC'     : 'Land/sea cover',
+        'FCAN'   : 'Fractional coverage for CLASS’ 4 PFTs+Urban',
+        'PAMX'   : 'Maximum LAI for CLASS’ 4 PFTs',
+        'LNZ0'   : 'Log of roughness length(m) for 4 PFTs+Urban',
+        'PAMN'   : 'Minimum LAI for 4 PFTs',
+        'ALVC'   : 'Visible albedo for 4 PFTs + Urban',
+        'CMAS'   : 'Aboveground canopy mass for 4 PFTs',
+        'ALIC'   : 'Near-infrared albedo for 4 PFTs + Urban',
+        'ROOT'   : 'Rooting depth for 4 PFTs',
+        'RSMN'   : 'Minimum stomatal resistance for 4 PFTs  ',
+        'QA50'   : 'Reference value of SW radiation for 4 PFTs',
+        'VPDA'   : 'First of two vapor pressure deficit coefficients for 4 PFTs for CLASS’ stomatal resistance formulation',
+        'VPDB'   : 'Second of two vapor pressure deficit coefficients for 4 PFTs for CLASS’ stomatal resistance formulation',
+        'PSGA'   : 'First of two soil moisture suction coefficients for 4 PFTs',
+        'PSGB'   : 'Second of two soil moisture suction coefficients for 4 PFTs',
+        'DRN'    : 'Drainage',
+        'SDEP'   : 'Soil permeable depth (m)  ',
+        'FARE'   : 'Fractional coverage of mosaic tile on modeled area',
+        'XSLP'   : 'Surface  slope  ',
+        'GRKF'   : 'parameter not used',
+        'WFSF'   : 'parameter not used',
+        'WFCI'   : 'parameter not used',
+        'MID'    : 'Mosaic tile type identifier (1 for land surface, 0 for inland lake)',
+        'SAND'   : 'Percentage SAND in each of the soil layers',
+        'CLAY'   : 'Percentage CLAY in each of the soil layers',
+        'ORGM'   : 'Percentage ORGANIC MATTER in each of the soil layers',
+        'TBAR'   : 'Temperatures of each soil layer (ºC)',
+        'TCAN'   : 'Temperature of vegetation canopy  (ºC)',
+        'TSNO'   : 'Temperature of snow (ºC)',
+        'TPND'   : 'Temperature of ponded water (ºC)',
+        'THLQ'   : 'Soil moisture  of each soil layer  (m3 m-3)',
+        'THIC'   : 'Frozen soil moisture of each soil layer  (m3 m-3)',
+        'ZPND'   : 'Depth of ponded water (m)',
+        'RCAN'   : 'Water on canopy',
+        'SCAN'   : 'Snow on canopy',
+        'SNO'    : 'Snow on ground',
+        'ALBS'   : 'Snow albedo',
+        'RHOS'   : 'Snow density',
+        'GRO'    : 'Plant growth index',
+        'DELZ'   : 'Thickness of soil layers (m)',
+        'ZBOT'   : 'Depth at bottom of soil layers (m)',
+        }
+        return(defs)
+
+
+def Gonzalo(n): 
+    ''' Soil layer thicknesses defined by Sapriza-Azuri et al. (2018) ''' 
+    
+    x = [0.1, 0.35, 0.86, 1.77, 3.09, 4.81, 6.9, 9.5, 12.4, 15.8, 
                 19.5, 23.7, 28.2, 33.2, 38.6, 44.4, 50.6, 57.2, 64.2, 71.6]
     x = x[0:n]
     ZBOT = np.array(x)            
@@ -209,6 +414,7 @@ def Gonzalo(n):
     out = dict(ZBOT = ZBOT, DELZ = DELZ)
     return(out)
     
+
 
 
 # Testing
