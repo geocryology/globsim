@@ -5,6 +5,7 @@ from datetime import datetime
 from os import path, remove
 import numpy as np
 import re
+from generic import ParameterIO
 
 class classp():
     """
@@ -12,7 +13,7 @@ class classp():
     (CLASS) from python
          
     """
-    SUCCESSFUL_RUN_INDICATOR = "OF1_G"
+    SUCCESSFUL_RUN_INDICATOR = "OF1_G" 
     
     def __init__(self, jobopt, site_name, executable):
         """
@@ -51,11 +52,32 @@ class classp():
         f =  "{}.{}".format(self.site_name, self.SUCCESSFUL_RUN_INDICATOR)
         return path.isfile(f)
         
-    def readINI(self, file):
-        inifile = "{}.INI".format(self.site_name)
-        return INI(inifile).readINI().params
+    def ini_read(self, inifile=None):
+        ''' read INI file using the INI class '''
+        if inifile is None:
+            inifile = "{}.INI".format(self.site_name)
+        self.ini = INI(inifile)
         
+    def ini_write(self):
+        ''' write *.INI model inputs to model directory'''
+        if self.ini:
+            inifile = "{}.INI".format(self.site_name)
+            self.ini.writeINI(inifile)
+            self.ctm_write()
+    
     def inpts_write(self):
+        self.ini_write()
+        self.ctm_write()
+        self.met_write()
+        self.joboptions_write()
+        
+    def ctm_write(self):
+        pass
+    
+    def met_write(self):
+        pass
+        
+    def joboptions_write(self):
         pass
     
     @staticmethod
@@ -79,7 +101,14 @@ class classp():
         return(output)
 
 class INI():
-    ''' reads a class INI file into a dictionary ''' 
+    ICAN_PRMS = ['PAMX', 'PAMN', 'CMAS', 'ROOT', 'RSMN', 'QA50', 
+                          'VPDA', 'VPDB', 'PSGA', 'PSGB', 'PSGB']        
+    ICANP1_PRMS = ['ALVC', 'ALIC', 'LNZ0']
+    IGND_PRMS = ['SAND', 'CLAY', 'ORGM', 'TBAR', 'THLQ', 'THIC', 'DELZ', 'ZBOT']
+    '''
+    A class to handle reading, editign and writing of *.INI files for the 
+    Canadian Land Surface Scheme (CLASS).
+    '''
     
     def __init__(self, inifile):
         self.file = inifile
@@ -133,13 +162,61 @@ class INI():
         return(n_layers)
         
     def inpts_read(self, inpts_file):
-        ''' reads keyword inputs into INI dictionary.'''
-        pass
+        ''' 
+        reads keyword inputs into INI dictionary. 
+        Currently supports only homogenous (1-layer) soils and single-composition
+        vegetation (100% fractional coverage in one PFT).
+        
+        Vegetation parameter files must include a PFT keyword
+        '''
+        n_lyr = len(self.params['DELZ'])
+        
+        if not self.__number_of_mosaics(self.params) == 1:
+            exit("Multiple mosaics are not currently supported!")
+        
+        inpts = ParameterIO(inpts_file)
+        
+        # set target PFT to 100% if vegetation parameters are provided
+        if hasattr(inpts, 'PFT'):
+            PFT = int(inpts['PFT'])
+            new_fractions = [0,0,0,0,0]
+            new_fractions[PFT - 1] = 1
+            self.params['FCAN'] = new_fractions
+        
+        # write to dictionary
+        for key in inpts.__dict__:
+            
+            # global keys
+            if key in self.params.keys():
+                
+                # set soil parameter
+                if key in self.IGND_PRMS:
+                    new_value = [inpts[key]] * n_lyr
+                    self.params[key] = new_value
+                
+                else:
+                    self.params[key] = inpts[key]
+
+            # mosaic keys
+            elif key in self.params["M0"]:
+                
+                # set vegetation parameter
+                if key in (self.ICAN_PRMS + self.ICANP1_PRMS):
+                    self.params["M0"][key][PFT - 1] = inpts[key]
+                
+                # set soil parameter
+                elif key in self.IGND_PRMS:
+                    new_value = [inpts[key]] * n_lyr
+                    self.params["M0"][key] = new_value
+                    
+                else:
+                    self.params[key] = inpts[key]
+                    
     
     def readINI(self):
         ''' 
-        read CLASS *.INI file into a dictionary, accounting for the possibility
-        of more than 3 layers
+        read CLASS *.INI file into a dictionary, taking into consideration 
+        the possibility of more than 3 layers, and more than 1 mosaic
         '''
         with open(self.file) as f:
             raw = f.readlines()
@@ -249,7 +326,12 @@ class INI():
         x['dly_out_years']   = raw[23 + mos + los][2:4]
         
         self.params = x
-        
+    
+    @staticmethod
+    def __number_of_mosaics(ini_dict):
+        n_mos = sum([1 if re.match("M\\d", x) else 0 for x in ini_dict.keys()])
+        return(n_mos)
+
     def writeINI(self, out_file):
         '''
         write stored dictionary to an *.INI file for CLASS, using the
@@ -260,7 +342,7 @@ class INI():
         
         # get number of soil layers and mosaics
         n_lyr = len(ini['DELZ'])
-        n_mos = sum([1 if re.match("M\\d", x) else 0 for x in ini.keys()])
+        n_mos = self.__number_of_mosaics(ini)
         
         # Write lines to output file
         with open(out_file, 'w') as f:
@@ -354,11 +436,11 @@ class INI():
         defs = {
         'DEGLAT' : 'Latitude',
         'DEGLON' : 'Longitude',
-        'ZRFM'   : 'Ref.height',
-        'ZRFH'   : 'Ref.height',
-        'ZBLD'   : 'Blend ht.',
-        'NLTEST' : '???',
-        'NMTEST' : '???',
+        'ZRFM'   : 'The reference height at which climate variables are provided',
+        'ZRFH'   : 'The reference height at which climate variables are provided',
+        'ZBLD'   : 'Atmospheric blendomg height',
+        'NLTEST' : 'Number of grid cells',
+        'NMTEST' : 'Number of mosaic cells',
         'GC'     : 'Land/sea cover',
         'FCAN'   : 'Fractional coverage for CLASS’ 4 PFTs+Urban',
         'PAMX'   : 'Maximum LAI for CLASS’ 4 PFTs',
