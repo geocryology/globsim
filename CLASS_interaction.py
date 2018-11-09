@@ -90,29 +90,30 @@ class INI():
         defs = list(x.keys() )
         defs.sort()
         
-        print('{:*^81}'.format(' GLOBAL PARAMETERS '))
+        print('{:*^79}'.format(' GLOBAL PARAMETERS '))
         for key in defs:
             if key in self.params.keys():
                 print("{}: {}".format(key, x[key]))
                 print(self.params[key])
         
-        print('{:*^81}'.format(' MOSAIC PARAMETERS '))
+        print('{:*^79}'.format(' MOSAIC PARAMETERS '))
         
         M = -1 
         
         while True:
             M += 1
             if not "M{}".format(M) in self.params.keys():
+                print('{:-^79}'.format(' End of Mosaics '))
                 break
                 
             else:
                 mos = "M{}".format(M)
-                print('{:-^81}'.format(' Mosaic ' + mos + ' '))
+                print('{:-^79}'.format(' Mosaic ' + mos + ' '))
                 
                 for key in defs:
-                    if key in self.params.keys():
+                    if key in self.params[mos].keys():
                         print("{}: {}".format(key, x[key]))
-                        print(self.params[key])
+                        print(self.params[mos][key])
         return('')
 
     def nlayers(self, raw_ini): 
