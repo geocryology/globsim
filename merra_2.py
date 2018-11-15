@@ -1757,7 +1757,7 @@ class MERRAdownload(object):
             lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dc, id_lat, id_lon)
                          
             # Output merra-2 variable at surface level 
-            SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, out_variable_2dc, chunk_size, time, lat, lon, self.dir_data)
+            SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, out_variable_2dc, int(self.chunk_size), time, lat, lon, self.dir_data)
                       
 class MERRAinterpolate(object):
     """
