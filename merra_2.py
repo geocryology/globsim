@@ -1740,7 +1740,7 @@ class MERRAdownload(object):
         t_total = int((t_end - t_start) // 60)
         print("Total Time (Minutes):", t_total)
         
-        def download_merra_sc(self):
+    def download_merra_sc(self):
             urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)    
             
             # get the shared variables dictionaries and pass the information to the build-in dictionaries
