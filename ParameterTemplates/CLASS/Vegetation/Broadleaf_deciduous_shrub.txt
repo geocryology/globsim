@@ -1,0 +1,21 @@
+PFT  = 2	
+ALVC = 0.05	
+ALIC = 0.29	
+LNZ0 = 0.15	
+PAMX = 4	
+PAMN = 0.5	
+CMAS = 	8
+ROOT = 1
+RSMN = 125	
+QA50 = 40	
+VPDA = 0.5	
+VPDB = 0.6	
+PSGA = 100	
+PSGB = 5
+
+
+
+		
+
+
+	

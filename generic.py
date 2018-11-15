@@ -62,6 +62,10 @@ class ParameterIO(object):
         self.comment  = "#"
         self.assign   = "="
         self.file_read()
+        
+    def __getitem__(self, item):
+        attr = getattr(self, item)
+        return(attr)
 
     def file_read(self):
         """
