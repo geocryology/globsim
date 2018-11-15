@@ -248,7 +248,7 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
         height[:]    = nc_interpol.variables['height'][:]
         
         # add station names to netcdf
-        if station_names:
+        if station_names is not None:
             # first convert to character array
             names_out = nc.stringtochar(np.array(station_names, 'S32'))
             
