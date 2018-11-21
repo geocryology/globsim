@@ -226,7 +226,9 @@ class ERA5generic(object):
                     
         #close the file
         rootgrp.close()
-        
+ # block commenting this out - I don't think it is used (no usage of the function in this file)
+# maybe delete later if everything still works (NB)
+ '''       
     def netCDF_merge(self, directory):
         """
         To combine mutiple downloaded eraint netCDF files into a large file with specified chunk_size(e.g. 500), 
@@ -246,7 +248,7 @@ class ERA5generic(object):
         era5_all_0.nc, era5_all_1.nc, ...,
                 
         """
-        #set up nco operator
+        # set up nco operator
         nco = Nco()
   
         # loop over filetypes, read, report
@@ -254,20 +256,29 @@ class ERA5generic(object):
         for ft in file_type:
             ncfile_in = path.join(directory, ft)
             
-            #get the file list
+            # get the file list
             files_list = glob.glob(ncfile_in)
             files_list.sort()
             num = len(files_list)
                         
-            #set up the name of merged file
-            if ncfile_in[-7:-5] == 'sa':
-                merged_file = path.join(ncfile_in[:-11],'eraint_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
-            elif ncfile_in[-7:-5] == 'sf':
-                merged_file = path.join(ncfile_in[:-11],'eraint_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
-            elif ncfile_in[-7:-5] == 'pl':
-                merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
+            # set up the name of merged file (changed to be more robust)
+            if re.search('_sa_', ncfile_in):
+                merged_file = path.join(ncfile_in[:-11],'era5_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
+            elif re.search('_sf_', ncfile_in):
+                merged_file = path.join(ncfile_in[:-11],'era5_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
+            elif re.search('_pl_', ncfile_in):
+                merged_file = path.join(ncfile_in[:-11],'era5_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
                 print('There is not such type of file'    )
+                
+            # if ncfile_in[-7:-5] == 'sa':
+                # merged_file = path.join(ncfile_in[:-11],'era5_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
+            # elif ncfile_in[-7:-5] == 'sf':
+                # merged_file = path.join(ncfile_in[:-11],'era5_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
+            # elif ncfile_in[-7:-5] == 'pl':
+                # merged_file = path.join(ncfile_in[:-11],'era5_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
+            # else:
+                # print('There is not such type of file'    )
                         
             # combined files into merged files
             nco.ncrcat(input=files_list,output=merged_file, append = True)
@@ -275,13 +286,13 @@ class ERA5generic(object):
             print('The Merged File below is saved:')
             print(merged_file)
             
-            #clear up the data
+            # clear up the data
             for fl in files_list:
                 remove(fl)
 
     def mergeFiles(self, ncfile_in):
         """
-        To combine mutiple downloaded eraint netCDF files into a large file. 
+        To combine mutiple downloaded era5 netCDF files into a large file. 
         
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
@@ -311,13 +322,13 @@ class ERA5generic(object):
         # get time and convert to datetime object
         nctime = ncf_in.variables['time'][:]
     
-        #set up the name of merged file
+        # set up the name of merged file
         if ncfile_in[-7:-5] == 'sa':
-            ncfile_out = path.join(ncfile_in[:-11],'eraint_sa_all' + '.nc')
+            ncfile_out = path.join(ncfile_in[:-11],'era5_sa_all' + '.nc')
         elif ncfile_in[-7:-5] == 'sf':
-            ncfile_out = path.join(ncfile_in[:-11],'eraint_sf_all' + '.nc')
+            ncfile_out = path.join(ncfile_in[:-11],'era5_sf_all' + '.nc')
         elif ncfile_in[-7:-5] == 'pl':
-            ncfile_out = path.join(ncfile_in[:-11],'eraint_pl_all' + '.nc')
+            ncfile_out = path.join(ncfile_in[:-11],'era5_pl_all' + '.nc')
         else:
             print('There is not such type of file')
         
@@ -329,7 +340,7 @@ class ERA5generic(object):
         if pl: #only for pressure level files
             varlist.remove('level')
         
-        #Build the netCDF file
+        # Build the netCDF file
         rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
         rootgrp.Conventions = 'CF-1.6'
         rootgrp.source      = 'ERA5, merged downloaded original files'
@@ -388,18 +399,18 @@ class ERA5generic(object):
                 tmp[:] = ncf_in.variables[var][:,:,:]    
               
                     
-        #close the file
+        # close the file
         rootgrp.close()
         ncf_in.close()
         
-        #get the file list
+        # get the file list
         files_list = glob.glob(ncfile_in)
         files_list.sort()
         
-        #clear up the data
+        # clear up the data
         for fl in files_list:
             remove(fl)
-
+'''
                                                                                                                                                                                                                                               
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
@@ -1207,7 +1218,11 @@ class ERA5download(object):
         date_i = {}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
                        self.chunk_size)+1
-
+                                                 
+        # topography
+        top = ERA5to(self.area, self.directory)
+        top.download()
+        
         for ind in range (0, int(slices)): 
             #prepare time slices   
             date_i['beg'] = self.date['beg'] + timedelta(days = 
@@ -1227,10 +1242,6 @@ class ERA5download(object):
             ERAli = [pl, sa, sf]
             for era in ERAli:
                 era.download()          
-                                         
-        # topography
-        top = ERA5to(self.area, self.directory)
-        top.download()
         
         # report inventory
         self.inventory()  
@@ -1351,7 +1362,7 @@ class ERA5scale(object):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
         #number of time steps for output
-        self.nt = floor((max(time)-min(time)).total_seconds()/3600/par.time_step)+1
+        self.nt = int(floor((max(time) - min(time)).total_seconds() / 3600 / par.time_step)) + 1
         self.time_step = par.time_step * 3600    # [s] scaled file
 
         # vector of output time steps as datetime object
@@ -1401,7 +1412,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_PRESS_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_pressure ERA-I pressure levels only'
+        var.long_name = 'air_pressure ERA-5 pressure levels only'
         var.units     = 'Pa'.encode('UTF8')  
         
         # interpolate station by station
@@ -1419,7 +1430,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_ERA_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_temperature ERA-I pressure levels only'
+        var.long_name = 'air_temperature ERA-5 pressure levels only'
         var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
         
         # interpolate station by station
@@ -1437,7 +1448,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_ERA_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '2_metre_temperature ERA-I surface only'
+        var.long_name = '2_metre_temperature ERA-5 surface only'
         var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
         
         # interpolate station by station
@@ -1463,7 +1474,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'PREC_ERA_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Total precipitation ERA-I surface only'
+        var.long_name = 'Total precipitation ERA-5 surface only'
         var.units     = "mm".encode('UTF8')  
         
         # interpolate station by station
@@ -1492,7 +1503,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'RH_ERA_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Relative humidity ERA-I surface only'
+        var.long_name = 'Relative humidity ERA-5 surface only'
         var.units     = 'Percent'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
@@ -1524,14 +1535,14 @@ class ERA5scale(object):
         # wind speed, add variable to ncdf file, convert
         vn = 'WSPD_ERA_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind speed ERA-I surface only'
+        var.long_name = '10 wind speed ERA-5 surface only'
         var.units     = 'm s**-1'  
         self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
         vn = 'WDIR_ERA_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind direction ERA-I surface only'
+        var.long_name = '10 wind direction ERA-5 surface only'
         var.units     = 'deg'                                                                 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
@@ -1544,7 +1555,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'SW_ERA_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards ERA-I surface only'
+        var.long_name = 'Surface solar radiation downwards ERA-5 surface only'
         var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
 
         # interpolate station by station
@@ -1564,7 +1575,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'LW_ERA_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface thermal radiation downwards ERA-I surface only'
+        var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
         var.units     = self.nc_sf.variables['strd'].units.encode('UTF8')  
         
         # interpolate station by station
@@ -1596,6 +1607,6 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'SH_ERA_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Specific humidity ERA-I surface only'
+        var.long_name = 'Specific humidity ERA-5 surface only'
         var.units     = 'Kg/Kg'.encode('UTF8')  
         self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
