@@ -42,7 +42,7 @@ from __future__   import print_function
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
-from os           import path, listdir
+from os           import path, listdir, remove
 
 from generic      import ParameterIO, StationListRead, ScaledFileOpen 
 from generic      import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
@@ -1154,7 +1154,11 @@ class ERAIdownload(object):
                       'south':  par.bbS,
                       'west' :  par.bbW,
                       'east' :  par.bbE}
-                 
+        
+        # sanity check to make sure area is good
+        if (par.bbN < par.bbS) or (par.bbE < par.bbW):        
+            raise Exception("Bounding box is invalid: {}".format(self.area))   
+            
         # time bounds
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
@@ -1183,7 +1187,10 @@ class ERAIdownload(object):
         date_i = {}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
                        self.chunk_size)+1
-
+        # topography
+        top = ERAIto(self.area, self.directory)
+        top.download()
+        
         for ind in range (0, int(slices)): 
             #prepare time slices   
             date_i['beg'] = self.date['beg'] + timedelta(days = 
@@ -1204,9 +1211,6 @@ class ERAIdownload(object):
             for era in ERAli:
                 era.download()          
                                          
-        # topography
-        top = ERAIto(self.area, self.directory)
-        top.download()
         
         # report inventory
         self.inventory()  
@@ -1328,7 +1332,7 @@ class ERAIscale(object):
         
         #number of time steps for output
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
-                      / 3600 / par.time_step))+1 # +1 : include last value
+                      / 3600 / par.time_step)) + 1 # +1 : include last value
         self.time_step = par.time_step * 3600    # [s] scaled file
 
         # vector of output time steps as datetime object
@@ -1338,9 +1342,9 @@ class ERAIscale(object):
                           for x in range(0, self.nt)]                                                                   
                                       
         # vector of output time steps as written in ncdf file [s]
-        units = 'seconds since 1900-01-01 00:00:0.0'
+        self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
         self.times_out_nc = nc.date2num(self.times_out, 
-                                        units = units, 
+                                        units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
         # get the station file
         self.stations_csv = path.join(par.project_directory,
@@ -1355,11 +1359,14 @@ class ERAIscale(object):
         """
         if path.isfile(self.outfile):
             print("Warning, output file already exists. This may cause problems")    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
+        t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
-            getattr(self, kernel_name)()   
+            if hasattr(self, kernel_name):	
+                print(kernel_name)
+                getattr(self, kernel_name)()   
             
         # close netCDF files   
         self.rg.close()
