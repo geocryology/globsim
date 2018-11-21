@@ -87,7 +87,7 @@ class ParameterIO(object):
                 else:
                     return False
 
-    def __string2datetime(self, valu):
+    def __string2datetime(self, name, valu):
         # checks if value is a date string. If true, a datetime object is
         # returned. If false, value is returned unchanged.
         if not isinstance(valu, basestring):
@@ -96,8 +96,11 @@ class ParameterIO(object):
         # see if time conversion is possible
         try:
             valu = datetime.strptime(valu, self.fmt_date)
+            if name == 'end':
+                valu = valu + timedelta(hours = 23)
         except ValueError:
             pass
+        
         return valu
         
     def __string2logical(self, valu):
@@ -113,9 +116,6 @@ class ParameterIO(object):
             valu = True
         return valu
 
-    def __string2datetime_list(self, dates):
-        # convert list of date strings to datetime
-        return [self.__string2datetime(date) for date in dates]
 
     def line2dict(self, lin):
         """
@@ -153,7 +153,7 @@ class ParameterIO(object):
                 pass
                     
         # Convert to datetime if it is datetime
-        valu = self.__string2datetime(valu)
+        valu = self.__string2datetime(name, valu)
         
         # Convert to logical if logical
         valu = self.__string2logical(valu)

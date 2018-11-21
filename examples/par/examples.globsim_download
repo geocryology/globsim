@@ -2,8 +2,8 @@
 # Use extension like this: 'project_a.globsim_download'
 
 # logistics
-project_directory = /home/xquan/src/globsim/examples/
-credentials_directory = /home/xquan/
+project_directory = ﻿/Users/bincao/OneDrive/GitHub/globsim/examples/
+credentials_directory = /Users/bincao/
 
 # chunk size for splitting files and download [days]
 chunk_size = 5
