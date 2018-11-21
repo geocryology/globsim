@@ -256,13 +256,15 @@ class MERRAgeneric():
                     session = setup_session(username, password, check_url=urls[i])        
                     ds[i] = open_url(urls[i], session=session)
                     break
-                except:
+                except Exception as e:
                     if delay < 59:
-                       print("Error downloading file: " + urls[i] + ". Trying again (" + str(delay) + ")")
+                       print("Error downloading file: {}. Trying again ({})".format(urls[i], str(delay)))
+                       print("Error message : \n{}".format(e))
                        sleep(delay)
                        pass
                     else:    
                         print("Error downloading file: " + urls[i] + ". Giving up.")
+                        print("Error message : \n{}".format(e))
                         raise RuntimeError("==> Unsuccesfull after 60 attempts.")
             print('------COMPLETED------','URL NO.:', i+1)
             print(urls[i])
