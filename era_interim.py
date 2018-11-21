@@ -42,7 +42,7 @@ from __future__   import print_function
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
-from os           import path, listdir, remove
+from os           import path, listdir
 
 from generic      import ParameterIO, StationListRead, ScaledFileOpen 
 from generic      import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
@@ -74,7 +74,7 @@ except ImportError:
 
  
 
-class ERAgeneric(object):
+class ERAIgeneric(object):
     """
     Parent class for other ERA-Interim classes.
     """
@@ -404,7 +404,7 @@ class ERAgeneric(object):
             remove(fl)
 
                                                                                                                                                                                                                                               
-class ERApl(ERAgeneric):
+class ERAIpl(ERAIgeneric):
     """Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server.
        
@@ -435,8 +435,8 @@ class ERApl(ERAgeneric):
                      'max' : 8850}
         variables  = ['air_temperature', 'relative_humidity']             
         directory = '/Users/stgruber/Desktop'             
-        ERApl = ERApl(date, area, elevation, variables, directory) 
-        ERApl.download()
+        ERAIpl = ERAIpl(date, area, elevation, variables, directory) 
+        ERAIpl.download()
     """
     def __init__(self, date, area, elevation, variables, directory):
         self.date       = date
@@ -475,7 +475,7 @@ class ERApl(ERAgeneric):
         return string.format(self.getDictionary) 
 
                                 
-class ERAsa(ERAgeneric):
+class ERAIsa(ERAIgeneric):
     """
     Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server for surface analysis variables (airt2,dewp2, ozone, vapor,
@@ -497,8 +497,8 @@ class ERAsa(ERAgeneric):
                  'east'  : 105.0}
         variables  = ['air_temperature', 'relative_humidity']             
         directory = '/Users/stgruber/Desktop'             
-        ERAsa = ERAsa(date, area, variables, directory) 
-        ERAsa.download()      
+        ERAIsa = ERAIsa(date, area, variables, directory) 
+        ERAIsa.download()      
     """
     def __init__(self, date, area, variables, directory):
         self.date       = date
@@ -538,7 +538,7 @@ class ERAsa(ERAgeneric):
         return string.format(self.getDictionary)         
 
 
-class ERAsf(ERAgeneric):
+class ERAIsf(ERAIgeneric):
     """
     Returns an object for ERA-Interim data that has methods for querying the
     ECMWF server for surface forecast variables (prec, swin, lwin).
@@ -549,7 +549,7 @@ class ERAsf(ERAgeneric):
         variables:  List of variable(s) to download that can include one, several
                    , or all of these: ['airt', 'rh', 'geop', 'wind'].
         
-        ERAgen:    ERAgeneric() object with generic information on the area and
+        ERAgen:    ERAIgeneric() object with generic information on the area and
                    time span to be
               
     Example:
@@ -562,8 +562,8 @@ class ERAsf(ERAgeneric):
                  'east'  :  60.0}
         variables  = ['prec','swin','lwin']             
         directory = '/Users/stgruber/Desktop'             
-        ERAsf = ERAsf(date, area, variables, directory) 
-        ERAsf.download()   
+        ERAIsf = ERAIsf(date, area, variables, directory) 
+        ERAIsf.download()   
     """
     def __init__(self, date, area, variables, directory):
         self.date       = date
@@ -603,7 +603,7 @@ class ERAsf(ERAgeneric):
                   "ERA-Interim air tenperature data: {0}")
         return string.format(self.getDictionary)      
                 
-class ERAto(ERAgeneric):
+class ERAIto(ERAIgeneric):
     """
     Returns an object for downloading and handling ERA-Interim 
     topography (invariant).
@@ -616,8 +616,8 @@ class ERAto(ERAgeneric):
                  'west'  :  60.0,
                  'east'  :  65.0}            
         directory = '/Users/stgruber/Desktop'             
-        ERAto = ERAto(area, directory) 
-        ERAto.download()       
+        ERAIto = ERAIto(area, directory) 
+        ERAIto.download()       
     """
     def __init__(self, area, directory):
         self.area       = area
@@ -644,7 +644,7 @@ class ERAto(ERAgeneric):
         return string.format(self.getDictionary) 
                  
 
-class ERAinterpolate(object):
+class ERAIinterpolate(object):
     """
     Collection of methods to interpolate ERA-Interim netCDF files to station
     coordinates. All variables retain theit original units and time stepping.
@@ -808,7 +808,7 @@ class ERAinterpolate(object):
         of variable and file structure are determined from the input.
         
         This function creates an empty of netCDF file to hold the interpolated 
-        results, by calling ERAgeneric().netCDF_empty. Then, data is 
+        results, by calling ERAIgeneric().netCDF_empty. Then, data is 
         interpolated in temporal chunks and appended. The temporal chunking can 
         be set in the interpolation parameter file.
         
@@ -840,7 +840,7 @@ class ERAinterpolate(object):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
+        ERAIgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
                                      
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
@@ -1131,7 +1131,7 @@ class ERAinterpolate(object):
                                         self.list_name + '_surface.nc')) 
         
         
-class ERAdownload(object):
+class ERAIdownload(object):
     """
     Class for ERA-Interim data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
@@ -1154,11 +1154,7 @@ class ERAdownload(object):
                       'south':  par.bbS,
                       'west' :  par.bbW,
                       'east' :  par.bbE}
-        
-        # sanity check to make sure area is good
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
-            raise Exception("Bounding box is invalid: {}".format(self.area))
-            
+                 
         # time bounds
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
@@ -1187,11 +1183,7 @@ class ERAdownload(object):
         date_i = {}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
                        self.chunk_size)+1
-        
-        # topography
-        top = ERAto(self.area, self.directory)
-        top.download()
-        
+
         for ind in range (0, int(slices)): 
             #prepare time slices   
             date_i['beg'] = self.date['beg'] + timedelta(days = 
@@ -1202,16 +1194,19 @@ class ERAdownload(object):
                 date_i['end'] = self.date['end']
             
             #actual functions                                                                           
-            pl = ERApl(date_i, self.area, self.elevation, 
+            pl = ERAIpl(date_i, self.area, self.elevation, 
                        self.variables, self.directory) 
-            sa = ERAsa(date_i, self.area, self.variables, self.directory) 
-            sf = ERAsf(date_i, self.area, self.variables, self.directory) 
+            sa = ERAIsa(date_i, self.area, self.variables, self.directory) 
+            sf = ERAIsf(date_i, self.area, self.variables, self.directory) 
         
             #download from ECMWF server convert to netCDF  
             ERAli = [pl, sa, sf]
             for era in ERAli:
                 era.download()          
                                          
+        # topography
+        top = ERAIto(self.area, self.directory)
+        top.download()
         
         # report inventory
         self.inventory()  
@@ -1274,7 +1269,7 @@ class ERAdownload(object):
         return "Object for ERA-Interim data download and conversion"                
 
                                                         
-class ERAscale(object):
+class ERAIscale(object):
     """
     Class for ERA-Interim data that has methods for scaling station data to
     better resemble near-surface fluxes.
@@ -1285,7 +1280,7 @@ class ERAscale(object):
         sfile: Full path to a Globsim Scaling Parameter file. 
               
     Example:          
-        ERAd = ERAscale(sfile) 
+        ERAd = ERAIscale(sfile) 
         ERAd.process()
     """
         
@@ -1343,9 +1338,9 @@ class ERAscale(object):
                           for x in range(0, self.nt)]                                                                   
                                       
         # vector of output time steps as written in ncdf file [s]
-        self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
+        units = 'seconds since 1900-01-01 00:00:0.0'
         self.times_out_nc = nc.date2num(self.times_out, 
-                                        units = self.scaled_t_units, 
+                                        units = units, 
                                         calendar = self.t_cal) 
         # get the station file
         self.stations_csv = path.join(par.project_directory,
@@ -1357,15 +1352,14 @@ class ERAscale(object):
         """
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
-        """  
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
-        t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
+        """
+        if path.isfile(self.outfile):
+            print("Warning, output file already exists. This may cause problems")    
+        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc)
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
-            if hasattr(self, kernel_name):
-                print(kernel_name)
-                getattr(self, kernel_name)() 
+            getattr(self, kernel_name)()   
             
         # close netCDF files   
         self.rg.close()

@@ -70,7 +70,7 @@ except ImportError:
 
 
 
-class ERAgeneric(object):
+class ERA5generic(object):
     """
     Parent class for other ERA5 classes.
     """
@@ -291,7 +291,7 @@ class ERAgeneric(object):
               '/home/xquan/src/globsim/examples/eraint/era5_sf_*.nc'
 
         Output: merged netCDF files
-        eraint_sa_all.nc, eraint_sf_all.nc, eraint_pl_all.nc
+        era5_sa_all.nc, era5_sf_all.nc, era5_pl_all.nc
                 
         """
      
@@ -401,7 +401,7 @@ class ERAgeneric(object):
             remove(fl)
 
                                                                                                                                                                                                                                               
-class ERApl(ERAgeneric):
+class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
     ECMWF server.
        
@@ -432,8 +432,8 @@ class ERApl(ERAgeneric):
                      'max' : 8850}
         variables  = ['air_temperature', 'relative_humidity']             
         directory = '/Users/stgruber/Desktop'             
-        ERApl = ERApl(date, area, elevation, variables, directory) 
-        ERApl.download()
+        ERA5pl = ERA5pl(date, area, elevation, variables, directory) 
+        ERA5pl.download()
     """
     def __init__(self, date, area, elevation, variables, directory):
         self.date       = date
@@ -478,7 +478,7 @@ class ERApl(ERAgeneric):
         return string.format(self.getDictionary) 
 
                                 
-class ERAsa(ERAgeneric):
+class ERA5sa(ERA5generic):
     """
     Returns an object for ERA5 data that has methods for querying the
     ECMWF server for surface analysis variables (airt2,dewp2, ozone, vapor,
@@ -500,8 +500,8 @@ class ERAsa(ERAgeneric):
                  'east'  : 105.0}
         variables  = ['air_temperature', 'relative_humidity']             
         directory = '/Users/stgruber/Desktop'             
-        ERAsa = ERAsa(date, area, variables, directory) 
-        ERAsa.download()      
+        ERA5sa = ERA5sa(date, area, variables, directory) 
+        ERA5sa.download()      
     """
     def __init__(self, date, area, variables, directory):
         self.date       = date
@@ -551,7 +551,7 @@ class ERAsa(ERAgeneric):
         return string.format(self.getDictionary)         
 
 
-class ERAsf(ERAgeneric):
+class ERA5sf(ERA5generic):
     """
     Returns an object for ERA5 data that has methods for querying the
     ECMWF server for surface forecast variables (prec, swin, lwin).
@@ -562,7 +562,7 @@ class ERAsf(ERAgeneric):
         variables:  List of variable(s) to download that can include one, several
                    , or all of these: ['airt', 'rh', 'geop', 'wind'].
         
-        ERAgen:    ERAgeneric() object with generic information on the area and
+        ERAgen:    ERA5generic() object with generic information on the area and
                    time span to be
               
     Example:
@@ -575,8 +575,8 @@ class ERAsf(ERAgeneric):
                  'east'  :  60.0}
         variables  = ['prec','swin','lwin']             
         directory = '/Users/stgruber/Desktop'             
-        ERAsf = ERAsf(date, area, variables, directory) 
-        ERAsf.download()   
+        ERA5sf = ERA5sf(date, area, variables, directory) 
+        ERA5sf.download()   
     """
     def __init__(self, date, area, variables, directory):
         self.date       = date
@@ -622,7 +622,7 @@ class ERAsf(ERAgeneric):
                   "ERA5 air tenperature data: {0}")
         return string.format(self.getDictionary)      
                 
-class ERAto(ERAgeneric):
+class ERA5to(ERA5generic):
     """
     Returns an object for downloading and handling ERA5
     topography (invariant).
@@ -635,8 +635,8 @@ class ERAto(ERAgeneric):
                  'west'  :  60.0,
                  'east'  :  65.0}            
         directory = '/Users/stgruber/Desktop'             
-        ERAto = ERAto(area, directory) 
-        ERAto.download()       
+        ERA5to = ERA5to(area, directory) 
+        ERA5to.download()       
     """
     def __init__(self, area, directory):
         self.area       = area
@@ -663,7 +663,7 @@ class ERAto(ERAgeneric):
         return string.format(self.getDictionary) 
                  
 
-class ERAinterpolate(object):
+class ERA5interpolate(object):
     """
     Collection of methods to interpolate ERA5 netCDF files to station
     coordinates. All variables retain theit original units and time stepping.
@@ -826,7 +826,7 @@ class ERAinterpolate(object):
         of variable and file structure are determined from the input.
         
         This function creates an empty of netCDF file to hold the interpolated 
-        results, by calling ERAgeneric().netCDF_empty. Then, data is 
+        results, by calling ERA5generic().netCDF_empty. Then, data is 
         interpolated in temporal chunks and appended. The temporal chunking can 
         be set in the interpolation parameter file.
         
@@ -858,7 +858,7 @@ class ERAinterpolate(object):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        ERAgeneric().netCDF_empty(ncfile_out, self.stations, ncf_in) 
+        ERA5generic().netCDF_empty(ncfile_out, self.stations, ncf_in) 
                                      
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
@@ -1126,8 +1126,8 @@ class ERAinterpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], 
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'era5_sf_*.nc'), 
-                         path.join(self.dir_out,'era5_sf_' + 
+        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
+                         path.join(self.dir_out,'era_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
                          
@@ -1151,7 +1151,7 @@ class ERAinterpolate(object):
                                         self.list_name + '_surface.nc')) 
         
         
-class ERAdownload(object):
+class ERA5download(object):
     """
     Class for ERA5 data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
@@ -1160,7 +1160,7 @@ class ERAdownload(object):
         pfile: Full path to a Globsim Download Parameter file. 
               
     Example:          
-        ERAd = ERAdownload(pfile) 
+        ERAd = ERA5download(pfile) 
         ERAd.retrieve()
     """
         
@@ -1207,11 +1207,7 @@ class ERAdownload(object):
         date_i = {}
         slices = floor(float((self.date['end'] - self.date['beg']).days)/
                        self.chunk_size)+1
-        
-        # topography
-        top = ERAto(self.area, self.directory)
-        top.download()
-        
+
         for ind in range (0, int(slices)): 
             #prepare time slices   
             date_i['beg'] = self.date['beg'] + timedelta(days = 
@@ -1222,17 +1218,19 @@ class ERAdownload(object):
                 date_i['end'] = self.date['end']
             
             #actual functions                                                                           
-            pl = ERApl(date_i, self.area, self.elevation, 
+            pl = ERA5pl(date_i, self.area, self.elevation, 
                        self.variables, self.directory) 
-            sa = ERAsa(date_i, self.area, self.variables, self.directory) 
-            sf = ERAsf(date_i, self.area, self.variables, self.directory) 
+            sa = ERA5sa(date_i, self.area, self.variables, self.directory) 
+            sf = ERA5sf(date_i, self.area, self.variables, self.directory) 
         
             #download from ECMWF server convert to netCDF  
             ERAli = [pl, sa, sf]
             for era in ERAli:
                 era.download()          
                                          
-
+        # topography
+        top = ERA5to(self.area, self.directory)
+        top.download()
         
         # report inventory
         self.inventory()  
@@ -1294,7 +1292,7 @@ class ERAdownload(object):
         return "Object for ERA5 data download and conversion"                
 
                                                         
-class ERAscale(object):
+class ERA5scale(object):
     """
     Class for ERA5 data that has methods for scaling station data to
     better resemble near-surface fluxes.
@@ -1305,7 +1303,7 @@ class ERAscale(object):
         sfile: Full path to a Globsim Scaling Parameter file. 
               
     Example:          
-        ERAd = ERAscale(sfile) 
+        ERAd = ERA5scale(sfile) 
         ERAd.process()
     """
         
@@ -1353,8 +1351,7 @@ class ERAscale(object):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
         #number of time steps for output
-        self.nt = int(floor((max(time) - min(time)).total_seconds() 
-                      / 3600 / par.time_step))+1 # +1 : include last value
+        self.nt = floor((max(time)-min(time)).total_seconds()/3600/par.time_step)+1
         self.time_step = par.time_step * 3600    # [s] scaled file
 
         # vector of output time steps as datetime object
@@ -1601,5 +1598,4 @@ class ERAscale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA-I surface only'
         var.units     = 'Kg/Kg'.encode('UTF8')  
-        self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+        self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     

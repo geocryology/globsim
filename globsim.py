@@ -20,11 +20,12 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
-from era_interim import ERAdownload, ERAinterpolate, ERAscale
+from era_interim import ERAIdownload, ERAIinterpolate, ERAIscale
+from era5 import ERA5download, ERA5interpolate, ERA5scale
 from merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
 from JRA import JRAdownload, JRAinterpolate, JRAscale
 from multiprocessing.dummy import Pool as ThreadPool
-from era5 import ERAdownload as ERA5download
+
 
 def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     """
@@ -78,8 +79,12 @@ def GlobsimInterpolateStation(ifile):
     """
     
     # === ERA-Interim ===
-    ERAinterp = ERAinterpolate(ifile)
-    ERAinterp.process()
+    ERAIinterp = ERAIinterpolate(ifile)
+    ERAIinterp.process()
+    
+    # === ERA5 ===
+    ERA5interp = ERA5interpolate(ifile)
+    ERA5interp.process()
     
     # === MERRA-2 ===
     MERRAinterp = MERRAinterpolate(ifile)
@@ -100,6 +105,10 @@ def GlobsimScale(sfile):
     # === ERA-Interim ===
     ERAsc = ERAscale(sfile)
     ERAsc.process()
+    
+    # === ERA5 ===
+    # ERA5sc = ERA5scale(sfile)
+    # ERA5sc.process()
     
     # # === MERRA-2 ===
     # MERRAsc = MERRAscale(sfile)
