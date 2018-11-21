@@ -608,6 +608,9 @@ def nc_to_met(ncd, out_dir, src, start=None, end=None):
     PRESS = "PRESS_{}_Pa_pl".format(src)
     PRESS = n[PRESS][:]
     
+    # get site names
+    NAMES = nc.chartostring(n['station_name'][:])
+    
     data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
     
     # write output files
@@ -618,8 +621,10 @@ def nc_to_met(ncd, out_dir, src, start=None, end=None):
         out_array = np.concatenate((TIME, out_array), 0)
         out_array = np.transpose(out_array)
         
-        #get station name (TODO)
-        filename = "station_{}_{}.MET".format(i, src)
+        #get station name 
+        st_name = NAMES[i]
+        
+        filename = "{}_{}_{}.MET".format(i, st_name, src)
         savepath = path.join(out_dir, filename)
         
         # create file
@@ -688,6 +693,9 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     LW = "LW_{}_Wm2_sur".format(src)
     LW = n[LW][:]
 
+    # get site names
+    NAMES = nc.chartostring(n['station_name'][:])
+
     # combine data variables into array
     data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
     
@@ -701,8 +709,11 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
                             "AirTemp", "AirPress", "SWglobal", "LWin"]
         
 
-        #get station name (TODO)
-        filename = "{}_Forcing_{:04d}.txt".format(src, i)
+        #get station name 
+        st_name = NAMES[i]
+        
+        # prepare paths
+        filename = "{}-{}_{}_Forcing_0001.txt".format(i, st_name, src)
         savepath = path.join(out_dir, filename)
         
         # create file
