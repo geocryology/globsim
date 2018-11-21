@@ -1746,6 +1746,11 @@ class MERRAdownload(object):
         print("Total Time (Minutes):", t_total)
         
     def download_merra_sc(self):
+            # check if it already exists
+            if os.isfile(path.join(dir_data,("merra_sc" + ".nc"))):
+                print("WARNING:  file 'merra_sc.nc' already exists and is being skipped")
+                return()
+    
             urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = MERRAgeneric().getURLs(self.date)    
             
             # get the shared variables dictionaries and pass the information to the build-in dictionaries
