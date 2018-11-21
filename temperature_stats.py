@@ -36,16 +36,26 @@ class SoilTemperature:
         
         # open OF5_G
         data = classp.ts_read(OF5_G)
+        
+        # also open OF6_G if there are more than 3 soil layers
+        if n_layer > 3:
+            OF6_G = re.sub("OF5_G$", "OF5_G", OF5_G) 
+            OF6_G = classp.ts_read(OF6_G)
+            OF6_G.drop(['Date'], inplace = True)
+            
+            # we assume that the dates are the same and combine the arrays
+            data = pd.concat(data, OF6_G)
+        
 
-        # subset temperature columns
+        # subset columns to include only temperature
         for column in data.columns[1:]:
             if not re.match("TG\\d{1,2}", column):
                 data.drop(column, 1, inplace=True)
 
-        # rename column headers as cell midpoint depth (mm)
+        # rename column headers to cell midpoint depth (mm)
         data.columns = ['Date'] + [str(n) for n in nodes]
         
-        # create object
+        # create soil temperature object
         ST = cls()
        
         # interpolate
@@ -223,12 +233,13 @@ class SoilTemperature:
         
         return(MAAT)
 
-R = SoilTemperature.from_OF5_G(r"Q:\Projects\GLOBSIM\jobs3\test4\1009_ST03_test4.OF5_G")   
 
-R = SoilTemperature.from_geotop_file(r"E:\Users\Nick\Desktop\temp\E1\soil.txt")    
- 
-R.read_meteofile(r"E:\Users\Nick\Desktop\temp\E1")
-
-R.Tstat_last_n_years(6500, date = pd.Timestamp(2009, 1, 1, 12), years=1)
-R.ALT()
-R.MT_last_n_years(1500, date = pd.Timestamp(2009, 1, 1, 12), years=1, stat=np.max)
+# R = SoilTemperature.from_OF5_G(r"Q:\Projects\GLOBSIM\jobs3\test4\1009_ST03_test4.OF5_G")   
+# 
+# R = SoilTemperature.from_geotop_file(r"E:\Users\Nick\Desktop\temp\E1\soil.txt")    
+#  
+# R.read_meteofile(r"E:\Users\Nick\Desktop\temp\E1")
+# 
+# R.Tstat_last_n_years(6500, date = pd.Timestamp(2009, 1, 1, 12), years=1)
+# R.ALT()
+# R.MT_last_n_years(1500, date = pd.Timestamp(2009, 1, 1, 12), years=1, stat=np.max)
