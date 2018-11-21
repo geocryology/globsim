@@ -1747,7 +1747,7 @@ class MERRAdownload(object):
         
     def download_merra_sc(self):
             # check if it already exists
-            if os.isfile(path.join(dir_data,("merra_sc" + ".nc"))):
+            if path.isfile(path.join(self.directory, ("merra_sc" + ".nc"))):
                 print("WARNING:  file 'merra_sc.nc' already exists and is being skipped")
                 return()
     
