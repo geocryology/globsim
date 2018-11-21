@@ -815,7 +815,10 @@ class MERRAgeneric():
                     
         #close the file
         rootgrp.close()
-
+        
+# block commenting this out - I don't think it is used (no usage of the function in this file)
+# maybe delete later if everything still works (NB)
+'''
     def netCDF_merge(self, directory):
         """
         To combine mutiple downloaded merra2 netCDF files into a large file with 
@@ -862,7 +865,7 @@ class MERRAgeneric():
             #clear up the data
             for fl in files_list:
                 remove(fl)
-            
+            '''
 class SaveNCDF_pl_3dm():                                                        
         """ write output netCDF file for abstracted variables from original 
             meteorological data at pressure levels
