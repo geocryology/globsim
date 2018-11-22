@@ -89,7 +89,7 @@ from __future__        import print_function
 from pydap.client      import open_url
 from pydap.cas.urs     import setup_session
 from datetime          import datetime, timedelta, date
-from os                import path, listdir, remove
+from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor
@@ -266,7 +266,7 @@ class MERRAgeneric():
                         print("Error downloading file: " + urls[i] + ". Giving up.")
                         print("Error message : \n{}".format(e))
                         raise RuntimeError("==> Unsuccesfull after 60 attempts.")
-            print('------COMPLETED------','URL NO.:', i+1)
+            #print('------COMPLETED------','URL NO.:', i+1)
             print(urls[i])
         print(ds[0].keys()    )
         print('================ MERRA-2 SERVER ACCESS: COMPLETED ================')
@@ -1500,7 +1500,7 @@ class MERRAdownload(object):
         # data directory for MERRA-2  
         self.directory = path.join(par.project_directory, "merra2")  
         if path.isdir(self.directory) == False:
-            raise ValueError("Directory does not exist: " + self.directory)   
+            makedirs(self.directory)   
         
         # credential 
         self.credential = path.join(par.credentials_directory, ".merrarc")
@@ -1781,7 +1781,7 @@ class MERRAinterpolate(object):
         #read parameter file
         self.ifile = ifile
         par = ParameterIO(self.ifile)
-        self.dir_inp = path.join(par.project_directory,'merra2') 
+        self.dir_inp = path.join(par.project_directory,'merra2')
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
         
@@ -2204,9 +2204,13 @@ class MERRAinterpolate(object):
         # dictionary to translate CF Standard Names into MERRA
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1992, 1, 2, 3, 0),
-                        'end' : datetime(1992, 1, 2, 3, 0)}        
+                        'end' : datetime(1992, 1, 2, 3, 0)}
+        
+        if not path.isdir(self.dir_out):
+            makedirs(self.dir_out)
+        
         self.MERRA2station(path.join(self.dir_inp,'merra_sc.nc'), 
-                          path.join(self.dir_out,'merra_sc_' + 
+                           path.join(self.dir_out,'merra_sc_' + 
                                     self.list_name + '.nc'), self.stations,
                                     ['PHIS','FRLAND','FROCEAN', 'FRLANDICE','FRLAKE'], 
                                     date = dummy_date)      
@@ -2297,13 +2301,8 @@ class MERRAscale(object):
         # check if output file exists and remove if overwrite parameter is set
         self.outfile = par.output_file  
         if path.isfile(self.outfile):
-            try:
-                if par.overwrite is True:
-                    remove(self.outfile)
-                    print("Output file {} overwritten".format(self.outfile))
-            except Exception as e:
-                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
-        
+            remove(self.outfile)
+
         # time vector for output data
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
@@ -2339,9 +2338,15 @@ class MERRAscale(object):
         """
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
-        """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
-        t_unit = self.scaled_t_units)
+        """
+        
+        if not path.isdir(path.dirname(self.outfile)):
+            makedirs(path.dirname(self.outfile))
+        
+        self.rg = ScaledFileOpen(self.outfile, 
+                                 self.nc_pl, 
+                                 self.times_out_nc, 
+                                 t_unit = self.scaled_t_units)
         
         # add station names to netcdf
         # first convert to character array
@@ -2376,7 +2381,7 @@ class MERRAscale(object):
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'PRESS_MERRA_Pa_pl' # variable name
+        vn = 'PRESS_MERRA2_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure MERRA-2 pressure levels only'
         var.units     = str_encode('Pa')  
@@ -2599,13 +2604,3 @@ class MERRAscale(object):
                 LW = LW_downward(self.rg.variables['RH_MERRA2_per_sur'][i, n],
                      self.rg.variables['AIRT_MERRA2_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
-
-#==============================================================================    
-# 
-# Download 
-# pfile = '/Users/xquan/src/globsim/examples/par/examples.globsim_download'
-# 
-# MERRAdownl = MERRAdownload(pfile)
-# 
-# MERRAdownl.retrieve()
-

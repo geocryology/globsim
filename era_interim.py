@@ -42,7 +42,8 @@ from __future__   import print_function
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
-from os           import path, listdir, remove
+from os           import path, listdir, remove, makedirs
+
 
 from generic      import ParameterIO, StationListRead, ScaledFileOpen 
 from generic      import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
@@ -1170,7 +1171,7 @@ class ERAIdownload(object):
         # data directory for ERA-Interim  
         self.directory = path.join(par.project_directory, "eraint")  
         if path.isdir(self.directory) == False:
-            raise ValueError("Directory does not exist: " + self.directory)   
+            makedirs(self.directory)
      
         # variables
         self.variables = par.variables

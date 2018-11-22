@@ -7,8 +7,6 @@ from generic         import series_interpolate, variables_skip, LW_downward
 from os              import path, listdir, remove, makedirs
 from math            import exp, floor
 from fnmatch         import filter
-from urllib          import request, error
-from sys             import exit
 
 import urllib.request
 import urllib.error
@@ -171,7 +169,7 @@ class RDA(object):
             jsondata += '"' + k + '"' + ":" + '"' + controlparms[k] + '",'
         jsondata = jsondata[:-1]
         jsondata += '}'
-        print('\nSubmitting request. Please wait as this may take awhile.\n')
+        print('\n ====== Submitting Request ====\n')
         
         if len(jsondata) > 1:
             request = urllib.request.Request(
@@ -256,9 +254,7 @@ class RDA(object):
             progress = 1
             status = "Done...\r\n\n"
         block = int(round(barLength * progress))
-        text = "\rDownloading Request to './{0}' directory."\
-        "Download Progress: [{1}] {2}% {3}".format(
-            outdir, "="*block + " " * (barLength-block), progress*100, status)
+        text = "\r ====== Downloading Request ====== "
         sys.stdout.write(text)
         sys.stdout.flush()
         
@@ -765,16 +761,22 @@ class JRAdownload(object):
         
         ncn.close()
         
-    def retrieve(self):
-        '''submit and download all the dataset'''
+    def requestClear(self, rda):
+        '''clear online datasets before downloading'''
         
-        date_i = {}
-        slices = floor(float((self.date['end'] - self.date['beg']).days)/
-                       self.chunk_size)+1
+        print('\n======== Clear Online Datasets From NCAR ========n')
         
-        rda = RDA(self.username, self.password)
+        dsIndex = rda.getDSindex()
+    
+        if len(dsIndex) > 1:
+            rda.purge(dsIndex)
+            
+        print('\n======== Dateset Cleared ========n')
         
-        # submit request
+    def requestSubmit(self, slices, date_i, rda):
+        
+        print('\n======== Submit Request ========\n')
+        
         dsN = 0
         for ind in range (0, int(slices)): 
             #prepare time slices   
@@ -794,12 +796,17 @@ class JRAdownload(object):
             for jrai in JRAli:
                 rda.submit(jrai.getDictionary())
                 dsN += 1
+        print('\n======== Submit Completed ========\n')  
         
-        # download dataset
+        return dsN
+        
+    def requestDownload(self, rda, dsN):
+        '''download all the request'''
+        
         doneI = []
         while len(doneI) < dsN:
-            print('\nGeting available dataset... Please wait as this may take'\
-                  ' awhile\n')
+            
+            print('\n ====== Geting Available Dataset')
             dsIndex = rda.getDSindex()
             dsIndex = [item for item in dsIndex if item not in doneI]
             if len(dsIndex) > 0:
@@ -808,6 +815,29 @@ class JRAdownload(object):
                     self.makeNCF(ds)
                 doneI += dsIndex
             time.sleep(20)
+        
+        print('''\n======== Download Completed ========\n''') 
+        
+    def retrieve(self):
+        '''submit and download all the dataset'''
+        
+        date_i = {}
+        slices = floor(float((self.date['end'] - self.date['beg']).days)/
+                       self.chunk_size)+1
+        
+        rda = RDA(self.username, self.password)
+        
+        # clear request
+        self.requestClear(rda)
+        
+        # submit request
+        dsN = self.requestSubmit(slices, date_i, rda)
+        
+        # download dataset
+        self.requestDownload(rda, dsN)
+        
+        
+         
 
 
 class JRAinterpolate(object):
@@ -1409,13 +1439,8 @@ class JRAscale(object):
         # check if output file exists and remove if overwrite parameter is set
         self.outfile = par.output_file  
         if path.isfile(self.outfile):
-            #try:
-            #if par.overwrite is True:
             remove(self.outfile)
-                    #print("Output file {} overwritten".format(self.outfile))
-            #except Exception as e:
-                #exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e)) 
-
+            
         # time vector for output data
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
