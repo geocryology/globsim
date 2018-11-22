@@ -20,15 +20,27 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
+import argparse
+import configparser
+
 from globsim import GlobsimInterpolateStation
 
 
-#===interpolate the variables from mutiple re-analysis data to individual stations===
+#===interpolate the variables from multiple re-analysis data to individual stations===
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Interpolate reanalysis data",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--f',    default=None, type=str, help="file path to download parameter file")
+    parser.add_argument('--d',    default=None, nargs="*", type=str, help="What data sources should run? ERAI, ERA5, MERRA, JRA")
+    
+    
+    args = parser.parse_args()
 
-ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
-
-GlobsimInterpolateStation(ifile)
-
-
-
-
+    pfile = args.f
+    
+    ERAI =  True if args.d is None or "ERAI"  in args.d else False
+    ERA5 =  True if args.d is None or "ERA5"  in args.d else False
+    JRA =   True if args.d is None or "JRA"   in args.d else False
+    MERRA = True if args.d is None or "MERRA" in args.d else False
+    
+    GlobsimInterpolateStation(pfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
