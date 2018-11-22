@@ -226,9 +226,10 @@ class ERA5generic(object):
                     
         #close the file
         rootgrp.close()
- # block commenting this out - I don't think it is used (no usage of the function in this file)
+        
+# block commenting this out - I don't think it is used (no usage of the function in this file)
 # maybe delete later if everything still works (NB)
- '''       
+'''       
     def netCDF_merge(self, directory):
         """
         To combine mutiple downloaded eraint netCDF files into a large file with specified chunk_size(e.g. 500), 
