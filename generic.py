@@ -81,6 +81,7 @@ class ParameterIO(object):
             d = self.line2dict(line)
             if d is not None:
                 self.__dict__[list(d.keys())[0]] = list(d.values())[0]
+        self.__varCheck()
 
     def __is_only_comment(self, lin):
         # checks whether line contains nothing but comment
@@ -164,6 +165,11 @@ class ParameterIO(object):
         
         # Make dictionary and return
         return {name: valu}
+    
+    
+    def __varCheck(self):
+        if not isinstance(self.variables, (list,)):
+            self.variables = [self.variables]
 
 def variables_skip(variable_name):
         '''

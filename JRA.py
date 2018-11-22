@@ -792,7 +792,12 @@ class JRAdownload(object):
             sa = JRAsa(date_i, self.area, self.variables, rda)
             sf = JRAsf(date_i, self.area, self.variables, rda)
             
-            JRAli = [pl, sa, sf]
+            # get download data level
+            JRAli = []
+            for jrai in [pl, sa, sf]:
+                if len(jrai.param > 0):
+                    JRAli.append(jrai)
+                    
             for jrai in JRAli:
                 rda.submit(jrai.getDictionary())
                 dsN += 1
@@ -864,7 +869,7 @@ class JRAinterpolate(object):
         par = ParameterIO(self.ifile)
         self.dir_inp = path.join(par.project_directory,'jra55') 
         self.dir_out = path.join(par.project_directory,'station')
-        self.variables = par.variables
+        self.variables = par.variables     
         self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
