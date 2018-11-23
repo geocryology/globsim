@@ -886,7 +886,7 @@ class ERA5interpolate(object):
         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
         
         # detect invariant files (topography etc.)
-        if len(time) ==1:
+        if len(time) == 1:
             invariant=True
         else:
             invariant=False                                                                         
@@ -1221,8 +1221,11 @@ class ERA5download(object):
                        self.chunk_size)+1
                                                  
         # topography
-        top = ERA5to(self.area, self.directory)
-        top.download()
+        if path.isfile(path.join(self.directory,'era5_to.nc')):
+            print("WARNING: File 'era5_to.nc' already exists. Skipping.")
+        else: 
+            top = ERA5to(self.area, self.directory)
+            top.download()
         
         for ind in range (0, int(slices)): 
             #prepare time slices   
