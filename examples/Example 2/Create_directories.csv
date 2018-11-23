@@ -1,0 +1,4 @@
+ID,SITE,MODEL,FORCING,INPTS,INI,CTM,LOOP
+1,YK17-AIR_dense1,geotop,Q:/Projects/GLOBSIM/temp/data/1-YK17-AIR_dense1_ERAForcing_0001.txt,Q:/Projects/GLOBSIM/temp/data/bedrock.inpts,,,
+2,YK17-AIR_dense2,geotop,Q:/Projects/GLOBSIM/temp/data/2-YK17-AIR_dense2_ERAForcing_0001.txt,Q:/Projects/GLOBSIM/temp/data/bedrock.inpts,,,
+3,YK17-AIR_open1,geotop,Q:/Projects/GLOBSIM/temp/data/3-YK17-AIR_open1_ERAForcing_0001.txt,Q:/Projects/GLOBSIM/temp/data/bedrock.inpts,,,
