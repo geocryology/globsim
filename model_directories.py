@@ -1,14 +1,25 @@
-from generic import ParameterIO
-from shutil import rmtree, copyfile
-from geotop.geotop_interaction import DirectoryReader
-from globsim.CLASS_interaction import classp, INI
-
-import pandas as pd
+#
+# Provides methods to create directories which can be called by models.
+# such as GEOtop or CLASS
+#
+# Also provides methods to batch-create directories from a csv
+#
 
 import shutil
 import os 
 import time
 import glob
+
+import pandas as pd
+
+from .generic import ParameterIO
+from .CLASS_interaction import classp, INI
+from shutil import rmtree, copyfile
+
+try:
+    from geotop.geotop_interaction import DirectoryReader
+except:
+    print("Missing module: geotop. Clone it from github.com/geocryology/geotop")
 
 
 class Jobs():
@@ -241,3 +252,8 @@ class jobs_from_csv:
 class CollectJobs():
     def __init__(self):
         pass
+        
+if __name__ == "__main__":
+    import sys
+    jobs_from_csv(sys.argv[1], sys.argv[2]).build()
+    

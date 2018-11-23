@@ -20,7 +20,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
-from globsim import GlobsimDownload
+from globsim_main import GlobsimDownload
 
 import argparse
 import configparser

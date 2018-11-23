@@ -1,12 +1,13 @@
-from multiprocessing import Pool, cpu_count
-from model_directories import CLASSDirectory, GTDirectory
-from CLASS_interaction import classp
-from generic import ParameterIO
-from geotop import geotop_interaction as GI
 
 import subprocess
 import glob
 import os
+
+from multiprocessing    import Pool, cpu_count
+from .model_directories import CLASSDirectory, GTDirectory
+from .CLASS_interaction import classp
+from .generic import ParameterIO
+from geotop   import geotop_interaction as GI
 
 
 class RunJobs():

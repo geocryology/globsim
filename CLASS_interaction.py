@@ -1,16 +1,22 @@
 # -*- coding: utf-8 -*-
+ # Tools to interact with the Canadian land surface scheme (CLASS model). Includes
+ # read/write capabilities for INI files, which have a structure.
+
 import subprocess
+import re
+
 import pandas as pd
+import numpy as np
+
 from datetime import datetime
 from os import path, remove
-import numpy as np
-import re
-from generic import ParameterIO
+from .generic import ParameterIO
 
 class classp():
     """
     This class provides methods for running the Canadian Land Surface Scheme
-    (CLASS) from python
+    (CLASS) from python.  It is based off a similar class to interact with the geotop
+    model (called geotop_interaction).
          
     """
     SUCCESSFUL_RUN_INDICATOR = "OF1_G" 
@@ -106,7 +112,7 @@ class INI():
     ICANP1_PRMS = ['ALVC', 'ALIC', 'LNZ0']
     IGND_PRMS = ['SAND', 'CLAY', 'ORGM', 'TBAR', 'THLQ', 'THIC', 'DELZ', 'ZBOT']
     '''
-    A class to handle reading, editign and writing of *.INI files for the 
+    A class to handle reading, editing and writing of *.INI files for the 
     Canadian Land Surface Scheme (CLASS).
     '''
     

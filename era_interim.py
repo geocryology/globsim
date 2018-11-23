@@ -39,22 +39,18 @@
 #===============================================================================
 from __future__   import print_function
 
+import glob
+import re
+import numpy   as np
+import netCDF4 as nc
+
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
 from os           import path, listdir, remove, makedirs
-
-
-from generic      import ParameterIO, StationListRead, ScaledFileOpen 
-from generic      import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
-
+from .generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 from fnmatch      import filter
 
-
-import numpy   as np
-import netCDF4 as nc
-import glob
-import re
 
 try:
     from nco import Nco

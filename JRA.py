@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
 from __future__      import print_function
-from datetime        import datetime, timedelta
-from generic         import ParameterIO, StationListRead, ScaledFileOpen, str_encode
-from generic         import series_interpolate, variables_skip, LW_downward
-from os              import path, listdir, remove, makedirs
-from math            import exp, floor
-from fnmatch         import filter
 
 import urllib.request
 import urllib.error
@@ -20,6 +14,12 @@ import re
 
 import netCDF4       as nc
 import numpy         as np
+
+from datetime        import datetime, timedelta
+from .generic        import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
+from os              import path, listdir, remove, makedirs
+from math            import exp, floor
+from fnmatch         import filter
 
 try:
     import ESMF
