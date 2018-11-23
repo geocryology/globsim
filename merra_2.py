@@ -1425,7 +1425,7 @@ class SaveNCDF_sc():
                 #out_var.fmissing_value = (9.9999999E14, 'f')
                 #out_var.vmax = (9.9999999E14, 'f')
                 #out_var.vmin = (-9.9999999E14, 'f')   
-                out_var[:,:,:] = var_list[x][4][:,:,:]        #data generic name with data stored in it
+                out_var[:,:,:] = var_list[x][4][:,:,:] # data generic name with data stored in it
     
             Time  = rootgrp.createVariable('time', 'i4', ('time'))
             Time.standard_name = "time"
@@ -1433,26 +1433,32 @@ class SaveNCDF_sc():
             Time.calendar      = "gregorian"
 
             #Set up the value of time (one single value)
-            time_ind4 = datetime.combine(datetime.strptime("1992-01-02", "%Y-%m-%d"), datetime.strptime("0300","%H%M").time())
+            time_ind4 = datetime.combine(
+                    datetime.strptime("1992-01-02", "%Y-%m-%d"), 
+                    datetime.strptime("0300","%H%M").time())
             time_ind4 = (pandas.date_range(time_ind4, time_ind4, freq = '1H'))
 
             # pass the values
             netCDFTime = []
             for x in range(0, len(time_ind4)):
-                 netCDFTime.append(nc.date2num(time_ind4[x], units = Time.units, calendar = Time.calendar))
+                 netCDFTime.append(nc.date2num(time_ind4[x], 
+                                               units = Time.units, 
+                                               calendar = Time.calendar))
             Time[:] = netCDFTime[:]                                                                                                        
                                                                                                   
-            Latitudes               = rootgrp.createVariable('latitude', 'f4', ('lats'))
+            Latitudes               = rootgrp.createVariable('latitude', 
+                                                             'f4', ('lats'))
             Latitudes.standard_name = "latitude"
             Latitudes.units         = "degrees_north"
             Latitudes.axis          = "Y"
-            Latitudes[:]  = [L for L in lat[0]]                    # pass the values of latitude
+            Latitudes[:]  = [L for L in lat[0]]  # pass the values of latitude
 
-            Longitudes               = rootgrp.createVariable('longitude', 'f4', ('lons'))
+            Longitudes               = rootgrp.createVariable('longitude', 
+                                                              'f4', ('lons'))
             Longitudes.standard_name = "longitude"
             Longitudes.units         = "degrees_east"
             Longitudes.axis          = "X"
-            Longitudes[:] = [L for L in lon[0]]                    # pass the values of longitudes
+            Longitudes[:] = [L for L in lon[0]] # pass the values of longitudes
                
             #close the root group
             rootgrp.close()          
@@ -1461,8 +1467,9 @@ class SaveNCDF_sc():
 """
 Referenced from era_interim.py (Dr.Stephan Gruber): Class ERAdownload() 
 
-Class for accessing the parameter file for downloading Merra-2 specified variables,
-latitude and longitude coordinates, start, end date, minimum and maximum elevations.
+Class for accessing the parameter file for downloading Merra-2 specified 
+variables,latitude and longitude coordinates, start, end date, minimum and 
+maximum elevations.
 
 Args:
     pfile: Full path to a Globsim Download Parameter file.
@@ -1520,18 +1527,47 @@ class MERRAdownload(object):
         # the diretory for storing downloaded data
         self.dir_data = self.directory
 
-        #build full dictionary between variable names from input parameter file and original merra2 data products
-        self.full_variables_dic = {'air_temperature': ['air_temperature', '2-meter_air_temperature'],
-                                   'relative_humidity' : ['relative_humidity','2-metre_dewpoint_temperature','2-metre_specific_humidity'],
-                                   'precipitation_amount': ['total_precipitation','total_precipitation_corrected'],
-                                   'wind_from_direction':['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
-                                   'wind_speed': ['eastward_wind','northward_wind','2-meter_eastward_wind','2-meter_northward_wind', '10-meter_eastward_wind', '10-meter_northward_wind'],
-                                   'downwelling_shortwave_flux_in_air': ['surface_incoming_shortwave_flux'],
-                                   'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['surface_incoming_shortwave_flux_assuming_clear_sky'],
-                                   'downwelling_longwave_flux_in_air': ['surface_net_downward_longwave_flux', 'longwave_flux_emitted_from_surface'],
-                                   'downwelling_longwave_flux_in_air_assuming_clear_sky': ['surface_net_downward_longwave_flux_assuming_clear_sky','longwave_flux_emitted_from_surface']}
+        #build full dictionary between variable names from input parameter 
+        #file and original merra2 data products
+        self.full_variables_dic = {
+                'air_temperature': [
+                        'air_temperature', 
+                        '2-meter_air_temperature' ],
+                'relative_humidity' : [
+                        'relative_humidity',
+                        '2-metre_dewpoint_temperature',
+                        '2-metre_specific_humidity' ],
+                'precipitation_amount': [
+                        'total_precipitation',
+                        'total_precipitation_corrected' ],
+                'wind_from_direction': [
+                        'eastward_wind',
+                        'northward_wind',
+                        '2-meter_eastward_wind',
+                        '2-meter_northward_wind', 
+                        '10-meter_eastward_wind', 
+                        '10-meter_northward_wind' ],
+                'wind_speed':[
+                        'eastward_wind',
+                        'northward_wind',
+                        '2-meter_eastward_wind',
+                        '2-meter_northward_wind', 
+                        '10-meter_eastward_wind', 
+                        '10-meter_northward_wind' ],
+                'downwelling_shortwave_flux_in_air': [
+                        'surface_incoming_shortwave_flux' ],
+                'downwelling_shortwave_flux_in_air_assuming_clear_sky': [
+                        'surface_incoming_shortwave_flux_assuming_clear_sky' ],
+                'downwelling_longwave_flux_in_air': [
+                        'surface_net_downward_longwave_flux',
+                        'longwave_flux_emitted_from_surface' ],
+                'downwelling_longwave_flux_in_air_assuming_clear_sky':[
+                        'surface_net_downward_longwave_flux_assuming_clear_sky',
+                        'longwave_flux_emitted_from_surface' ]
+                }
         
-        # build variables Standards Names and referenced Names for downloading from orginal MERRA-2 datasets
+        # build variables Standards Names and referenced Names for downloading 
+        # from orginal MERRA-2 datasets
         # 3D Analyzed Meteorological fields data 
         self.full_variables_pl_ana = {'geopotential_height':'H',
                                       'air_temperature':'T',
@@ -1560,7 +1596,8 @@ class MERRAdownload(object):
 
     def getVariables(self, full_variables_dic, full_variables_type):
         """
-        build the major variable list for retrieving between lists from download parameter file and the product
+        build the major variable list for retrieving between lists from 
+        download parameter file and the product
         """       
         get_variables = []
 
@@ -1568,7 +1605,8 @@ class MERRAdownload(object):
             for var in full_variables_dic.keys():
                 if  var == self.variables[i]:
                     var_names = full_variables_dic[var]
-                    #  Set up the variables list for accassing original type of MERRA-2 datasets (3D and 2D)
+                    #  Set up the variables list for accassing original type 
+                    # of MERRA-2 datasets (3D and 2D)
                     for j in range(0, len(var_names)):
                         for var1 in full_variables_type.keys():
                             if var1 == var_names[j]:
@@ -1580,7 +1618,8 @@ class MERRAdownload(object):
         if 'relative_humidity' in list(full_variables_type.keys()) :
             get_variables.extend(['lat','lon','lev','time'])
         elif 'air_temperature' in list(full_variables_type.keys()):
-            # !ADD Geopotential Height in the first element of downloading list. Must be the first one
+            # !ADD Geopotential Height in the first element of downloading 
+            # list. Must be the first one
             get_variables.insert(0,'H')
             # add the variables names of latitude, longitude, levels and time
             get_variables.extend(['lat','lon','lev','time'])
@@ -1607,7 +1646,7 @@ class MERRAdownload(object):
         endDay   = self.date['end']
         
         # Get merra-2 2d Constant Model Parameters (outside of time & date looping!)
-        print("==========Get Wanted Variables From Merra-2 2d, Time-Invariant, Single-level, Constant Model Parameters==========")
+        print("========== Get Wanted Variables From Merra-2 2d, Time-Invariant, Single-level, Constant Model Parameters==========")
 
         self.download_merra_sc()
         
@@ -2074,7 +2113,7 @@ class MERRAinterpolate(object):
         for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'H']:
             varlist.remove(V)
 
-        # === open and prepare output netCDF file ==============================
+        # === open and prepare output netCDF file =============================
         # dimensions: station, time
         # variables: latitude(station), longitude(station), elevation(station)
         #            others: ...(time, station)
@@ -2126,14 +2165,15 @@ class MERRAinterpolate(object):
         tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
         tmp.long_name = str_encode(var)
         tmp.units     = str_encode('hPa')            
-        # end file prepation ===================================================
+        # end file prepation ==================================================
                                                                                              
         # loop over stations
         for n, h in enumerate(height): 
             # geopotential unit: height [m]
             # shape: (time, level)
             ele = ncf.variables['H'][:,:,n]
-            # TODO: check if height of stations in data range (+50m at top, lapse r.)
+            # TODO: check if height of stations in data range (+50m at top, 
+            # lapse r.)
             
             # difference in elevation. 
             # level directly above will be >= 0
@@ -2204,7 +2244,7 @@ class MERRAinterpolate(object):
         # dictionary to translate CF Standard Names into MERRA
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1992, 1, 2, 3, 0),
-                        'end' : datetime(1992, 1, 2, 3, 0)}
+                       'end' : datetime(1992, 1, 2, 3, 0)}
         
         if not path.isdir(self.dir_out):
             makedirs(self.dir_out)
@@ -2376,7 +2416,7 @@ class MERRAscale(object):
         self.nc_sa.close()
         self.nc_sc.close()
 
-    def PRESS_MERRA_Pa_pl(self):
+    def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """        
@@ -2394,7 +2434,7 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                         time_in*3600, values[:, n]) * 100          
 
-    def AIRT_MERRA_C_pl(self):
+    def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """        
@@ -2411,7 +2451,7 @@ class MERRAscale(object):
                                             time_in*3600, values[:, n]-273.15)            
 
 
-    def AIRT_MERRA_C_sur(self):
+    def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """   
@@ -2430,7 +2470,7 @@ class MERRAscale(object):
                                                     time_in*3600, 
                                                     values[:, n]-273.15)            
 
-    def RH_MERRA_per_sur(self):
+    def RH_per_sur(self):
         """
         Relative Humdity derived from surface data, exclusively.Clipped to
         range [0.1,99.9]. Kernel AIRT_MERRA_C_sur must be run before.
@@ -2454,7 +2494,7 @@ class MERRAscale(object):
         RH = 100 - 5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :] - dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
                                                     
-    def WIND_MERRA_sur(self):
+    def WIND_sur(self):
         """
         Wind speed and direction at 10 metre derived from surface data, exclusively.
         """   
@@ -2489,7 +2529,7 @@ class MERRAscale(object):
         var.units     = 'deg' 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
 
-        def SW_MERRA_Wm2_sur(self):
+        def SW_Wm2_sur(self):
             """
             solar radiation downwards derived from surface data, exclusively.
             """   
@@ -2507,7 +2547,7 @@ class MERRAscale(object):
                 self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                               time_in*3600, values[:, n]) 
 
-    def LW_MERRA_Wm2_sur(self):
+    def LW_Wm2_sur(self):
         """
         Long-wave radiation downwards derived from surface data, exclusively.
         """   
@@ -2525,7 +2565,7 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) 
 
-    def PREC_MERRA_mm_sur(self):
+    def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
         Convert units: kg/m2/s to mm/time_step (hours)
@@ -2545,7 +2585,7 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) * self.time_step            
 
-    def PRECCORR_MERRA_mm_sur(self):
+    def PRECCORR_mm_sur(self):
         """
         Corrected Precipitation derived from surface data, exclusively.
         Convert units: kg/m2/s to mm/time_step (hours)
@@ -2566,7 +2606,7 @@ class MERRAscale(object):
                                           time_in*3600, values[:, n]) * self.time_step            
 
 
-    def SH_MERRA_kgkg_sur(self):
+    def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg] derived from surface data, exclusively.
         '''
@@ -2584,7 +2624,7 @@ class MERRAscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n])            
   
-    def LW_MERRA_Wm2_topo(self):
+    def LW_Wm2_topo(self):
         """
         Long-wave radiation downwards [W/m2]
         https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
