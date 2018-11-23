@@ -10,7 +10,7 @@ import numpy as np
 
 from datetime import datetime
 from os import path, remove
-from .generic import ParameterIO
+from globsim.generic import ParameterIO
 
 class classp():
     """

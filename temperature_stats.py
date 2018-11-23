@@ -6,7 +6,7 @@ import pandas as pd
 from geotop import geotop_interaction as GI
 from scipy.interpolate import RectBivariateSpline
 from os import path
-from .CLASS_interaction import classp, INI
+from globsim.CLASS_interaction import classp, INI
 
 
 class SoilTemperature:

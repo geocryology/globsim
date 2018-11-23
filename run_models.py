@@ -4,9 +4,9 @@ import glob
 import os
 
 from multiprocessing    import Pool, cpu_count
-from .model_directories import CLASSDirectory, GTDirectory
-from .CLASS_interaction import classp
-from .generic import ParameterIO
+from globsim.model_directories import CLASSDirectory, GTDirectory
+from globsim.CLASS_interaction import classp
+from globsim.generic import ParameterIO
 from geotop   import geotop_interaction as GI
 
 

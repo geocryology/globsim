@@ -23,7 +23,7 @@
 import argparse
 import configparser
 
-from globsim_main import GlobsimScale
+from globsim.globsim_main import GlobsimScale
 
 
 #===scale the variables from mutiple re-analysis data at stations===

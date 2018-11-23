@@ -12,8 +12,8 @@ import glob
 
 import pandas as pd
 
-from .generic import ParameterIO
-from .CLASS_interaction import classp, INI
+from globsim.generic import ParameterIO
+from globsim.CLASS_interaction import classp, INI
 from shutil import rmtree, copyfile
 
 try:

@@ -20,10 +20,10 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #===============================================================================
-from era_interim import ERAIdownload, ERAIinterpolate, ERAIscale
-from era5 import ERA5download, ERA5interpolate, ERA5scale
-from merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
-from JRA import JRAdownload, JRAinterpolate, JRAscale
+from globsim.era_interim import ERAIdownload, ERAIinterpolate, ERAIscale
+from globsim.era5 import ERA5download, ERA5interpolate, ERA5scale
+from globsim.merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
+from globsim.JRA import JRAdownload, JRAinterpolate, JRAscale
 from multiprocessing.dummy import Pool as ThreadPool
 
 

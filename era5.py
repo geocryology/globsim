@@ -50,7 +50,7 @@ from math     import exp, floor
 from os       import path, listdir, makedirs, remove
 from fnmatch  import filter
 from ecmwfapi.api import ECMWFDataServer
-from .generic  import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
+from globsim.generic  import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 
 try:
     from nco import Nco

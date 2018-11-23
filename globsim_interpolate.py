@@ -23,7 +23,7 @@
 import argparse
 import configparser
 
-from globsim_main import GlobsimInterpolateStation
+from globsim.globsim_main import GlobsimInterpolateStation
 
 
 #===interpolate the variables from multiple re-analysis data to individual stations===

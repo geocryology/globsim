@@ -48,7 +48,7 @@ from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
 from os           import path, listdir, remove, makedirs
-from .generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 from fnmatch      import filter
 
 
