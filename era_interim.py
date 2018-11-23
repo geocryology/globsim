@@ -42,7 +42,8 @@ from __future__   import print_function
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
-from os           import path, listdir, remove
+from os           import path, listdir, remove, makedirs
+
 
 from generic      import ParameterIO, StationListRead, ScaledFileOpen 
 from generic      import series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
@@ -1077,7 +1078,7 @@ class ERAIinterpolate(object):
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
                        'end' : datetime(1979, 1, 1, 12, 0)}        
         self.ERA2station(path.join(self.dir_inp,'era_to.nc'), 
-                         path.join(self.dir_out,'era_to_' + 
+                         path.join(self.dir_out,'erai_to_' + 
                                    self.list_name + '.nc'), self.stations,
                                    ['z', 'lsm'], date = dummy_date)  
                                   
@@ -1092,7 +1093,7 @@ class ERAIinterpolate(object):
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
         self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
-                         path.join(self.dir_out,'era_sa_' + 
+                         path.join(self.dir_out,'erai_sa_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
         
@@ -1107,7 +1108,7 @@ class ERAIinterpolate(object):
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
         self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
-                         path.join(self.dir_out,'era_sf_' + 
+                         path.join(self.dir_out,'erai_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
                          
@@ -1120,14 +1121,14 @@ class ERAIinterpolate(object):
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
         self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
-                         path.join(self.dir_out,'era_pl_' + 
+                         path.join(self.dir_out,'erai_pl_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.dir_out,'era_pl_' + 
+        self.levels2elevation(path.join(self.dir_out,'erai_pl_' + 
                                         self.list_name + '.nc'), 
-                              path.join(self.dir_out,'era_pl_' + 
+                              path.join(self.dir_out,'erai_pl_' + 
                                         self.list_name + '_surface.nc')) 
         
         
@@ -1170,7 +1171,7 @@ class ERAIdownload(object):
         # data directory for ERA-Interim  
         self.directory = path.join(par.project_directory, "eraint")  
         if path.isdir(self.directory) == False:
-            raise ValueError("Directory does not exist: " + self.directory)   
+            makedirs(self.directory)
      
         # variables
         self.variables = par.variables
@@ -1300,16 +1301,16 @@ class ERAIscale(object):
             
         # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
-                                'station/era_pl_' + 
+                                'station/erai_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
-                                'station/era_sa_' + 
+                                'station/erai_sa_' + 
                                 par.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'station/era_sf_' + 
+                                'station/erai_sf_' + 
                                 par.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'station/era_to_' + 
+                                'station/erai_to_' + 
                                 par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
@@ -1375,12 +1376,12 @@ class ERAIscale(object):
         self.nc_sa.close()
         self.nc_to.close()
         
-    def PRESS_ERA_Pa_pl(self):
+    def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'PRESS_ERA_Pa_pl' # variable name
+        vn = 'PRESS_ERAI_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-I pressure levels only'
         var.units     = 'Pa'.encode('UTF8')  
@@ -1393,12 +1394,12 @@ class ERAIscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                         time_in*3600, values[:, n]) * 100          
 
-    def AIRT_ERA_C_pl(self):
+    def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_ERA_C_pl' # variable name
+        vn = 'AIRT_ERAI_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA-I pressure levels only'
         var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
@@ -1411,12 +1412,12 @@ class ERAIscale(object):
                                         time_in*3600, values[:, n]-273.15)          
 
                                 
-    def AIRT_ERA_C_sur(self):
+    def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """
         # add variable to ncdf file
-        vn = 'AIRT_ERA_C_sur' # variable name
+        vn = 'AIRT_ERAI_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-I surface only'
         var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
@@ -1430,19 +1431,19 @@ class ERAIscale(object):
                                                     values[:, n]-273.15)           
         
         
-    def AIRT_ERA_redcapp(self):
+    def AIRT_redcapp(self):
         """
         Air temperature derived from surface data and pressure level data as
         shown by the method REDCAPP.
         """       
-        print("AIRT_ERA_redcapp")            
+        print("AIRT_ERAI_redcapp")            
 
-    def PREC_ERA_mm_sur(self):
+    def PREC_mm_sur(self):
         """
         Precipitation sum in mm for the time step given.
         """   
         # add variable to ncdf file
-        vn = 'PREC_ERA_mm_sur' # variable name
+        vn = 'PREC_ERAI_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation ERA-I surface only'
         var.units     = "mm".encode('UTF8')  
@@ -1456,11 +1457,10 @@ class ERAIscale(object):
                                           cum=True) * (1000 * self.time_step) 
                                           # from m to mm and from rate to sum             
             
-
-    def RH_ERA_per_sur(self):
+    def RH_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]. Kernel AIRT_ERA_C_sur must be run before.
+        range [0.1,99.9]. Kernel AIRT_ERAI_C_sur must be run before.
         """         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
@@ -1471,17 +1471,17 @@ class ERAIscale(object):
                                             time_in*3600, values[:, n]-273.15) 
                                                     
         # add variable to ncdf file
-        vn = 'RH_ERA_per_sur' # variable name
+        vn = 'RH_ERAI_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Relative humidity ERA-I surface only'
         var.units     = 'Percent'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
-        RH = 100 - 5 * (self.rg.variables['AIRT_ERA_C_sur'][:, :]-dewp[:, :])
+        RH = 100 - 5 * (self.rg.variables['AIRT_ERAI_C_sur'][:, :]-dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
         
         
-    def WIND_ERA_sur(self):
+    def WIND_sur(self):
         """
         Wind speed and direction temperature derived from surface data, 
         exclusively.
@@ -1503,27 +1503,27 @@ class ERAIscale(object):
                                          time_in*3600, values[:, n]) 
 
         # wind speed, add variable to ncdf file, convert
-        vn = 'WSPD_ERA_ms_sur' # variable name
+        vn = 'WSPD_ERAI_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA-I surface only'
         var.units     = 'm s**-1'  
         self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
-        vn = 'WDIR_ERA_deg_sur' # variable name
+        vn = 'WDIR_ERAI_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-I surface only'
         var.units     = 'deg'                                                                 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
         
-    def SW_ERA_Wm2_sur(self):
+    def SW_Wm2_sur(self):
         """
         Short-wave downwelling radiation derived from surface data, exclusively.  
         This kernel only interpolates in time.
         """   
         
         # add variable to ncdf file
-        vn = 'SW_ERA_Wm2_sur' # variable name
+        vn = 'SW_ERAI_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA-I surface only'
         var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
@@ -1535,14 +1535,14 @@ class ERAIscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n], cum=True) 
 
-    def LW_ERA_Wm2_sur(self):
+    def LW_Wm2_sur(self):
         """
         Long-wave downwelling radiation derived from surface data, exclusively.  
         This kernel only interpolates in time.
         """   
         
         # add variable to ncdf file
-        vn = 'LW_ERA_Wm2_sur' # variable name
+        vn = 'LW_ERAI_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards ERA-I surface only'
         var.units     = self.nc_sf.variables['strd'].units.encode('UTF8')  
@@ -1554,13 +1554,13 @@ class ERAIscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n], cum=True)   
                                                   
-    def SH_ERA_kgkg_sur(self):
+    def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg]
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
         '''
         # add variable to ncdf file
-        vn = 'SH_ERA_kgkg_sur' # variable name
+        vn = 'SH_ERAI_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA-I surface only'
         var.units     = 'Kg/Kg'.encode('UTF8') 
@@ -1575,12 +1575,12 @@ class ERAIscale(object):
 
         # compute
         SH = spec_hum_kgkg(dewp[:, :], 
-                           self.rg.variables['PRESS_ERA_Pa_pl'][:, :])  
+                           self.rg.variables['PRESS_ERAI_Pa_pl'][:, :])  
         
  
         self.rg.variables[vn][:, :] = SH
 
-    def LW_ERA_Wm2_topo(self):
+    def LW_Wm2_topo(self):
         """
         Long-wave radiation downwards [W/m2]
         https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
@@ -1589,15 +1589,15 @@ class ERAIscale(object):
         N = np.asarray(list(self.stations['sky_view'][:]))
 
         # add variable to ncdf file
-        vn = 'LW_ERA_Wm2_topo' # variable name
+        vn = 'LW_ERAI_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation ERA-I surface only'
         var.units     = 'W/m2'.encode('UTF8')       
 
         # compute                            
-        for i in range(0, len(self.rg.variables['RH_ERA_per_sur'][:])):
+        for i in range(0, len(self.rg.variables['RH_ERAI_per_sur'][:])):
             for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_ERA_per_sur'][i, n],
-                     self.rg.variables['AIRT_ERA_C_sur'][i, n]+273.15, N[n])
+                LW = LW_downward(self.rg.variables['RH_ERAI_per_sur'][i, n],
+                     self.rg.variables['AIRT_ERAI_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
 
