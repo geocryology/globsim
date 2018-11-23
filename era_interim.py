@@ -866,7 +866,7 @@ class ERAIinterpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time <= date['end']) * (time >= date['beg'])
+            tmask = (time < date['end']) * (time >= date['beg'])
                           
         # get time vector for output
         time_in = nctime[tmask]     
@@ -888,12 +888,12 @@ class ERAIinterpolate(object):
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-                end = 1
+                #end = 1
             else:
                 end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
                 
             #'<= end_time', would damage appending
-            tmask_chunk = (time < end_time) * (time >= beg_time)
+            tmask_chunk = (time <= end_time) * (time >= beg_time)
             if invariant:
                 # allow topography to work in same code
                 tmask_chunk = [True]
@@ -905,7 +905,7 @@ class ERAIinterpolate(object):
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
-                                                     time_in[beg:end])
+                                                     time_in[beg:end+1])
                                   
             #append variables
             for i, var in enumerate(variables):
@@ -915,17 +915,17 @@ class ERAIinterpolate(object):
                 if pl:
                     if ESMFnew:
                         # dfield has dimensions (station, variables, time, pressure levels
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
                     else:
                         # dimension: time, level, station (pressure level files)
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]        
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]        
                 else:
                     if ESMFnew:
                         # dfield has dimensions (station, variables, time)
-                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
                     else:
                         # dfield has dimensions time, station (2D files)
-                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
                                      
         #close the file
         ncf_in.close()
@@ -1315,14 +1315,7 @@ class ERAIscale(object):
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # check if output file exists and remove if overwrite parameter is set
-        self.outfile = par.output_file  
-        if path.isfile(self.outfile):
-            try:
-                if par.overwrite is True:
-                    remove(self.outfile)
-                    print("Output file {} overwritten".format(self.outfile))
-            except Exception as e:
-                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
+        self.output_file = self.getOutNCF(par, 'erai')
         
         # time vector for output data 
         # get time and convert to datetime object
@@ -1375,6 +1368,16 @@ class ERAIscale(object):
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_to.close()
+        
+    def getOutNCF(self, par, src, scaleDir = 'scale'):
+        '''make out file name'''
+        
+        src = '_'.join(['sitelist', src])
+        fname = [par.project_directory, scaleDir, src]
+        fname = '/'.join(fname)
+        fname = fname + '.nc'
+        
+        return fname
         
     def PRESS_Pa_pl(self):
         """

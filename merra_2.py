@@ -2025,7 +2025,7 @@ class MERRAinterpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time <= date['end']) * (time >= date['beg'])
+            tmask = (time < date['end']) * (time >= date['beg'])
         
         if not any(tmask):
             sys.exit("\n Error: No downloaded data exist within date range specified by interpolation control file. \n  Download new data or change 'beg' / 'end' in interpolation control file ")
@@ -2050,12 +2050,12 @@ class MERRAinterpolate(object):
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-                end = 1
+                #end = 1
             else:
                 end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
             
             # !! CAN'T HAVE '<= end_time', would damage appeding 
-            tmask_chunk = (time < end_time) * (time >= beg_time)
+            tmask_chunk = (time <= end_time) * (time >= beg_time)
             if invariant:
                 # allow topography to work in same code
                 tmask_chunk = [True]
@@ -2066,7 +2066,7 @@ class MERRAinterpolate(object):
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
-                                                     time_in[beg:end])
+                                                     time_in[beg:end+1])
             #append variables
             for i, var in enumerate(variables):
                 if variables_skip(var):
@@ -2077,16 +2077,16 @@ class MERRAinterpolate(object):
                     lev = ncf_in.variables['level'][:]
                     
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]
                     else:
                         # dimension: time, level, latitude, longitude
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]      
                 else:
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
                     else:
                         # time, latitude, longitude
-                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
                                      
         #close the file
         ncf_in.close()
@@ -2244,7 +2244,7 @@ class MERRAinterpolate(object):
         # dictionary to translate CF Standard Names into MERRA
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1992, 1, 2, 3, 0),
-                       'end' : datetime(1992, 1, 2, 3, 0)}
+                       'end' : datetime(1992, 1, 2, 4, 0)}
         
         if not path.isdir(self.dir_out):
             makedirs(self.dir_out)
@@ -2339,9 +2339,7 @@ class MERRAscale(object):
         self.nstation = len(self.nc_sc.variables['station'][:])                        
                               
         # check if output file exists and remove if overwrite parameter is set
-        self.outfile = par.output_file  
-        if path.isfile(self.outfile):
-            remove(self.outfile)
+        self.output_file = self.getOutNCF(par, 'merra2')
 
         # time vector for output data
         # get time and convert to datetime object
@@ -2415,6 +2413,16 @@ class MERRAscale(object):
         self.nc_sr.close()
         self.nc_sa.close()
         self.nc_sc.close()
+        
+    def getOutNCF(self, par, src, scaleDir = 'scale'):
+        '''make out file name'''
+        
+        src = '_'.join(['sitelist', src])
+        fname = [par.project_directory, scaleDir, src]
+        fname = '/'.join(fname)
+        fname = fname + '.nc'
+        
+        return fname
 
     def PRESS_Pa_pl(self):
         """
@@ -2612,7 +2620,7 @@ class MERRAscale(object):
         '''
                 
         # add variable to ncdf file
-        vn = 'SH_MERRA_kgkg_sur' # variable name
+        vn = 'SH_MERRA2_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity MERRA-2 surface only'
         var.units     = str_encode(self.nc_sa.variables['QV2M'].units) 

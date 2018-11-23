@@ -531,7 +531,6 @@ class JRAsf(object):
     def makeDate(self):
         '''convert data format to NCAR RDA request'''
         
-        self.date['end'] = self.date['end']+timedelta(hours=23)
         beg = self.date['beg'].strftime('%Y%m%d%H%M')
         end = self.date['end'].strftime('%Y%m%d%H%M')
         dateRange = beg + '/to/' + end
@@ -577,8 +576,7 @@ class JRAdownload(object):
                       'east' :  par.bbE}
                  
         # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end}
+        self.date  = self.getDate(par)
 
         # elevation
         self.elevation = {'min' : par.ele_min, 
@@ -630,6 +628,14 @@ class JRAdownload(object):
         
         if not isinstance(par.variables, (list,)):
             par.variables = [par.variables]
+            
+    def getDate(self, par):
+        '''get download daterange'''
+        
+        dateRange = {'beg' : par.beg, 'end' : par.end}
+        dateRange['end'] = dateRange['end'] + timedelta(hours=23)
+        
+        return dateRange
         
     def getDataLev(self, dsi):
         '''get data level of the download data set'''
@@ -1165,7 +1171,7 @@ class JRAinterpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time <= date['end']) * (time >= date['beg'])
+            tmask = (time < date['end']) * (time >= date['beg'])
                               
         # get time indices
         time_in = nctime[tmask]     
@@ -1187,7 +1193,7 @@ class JRAinterpolate(object):
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-                end = 1
+                #end = 1
             else:
                 end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
                 
@@ -1204,7 +1210,7 @@ class JRAinterpolate(object):
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
-                                                     time_in[beg:end])
+                                                     time_in[beg:end+1])
                                   
             #append variables
             for i, var in enumerate(variables):
@@ -1215,16 +1221,16 @@ class JRAinterpolate(object):
                     lev = ncf_in.variables['level'][:]
                     
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]
                     else:
                         # dimension: time, level, latitude, longitude
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]      
                 else:
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
                     else:
                         # time, latitude, longitude
-                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
                     
                     
         #close the file
@@ -1458,9 +1464,7 @@ class JRAscale(object):
                                 par.list_name + '.nc'), 'r')
                                
         # check if output file exists and remove if overwrite parameter is set
-        self.outfile = par.output_file  
-        if path.isfile(self.outfile):
-            remove(self.outfile)
+        self.output_file = self.getOutNCF(par, 'jra55')
             
         # time vector for output data
         # get time and convert to datetime object
@@ -1506,6 +1510,16 @@ class JRAscale(object):
         self.nc_pl.close()
         self.nc_sr.close()
         self.nc_sa.close()
+        
+    def getOutNCF(self, par, src, scaleDir = 'scale'):
+        '''make out file name'''
+        
+        src = '_'.join(['sitelist', src])
+        fname = [par.project_directory, scaleDir, src]
+        fname = '/'.join(fname)
+        fname = fname + '.nc'
+        
+        return fname
 
     def PRESS_Pa_pl(self):
         """
@@ -1715,6 +1729,7 @@ class JRAscale(object):
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
         '''
         print("Warning: SH_JRA_kgkg_sur is not defined. Specific humidity data are not currently available")
+
 
 #     def conv_geotop(self):
 #         """
