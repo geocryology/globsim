@@ -164,6 +164,7 @@ class ParameterIO(object):
         
         # Make dictionary and return
         return {name: valu}
+    
 
 def variables_skip(variable_name):
         '''
@@ -559,7 +560,7 @@ def nc_to_met(ncd, out_dir, src, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
-    src: data source ("ERA", "MERRA", "JRA")
+    src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
     """
     #open netcdf if string provided
     if type(ncd) is str:
@@ -637,7 +638,7 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
-    src: data source ("ERA", "MERRA", "JRA")
+    src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
     """
     #open netcdf if string provided
     if type(ncd) is str:

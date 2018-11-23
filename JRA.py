@@ -334,8 +334,6 @@ class RDA(object):
             
             print(url.read().decode())   
 
-#TODO check variable id
-
 class JRApl(object):
     
     def __init__(self, date, area, elevation, variables, rda):
@@ -345,25 +343,26 @@ class JRApl(object):
         self.date = date
         self.area = area
         self.elevation = elevation
-        self.variables = variables
         #self.directory = directory
         
-        dpar = {'air_temperature'    : 'Temperature',
-                'relative_humidity'  : 'Relative humidity',
-                'eastward_wind'      : 'u-component of wind',
-                'northward_wind'     : 'v-component of wind',
-                'geopotential_height': 'Geopotential height',
-                'pressure_level'     : 'level'}
+        dpar = {'air_temperature'   : ['Temperature'],
+                'relative_humidity' : ['Relative humidity'],
+                'wind_speed'        : ['u-component of wind', 
+                                       'v-component of wind']}
         
-        self.param = self.getParam(dpar)
+        self.param = self.getParam(dpar, variables)
         
-    def getParam(self, dpar):
+    def getParam(self, dpar, variables):
         
         varlist = [] 
-        for var in self.variables:
+        for var in variables:
             varlist.append(dpar.get(var))
 
         varlist = [item for item in varlist if item is not None]
+        varlist = [item for sublist in varlist for item in sublist]
+        
+        if len(varlist) > 0:
+            varlist += ['Geopotential height', 'level']
         
         return varlist
     
@@ -446,23 +445,23 @@ class JRAsa(object):
         
         self.date = date
         self.area = area
-        self.variables = variables
         #self.directory = directory
 
-        dpar = {'2-metre_air_temperature'  : 'Temperature',
-                '2-metre_relative_humidity': 'Relative humidity',
-                '10-metre_eastward_wind'   : 'u-component of wind',
-                '10-metre_northward_wind'  : 'v-component of wind'}
+        dpar = {'air_temperature'  : ['Temperature'],
+                'relative_humidity': ['Relative humidity'],
+                'wind_speed'       : ['u-component of wind', 
+                                      'v-component of wind']}
         
-        self.param = self.getParam(dpar)
+        self.param = self.getParam(dpar, variables)
         
-    def getParam(self, dpar):
+    def getParam(self, dpar, variables):
         
         varlist = [] 
-        for var in self.variables:
+        for var in variables:
             varlist.append(dpar.get(var))
 
         varlist = [item for item in varlist if item is not None]
+        varlist = [item for sublist in varlist for item in sublist]
         
         return varlist
     
@@ -504,28 +503,28 @@ class JRAsf(object):
         
         self.date = date
         self.area = area
-        self.variables = variables
         
         dpar = {'precipitation_amount'              :
-                    'Total precipitation',
+                    ['Total precipitation'],
                 'downwelling_shortwave_flux_in_air' : 
-                    'Downward solar radiation flux',
+                    ['Downward solar radiation flux'],
                 'downwelling_longwave_flux_in_air'  : 
-                    'Downward longwave radiation flux',
+                    ['Downward longwave radiation flux'],
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': 
-                    'Clear sky downward solar radiation flux',
+                    ['Clear sky downward solar radiation flux'],
                 'downwelling_longwave_flux_in_air_assuming_clear_sky':
-                    'Clear sky downward longwave radiation flux'}
+                    ['Clear sky downward longwave radiation flux']}
         
-        self.param = self.getParam(dpar)
+        self.param = self.getParam(dpar, variables)
         
-    def getParam(self, dpar):
+    def getParam(self, dpar, variables):
         
         varlist = [] 
-        for var in self.variables:
+        for var in variables:
             varlist.append(dpar.get(var))
 
         varlist = [item for item in varlist if item is not None]
+        varlist = [item for sublist in varlist for item in sublist]
         
         return varlist
     
@@ -568,6 +567,7 @@ class JRAdownload(object):
         self.pfile = pfile
         
         par = ParameterIO(self.pfile)
+        self.__varCheck(par)
         
         # assign bounding box
         self.area  = {'north':  par.bbN,
@@ -576,8 +576,7 @@ class JRAdownload(object):
                       'east' :  par.bbE}
                  
         # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end}
+        self.date  = self.getDate(par)
 
         # elevation
         self.elevation = {'min' : par.ele_min, 
@@ -600,8 +599,8 @@ class JRAdownload(object):
         self.chunk_size = par.chunk_size*200
         
         self.ncfVar  = {
-                'initial_time0_hours':    'time', 
-                'initial_time0':          'time',
+                'initial_time0_hours':   'time', 
+                'initial_time0':         'time',
                 'initial_time0_encoded': 'time',
                 'lv_ISBL1':              'level', 
                 'g0_lat_1':              'latitude', 
@@ -623,6 +622,21 @@ class JRAdownload(object):
                 'DSWRF_GDS0_SFC_ave3h':  'Downward solar radiation flux',
                 'DLWRF_GDS0_SFC_ave3h':  'Downward longwave radiation flux'}
     
+    
+    def __varCheck(self, par):
+        '''convert one variable to a list'''
+        
+        if not isinstance(par.variables, (list,)):
+            par.variables = [par.variables]
+            
+    def getDate(self, par):
+        '''get download daterange'''
+        
+        dateRange = {'beg' : par.beg, 'end' : par.end}
+        dateRange['end'] = dateRange['end'] + timedelta(hours=23)
+        
+        return dateRange
+        
     def getDataLev(self, dsi):
         '''get data level of the download data set'''
         
@@ -764,21 +778,22 @@ class JRAdownload(object):
     def requestClear(self, rda):
         '''clear online datasets before downloading'''
         
-        print('\n======== Clear Online Datasets From NCAR ========n')
-        
+        print('\n======== Clear Online Datasets From NCAR Server ========\n')
         dsIndex = rda.getDSindex()
-    
         if len(dsIndex) > 1:
             rda.purge(dsIndex)
-            
-        print('\n======== Dateset Cleared ========n')
+        print('\n======== Online Dateset Cleared ========\n')
         
-    def requestSubmit(self, slices, date_i, rda):
+    def requestSubmit(self, rda):
         
         print('\n======== Submit Request ========\n')
         
+        slices = floor(float((self.date['end'] - self.date['beg']).days)/
+                       self.chunk_size) + 1
+        
         dsN = 0
         for ind in range (0, int(slices)): 
+            date_i = {}
             #prepare time slices   
             date_i['beg'] = self.date['beg'] + timedelta(days = 
                             self.chunk_size * ind)
@@ -792,7 +807,12 @@ class JRAdownload(object):
             sa = JRAsa(date_i, self.area, self.variables, rda)
             sf = JRAsf(date_i, self.area, self.variables, rda)
             
-            JRAli = [pl, sa, sf]
+            # get download data level
+            JRAli = []
+            for jrai in [pl, sa, sf]:
+                if len(jrai.param) > 0:
+                    JRAli.append(jrai)
+                    
             for jrai in JRAli:
                 rda.submit(jrai.getDictionary())
                 dsN += 1
@@ -806,7 +826,7 @@ class JRAdownload(object):
         doneI = []
         while len(doneI) < dsN:
             
-            print('\n ====== Geting Available Dataset')
+            print('\n======== Geting Available Dataset ========\n')
             dsIndex = rda.getDSindex()
             dsIndex = [item for item in dsIndex if item not in doneI]
             if len(dsIndex) > 0:
@@ -816,26 +836,19 @@ class JRAdownload(object):
                 doneI += dsIndex
             time.sleep(20)
         
-        print('''\n======== Download Completed ========\n''') 
+        print('''\n======== Download Completed ========\n''')
         
     def retrieve(self):
         '''submit and download all the dataset'''
         
-        date_i = {}
-        slices = floor(float((self.date['end'] - self.date['beg']).days)/
-                       self.chunk_size)+1
+        print('''\n======== JRA55: STRAT ========\n''')
         
-        rda = RDA(self.username, self.password)
+        rda = RDA(self.username, self.password) # initialize RDA server
+        self.requestClear(rda) # clear online request
+        dsN = self.requestSubmit(rda) # submit request
+        self.requestDownload(rda, dsN) # download dataset
         
-        # clear request
-        self.requestClear(rda)
-        
-        # submit request
-        dsN = self.requestSubmit(slices, date_i, rda)
-        
-        # download dataset
-        self.requestDownload(rda, dsN)
-        
+        print('''\n======== JRA55: STOP ========\n''')
         
          
 
@@ -864,7 +877,7 @@ class JRAinterpolate(object):
         par = ParameterIO(self.ifile)
         self.dir_inp = path.join(par.project_directory,'jra55') 
         self.dir_out = path.join(par.project_directory,'station')
-        self.variables = par.variables
+        self.variables = par.variables     
         self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
@@ -907,13 +920,16 @@ class JRAinterpolate(object):
         time.long_name = 'time'
         time.units     = 'hours since 1800-01-01 00:00:0.0'
         time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station', 'i4',('station'))
+        station             = rootgrp.createVariable('station', 
+                                                     'i4',('station'))
         station.long_name   = 'station for time series data'
         station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude            = rootgrp.createVariable('latitude', 
+                                                     'f4',('station'))
         latitude.long_name  = 'latitude'
         latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude           = rootgrp.createVariable('longitude',
+                                                     'f4',('station'))
         longitude.long_name = 'longitude'
         longitude.units     = 'degrees_east' 
         height           = rootgrp.createVariable('height','f4',('station'))
@@ -946,7 +962,8 @@ class JRAinterpolate(object):
             print("VAR: ", var)
             # extra treatment for pressure level files           
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+                tmp = rootgrp.createVariable(var,'f4', 
+                                             ('time', 'level', 'station'))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
             tmp.long_name = str_encode(nc_in.variables[var].long_name)
@@ -1042,14 +1059,18 @@ class JRAinterpolate(object):
         for n, var in enumerate(variables):
             if pl: # only for pressure level files
                 if ESMFnew:
-                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][
+                            tmask_chunk,:,:,:].transpose((3,2,0,1)) 
                 else:
-                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][
+                            tmask_chunk,:,:,:].transpose((0,1,3,2)) 
             else:
                 if ESMFnew:
-                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][
+                            tmask_chunk,:,:].transpose((2,1,0))
                 else:
-                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][
+                            tmask_chunk,:,:].transpose((0,2,1))
 
         # create locstream, CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations), 
@@ -1102,8 +1123,10 @@ class JRAinterpolate(object):
                 generic.py for more details.
     
         variables:  List of variable(s) to interpolate such as 
-                    [air_temperature, easteard_wind, northward_wind, relative_humidy, surface_temperature, 
-                    downwelling_shortwave_flux_in_air, downwelling_longwave_flux_in_air,
+                    [air_temperature, easteard_wind, northward_wind, 
+                    relative_humidy, surface_temperature, 
+                    downwelling_shortwave_flux_in_air, 
+                    downwelling_longwave_flux_in_air,
                     downwelling_shortwave_flux_in_air_assuming_clear_sky, 
                     downwelling_longwave_flux_in_air_assuming_clear_sky].
                     Defaults to using all variables available.
@@ -1148,7 +1171,7 @@ class JRAinterpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time <= date['end']) * (time >= date['beg'])
+            tmask = (time < date['end']) * (time >= date['beg'])
                               
         # get time indices
         time_in = nctime[tmask]     
@@ -1170,7 +1193,7 @@ class JRAinterpolate(object):
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-                end = 1
+                #end = 1
             else:
                 end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
                 
@@ -1187,7 +1210,7 @@ class JRAinterpolate(object):
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
-                                                     time_in[beg:end])
+                                                     time_in[beg:end+1])
                                   
             #append variables
             for i, var in enumerate(variables):
@@ -1198,16 +1221,16 @@ class JRAinterpolate(object):
                     lev = ncf_in.variables['level'][:]
                     
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]
                     else:
                         # dimension: time, level, latitude, longitude
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]      
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]      
                 else:
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
                     else:
                         # time, latitude, longitude
-                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
                     
                     
         #close the file
@@ -1234,7 +1257,7 @@ class JRAinterpolate(object):
         for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'Geopotential height']:
             varlist.remove(V)
 
-        # === open and prepare output netCDF file ==============================
+        # === open and prepare output netCDF file =============================
         # dimensions: station, time
         # variables: latitude(station), longitude(station), elevation(station)
         #            others: ...(time, station)
@@ -1254,16 +1277,20 @@ class JRAinterpolate(object):
         time.long_name = 'time'
         time.units     = 'hours since 1800-01-01 00:00:0.0'
         time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station',  'i4',('station'))
+        station             = rootgrp.createVariable('station',  'i4',
+                                                     ('station'))
         station.long_name   = 'station for time series data'
         station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude            = rootgrp.createVariable('latitude', 'f4',
+                                                     ('station'))
         latitude.long_name  = 'latitude'
         latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude           = rootgrp.createVariable('longitude','f4',
+                                                     ('station'))
         longitude.long_name = 'longitude'
         longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',('station'))
+        height           = rootgrp.createVariable('height','f4',
+                                                  ('station'))
         height.long_name = 'height_above_reference_ellipsoid'
         height.units     = 'm'  
        
@@ -1287,7 +1314,7 @@ class JRAinterpolate(object):
         tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
         tmp.long_name = str_encode(var)
         tmp.units     = str_encode('hPa') 
-        # end file preparation ===================================================
+        # end file preparation ================================================
     
                                                                                                 
         # loop over stations
@@ -1334,7 +1361,7 @@ class JRAinterpolate(object):
     
         rootgrp.close()
         ncf.close()
-        # closed file ==========================================================    
+        # closed file =========================================================
 
 
     def TranslateCF2short(self, dpar):
@@ -1359,9 +1386,9 @@ class JRAinterpolate(object):
         # === 2D Interpolation for Surface  Data ===    
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys. 
-        dpar = {'air_temperature'   : ['surface_temperature'],  # [K] 2m values
+        dpar = {'air_temperature'   : ['surface_temperature'], # [K] 2m values
                 'relative_humidity' : ['relative_humidity'], # [%]                                                       
-                'wind_speed' : ['eastward_wind', 'northward_wind']}   # [m s-1] 2m & 10m values   
+                'wind_speed' : ['eastward_wind', 'northward_wind']} # [m s-1] 2m & 10m values   
         varlist = self.TranslateCF2short(dpar) 
         self.JRA2station(path.join(self.dir_inp,'jra55_sa_*.nc'), 
                             path.join(self.dir_out,'jra_sa_' + 
@@ -1437,9 +1464,7 @@ class JRAscale(object):
                                 par.list_name + '.nc'), 'r')
                                
         # check if output file exists and remove if overwrite parameter is set
-        self.outfile = par.output_file  
-        if path.isfile(self.outfile):
-            remove(self.outfile)
+        self.output_file = self.getOutNCF(par, 'jra55')
             
         # time vector for output data
         # get time and convert to datetime object
@@ -1463,6 +1488,7 @@ class JRAscale(object):
         #read station points 
         self.stations = StationListRead(self.stations_csv)
         
+        
     def process(self):
         """
         Run all relevant processes and save data. Each kernel processes one 
@@ -1484,13 +1510,23 @@ class JRAscale(object):
         self.nc_pl.close()
         self.nc_sr.close()
         self.nc_sa.close()
+        
+    def getOutNCF(self, par, src, scaleDir = 'scale'):
+        '''make out file name'''
+        
+        src = '_'.join(['sitelist', src])
+        fname = [par.project_directory, scaleDir, src]
+        fname = '/'.join(fname)
+        fname = fname + '.nc'
+        
+        return fname
 
-    def PRESS_JRA_Pa_pl(self):
+    def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'PRESS_JRA_Pa_pl' # variable name
+        vn = 'PRESS_JRA55_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure JRA-55 pressure levels only'
         var.units     = str_encode('Pa')  
@@ -1504,7 +1540,7 @@ class JRAscale(object):
                                         time_in*3600, values[:, n]) * 100          
 
 
-    def AIRT_JRA_C_pl(self):
+    def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """        
@@ -1521,7 +1557,7 @@ class JRAscale(object):
                                                     time_in, values[:, n])-273.15            
                 
  
-    def AIRT_JRA_C_sur(self):
+    def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """   
@@ -1538,7 +1574,7 @@ class JRAscale(object):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15  
-    def RH_JRA_per_sur(self):
+    def RH_per_sur(self):
         """
         Relative Humidity derived from surface data, exclusively.
         """        
@@ -1555,7 +1591,7 @@ class JRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])  
 
-    def WIND_JRA_sur(self):
+    def WIND_sur(self):
         """
         Wind at 10 metre derived from surface data, exclusively.
         """   
@@ -1611,7 +1647,7 @@ class JRAscale(object):
         WD = np.mod(np.degrees(WD)-90, 360) # make relative to North                                                                 
         self.rg.variables['WDIR_JRA55_deg_sur'][:, :] = WD 
 
-    def SW_JRA_Wm2_sur(self):
+    def SW_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
         """   
@@ -1629,7 +1665,7 @@ class JRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
 
-    def LW_JRA_Wm2_sur(self):
+    def LW_Wm2_sur(self):
         """
         Long-wave radiation downwards derived from surface data, exclusively.
         """   
@@ -1647,7 +1683,7 @@ class JRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
 
-    def PREC_JRA_mm_sur(self):
+    def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
         Convert unit: mm/day to mm/time_step (hours)
@@ -1666,7 +1702,7 @@ class JRAscale(object):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) / 24 * self.time_step            
 
-    def LW_JRA_Wm2_topo(self):
+    def LW_Wm2_topo(self):
         """
         Long-wave radiation downwards [W/m2]
         https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
@@ -1687,12 +1723,13 @@ class JRAscale(object):
                      self.rg.variables['AIRT_JRA55_C_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
 
-    def SH_JRA_kgkg_sur(self):
+    def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg]
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
         '''
         print("Warning: SH_JRA_kgkg_sur is not defined. Specific humidity data are not currently available")
+
 
 #     def conv_geotop(self):
 #         """

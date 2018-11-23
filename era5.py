@@ -895,7 +895,7 @@ class ERA5interpolate(object):
         if date is None:
             tmask = time < datetime(3000, 1, 1)
         else:
-            tmask = (time <= date['end']) * (time >= date['beg'])
+            tmask = (time < date['end']) * (time >= date['beg'])
                           
         # get time vector for output
         time_in = nctime[tmask]     
@@ -917,12 +917,12 @@ class ERA5interpolate(object):
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
                 end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-                end = 1
+                #end = 1
             else:
                 end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
                 
             #'<= end_time', would damage appending
-            tmask_chunk = (time < end_time) * (time >= beg_time)
+            tmask_chunk = (time <= end_time) * (time >= beg_time)
             if invariant:
                 # allow topography to work in same code
                 tmask_chunk = [True]
@@ -934,7 +934,7 @@ class ERA5interpolate(object):
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
-                                                     time_in[beg:end])
+                                                     time_in[beg:end+1])
                                   
             #append variables
             for i, var in enumerate(variables):
@@ -944,17 +944,17 @@ class ERA5interpolate(object):
                 if pl:
                     if ESMFnew:
                         # dfield has dimensions (station, variables, time, pressure levels
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
                     else:
                         # dimension: time, level, station (pressure level files)
-                        ncf_out.variables[var][beg:end,:,:] = dfield.data[i,:,:,:]        
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]        
                 else:   
                     if ESMFnew:
                         # dfield has dimensions (station, variables, time)
-                        ncf_out.variables[var][beg:end,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
                     else:
                         # dfield has dimensions time, station (2D files)
-                        ncf_out.variables[var][beg:end,:] = dfield.data[i,:,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
       		                                                                 	    
                                      
         #close the file
@@ -1138,8 +1138,8 @@ class ERA5interpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], 
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
-                         path.join(self.dir_out,'era_sf_' + 
+        self.ERA2station(path.join(self.dir_inp,'era5_sf_*.nc'), 
+                         path.join(self.dir_out,'era5_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
                          
@@ -1348,14 +1348,7 @@ class ERA5scale(object):
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # output file 
-        self.outfile = par.output_file  
-        if path.isfile(self.outfile):
-            try:
-                if par.overwrite is True:
-                    remove(self.outfile)
-                    print("Output file {} overwritten".format(self.outfile))
-            except Exception as e:
-                exit("Error: Output file already exists and 'overwrite' parameter in setup file is not true. Also {}".format(e))
+        self.output_file = self.getOutNCF(par, 'era5')
         
         # time vector for output data 
         # get time and convert to datetime object
@@ -1385,7 +1378,17 @@ class ERA5scale(object):
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         #read station points 
-        self.stations = StationListRead(self.stations_csv)  
+        self.stations = StationListRead(self.stations_csv)
+        
+    def getOutNCF(self, par, src, scaleDir = 'scale'):
+        '''make out file name'''
+        
+        src = '_'.join(['sitelist', src])
+        fname = [par.project_directory, scaleDir, src]
+        fname = '/'.join(fname)
+        fname = fname + '.nc'
+        
+        return fname
         
     def process(self):
         """
@@ -1409,12 +1412,12 @@ class ERA5scale(object):
         self.nc_sa.close()
         self.nc_to.close()
         
-    def PRESS_ERA_Pa_pl(self):
+    def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_PRESS_Pa_pl' # variable name
+        vn = 'PRESS_ERA5_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-5 pressure levels only'
         var.units     = 'Pa'.encode('UTF8')  
@@ -1427,12 +1430,12 @@ class ERA5scale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                         time_in*3600, values[:, n]) * 100          
 
-    def AIRT_ERA_C_pl(self):
+    def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_ERA_C_pl' # variable name
+        vn = 'AIRT_ERA5_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA-5 pressure levels only'
         var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
@@ -1444,13 +1447,12 @@ class ERA5scale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                         time_in*3600, values[:, n]-273.15)          
 
-                                
-    def AIRT_ERA_C_sur(self):
+    def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """
         # add variable to ncdf file
-        vn = 'AIRT_ERA_C_sur' # variable name
+        vn = 'AIRT_ERA5_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-5 surface only'
         var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
@@ -1463,20 +1465,19 @@ class ERA5scale(object):
                                                     time_in*3600, 
                                                     values[:, n]-273.15)           
         
-        
-    def AIRT_ERA_redcapp(self):
+    def AIRT_redcapp(self):
         """
         Air temperature derived from surface data and pressure level data as
         shown by the method REDCAPP.
         """       
-        print("AIRT_ERA_redcapp")            
+        print("AIRT_ERA5_redcapp")            
 
-    def PREC_ERA_mm_sur(self):
+    def PREC_mm_sur(self):
         """
         Precipitation sum in mm for the time step given.
         """   
         # add variable to ncdf file
-        vn = 'PREC_ERA_mm_sur' # variable name
+        vn = 'PREC_ERA5_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation ERA-5 surface only'
         var.units     = "mm".encode('UTF8')  
@@ -1490,11 +1491,10 @@ class ERA5scale(object):
                                           cum=True) * (1000 * self.time_step) 
                                           # from m to mm and from rate to sum             
             
-
-    def RH_ERA_per_sur(self):
+    def RH_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]. Kernel AIRT_ERA_C_sur must be run before.
+        range [0.1,99.9]. Kernel AIRT_ERA5_C_sur must be run before.
         """         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
@@ -1505,17 +1505,17 @@ class ERA5scale(object):
                                             time_in*3600, values[:, n]-273.15) 
                                                     
         # add variable to ncdf file
-        vn = 'RH_ERA_per_sur' # variable name
+        vn = 'RH_ERA5_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Relative humidity ERA-5 surface only'
         var.units     = 'Percent'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
-        RH = 100 - 5 * (self.rg.variables['AIRT_ERA_C_sur'][:, :]-dewp[:, :])
+        RH = 100 - 5 * (self.rg.variables['AIRT_ERA5_C_sur'][:, :]-dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
         
         
-    def WIND_ERA_sur(self):
+    def WIND_sur(self):
         """
         Wind speed and direction temperature derived from surface data, 
         exclusively.
@@ -1537,27 +1537,27 @@ class ERA5scale(object):
                                          time_in*3600, values[:, n]) 
 
         # wind speed, add variable to ncdf file, convert
-        vn = 'WSPD_ERA_ms_sur' # variable name
+        vn = 'WSPD_ERA5_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA-5 surface only'
         var.units     = 'm s**-1'  
         self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
-        vn = 'WDIR_ERA_deg_sur' # variable name
+        vn = 'WDIR_ERA5_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-5 surface only'
         var.units     = 'deg'                                                                 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-    def SW_ERA_Wm2_sur(self):
+    def SW_Wm2_sur(self):
         """
         Short-wave downwelling radiation derived from surface data, exclusively.  
         This kernel only interpolates in time.
         """   
         
         # add variable to ncdf file
-        vn = 'SW_ERA_Wm2_sur' # variable name
+        vn = 'SW_ERA5_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA-5 surface only'
         var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
@@ -1570,14 +1570,14 @@ class ERA5scale(object):
                                           time_in*3600, values[:, n], cum=True) 
 
 
-    def LW_ERA_Wm2_sur(self):
+    def LW_Wm2_sur(self):
         """
         Long-wave downwelling radiation derived from surface data, exclusively.  
         This kernel only interpolates in time.
         """   
         
         # add variable to ncdf file
-        vn = 'LW_ERA_Wm2_sur' # variable name
+        vn = 'LW_ERA5_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
         var.units     = self.nc_sf.variables['strd'].units.encode('UTF8')  
@@ -1590,7 +1590,7 @@ class ERA5scale(object):
                                           time_in*3600, values[:, n], cum=True)   
                                           
                                                   
-    def SH_ERA_kgkg_sur(self):
+    def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg]
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
@@ -1606,10 +1606,10 @@ class ERA5scale(object):
 
         # compute
         SH = spec_hum_kgkg(dewp[:, :], 
-                           self.rg.variables['AIRT_PRESS_Pa_pl'][:, :])  
+                           self.rg.variables['PRESS_ERA5_Pa_pl'][:, :])  
         
         # add variable to ncdf file
-        vn = 'SH_ERA_kgkg_sur' # variable name
+        vn = 'SH_ERA5_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA-5 surface only'
         var.units     = 'Kg/Kg'.encode('UTF8')  
