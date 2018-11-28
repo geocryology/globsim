@@ -48,7 +48,8 @@ from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
 from os           import path, listdir, remove, makedirs
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
+#from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
+from generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 from fnmatch      import filter
 
 
@@ -229,7 +230,7 @@ class ERAIgeneric(object):
         
     def netCDF_merge(self, directory):
         """
-        To combine mutiple downloaded eraint netCDF files into a large file with specified chunk_size(e.g. 500), 
+        To combine mutiple downloaded erai netCDF files into a large file with specified chunk_size(e.g. 500), 
         -- give the full name of merged file to the output = outfile
         -- pass all data from the first input netfile to the merged file name
         -- loop over the files_list, append file one by one into the merge file
@@ -238,9 +239,9 @@ class ERAIgeneric(object):
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
         e.g.:
-              '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
-              '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
-              '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+              '/home/xquan/src/globsim/examples/erai/era_sa_*.nc' 
+              '/home/xquan/src/globsim/examples/erai/era_pl_*.nc'
+              '/home/xquan/src/globsim/examples/erai/era_sf_*.nc'
 
         Output: merged netCDF files
         era_all_0.nc, era_all_1.nc, ...,
@@ -250,7 +251,7 @@ class ERAIgeneric(object):
         nco = Nco()
   
         # loop over filetypes, read, report
-        file_type = ['era_sa_*.nc', 'era_sf_*.nc', 'era_pl_*.nc']
+        file_type = ['erai_sa_*.nc', 'erai_sf_*.nc', 'erai_pl_*.nc']
         for ft in file_type:
             ncfile_in = path.join(directory, ft)
             
@@ -261,11 +262,11 @@ class ERAIgeneric(object):
                         
             #set up the name of merged file
             if ncfile_in[-7:-5] == 'sa':
-                merged_file = path.join(ncfile_in[:-11],'eraint_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'erai_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
             elif ncfile_in[-7:-5] == 'sf':
-                merged_file = path.join(ncfile_in[:-11],'eraint_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
+                merged_file = path.join(ncfile_in[:-11],'erai_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
             elif ncfile_in[-7:-5] == 'pl':
-                merged_file = path.join(ncfile_in[:-11],'eraint_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
+                merged_file = path.join(ncfile_in[:-11],'erai_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
                 print('There is not such type of file'    )
                         
@@ -281,17 +282,17 @@ class ERAIgeneric(object):
 
     def mergeFiles(self, ncfile_in):
         """
-        To combine mutiple downloaded eraint netCDF files into a large file. 
+        To combine mutiple downloaded erai netCDF files into a large file. 
         
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
         e.g.:
-              '/home/xquan/src/globsim/examples/eraint/era_sa_*.nc' 
-              '/home/xquan/src/globsim/examples/eraint/era_pl_*.nc'
-              '/home/xquan/src/globsim/examples/eraint/era_sf_*.nc'
+              '/home/xquan/src/globsim/examples/erai/era_sa_*.nc' 
+              '/home/xquan/src/globsim/examples/erai/era_pl_*.nc'
+              '/home/xquan/src/globsim/examples/erai/era_sf_*.nc'
 
         Output: merged netCDF files
-        eraint_sa_all.nc, eraint_sf_all.nc, eraint_pl_all.nc
+        erai_sa_all.nc, erai_sf_all.nc, erai_pl_all.nc
                 
         """
      
@@ -313,11 +314,11 @@ class ERAIgeneric(object):
     
         #set up the name of merged file
         if ncfile_in[-7:-5] == 'sa':
-            ncfile_out = path.join(ncfile_in[:-11],'eraint_sa_all' + '.nc')
+            ncfile_out = path.join(ncfile_in[:-11],'erai_sa_all' + '.nc')
         elif ncfile_in[-7:-5] == 'sf':
-            ncfile_out = path.join(ncfile_in[:-11],'eraint_sf_all' + '.nc')
+            ncfile_out = path.join(ncfile_in[:-11],'erai_sf_all' + '.nc')
         elif ncfile_in[-7:-5] == 'pl':
-            ncfile_out = path.join(ncfile_in[:-11],'eraint_pl_all' + '.nc')
+            ncfile_out = path.join(ncfile_in[:-11],'erai_pl_all' + '.nc')
         else:
             print('There is not such type of file'    )
         
@@ -378,7 +379,7 @@ class ERAIgeneric(object):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'latitude', 'longitude'))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time', 'latitude', 'longitude'))     
-            tmp.long_name = ncf_in.variables[var].long_name.encode('UTF8') # for eraint
+            tmp.long_name = ncf_in.variables[var].long_name.encode('UTF8') # for erai
             tmp.units     = ncf_in.variables[var].units.encode('UTF8') 
             
             # assign values
@@ -440,7 +441,7 @@ class ERAIpl(ERAIgeneric):
         self.area       = area
         self.elevation  = elevation
         self.directory  = directory
-        outfile = 'era_pl' + self.getDstring() + '.nc'
+        outfile = 'erai_pl' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
  
         # dictionary to translate CF Standard Names into ERA-Interim
@@ -501,7 +502,7 @@ class ERAIsa(ERAIgeneric):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        outfile = 'era_sa' + self.getDstring() + '.nc'
+        outfile = 'erai_sa' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
         
         # dictionary to translate CF Standard Names into ERA-Interim
@@ -566,7 +567,7 @@ class ERAIsf(ERAIgeneric):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        outfile = 'era_sf' + self.getDstring() + '.nc'
+        outfile = 'erai_sf' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
 
         # dictionary to translate CF Standard Names into ERA-Interim
@@ -621,7 +622,7 @@ class ERAIto(ERAIgeneric):
         self.date       = {'beg' : datetime(1979, 1, 1),
                            'end' : datetime(1979, 1, 1)}
         self.directory  = directory
-        self.file_ncdf  = path.join(self.directory,'era_to.nc')
+        self.file_ncdf  = path.join(self.directory,'erai_to.nc')
 
     def getDictionary(self):
         self.dictionary = {
@@ -651,7 +652,7 @@ class ERAIinterpolate(object):
         #read parameter file
         self.ifile = ifile
         par = ParameterIO(self.ifile)
-        self.dir_inp = path.join(par.project_directory,'eraint') 
+        self.dir_inp = path.join(par.project_directory,'erai') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
         self.list_name = par.list_name
@@ -738,9 +739,9 @@ class ERAIinterpolate(object):
 
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
-        ncsingle = path.join(self.dir_inp, ncsingle)
-        
+        flist = np.sort(filter(listdir(self.dir_inp), 
+                               path.basename(ncfile_in)))
+        ncsingle = path.join(self.dir_inp, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         
         # create source field on source grid
@@ -877,7 +878,7 @@ class ERAIinterpolate(object):
             # indices (relative to index of the output file)
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n*self.cs + self.cs, len(time_in)-1)
+            end = min(n*self.cs + self.cs, len(time_in))-1
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
@@ -1165,7 +1166,7 @@ class ERAIdownload(object):
                           'max' : par.ele_max}
         
         # data directory for ERA-Interim  
-        self.directory = path.join(par.project_directory, "eraint")  
+        self.directory = path.join(par.project_directory, "erai")  
         if path.isdir(self.directory) == False:
             makedirs(self.directory)
      
@@ -1320,11 +1321,15 @@ class ERAIscale(object):
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
-        #number of time steps for output
-        self.nt = int(floor((max(time) - min(time)).total_seconds() 
-                      / 3600 / par.time_step)) + 1 # +1 : include last value
+        # interpolation scale factor
         self.time_step = par.time_step * 3600    # [s] scaled file
-
+        interval_in = (time[1]-time[0]).seconds #interval in seconds
+        interpN = floor(interval_in/self.time_step)
+        
+        #number of time steps for output, include last value
+        self.nt = int(floor((max(time) - min(time)).total_seconds() 
+                      / 3600 / par.time_step)) + 1 * interpN 
+        
         # vector of output time steps as datetime object
         # 'seconds since 1900-01-01 00:00:0.0'
         mt = min(time)
@@ -1347,10 +1352,12 @@ class ERAIscale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """
-        if path.isfile(self.outfile):
+        if path.isfile(self.output_file):
             print("Warning, output file already exists. This may cause problems")    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc, 
-        t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
+        self.rg = ScaledFileOpen(self.output_file, self.nc_pl, 
+                                 self.times_out_nc, 
+                                 t_unit = self.scaled_t_units, 
+                                 station_names = self.stations['station_name'])
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
@@ -1390,8 +1397,8 @@ class ERAIscale(object):
         values  = self.nc_pl.variables['air_pressure'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             #scale from hPa to Pa 
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                        time_in*3600, values[:, n]) * 100          
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
+                             time_in * 3600, values[:, n]) * 100          
 
     def AIRT_C_pl(self):
         """
@@ -1410,7 +1417,6 @@ class ERAIscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                         time_in*3600, values[:, n]-273.15)          
 
-                                
     def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -1428,7 +1434,6 @@ class ERAIscale(object):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                                     time_in*3600, 
                                                     values[:, n]-273.15)           
-        
         
     def AIRT_redcapp(self):
         """
