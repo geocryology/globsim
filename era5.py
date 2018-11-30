@@ -80,10 +80,8 @@ except ImportError:
 class ERA5generic(object):
     """
     Parent class for other ERA5 classes.
-    """
-    api     = 'ecmwf'    # one of 'cds' or 'ecmwf'
-    storage = 'ecmwf'    # also 'cds' or 'ecmwf' (note: 'ecmwf' storage can be accessed from cds api)
-            
+    
+    """           
     CDS_DICT =  {'130.128' : 'temperature',
                      '157.128' : 'relative_humidity',
                      '131.128' : 'u_component_of_wind',
@@ -152,18 +150,17 @@ class ERA5generic(object):
         return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
                       self.date['end'].strftime("%Y%m%d"))
     
-    def download(self):
-        #TODO test for file existence
-        
-        if self.api == 'ecmwf':
+    def download(self, api='cds', storage='cds'):
+        if api == 'ecmwf':
             server = ECMWFDataServer()
-            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
             server.retrieve(self.getDictionary())
-            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
-        elif self.api == 'cds':
-            self.download_cds()
+            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format('ECMWF', storage.upper())))
+        
+        elif api == 'cds':
+            self.download_cds(storage)
     
-    def download_cds(self):
+    def download_cds(self, storage='cds'):
         ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
         server = cdsapi.Client()
         
@@ -172,18 +169,18 @@ class ERA5generic(object):
         levtype = query.pop('levtype')
         
         # select dataset
-        if self.storage == 'ecmwf':
+        if storage == 'ecmwf':
             dataset = 'reanalysis-era5-complete'
-        elif self.storage == 'cds':
+        elif storage == 'cds':
             dataset = {'pl' : 'reanalysis-era5-pressure-levels',
                        'sfc': 'reanalysis-era5-single-levels'
                       }[levtype]
             query = self.ECM2CDS(query)
         
         # launch download request
-        print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+        print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
         server.retrieve(dataset, query, target)
-        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
     
     
     def ECM2CDS(self, query):
@@ -202,6 +199,9 @@ class ERA5generic(object):
             
         # reformat date range (start/to/end --> start/end)
         query['date'] = re.sub("/to", "", query['date'])
+        
+        # add product type (one of Reanalysis, Ensemble members, Ensemble mean, Ensemble spread)
+        query['product_type'] = 'reanalysis'
         
         return(query)
         
@@ -1242,13 +1242,15 @@ class ERA5download(object):
        
     Args:
         pfile: Full path to a Globsim Download Parameter file. 
-              
+        api  : Which API to use. Either 'cds' (default) or 'ecmwf' (deprecated'
+        storage : Which server to access data from. Either 'cds'  (default) or 'ecmwf' (deprecated). Note
+                 that you can use the cds api to access the ecmwf storage (MARS)
     Example:          
         ERAd = ERA5download(pfile) 
         ERAd.retrieve()
     """
         
-    def __init__(self, pfile):
+    def __init__(self, pfile, api='ecmwf', storage='ecmwf'):
         # read parameter file
         self.pfile = pfile
         par = ParameterIO(self.pfile)
@@ -1280,7 +1282,11 @@ class ERA5download(object):
         self.variables = par.variables
             
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size            
+        self.chunk_size = par.chunk_size   
+
+        # set api and download server/storage
+        self.api = api
+        self.storage = storage
 
                            
     def retrieve(self):
@@ -1317,7 +1323,7 @@ class ERA5download(object):
             #download from ECMWF server convert to netCDF  
             ERAli = [pl, sa, sf]
             for era in ERAli:
-                era.download()          
+                era.download(self.api, self.storage)          
         
         # report inventory
         self.inventory()  
