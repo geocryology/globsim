@@ -179,7 +179,10 @@ class ERA5generic(object):
         
         # launch download request
         print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
-        server.retrieve(dataset, query, target)
+        if path.isfile(target):
+             print("File exists. Skipping")
+        else:
+            server.retrieve(dataset, query, target)
         print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
     
     
@@ -194,7 +197,7 @@ class ERA5generic(object):
         query['variable'] = [self.CDS_DICT[L] for L in query.pop('param').split('/')]
         
         # replace levellist if in dictionary (also string '100/200/300' to list ['100', '200', '300'])
-        if query['levellist']:
+        if 'levellist' in query:
             query['pressure_level'] = [L for L in query.pop('levellist').split('/')]
             
         # reformat date range (start/to/end --> start/end)
@@ -1250,7 +1253,7 @@ class ERA5download(object):
         ERAd.retrieve()
     """
         
-    def __init__(self, pfile, api='ecmwf', storage='ecmwf'):
+    def __init__(self, pfile, api='cds', storage='cds'):
         # read parameter file
         self.pfile = pfile
         par = ParameterIO(self.pfile)
