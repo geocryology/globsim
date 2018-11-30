@@ -44,12 +44,16 @@ import re
 
 import numpy   as np
 import netCDF4 as nc
+import cdsapi
 
 from datetime import datetime, timedelta
 from math     import exp, floor
 from os       import path, listdir, makedirs, remove
 from fnmatch  import filter
 from ecmwfapi.api import ECMWFDataServer
+import urllib3
+urllib3.disable_warnings()
+
 from globsim.generic  import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
 
 try:
@@ -75,7 +79,25 @@ class ERA5generic(object):
     """
     Parent class for other ERA5 classes.
     """
-        
+    api     = 'ecmwf'    # one of 'cds' or 'ecmwf'
+    storage = 'ecmwf'    # also 'cds' or 'ecmwf' (note: 'ecmwf' storage can be accessed from cds api)
+            
+    CDS_DICT =  {'130.128' : 'temperature',
+                     '157.128' : 'relative_humidity',
+                     '131.128' : 'u_component_of_wind',
+                     '132.128' : 'v_component_of_wind',
+                     '129.128' : 'geopotential',
+                     '167.128' : '2m_temperature',
+                     '168.128' : '2m_dewpoint_temperature',
+                     '206.128' : 'total_column_ozone',        # also consider surface_solar_radiation_downward_clear_sky
+                     '137.128' : 'total_column_water_vapour', # also consider surface_solar_radiation_downward_clear_sky
+                     '165.128' : '10m_u_component_of_wind',
+                     '166.128' : '10m_v_component_of_wind',
+                     '228.128' : 'total_precipitation',
+                     '169.128' : 'surface_solar_radiation_downwards',
+                     '175.128' : 'surface_thermal_radiation_downwards'
+                     }
+                     
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
         res  = str(round(area['north'],2)) + "/"
@@ -130,11 +152,57 @@ class ERA5generic(object):
     
     def download(self):
         #TODO test for file existence
-        server = ECMWFDataServer()
-        print(server.trace('=== ERA5: START ===='))
-        server.retrieve(self.getDictionary())
-        print(server.trace('=== ERA5: STOP =====')  )
+        
+        if self.api == 'ecmwf':
+            server = ECMWFDataServer()
+            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+            server.retrieve(self.getDictionary())
+            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+        elif self.api == 'cds':
+            self.download_cds()
+    
+    def download_cds(self):
+        ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
+        server = cdsapi.Client()
+        
+        query = self.getDictionary()
+        target = query.pop('target')
+        levtype = query.pop('levtype')
+        
+        # select dataset
+        if self.storage == 'ecmwf':
+            dataset = 'reanalysis-era5-complete'
+        elif self.storage == 'cds':
+            dataset = {'pl' : 'reanalysis-era5-pressure-levels',
+                       'sfc': 'reanalysis-era5-single-levels'
+                      }[levtype]
+            query = self.ECM2CDS(query)
+        
+        # launch download request
+        print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+        server.retrieve(dataset, query, target)
+        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format(self.api.upper(),self.storage.upper())))
+    
+    
+    def ECM2CDS(self, query):
+        ''' convert ECMWF query to CDS format '''
 
+        # remove unnecessary keys
+        for key in ['class', 'dataset', 'stream', 'type']:
+            query.pop(key)
+        
+        # replace key('param'):val(str)  string with key('variables'):val(list)
+        query['variables'] = [self.CDS_DICT[L] for L in query.pop('param').split('/')]
+        
+        # replace levellist if in dictionary (also string '100/200/300' to list ['100', '200', '300'])
+        if query['levellist']:
+            query['pressure_level'] = [L for L in query.pop('levellist').split('/')]
+            
+        # reformat date range (start/to/end --> start/end)
+        query['date'] = re.sub("/to", "", query['date'])
+        
+        return(query)
+        
     def TranslateCF2ERA(self, variables, dpar):
         """
         Translate CF Standard Names into ERA5 code numbers.
@@ -534,7 +602,6 @@ class ERA5sa(ERA5generic):
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
-        print(self.param)
         
     
     def getTime(self):
@@ -609,7 +676,7 @@ class ERA5sf(ERA5generic):
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
-        print(self.param)
+
         
     def getStep(self):
         steps = np.arange(1, 13)
@@ -1214,7 +1281,7 @@ class ERA5download(object):
                            
     def retrieve(self):
         """
-        Retrieve all required ERA5 data from MARS server.
+        Retrieve all required ERA5 data from MARS/CDS server.
         """        
         # prepare time loop
         date_i = {}
@@ -1268,13 +1335,13 @@ class ERA5download(object):
             
             if nf > 0:
                 # open dataset
-                ncf = nc.MFDataset(infile, 'r')
+                ncf = nc.MFDataset(infile, 'r', aggdim='time')
                 
                 # list variables
                 keylist = [str_encode(x) for x in ncf.variables.keys()]
                 print("    VARIABLES:")
                 print("        " + str(len(keylist)) + 
-                      " variables, inclusing dimensions")
+                      " variables, including dimensions")
                 for key in keylist:
                     print("        " + ncf.variables[key].long_name)
                 
