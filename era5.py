@@ -150,7 +150,7 @@ class ERA5generic(object):
         return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
                       self.date['end'].strftime("%Y%m%d"))
     
-    def download(self, api='cds', storage='cds'):
+    def download(self, api, storage):
         if api == 'ecmwf':
             server = ECMWFDataServer()
             print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
@@ -1306,7 +1306,7 @@ class ERA5download(object):
             print("WARNING: File 'era5_to.nc' already exists. Skipping.")
         else: 
             top = ERA5to(self.area, self.directory)
-            top.download()
+            top.download(self.api, self.storage)
         
         for ind in range (0, int(slices)): 
             #prepare time slices   
