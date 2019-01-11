@@ -95,7 +95,8 @@ class ERA5generic(object):
                      '166.128' : '10m_v_component_of_wind',
                      '228.128' : 'total_precipitation',
                      '169.128' : 'surface_solar_radiation_downwards',
-                     '175.128' : 'surface_thermal_radiation_downwards'
+                     '175.128' : 'surface_thermal_radiation_downwards',
+                     '172.128' : 'land_sea_mask'
                      }
                      
     def areaString(self, area):
@@ -180,7 +181,7 @@ class ERA5generic(object):
         # launch download request
         print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
         if path.isfile(target):
-             print("File exists. Skipping")
+             print("WARNING: File '{}' already exists and was skipped".format(target))
         else:
             server.retrieve(dataset, query, target)
         print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
@@ -203,6 +204,9 @@ class ERA5generic(object):
         # reformat date range (start/to/end --> start/end)
         query['date'] = re.sub("/to", "", query['date'])
         
+        # reformat time string into list
+        query['time'] = [t[0:5] for t in query['time'].split('/')]
+        
         # add product type (one of Reanalysis, Ensemble members, Ensemble mean, Ensemble spread)
         query['product_type'] = 'reanalysis'
         
@@ -216,6 +220,7 @@ class ERA5generic(object):
         for var in variables:
             try:
                 self.param += dpar.get(var)+'/'
+                
             except TypeError:
                 pass    
         self.param = self.param.rstrip('/') #fix last                                        
@@ -691,9 +696,16 @@ class ERA5sf(ERA5generic):
         return steps
 
     def getDictionary(self):
+    
         self.dictionary = {
            'levtype'  : "sfc",
-           'time'     : "06:00:00/18:00:00",
+           #'time'     : "06:00:00/18:00:00", # Changed time to be consistent with the results we were getting before
+           'time'     : ("00:00:00/01:00:00/02:00:00/03:00:00/"
+                     "04:00:00/05:00:00/06:00:00/07:00:00/"
+                     "08:00:00/09:00:00/10:00:00/11:00:00/"
+                     "12:00:00/13:00:00/14:00:00/15:00:00/"
+                     "16:00:00/17:00:00/18:00:00/19:00:00/"
+                     "20:00:00/21:00:00/22:00:00/23:00:00"),
            'step'     : self.getStep(),#0,
            'type'     : "fc",
            'param'    : self.param,
