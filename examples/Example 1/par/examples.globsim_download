@@ -1,18 +1,20 @@
 # This is an example of a Globsim download parameter file
 # Use extension like this: 'project_a.globsim_download'
 
-# logistics
-project_directory = /users/bincao/OneDrive/GitHub/globsim/examples#C:/OneDrive/GitHub/globsim/examples#
-credentials_directory = /users/bincao
+# Path to the parent directory of /par - It should match the interpolate and scale files
+project_directory = /home/user/globsim/example
+
+# where to find login credentials for servers (this should be your home directory)
+credentials_directory = /home/user01
 
 # chunk size for splitting files and download [days]
 chunk_size = 2
 
 # area bounding box [decimal degrees]
-bbN = 66#45.0 
-bbS = 62#25.0 
-bbW = -112#70.0
-bbE = -108#110.0
+bbN = 66
+bbS = 62
+bbW = -112
+bbE = -109
 
 # ground elevation range within area [m]
 ele_min = 0

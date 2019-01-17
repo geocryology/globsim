@@ -1,12 +1,13 @@
-# logistics
-project_directory = /home/xquan/src/globsim/examples
+# Path to the parent directory of /par - It should match the download and scale files
+project_directory = /home/user/globsim/example
+
+# Filename (without path) of csv containing site information (must match scaling control file)
 station_list = siteslist.csv
-list_name = siteslist
 
 # How many time steps to interpolate at once? This helps memory management.
 # Keep small for large area files and small memory computer, make larger to get 
 # speed on big machines and when working with small area files.
-# for small area, suggest to set up < 2000, with the consideration of memory limit of computer
+# for a small area, we suggest values up to 2000, but consider the memory limit of your computer
 chunk_size = 2000
 
 # time slice [YYYY/MM/DD] assuming 00:00 hours
