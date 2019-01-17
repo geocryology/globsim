@@ -24,17 +24,20 @@ from globsim.globsim_main import GlobsimDownload
 
 import argparse
 import configparser
+import time
 
 #=====download the wanted varialbe from multiple re-analysis date sources======
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get MET data",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--f',    default=None, type=str, help="file path to download parameter file")
-    parser.add_argument('--d',    default=None, nargs="*", type=str, help="What data sources should run? ERAI, ERA5, MERRA, JRA")
-    
+    parser.add_argument('-f',             default=None, type=str, help="file path to download parameter file")
+    parser.add_argument('-d',             default=None, type=str, nargs="*", help="What data sources should run? ERAI, ERA5, MERRA, JRA")
+    parser.add_argument('-r', '--retry',  default=1,    type=int, help="Number of times to re-launch download if it crashes.")
+    parser.add_argument('-s', '--serial', action='store_true',    help="All data sources run on one process")
     
     args = parser.parse_args()
-
+    
+    multi = False if args.serial else True
     pfile = args.f
     
     ERAI =  True if args.d is None or "ERAI"  in args.d else False
@@ -42,4 +45,16 @@ if __name__ == "__main__":
     JRA =   True if args.d is None or "JRA"   in args.d else False
     MERRA = True if args.d is None or "MERRA" in args.d else False
     
-    GlobsimDownload(pfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
+    r_max = args.retry
+    i = 0
+    
+    if r_max <= 1:
+        GlobsimDownload(pfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA, multithread=multi)
+    else:
+        while i < r_max:
+            try:
+                GlobsimDownload(pfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA, multithread=multi)
+            except Exception as e:
+                print(e)
+            time.sleep(360)
+            i += 1

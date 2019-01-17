@@ -1,4 +1,3 @@
-﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Methods for downloading ERA5 data from the ECMWF server for limited
@@ -44,13 +43,20 @@ import re
 
 import numpy   as np
 import netCDF4 as nc
+import cdsapi
 
 from datetime import datetime, timedelta
 from math     import exp, floor
 from os       import path, listdir, makedirs, remove
 from fnmatch  import filter
 from ecmwfapi.api import ECMWFDataServer
+
+import urllib3
+urllib3.disable_warnings()
+
 from globsim.generic  import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
+
+
 
 try:
     from nco import Nco
@@ -74,8 +80,25 @@ except ImportError:
 class ERA5generic(object):
     """
     Parent class for other ERA5 classes.
-    """
-        
+    
+    """           
+    CDS_DICT =  {'130.128' : 'temperature',
+                     '157.128' : 'relative_humidity',
+                     '131.128' : 'u_component_of_wind',
+                     '132.128' : 'v_component_of_wind',
+                     '129.128' : 'geopotential',
+                     '167.128' : '2m_temperature',
+                     '168.128' : '2m_dewpoint_temperature',
+                     '206.128' : 'total_column_ozone',        # also consider surface_solar_radiation_downward_clear_sky
+                     '137.128' : 'total_column_water_vapour', # also consider surface_solar_radiation_downward_clear_sky
+                     '165.128' : '10m_u_component_of_wind',
+                     '166.128' : '10m_v_component_of_wind',
+                     '228.128' : 'total_precipitation',
+                     '169.128' : 'surface_solar_radiation_downwards',
+                     '175.128' : 'surface_thermal_radiation_downwards',
+                     '172.128' : 'land_sea_mask'
+                     }
+                     
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
         res  = str(round(area['north'],2)) + "/"
@@ -128,13 +151,67 @@ class ERA5generic(object):
         return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
                       self.date['end'].strftime("%Y%m%d"))
     
-    def download(self):
-        #TODO test for file existence
-        server = ECMWFDataServer()
-        print(server.trace('=== ERA5: START ===='))
-        server.retrieve(self.getDictionary())
-        print(server.trace('=== ERA5: STOP =====')  )
+    def download(self, api, storage):
+        if api == 'ecmwf':
+            server = ECMWFDataServer()
+            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
+            server.retrieve(self.getDictionary())
+            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format('ECMWF', storage.upper())))
+        
+        elif api == 'cds':
+            self.download_cds(storage)
+    
+    def download_cds(self, storage='cds'):
+        ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
+        server = cdsapi.Client()
+        
+        query = self.getDictionary()
+        target = query.pop('target')
+        levtype = query.pop('levtype')
+        
+        # select dataset
+        if storage == 'ecmwf':
+            dataset = 'reanalysis-era5-complete'
+        elif storage == 'cds':
+            dataset = {'pl' : 'reanalysis-era5-pressure-levels',
+                       'sfc': 'reanalysis-era5-single-levels'
+                      }[levtype]
+            query = self.ECM2CDS(query)
+        
+        # launch download request
+        print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
+        if path.isfile(target):
+             print("WARNING: File '{}' already exists and was skipped".format(target))
+        else:
+            server.retrieve(dataset, query, target)
+        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
+    
+    
+    def ECM2CDS(self, query):
+        ''' convert ECMWF query to CDS format '''
 
+        # remove unnecessary keys
+        for key in ['class', 'dataset', 'stream', 'type']:
+            query.pop(key)
+        
+        # replace key('param'):val(str)  string with key('variables'):val(list)
+        query['variable'] = [self.CDS_DICT[L] for L in query.pop('param').split('/')]
+        
+        # replace levellist if in dictionary (also string '100/200/300' to list ['100', '200', '300'])
+        if 'levellist' in query:
+            query['pressure_level'] = [L for L in query.pop('levellist').split('/')]
+            
+        # reformat date range (start/to/end --> start/end)
+        query['date'] = re.sub("/to", "", query['date'])
+        
+        # reformat time string into list
+        query['time'] = [t[0:5] for t in query['time'].split('/')]
+        
+        # add product type (one of Reanalysis, Ensemble members, Ensemble mean, Ensemble spread)
+        query['product_type'] = 'reanalysis'
+        
+        return(query)
+        
     def TranslateCF2ERA(self, variables, dpar):
         """
         Translate CF Standard Names into ERA5 code numbers.
@@ -143,6 +220,7 @@ class ERA5generic(object):
         for var in variables:
             try:
                 self.param += dpar.get(var)+'/'
+                
             except TypeError:
                 pass    
         self.param = self.param.rstrip('/') #fix last                                        
@@ -534,7 +612,6 @@ class ERA5sa(ERA5generic):
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
-        print(self.param)
         
     
     def getTime(self):
@@ -603,13 +680,13 @@ class ERA5sf(ERA5generic):
         # [m] total precipitation
         # [J m-2] short-wave downward
         # [J m-2] long-wave downward
-        dpar = {'precipitation_amount'              : '228.128',
-                'downwelling_shortwave_flux_in_air' : '169.128',
-                'downwelling_longwave_flux_in_air'  : '175.128'}
+        dpar = {'precipitation_amount'              : '228.128', #[kg m**-2 s**-1]
+                'downwelling_shortwave_flux_in_air' : '169.128', #[J m**-2]
+                'downwelling_longwave_flux_in_air'  : '175.128'} #[J m**-2]
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
-        print(self.param)
+
         
     def getStep(self):
         steps = np.arange(1, 13)
@@ -619,9 +696,16 @@ class ERA5sf(ERA5generic):
         return steps
 
     def getDictionary(self):
+    
         self.dictionary = {
            'levtype'  : "sfc",
-           'time'     : "06:00:00/18:00:00",
+           #'time'     : "06:00:00/18:00:00", # Changed time to be consistent with the results we were getting before
+           'time'     : ("00:00:00/01:00:00/02:00:00/03:00:00/"
+                     "04:00:00/05:00:00/06:00:00/07:00:00/"
+                     "08:00:00/09:00:00/10:00:00/11:00:00/"
+                     "12:00:00/13:00:00/14:00:00/15:00:00/"
+                     "16:00:00/17:00:00/18:00:00/19:00:00/"
+                     "20:00:00/21:00:00/22:00:00/23:00:00"),
            'step'     : self.getStep(),#0,
            'type'     : "fc",
            'param'    : self.param,
@@ -772,8 +856,9 @@ class ERA5interpolate(object):
 
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        ncsingle = filter(listdir(self.dir_inp), path.basename(ncfile_in))[0]
-        ncsingle = path.join(self.dir_inp, ncsingle)
+        flist = np.sort(filter(listdir(self.dir_inp), 
+                               path.basename(ncfile_in)))
+        ncsingle = path.join(self.dir_inp, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
         # create source field on source grid
@@ -911,7 +996,7 @@ class ERA5interpolate(object):
             # indices (relative to index of the output file)
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n*self.cs + self.cs, len(time_in)-1)
+            end = min(n*self.cs + self.cs, len(time_in))-1
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
@@ -930,8 +1015,8 @@ class ERA5interpolate(object):
                  
 	    # get the interpolated variables
             dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
-                                                     self.stations, tmask_chunk,
-                                                     variables=None, date=None) 
+                                                 self.stations, tmask_chunk,
+                                                 variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
@@ -960,7 +1045,7 @@ class ERA5interpolate(object):
                                      
         #close the file
         ncf_in.close()
-        ncf_out.close()         
+        ncf_out.close()
                          
        
     def levels2elevation(self, ncfile_in, ncfile_out):    
@@ -972,6 +1057,7 @@ class ERA5interpolate(object):
         
         """
         # open file 
+        #TODO check the aggdim does not work
         ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
@@ -1108,7 +1194,7 @@ class ERA5interpolate(object):
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
-                       'end' : datetime(1979, 1, 1, 12, 0)}        
+                       'end' : datetime(1979, 1, 1, 12, 0)}     
         self.ERA2station(path.join(self.dir_inp,'era5_to.nc'), 
                          path.join(self.dir_out,'era5_to_' + 
                                    self.list_name + '.nc'), self.stations,
@@ -1171,13 +1257,15 @@ class ERA5download(object):
        
     Args:
         pfile: Full path to a Globsim Download Parameter file. 
-              
+        api  : Which API to use. Either 'cds' (default) or 'ecmwf' (deprecated'
+        storage : Which server to access data from. Either 'cds'  (default) or 'ecmwf' (deprecated). Note
+                 that you can use the cds api to access the ecmwf storage (MARS)
     Example:          
         ERAd = ERA5download(pfile) 
         ERAd.retrieve()
     """
         
-    def __init__(self, pfile):
+    def __init__(self, pfile, api='cds', storage='cds'):
         # read parameter file
         self.pfile = pfile
         par = ParameterIO(self.pfile)
@@ -1209,12 +1297,16 @@ class ERA5download(object):
         self.variables = par.variables
             
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size            
+        self.chunk_size = par.chunk_size   
+
+        # set api and download server/storage
+        self.api = api
+        self.storage = storage
 
                            
     def retrieve(self):
         """
-        Retrieve all required ERA5 data from MARS server.
+        Retrieve all required ERA5 data from MARS/CDS server.
         """        
         # prepare time loop
         date_i = {}
@@ -1226,7 +1318,7 @@ class ERA5download(object):
             print("WARNING: File 'era5_to.nc' already exists. Skipping.")
         else: 
             top = ERA5to(self.area, self.directory)
-            top.download()
+            top.download(self.api, self.storage)
         
         for ind in range (0, int(slices)): 
             #prepare time slices   
@@ -1246,7 +1338,7 @@ class ERA5download(object):
             #download from ECMWF server convert to netCDF  
             ERAli = [pl, sa, sf]
             for era in ERAli:
-                era.download()          
+                era.download(self.api, self.storage)          
         
         # report inventory
         self.inventory()  
@@ -1260,7 +1352,8 @@ class ERA5download(object):
         print("=== INVENTORY FOR GLOBSIM ERA5 DATA === \n")
         print("Download parameter file: \n" + self.pfile + "\n")
         # loop over filetypes, read, report
-        file_type = ['era5_pl_*.nc', 'era5_sa_*.nc', 'era5_sf_*.nc', 'era5_t*.nc']
+        file_type = ['era5_pl_*.nc', 'era5_sa_*.nc', 
+                     'era5_sf_*.nc', 'era5_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
@@ -1268,13 +1361,13 @@ class ERA5download(object):
             
             if nf > 0:
                 # open dataset
-                ncf = nc.MFDataset(infile, 'r')
+                ncf = nc.MFDataset(infile, 'r', aggdim='time')
                 
                 # list variables
                 keylist = [str_encode(x) for x in ncf.variables.keys()]
                 print("    VARIABLES:")
                 print("        " + str(len(keylist)) + 
-                      " variables, inclusing dimensions")
+                      " variables, including dimensions")
                 for key in keylist:
                     print("        " + ncf.variables[key].long_name)
                 
@@ -1351,17 +1444,21 @@ class ERA5scale(object):
         # output file 
         self.output_file = self.getOutNCF(par, 'era5')
         
-        # time vector for output data 
+        # time vector for output data
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
-        # units here: "hours since 1900-01-01 00:00:0.0"
-        self.t_unit = self.nc_pl.variables['time'].units 
+        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
         self.t_cal  = self.nc_pl.variables['time'].calendar
-        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
+        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
-        #number of time steps for output
-        self.nt = int(floor((max(time) - min(time)).total_seconds() / 3600 / par.time_step)) + 1
+        # interpolation scale factor
         self.time_step = par.time_step * 3600    # [s] scaled file
+        interval_in = (time[1]-time[0]).seconds #interval in seconds
+        interpN = floor(interval_in/self.time_step)
+        
+        #number of time steps for output, include last value
+        self.nt = int(floor((max(time) - min(time)).total_seconds()
+                            / 3600 / par.time_step)) + 1 * interpN 
 
         # vector of output time steps as datetime object
         # 'seconds since 1900-01-01 00:00:0.0'
@@ -1396,7 +1493,7 @@ class ERA5scale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, self.times_out_nc,
+        self.rg = ScaledFileOpen(self.output_file, self.nc_pl, self.times_out_nc,
         t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
         
         
