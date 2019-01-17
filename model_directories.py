@@ -126,7 +126,7 @@ class GTDirectory(BaseModelDir):
         
     @classmethod
     def from_abstraction(cls, rootdir, jobname):
-        ''' initilize using abstracted notions of forcing and initial conditions'''
+        ''' initialize using abstracted notions of forcing and initial conditions'''
         GTD = cls(rootdir, jobname)
         return(GTD)
 
@@ -144,6 +144,7 @@ class GTDirectory(BaseModelDir):
         self.gtpy.ascii_write(meteofile, self.raw_forcing)
         
     def build(self):
+        ''' build directory from currently stored parameters '''
         # write parameters file
         self.write_parameters()
         
@@ -154,10 +155,10 @@ class GTDirectory(BaseModelDir):
     def is_valid(directory):
         ''' test whether directory is a valid geotop job'''
         try:
-            # has a geotop.inpts 
+            # check if directory has a geotop.inpts file
             inpts_file = os.path.join(directory, 'geotop.inpts')
         
-            # has appropriately named forcing file
+            # check if directory has an appropriately named forcing file
             meteo = ParameterIO(inpts_file).MeteoFile.strip("\"")
             meteo_file = glob.glob(os.path.join(directory, meteo  + "*"))
             if os.path.isfile(meteo_file[0]):
@@ -168,8 +169,31 @@ class GTDirectory(BaseModelDir):
         return False
         
 class jobs_from_csv:
+    ''' 
+    Create a directory containing CLASS and GEOtop job directories from a csv file.
+    The csv file should have the following columns:
+    
+    ID: integer index, 
+    SITE: name of 
+    MODEL: one of  {geotop, CLASS}
+    FORCING: path to getotop forcing file or CLASS MET file
+    INPTS: path to geotop.inpts file
+    INI: path to CLASS INI file
+    CTM: path to CLASS CTM file
+    LOOP: path to CLASS job options file
+    
+    The directory is named according to the ID, SITE and MODEL chosen.
+    The files in the directory are checked for consistency, for example, 
+    geotop forcing files are cross-referenced with the geotop.inpts to
+    ensure that the 
+    '''
+    
     def __init__(self, csv, rootdir, overwrite=True):
-        
+        ''' 
+        @args
+        csv: path to csv file specifying model directories
+        rootdir: path to directory in which model directories will be created
+        '''
         self.rootdir   = rootdir
         self.overwrite = overwrite 
         
@@ -182,6 +206,7 @@ class jobs_from_csv:
         self.df = pd.read_csv(csv)
     
     def build(self):
+        ''' build directories based on parameters in csv file'''
         for index, row in self.df.iterrows():
             model = row['MODEL'].upper()
             
@@ -192,9 +217,10 @@ class jobs_from_csv:
                 self.build_CLASS(row)
                 
             else:
-                print("I don't understand: {}".format(model))
+                raise NotImplementedError("Model type not implemented: {}".format(model))
             
     def build_GT(self, line):
+        '''build geotop directory from a row in the csv file'''
         inpts   = line['INPTS']
         forcing = line['FORCING']
         site    = line['SITE']
@@ -209,6 +235,7 @@ class jobs_from_csv:
         D.build()
         
     def build_CLASS(self, line):
+        ''' build CLASS directory from a row in the csv file '''
         ini   = line['INI']
         ctm   = line['CTM']
         loop  = line['LOOP']
