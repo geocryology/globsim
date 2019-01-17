@@ -878,7 +878,7 @@ class JRAinterpolate(object):
         self.dir_inp = path.join(par.project_directory,'jra55') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables     
-        self.list_name = par.list_name
+        self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -1454,7 +1454,12 @@ class JRAscale(object):
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
-            
+        
+        # get the station file and list_name from it 
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        self.list_name = par.station_list.split(path.extsep)[0]
+                
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/jra_pl_' + 
                                 par.list_name + '_surface.nc'), 'r')
@@ -1482,9 +1487,7 @@ class JRAscale(object):
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
                                         calendar = self.t_cal)
-        # get the station file
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
+                                        
         #read station points 
         self.stations = StationListRead(self.stations_csv)
         

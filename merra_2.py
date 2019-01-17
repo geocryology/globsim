@@ -301,7 +301,7 @@ class MERRAgeneric():
                     else:    
                         print("Error downloading file: " + urls[i] + ". Giving up.")
                         print("Error message : \n{}".format(e))
-                        raise RuntimeError("==> Unsuccesfull after 60 attempts.")
+                        raise RuntimeError("==> Unsuccessful after 60 attempts.")
             #print('------COMPLETED------','URL NO.:', i+1)
             print(urls[i])
         print(ds[0].keys()    )
@@ -1936,7 +1936,7 @@ class MERRAinterpolate(object):
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
         
-        self.list_name = par.list_name
+        self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -2442,7 +2442,12 @@ class MERRAscale(object):
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
-            
+        
+        # get the station file and list_name from it
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        self.list_name = par.station_list.split(path.extsep)[0]
+        
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_pl_' + 
@@ -2484,10 +2489,7 @@ class MERRAscale(object):
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
-
-        # get the station file
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
+        
         #read station points 
         self.stations = StationListRead(self.stations_csv)  
                                                                                 
