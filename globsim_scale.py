@@ -30,8 +30,8 @@ from globsim.globsim_main import GlobsimScale
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scale reanalysis data",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--f',    default=None, type=str, help="file path to download parameter file")
-    parser.add_argument('--d',    default=None, nargs="*", type=str, help="What data sources should run? ERAI, ERA5, MERRA, JRA")
+    parser.add_argument('-f',    default=None, type=str, help="file path to download parameter file")
+    parser.add_argument('-d',    default=None, nargs="*", type=str, help="What data sources should run? ERAI, ERA5, MERRA, JRA")
     
     
     args = parser.parse_args()
