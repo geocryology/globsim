@@ -792,7 +792,7 @@ class ERA5interpolate(object):
             invariant=True
         else:
             invariant=False                                                                         
-                                                                                                                                                                                                                                            
+    
         # restrict to date/time range if given
         if date is None:
             tmask = time < datetime(3000, 1, 1)
@@ -1500,10 +1500,10 @@ class ERA5scale(object):
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['strd'][:]
+        values  = self.nc_sf.variables['strd'][:] / 3600
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n], cum=True)   
+                                          time_in*3600, values[:, n], cum=False)   
                                           
                                                   
     def SH_kgkg_sur(self):

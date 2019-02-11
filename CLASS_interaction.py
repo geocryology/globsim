@@ -28,7 +28,8 @@ class classp():
         self.executable = executable
         self.site_name = site_name
         self.jobopt = jobopt
-        
+        self.ini = None
+       
     def run(self, site_name=None):
         """
         Run CLASS based on current settings and return True/False on whether

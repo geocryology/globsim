@@ -70,7 +70,7 @@ def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True,
             print(result)
         print('Serial download finished')
     
-def GlobsimInterpolateStation(ifile):
+def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
     The temporal granularity and variables of each re-analysis are preserved. 
@@ -79,23 +79,27 @@ def GlobsimInterpolateStation(ifile):
     """
     
     # === ERA-Interim ===
-    ERAIinterp = ERAIinterpolate(ifile)
-    ERAIinterp.process()
+    if ERAI:
+        ERAIinterp = ERAIinterpolate(ifile)
+        ERAIinterp.process()
     
     # === ERA5 ===
-    ERA5interp = ERA5interpolate(ifile)
-    ERA5interp.process()
+    if ERA5:
+        ERA5interp = ERA5interpolate(ifile)
+        ERA5interp.process()
     
     # === MERRA-2 ===
-    MERRAinterp = MERRAinterpolate(ifile)
-    MERRAinterp.process()
+    if MERRA:
+        MERRAinterp = MERRAinterpolate(ifile)
+        MERRAinterp.process()
 
     # === JRA-55 ===
-    JRAinterp = JRAinterpolate(ifile)
-    JRAinterp.process()
+    if JRA:
+        JRAinterp = JRAinterpolate(ifile)
+        JRAinterp.process()
   
             
-def GlobsimScale(sfile):
+def GlobsimScale(sfile, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     """
     Use re-analysis data that has been interpolated to station locations to 
     derive fluxes scaled / converted / adjusted to drive point-scale 
@@ -103,18 +107,22 @@ def GlobsimScale(sfile):
     reanalyses, optionally coherent temporal granularity, and is saved as netCDF.
     """
     # === ERA-Interim ===
-    ERAsc = ERAscale(sfile)
-    ERAsc.process()
+    if ERAI:
+        ERAsc = ERAscale(sfile)
+        ERAsc.process()
     
     # === ERA5 ===
-    # ERA5sc = ERA5scale(sfile)
-    # ERA5sc.process()
+    if ERA5:
+        ERA5sc = ERA5scale(sfile)
+        ERA5sc.process()
     
     # # === MERRA-2 ===
-    # MERRAsc = MERRAscale(sfile)
-    # MERRAsc.process()
+    if MERRA:
+        MERRAsc = MERRAscale(sfile)
+        MERRAsc.process()
     #     
     # # === JRA-55 ===
-    # JRAsc = JRAscale(sfile)
-    # JRAsc.process()
+    if JRA:
+        JRAsc = JRAscale(sfile)
+        JRAsc.process()
                   
