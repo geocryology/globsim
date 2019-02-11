@@ -1,5 +1,5 @@
 # Path to the parent directory of /par - It should match the download and scale files
-project_directory = /home/user/globsim/example
+project_directory = /globsim/example
 
 # Filename (without path) of csv containing site information (must match scaling control file)
 station_list = siteslist.csv

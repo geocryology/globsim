@@ -2,7 +2,7 @@
 # Use extension like this: 'project_a.globsim_download'
 
 # Path to the parent directory of /par - It should match the interpolate and scale files
-project_directory = /home/user/globsim/example
+project_directory = /globsim/example
 
 # where to find login credentials for servers (this should be your home directory)
 credentials_directory = /home/user01

@@ -1,8 +1,8 @@
 # Path to the parent directory of /par - It should match the download and interpolate files
-project_directory = /home/user/globsim/example
+project_directory = /globsim/example
 
 # Full path (with .nc extension) to output netcdf file
-output_file = /home/user/siteslist_globsim_out.nc
+output_file = /globsim/example/siteslist_globsim_out.nc
 
 # Filename (without path) of csv containing site information (must match interpolation control file)
 station_list = siteslist.csv
@@ -12,3 +12,6 @@ kernels = PRESS_ERA_Pa_pl, AIRT_ERA_C_pl, AIRT_ERA_C_sur, PREC_ERA_mm_sur, RH_ER
 
 # desired time step for output data [hours]
 time_step = 1
+
+# Should the output file be overwritten if it exists?
+overwrite = False
