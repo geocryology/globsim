@@ -1,5 +1,5 @@
 # Path to the parent directory of /par - It should match the download and scale files
-project_directory = /globsim/example
+project_directory =  /opt/globism/examples/Example1/
 
 # Filename (without path) of csv containing site information (must match scaling control file)
 station_list = siteslist.csv
@@ -11,8 +11,8 @@ station_list = siteslist.csv
 chunk_size = 2000
 
 # time slice [YYYY/MM/DD] assuming 00:00 hours
-beg = 1980/01/01
-end = 1980/01/30
+beg = 2017/07/01
+end = 2017/07/10
 
 # variables to interpolate [CF Standard Name Table]
 variables = air_temperature, relative_humidity, precipitation_amount, downwelling_shortwave_flux_in_air,downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, downwelling_longwave_flux_in_air_assuming_clear_sky, wind_from_direction, wind_speed
