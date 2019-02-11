@@ -1,5 +1,5 @@
 # Path to the parent directory of /par - It should match the download and interpolate files
-project_directory = /opt/globism/examples/Example1/
+project_directory = /opt/globsim/examples/Example1/
 
 # Full path (with .nc extension) to output netcdf file
 output_file = /opt/globism/examples/siteslist_globsim_out.nc
