@@ -1236,6 +1236,7 @@ class ERA5scale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
+        self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
         self.kernels = par.kernels
@@ -1250,16 +1251,16 @@ class ERA5scale(object):
         # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                 'station/era5_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
+                                self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
                                 'station/era5_sa_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
                                 'station/era5_sf_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
                                 'station/era5_to_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # output file 

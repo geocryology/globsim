@@ -2438,6 +2438,8 @@ class MERRAscale(object):
         self.sfile = sfile
         par = ParameterIO(self.sfile)
         
+        self.list_name = par.station_list.split(path.extsep)[0]
+        
         # read kernels
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
@@ -2451,16 +2453,16 @@ class MERRAscale(object):
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
+                                self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_sa_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sr = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_sf_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sc = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_to_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_sc.variables['station'][:])
                               
         # check if output file exists and remove if overwrite parameter is set

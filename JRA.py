@@ -1462,11 +1462,11 @@ class JRAscale(object):
                 
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/jra_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
+                                self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,'station/jra_sa_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sr = nc.Dataset(path.join(par.project_directory,'station/jra_sr_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
                                
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')
