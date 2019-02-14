@@ -1337,7 +1337,8 @@ class ERA5scale(object):
         vn = 'PRESS_ERA5_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-5 pressure levels only'
-        var.units     = 'Pa'.encode('UTF8')  
+        var.units     = 'Pa' 
+        var.standard_name = 'surface_air_pressure'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1355,7 +1356,8 @@ class ERA5scale(object):
         vn = 'AIRT_ERA5_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA-5 pressure levels only'
-        var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
+        var.units     = 'degrees_C'  
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1373,6 +1375,7 @@ class ERA5scale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-5 surface only'
         var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)      
@@ -1397,7 +1400,7 @@ class ERA5scale(object):
         vn = 'PREC_ERA5_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation ERA-5 surface only'
-        var.units     = "mm".encode('UTF8')  
+        var.units     = "mm"  
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
@@ -1425,7 +1428,8 @@ class ERA5scale(object):
         vn = 'RH_ERA5_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Relative humidity ERA-5 surface only'
-        var.units     = 'Percent'
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
         RH = 100 - 5 * (self.rg.variables['AIRT_ERA5_C_sur'][:, :]-dewp[:, :])
@@ -1457,6 +1461,7 @@ class ERA5scale(object):
         vn = 'WSPD_ERA5_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA-5 surface only'
+        var.standard_name = 'wind_speed'
         var.units     = 'm s**-1'  
         self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
                 
@@ -1464,7 +1469,8 @@ class ERA5scale(object):
         vn = 'WDIR_ERA5_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-5 surface only'
-        var.units     = 'deg'                                                                 
+        var.standard_name = 'wind_from_direction'
+        var.units     = 'degree'                                                                 
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
     def SW_Wm2_sur(self):
@@ -1478,7 +1484,8 @@ class ERA5scale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA-5 surface only'
         var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
-
+        var.standard_name = 'surface_downwelling_shortwave_flux'
+        
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
         values  = self.nc_sf.variables['ssrd'][:]               
@@ -1498,6 +1505,7 @@ class ERA5scale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
         var.units     = self.nc_sf.variables['strd'].units.encode('UTF8')  
+        var.standard_name = 'surface_downwelling_longwave_flux'
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
@@ -1529,5 +1537,6 @@ class ERA5scale(object):
         vn = 'SH_ERA5_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA-5 surface only'
-        var.units     = 'Kg/Kg'.encode('UTF8')  
-        self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+        var.units     = '1'  
+        var.standard_name = 'specific_humidity'
+        self.rg.variables[vn][:, :] = SH

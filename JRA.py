@@ -1532,7 +1532,8 @@ class JRAscale(object):
         vn = 'PRESS_JRA55_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure JRA-55 pressure levels only'
-        var.units     = str_encode('Pa')  
+        var.units     = 'Pa'  
+        var.standard_name = 'surface_air_pressure'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1550,7 +1551,8 @@ class JRAscale(object):
         vn = 'AIRT_JRA55_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature JRA55 pressure levels only'
-        var.units     = str_encode(self.nc_pl.variables['Temperature'].units)  
+        var.units     = 'degrees_C'
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:]
@@ -1569,7 +1571,8 @@ class JRAscale(object):
         vn = 'AIRT_JRA55_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature JRA55 surface only'
-        var.units     = str_encode(self.nc_sa.variables['Temperature'].units)  
+        var.units     = 'degrees_C'
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
@@ -1585,7 +1588,8 @@ class JRAscale(object):
         vn = 'RH_JRA55_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'relative humidity JRA55 surface only'
-        var.units     = str_encode(self.nc_sa.variables['Relative humidity'].units)  
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
@@ -1629,13 +1633,15 @@ class JRAscale(object):
         vn = 'WSPD_JRA55_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre wind speed JRA55 surface only'
-        var.units     = 'm s**-1'  
+        var.units     = 'm s-1'  
+        var.standard_name = 'wind_speed'
         
         # add variable to ncdf file
         vn = 'WDIR_JRA55_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre wind direction JRA55 surface only'
-        var.units     = 'deg'  
+        var.units     = 'degree'  
+        var.standard_name = 'wind_from_direction'
                                 
         # convert
         # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
@@ -1659,8 +1665,9 @@ class JRAscale(object):
         vn = 'SW_JRA55_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards JRA-55 surface only'
-        var.units     = str_encode(self.nc_sr.variables['Downward solar radiation flux'].units)  
-
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_downwelling_shortwave_flux'
+        
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:]
         values  = self.nc_sr.variables['Downward solar radiation flux'][:]                                
@@ -1677,8 +1684,10 @@ class JRAscale(object):
         vn = 'LW_JRA55_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards JRA-55 surface only'
-        var.units     = str_encode(self.nc_sr.variables['Downward longwave radiation flux'].units)  
+        var.units     = 'W m-2'  
+        var.standard_name = 'surface_downwelling_longwave_flux'
 
+        
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:]
         values  = self.nc_sr.variables['Downward longwave radiation flux'][:]                                
@@ -1697,6 +1706,7 @@ class JRAscale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation JRA55 surface only'
         var.units     = str_encode(self.nc_sr.variables['Total precipitation'].units)  
+        var.standard_name = 'precipitation_amount'
         
         # interpolate station by station
         time_in = self.nc_sr.variables['time'][:]
@@ -1717,7 +1727,8 @@ class JRAscale(object):
         vn = 'LW_JRA55_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation JRA-55 surface only'
-        var.units     = str_encode('W/m2')       
+        var.units     = str_encode('W m-2')
+        var.standard_name = 'surface_downwelling_longwave_flux'
 
         # compute                            
         for i in range(0, len(self.rg.variables['RH_JRA55_per_sur'][:])):

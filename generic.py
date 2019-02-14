@@ -220,30 +220,43 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
 
         # base variables
         time           = rootgrp.createVariable('time', 'i8',('time'))
-        time.long_name = 'time'
-        
+        time.long_name = 'time'  
+        time.axis      = 'T'
         time.units = t_unit
-        # if name == 'eraint':
-            # time.units = 'seconds since 1900-01-01 00:00:0.0' #! For Era_Interim Scaling
-        # elif name == 'merra2' :
-            # time.units = 'seconds since 1980-01-01 00:00:0.0'  #! For MERRA2 Scaling
-        # else: 
-            # time.units = 'seconds since 1900-01-01 00:00:0.0' #! For JRA55 Scaling
-        
-
         time.calendar  = 'gregorian'
+        
         station             = rootgrp.createVariable('station', 'i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
+        station.long_name   = 'station index for time series data'
+        station.units       = ''
+        station.standard_name = 'platform_id'
+        
         latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
+        latitude.standard_name  = 'latitude'
+        latitude.units      = 'degrees_N'  
+        latitude.long_name  = 'WGS84 latitude'
+        latitude.axis       = 'Y'
+        
         longitude           = rootgrp.createVariable('longitude','f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'  
+        longitude.standard_name = 'longitude'
+        longitude.long_name = 'WGS84 longitude'
+        longitude.units     = 'degrees_E'  
+        longitude.axis      = 'X'
+        
         height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
+        height.standard_name = 'height_above_reference_ellipsoid'
         height.units     = 'm'  
+        height.axis      = 'Z'
+        height.positive  = 'up'
+        
+        crs           = rootgrp.createVariable('crs','i4')
+        crs.long_name = 'coordinate system'
+        crs.grid_mapping_name = 'latitude_longitude'
+        crs.longitude_of_prime_meridian = 0.0
+        crs.semi_major_axis = 6378137
+        crs.inverse_flattening = 298.2572236
+        crs.wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]'
+ 
+
         
         # assign base variables
         time[:]      = times_out

@@ -1394,7 +1394,8 @@ class ERAIscale(object):
         vn = 'PRESS_ERAI_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-I pressure levels only'
-        var.units     = 'Pa'.encode('UTF8')  
+        var.units     = 'Pa'  
+        var.standard_name = 'surface_air_pressure'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1412,7 +1413,8 @@ class ERAIscale(object):
         vn = 'AIRT_ERAI_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA-I pressure levels only'
-        var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
+        var.units     = 'degrees_C'   
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1429,7 +1431,8 @@ class ERAIscale(object):
         vn = 'AIRT_ERAI_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-I surface only'
-        var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
+        var.units     = 'degrees_C'
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)      
@@ -1482,7 +1485,8 @@ class ERAIscale(object):
         vn = 'RH_ERAI_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Relative humidity ERA-I surface only'
-        var.units     = 'Percent'
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
         RH = 100 - 5 * (self.rg.variables['AIRT_ERAI_C_sur'][:, :]-dewp[:, :])
@@ -1514,14 +1518,17 @@ class ERAIscale(object):
         vn = 'WSPD_ERAI_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA-I surface only'
-        var.units     = 'm s**-1'  
+        var.units     = 'm s-1'  
+        var.standard_name = 'wind_speed'
         self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
         vn = 'WDIR_ERAI_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-I surface only'
-        var.units     = 'deg'                                                                 
+        var.units     = 'degree'
+        var.standard_name = 'wind_from_direction'
+        
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
         
     def SW_Wm2_sur(self):
@@ -1535,7 +1542,8 @@ class ERAIscale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA-I surface only'
         var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
-
+        var.standard_name = 'surface_downwelling_shortwave_flux'
+        
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
         values  = self.nc_sf.variables['ssrd'][:]               
@@ -1553,7 +1561,8 @@ class ERAIscale(object):
         vn = 'LW_ERAI_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards ERA-I surface only'
-        var.units     = self.nc_sf.variables['strd'].units.encode('UTF8')  
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_downwelling_longwave_flux'
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
@@ -1571,7 +1580,8 @@ class ERAIscale(object):
         vn = 'SH_ERAI_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA-I surface only'
-        var.units     = 'Kg/Kg'.encode('UTF8') 
+        var.units     = '1'
+        var.standard_name = 'specific_humidity'
         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
@@ -1600,8 +1610,9 @@ class ERAIscale(object):
         vn = 'LW_ERAI_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation ERA-I surface only'
-        var.units     = 'W/m2'.encode('UTF8')       
-
+        var.units     = 'W m-2'      
+        var.standard_name = 'surface_downwelling_longwave_flux'
+        
         # compute                            
         for i in range(0, len(self.rg.variables['RH_ERAI_per_sur'][:])):
             for n, s in enumerate(self.rg.variables['station'][:].tolist()):
