@@ -804,7 +804,7 @@ class MERRAgeneric():
         # base variables
         time           = rootgrp.createVariable('time', 'i4',('time'))
         time.long_name = 'time'
-        time.units     = 'hour since 1980-01-01 00:00:0.0'
+        time.units     = 'hour since 1980-01-01 00:00:00'
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station', 'i4',('station'))
         station.long_name   = 'station for time series data'
@@ -1061,7 +1061,7 @@ class SaveNCDF_pl_3dm():
     
                 Time = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
-                Time.units  = "hours since 1980-1-1 00:00:0.0"                 
+                Time.units  = "hours since 1980-1-1 00:00:00"                 
                 Time.calendar = "gregorian"   
                 
                 # pass the values
@@ -1211,7 +1211,7 @@ class SaveNCDF_sa():
                 Time  = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
                 # Time.units         = "hour since " + str(datetime.strptime(beg, '%Y/%m/%d'))
-                Time.units  = "hours since 1980-1-1 00:00:0.0" 
+                Time.units  = "hours since 1980-1-1 00:00:00" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1417,7 +1417,7 @@ class SaveNCDF_sf():
                                     
                 Time               = rootgrp.createVariable('time', 'i4', ('time'))
                 Time.standard_name = "time"
-                Time.units  = "hours since 1980-1-1 00:30:0.0" 
+                Time.units  = "hours since 1980-1-1 00:30:00" 
                 Time.calendar      = "gregorian"
                 # pass the values
                 netCDFTime = []
@@ -1524,7 +1524,7 @@ class SaveNCDF_sc():
     
             Time  = rootgrp.createVariable('time', 'i4', ('time'))
             Time.standard_name = "time"
-            Time.units  = "hours since 1992-01-02 03:00:0.0" 
+            Time.units  = "hours since 1992-01-02 03:00:00" 
             Time.calendar      = "gregorian"
 
             #Set up the value of time (one single value)
@@ -1936,7 +1936,7 @@ class MERRAinterpolate(object):
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
         
-        self.list_name = par.station_list.split(path.extsep)[0]
+        self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -2120,13 +2120,14 @@ class MERRAinterpolate(object):
 
         # get time and convert to datetime object
         nctime = ncf_in.variables['time'][:]
-        #"hours since 1980-01-01 00:00:0.0"
-        t_unit = ncf_in.variables['time'].units 
+        #"hours since 1980-01-01 00:00:00"
+        t_unit = "hours since 1980-01-01 00:00:00"#ncf_in.variables['time'].units 
         try :
             t_cal = ncf_in.variables['time'].calendar
         except AttributeError : # Attribute doesn't exist
             t_cal = u"gregorian" # or standard
-        time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
+        time = [nc.num2date(timei, units = t_unit, calendar = t_cal) for timei in nctime]
+        time = np.asarray(time)
                                                                                     
         # detect invariant files (topography etc.)
         if len(time) ==1:
@@ -2246,7 +2247,7 @@ class MERRAinterpolate(object):
         # base variables
         time           = rootgrp.createVariable('time',     'i4',('time'))
         time.long_name = 'time'
-        time.units     = 'hours since 1980-01-01 00:00:0.0'
+        time.units     = 'hours since 1980-01-01 00:00:00'
         time.calendar  = 'gregorian'
         station             = rootgrp.createVariable('station',  'i4',('station'))
         station.long_name   = 'station for time series data'
@@ -2362,13 +2363,7 @@ class MERRAinterpolate(object):
                        'end' : datetime(1992, 1, 2, 4, 0)}
         
         if not path.isdir(self.dir_out):
-            makedirs(self.dir_out)
-        
-        self.MERRA2station(path.join(self.dir_inp,'merra_to.nc'), 
-                           path.join(self.dir_out,'merra2_to_' + 
-                                    self.list_name + '.nc'), self.stations,
-                                    ['PHIS','FRLAND','FROCEAN', 'FRLANDICE','FRLAKE'], 
-                                    date = dummy_date)      
+            makedirs(self.dir_out) 
 
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into MERRA2
@@ -2438,32 +2433,25 @@ class MERRAscale(object):
         self.sfile = sfile
         par = ParameterIO(self.sfile)
         
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
         # read kernels
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
-        
-        # get the station file and list_name from it
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
+            
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_pl_' + 
-                                self.list_name + '_surface.nc'), 'r')
+                                par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_sa_' + 
-                                self.list_name + '.nc'), 'r')
-        self.nc_sr = nc.Dataset(path.join(par.project_directory,
+                                par.list_name + '.nc'), 'r')
+        self.nc_sf = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_sf_' + 
-                                self.list_name + '.nc'), 'r')
-        self.nc_sc = nc.Dataset(path.join(par.project_directory,
-                                          'station/merra2_to_' + 
-                                self.list_name + '.nc'), 'r')
-        self.nstation = len(self.nc_sc.variables['station'][:])
+                                par.list_name + '.nc'), 'r')
+        #self.nc_sc = nc.Dataset(path.join(par.project_directory,
+        #                                  'station/merra2_to_' + 
+        #                        par.list_name + '.nc'), 'r')
+        self.nstation = len(self.nc_pl.variables['station'][:])
                               
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'merra2')
@@ -2471,9 +2459,14 @@ class MERRAscale(object):
         # time vector for output data
         # get time and convert to datetime object
         nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1980-01-01 00:00:0.0"
+        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1980-01-01 00:00:00"
         self.t_cal  = self.nc_pl.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
+        
+        # interpolation scale factor
+        self.time_step = par.time_step * 3600    # [s] scaled file
+        interval_in = (time[1]-time[0]).seconds #interval in seconds
+        self.interpN = floor(interval_in/self.time_step)
         
         #number of time steps for output
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
@@ -2481,17 +2474,20 @@ class MERRAscale(object):
         self.time_step = par.time_step * 3600    # [s] scaled file
         
         # vector of output time steps as datetime object
-        # 'seconds since 1980-01-01 00:00:0.0'
+        # 'seconds since 1980-01-01 00:00:00'
         mt = min(time)
         self.times_out = [mt + timedelta(seconds = (x*self.time_step)) 
                           for x in range(0, self.nt)]                                                                   
 
         # vector of output time steps as written in ncdf file
-        self.scaled_t_units = 'seconds since 1980-01-01 00:00:0.0'
+        self.scaled_t_units = 'seconds since 1980-01-01 00:00:00'
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
-        
+
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
         #read station points 
         self.stations = StationListRead(self.stations_csv)  
                                                                                 
@@ -2535,14 +2531,15 @@ class MERRAscale(object):
         # close netCDF files   
         self.rg.close()
         self.nc_pl.close()
-        self.nc_sr.close()
+        self.nc_sf.close()
         self.nc_sa.close()
-        self.nc_sc.close()
+        #self.nc_sc.close()
         
     def getOutNCF(self, par, src, scaleDir = 'scale'):
         '''make out file name'''
         
-        src = '_'.join(['sitelist', src])
+        timestep = str(par.time_step) + 'h'
+        src = '_'.join(['scaled', src, timestep])
         fname = [par.project_directory, scaleDir, src]
         fname = '/'.join(fname)
         fname = fname + '.nc'
@@ -2575,7 +2572,7 @@ class MERRAscale(object):
         vn = 'AIRT_MERRA2_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature MERRA2 pressure levels only'
-        var.units     = 'degrees_C'   
+        var.units     = 'degrees_C'
         var.standard_name = 'air_temperature'
         
         # interpolate station by station
@@ -2614,8 +2611,8 @@ class MERRAscale(object):
         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
-        values  = self.nc_sr.variables['T2MDEW'][:]                   
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        values  = self.nc_sf.variables['T2MDEW'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             dewp[:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n]-273.15) 
@@ -2626,7 +2623,6 @@ class MERRAscale(object):
         var.long_name = 'Relative humidity MERRA2 surface only'
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
-        
         
         # simple: https://en.wikipedia.org/wiki/Dew_point
         RH = 100-5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :]-dewp[:, :])
@@ -2681,10 +2677,10 @@ class MERRAscale(object):
         var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_shortwave_flux'
-        
+
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sr.variables['SWGDN'][:]                                
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
+        values  = self.nc_sf.variables['SWGDN'][:]                                
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) 
@@ -2700,10 +2696,10 @@ class MERRAscale(object):
         var.long_name = 'Surface thermal radiation downwards MERRA-2 surface only'
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_longwave_flux'
-        
+
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
-        values  = self.nc_sr.variables['LWGDN'][:]                                
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        values  = self.nc_sf.variables['LWGDN'][:]                                
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) 
@@ -2722,11 +2718,11 @@ class MERRAscale(object):
         var.units     = str_encode('mm')  
         
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
-        values  = self.nc_sr.variables['PRECTOT'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n]) * self.time_step            
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        values  = self.nc_sf.variables['PRECTOT'][:] # mm in 1 second
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            f = interp1d(time_in*3600, values[:, n], kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step        
 
     def PRECCORR_mm_sur(self):
         """
@@ -2742,8 +2738,8 @@ class MERRAscale(object):
         var.units     = str_encode('mm')  
         
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:].astype(np.int64)
-        values  = self.nc_sr.variables['PRECTOTCORR'][:]
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        values  = self.nc_sf.variables['PRECTOTCORR'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                           time_in*3600, values[:, n]) * self.time_step            
@@ -2760,7 +2756,7 @@ class MERRAscale(object):
         var.long_name = 'Specific humidity MERRA-2 surface only'
         var.units     = '1'
         var.standard_name = 'specific_humidity'
-        
+
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = self.nc_sa.variables['QV2M'][:]                   
@@ -2780,9 +2776,9 @@ class MERRAscale(object):
         vn = 'LW_MERRA2_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation MERRA-2 surface only'
-        var.units     = 'W m-2'     
+        var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_longwave_flux'
-        
+
         # compute                            
         for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):
             for n, s in enumerate(self.rg.variables['station'][:].tolist()):

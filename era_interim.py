@@ -48,14 +48,12 @@ from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
 from math         import exp, floor
 from os           import path, listdir, remove, makedirs
-#from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
-from generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode, cummulative2total
 from fnmatch      import filter
-
+from scipy.interpolate import interp1d
 
 try:
     from nco import Nco
-    #import nco
 except ImportError:
     print("*** NCO not imported, netCDF appending not possible. ***")
     pass 
@@ -655,7 +653,7 @@ class ERAIinterpolate(object):
         self.dir_inp = path.join(par.project_directory,'erai') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
-        self.list_name = par.station_list.split(path.extsep)[0]
+        self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -1074,7 +1072,7 @@ class ERAIinterpolate(object):
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
                        'end' : datetime(1979, 1, 1, 12, 0)}        
-        self.ERA2station(path.join(self.dir_inp,'era_to.nc'), 
+        self.ERA2station(path.join(self.dir_inp,'erai_to.nc'), 
                          path.join(self.dir_out,'erai_to_' + 
                                    self.list_name + '.nc'), self.stations,
                                    ['z', 'lsm'], date = dummy_date)  
@@ -1089,7 +1087,7 @@ class ERAIinterpolate(object):
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
-        self.ERA2station(path.join(self.dir_inp,'era_sa_*.nc'), 
+        self.ERA2station(path.join(self.dir_inp,'erai_sa_*.nc'), 
                          path.join(self.dir_out,'erai_sa_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
@@ -1104,7 +1102,7 @@ class ERAIinterpolate(object):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], 
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'era_sf_*.nc'), 
+        self.ERA2station(path.join(self.dir_inp,'erai_sf_*.nc'), 
                          path.join(self.dir_out,'erai_sf_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)          
@@ -1117,7 +1115,7 @@ class ERAIinterpolate(object):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(path.join(self.dir_inp,'era_pl_*.nc'), 
+        self.ERA2station(path.join(self.dir_inp,'erai_pl_*.nc'), 
                          path.join(self.dir_out,'erai_pl_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
@@ -1222,7 +1220,7 @@ class ERAIdownload(object):
         print("=== INVENTORY FOR GLOBSIM ERA-INTERIM DATA === \n")
         print("Download parameter file: \n" + self.pfile + "\n")
         # loop over filetypes, read, report
-        file_type = ['era_pl_*.nc', 'era_sa_*.nc', 'era_sf_*.nc', 'era_t*.nc']
+        file_type = ['erai_pl_*.nc', 'erai_sa_*.nc', 'erai_sf_*.nc', 'erai_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
@@ -1295,25 +1293,20 @@ class ERAIscale(object):
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
-        
-        # get the station file and list_name from it
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
+            
         # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_pl_' + 
-                                self.list_name + '_surface.nc'), 'r')
+                                par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_sa_' + 
-                                self.list_name + '.nc'), 'r')
+                                par.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_sf_' + 
-                                self.list_name + '.nc'), 'r')
+                                par.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_to_' + 
-                                self.list_name + '.nc'), 'r')
+                                par.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # check if output file exists and remove if overwrite parameter is set
@@ -1329,11 +1322,11 @@ class ERAIscale(object):
         # interpolation scale factor
         self.time_step = par.time_step * 3600    # [s] scaled file
         interval_in = (time[1]-time[0]).seconds #interval in seconds
-        interpN = floor(interval_in/self.time_step)
+        self.interpN = floor(interval_in/self.time_step)
         
         #number of time steps for output, include last value
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
-                      / 3600 / par.time_step)) + 1 * interpN 
+                      / 3600 / par.time_step))+1
         
         # vector of output time steps as datetime object
         # 'seconds since 1900-01-01 00:00:0.0'
@@ -1342,12 +1335,13 @@ class ERAIscale(object):
                           for x in range(0, self.nt)]                                                                   
                                       
         # vector of output time steps as written in ncdf file [s]
-        self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
+        self.scaled_t_units = 'seconds since 1900-01-01 00:00:00'
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
-
-        
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
         #read station points 
         self.stations = StationListRead(self.stations_csv)  
                
@@ -1379,7 +1373,8 @@ class ERAIscale(object):
     def getOutNCF(self, par, src, scaleDir = 'scale'):
         '''make out file name'''
         
-        src = '_'.join(['sitelist', src])
+        timestep = str(par.time_step) + 'h'
+        src = '_'.join(['scaled', src, timestep])
         fname = [par.project_directory, scaleDir, src]
         fname = '/'.join(fname)
         fname = fname + '.nc'
@@ -1394,8 +1389,7 @@ class ERAIscale(object):
         vn = 'PRESS_ERAI_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-I pressure levels only'
-        var.units     = 'Pa'  
-        var.standard_name = 'surface_air_pressure'
+        var.units     = 'Pa'.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1413,8 +1407,7 @@ class ERAIscale(object):
         vn = 'AIRT_ERAI_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA-I pressure levels only'
-        var.units     = 'degrees_C'   
-        var.standard_name = 'air_temperature'
+        var.units     = self.nc_pl.variables['t'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
@@ -1431,8 +1424,7 @@ class ERAIscale(object):
         vn = 'AIRT_ERAI_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA-I surface only'
-        var.units     = 'degrees_C'
-        var.standard_name = 'air_temperature'
+        var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)      
@@ -1453,20 +1445,29 @@ class ERAIscale(object):
         """
         Precipitation sum in mm for the time step given.
         """   
-        # add variable to ncdf file
+        # add variable to ncdf file	
         vn = 'PREC_ERAI_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation ERA-I surface only'
-        var.units     = "mm".encode('UTF8')  
+        var.units     = 'kg m-2 s-1'
+        var.standard_name = 'precipitation_amount'
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['tp'][:]               
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n], 
-                                          cum=True) * (1000 * self.time_step) 
-                                          # from m to mm and from rate to sum             
+        values  = self.nc_sf.variables['tp'][:]*1000 #[mm]
+        
+        nctime = self.nc_sf['time'][:]
+        self.t_unit = self.nc_sf['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_cal  = self.nc_sf['time'].calendar
+        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
+        
+        interval_in = (time[1]-time[0]).seconds
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            f = interp1d(time_in*3600, 
+                         cummulative2total(values[:, n])/interval_in,
+                         kind = 'linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
             
     def RH_per_sur(self):
         """
@@ -1527,8 +1528,7 @@ class ERAIscale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-I surface only'
         var.units     = 'degree'
-        var.standard_name = 'wind_from_direction'
-        
+        var.standard_name = 'wind_from_direction'                                                           
         self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
         
     def SW_Wm2_sur(self):
@@ -1542,14 +1542,25 @@ class ERAIscale(object):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA-I surface only'
         var.units     = self.nc_sf.variables['ssrd'].units.encode('UTF8')  
-        var.standard_name = 'surface_downwelling_shortwave_flux'
         
-        # interpolate station by station
+        # interpolation scale factor
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['ssrd'][:]               
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n], cum=True) 
+        values  = self.nc_sf.variables['ssrd'][:]/3600 #w/m2
+        
+        nctime = self.nc_sf['time'][:]
+        self.t_unit = self.nc_sf['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_cal  = self.nc_sf['time'].calendar
+        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
+        
+        interval_in = (time[1]-time[0]).seconds
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            f = interp1d(time_in*3600, 
+                         cummulative2total(values[:, n])/interval_in,
+                         kind = 'linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+        
+        
 
     def LW_Wm2_sur(self):
         """
@@ -1566,10 +1577,21 @@ class ERAIscale(object):
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)  
-        values  = self.nc_sf.variables['strd'][:]
+        values  = self.nc_sf.variables['strd'][:]/3600 #[w m-2]
+        
+        nctime = self.nc_sf['time'][:]
+        self.t_unit = self.nc_sf['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_cal  = self.nc_sf['time'].calendar
+        time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
+		
+        # interpolation scale factor
+        interval_in = (time[1]-time[0]).seconds
+        
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n], cum=True)   
+            f = interp1d(time_in*3600, 
+                         cummulative2total(values[:, n])/interval_in, 
+                         kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step 
                                                   
     def SH_kgkg_sur(self):
         '''
@@ -1610,9 +1632,9 @@ class ERAIscale(object):
         vn = 'LW_ERAI_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation ERA-I surface only'
-        var.units     = 'W m-2'      
+        var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_longwave_flux'
-        
+
         # compute                            
         for i in range(0, len(self.rg.variables['RH_ERAI_per_sur'][:])):
             for n, s in enumerate(self.rg.variables['station'][:].tolist()):
