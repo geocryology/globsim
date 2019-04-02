@@ -16,10 +16,12 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime        import datetime, timedelta
-from globsim.generic        import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
+#from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
+from generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
 from os              import path, listdir, remove, makedirs
 from math            import exp, floor
 from fnmatch         import filter
+from scipy.interpolate import interp1d
 
 try:
     import ESMF
@@ -254,7 +256,7 @@ class RDA(object):
             progress = 1
             status = "Done...\r\n\n"
         block = int(round(barLength * progress))
-        text = "\r ====== Downloading Request ====== "
+        text = "\r ====== Downloading Request ======\n "
         sys.stdout.write(text)
         sys.stdout.flush()
         
@@ -338,7 +340,7 @@ class JRApl(object):
     
     def __init__(self, date, area, elevation, variables, rda):
         '''Returns an object for JRA55 data that has methods for querying the
-        NCAR server for surface forecast variables (prec, swin, lwin). '''
+        NCAR server for pressure level variables (prec, swin, lwin). '''
         
         self.date = date
         self.area = area
@@ -385,31 +387,30 @@ class JRApl(object):
         return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
     
     def getPressureLevels(self):
-        total_elevations = [1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 125, 150, 
-                            175, 200, 225, 250, 300, 350, 400, 450, 500, 550, 
-                            600, 650, 700, 750, 775, 800, 825, 850, 875, 900, 
-                            925, 950, 975, 1000]
+        total_ele37 = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550, 
+                       600, 650, 700, 750, 775, 800, 825, 850, 875, 900, 
+                       925, 950, 975, 1000]
         
         # flip max and min because 1000 is the bottom and 0 is the top
         elevationMax = self.getPressure(self.elevation['min'])
         elevationMin = self.getPressure(self.elevation['max'])
         
-        minNum = min(total_elevations, key=lambda x:abs(x-elevationMin))
-        maxNum = min(total_elevations, key=lambda x:abs(x-elevationMax))
+        minNum = min(total_ele37, key=lambda x:abs(x-elevationMin))
+        maxNum = min(total_ele37, key=lambda x:abs(x-elevationMax))
         
-        if (minNum > elevationMin and total_elevations.index(minNum) > 0 ):
-            elevationMinRange = total_elevations.index(minNum) - 1
+        if (minNum > elevationMin and total_ele37.index(minNum) > 0 ):
+            elevationMinRange = total_ele37.index(minNum) - 1
         else:
-            elevationMinRange = total_elevations.index(minNum)
+            elevationMinRange = total_ele37.index(minNum)
         
-        if (maxNum < elevationMin and total_elevations.index(maxNum) < 36 ):
-            elevationMaxRange = total_elevations.index(maxNum) - 1
+        if (maxNum < elevationMin and total_ele37.index(maxNum) < 36 ):
+            elevationMaxRange = total_ele37.index(maxNum) - 1
         else:
-            elevationMaxRange = total_elevations.index(maxNum)
+            elevationMaxRange = total_ele37.index(maxNum)
             
         elevation = []
         for e in range(elevationMinRange, elevationMaxRange + 1):
-            elevation.append(total_elevations[e])
+            elevation.append(total_ele37[e])
         
         elevation = [str(ele) for ele in elevation]
         elevation = '/'.join(elevation)
@@ -596,7 +597,7 @@ class JRAdownload(object):
         self.variables = par.variables
             
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size*200
+        self.chunk_size = par.chunk_size*2000
         
         self.ncfVar  = {
                 'initial_time0_hours':   'time', 
@@ -749,7 +750,7 @@ class JRAdownload(object):
         latitudes[:] = Lats
         
         for vari in variables:
-            flist = glob.glob(path.join(self.directory, '*'+vari+'*'))
+            flist = np.sort(glob.glob(path.join(self.directory, '*'+vari+'*')))
             ncf = nc.MFDataset(flist, aggdim = self.timeName)
             for n, var in enumerate(ncf.variables.keys()):
                 if variables_skip(self.ncfVar[var]):
@@ -878,7 +879,7 @@ class JRAinterpolate(object):
         self.dir_inp = path.join(par.project_directory,'jra55') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables     
-        self.list_name = par.station_list.split(path.extsep)[0]
+        self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -1139,7 +1140,6 @@ class JRAinterpolate(object):
             memory intense).          
         """
         
-        #TODO option for one file
         # read in one type of mutiple netcdf files       
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
         # is it a file with pressure levels?
@@ -1254,7 +1254,7 @@ class JRAinterpolate(object):
         
         # list variables
         varlist = [str_encode(x) for x in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'Geopotential height']:
+        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height']:
             varlist.remove(V)
 
         # === open and prepare output netCDF file =============================
@@ -1389,8 +1389,8 @@ class JRAinterpolate(object):
         dpar = {'air_temperature'   : ['surface_temperature'], # [K] 2m values
                 'relative_humidity' : ['relative_humidity'], # [%]                                                       
                 'wind_speed' : ['eastward_wind', 'northward_wind']} # [m s-1] 2m & 10m values   
-        varlist = self.TranslateCF2short(dpar) 
-        self.JRA2station(path.join(self.dir_inp,'jra55_sa_*.nc'), 
+        varlist = self.TranslateCF2short(dpar)
+        self.JRA2station(path.join(self.dir_inp,'jra55_sa_*.nc'),
                             path.join(self.dir_out,'jra_sa_' + 
                                       self.list_name + '.nc'), self.stations,
                                       varlist, date = self.date)
@@ -1405,7 +1405,7 @@ class JRAinterpolate(object):
                 'precipitation_amount' : ['total_precipitation']} # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)                           
         self.JRA2station(path.join(self.dir_inp,'jra55_sf_*.nc'), 
-                          path.join(self.dir_out,'jra_sr_' + 
+                          path.join(self.dir_out,'jra_sf_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)          
 
@@ -1448,25 +1448,20 @@ class JRAscale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
-        #par.overwrite = True
+        par.overwrite = True
         
         # read kernels
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
-        
-        # get the station file and list_name from it 
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        self.list_name = par.station_list.split(path.extsep)[0]
-                
+            
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/jra_pl_' + 
-                                self.list_name + '_surface.nc'), 'r')
+                                par.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,'station/jra_sa_' + 
-                                self.list_name + '.nc'), 'r')
-        self.nc_sr = nc.Dataset(path.join(par.project_directory,'station/jra_sr_' + 
-                                self.list_name + '.nc'), 'r')
+                                par.list_name + '.nc'), 'r')
+        self.nc_sf = nc.Dataset(path.join(par.project_directory,'station/jra_sf_' + 
+                                par.list_name + '.nc'), 'r')
                                
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')
@@ -1479,15 +1474,18 @@ class JRAscale(object):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
         #number of time steps
-        nt = floor((max(time)-min(time)).total_seconds()/3600/par.time_step)+1
+        self.nt = floor((max(time)-min(time)).total_seconds()/3600/par.time_step)+1
         self.time_step = par.time_step
                               
         # vector of output time steps as datetime object
-        self.times_out    = [min(time) + timedelta(hours=x*par.time_step) for x in range(0, nt)]
+        self.times_out    = [min(time) + timedelta(hours=x*par.time_step) 
+                                for x in range(0, self.nt)]
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
                                         calendar = self.t_cal)
-                                        
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
         #read station points 
         self.stations = StationListRead(self.stations_csv)
         
@@ -1497,8 +1495,22 @@ class JRAscale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.outfile, self.nc_pl, 
+        self.rg = ScaledFileOpen(self.output_file, self.nc_pl, 
                                  self.times_out_nc, self.nc_pl['time'].units)
+        
+        # add station names to netcdf
+        # first convert to character array
+        names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))
+        
+        # create space in the netcdf
+        nchar        = self.rg.createDimension('name_strlen', 32) 
+        st           = self.rg.createVariable('station_name', "S1", 
+                                              ('station', 'name_strlen'))
+        st.standard_name = 'platform_name'
+        st.units     = ''
+        
+        # add data
+        st[:] = names_out
         
         # iterate through kernels and start process
         for kernel_name in self.kernels:
@@ -1511,13 +1523,14 @@ class JRAscale(object):
         # close netCDF files   
         self.rg.close()
         self.nc_pl.close()
-        self.nc_sr.close()
+        self.nc_sf.close()
         self.nc_sa.close()
         
     def getOutNCF(self, par, src, scaleDir = 'scale'):
         '''make out file name'''
         
-        src = '_'.join(['sitelist', src])
+        timestep = str(par.time_step) + 'h'
+        src = '_'.join(['scaled', src, timestep])
         fname = [par.project_directory, scaleDir, src]
         fname = '/'.join(fname)
         fname = fname + '.nc'
@@ -1532,7 +1545,7 @@ class JRAscale(object):
         vn = 'PRESS_JRA55_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure JRA-55 pressure levels only'
-        var.units     = 'Pa'  
+        var.units     = 'Pa'
         var.standard_name = 'surface_air_pressure'
         
         # interpolate station by station
@@ -1667,10 +1680,10 @@ class JRAscale(object):
         var.long_name = 'Surface solar radiation downwards JRA-55 surface only'
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_shortwave_flux'
-        
+
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:]
-        values  = self.nc_sr.variables['Downward solar radiation flux'][:]                                
+        time_in = self.nc_sf.variables['time'][:]
+        values  = self.nc_sf.variables['Downward solar radiation flux'][:]                                
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
@@ -1684,13 +1697,12 @@ class JRAscale(object):
         vn = 'LW_JRA55_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards JRA-55 surface only'
-        var.units     = 'W m-2'  
+        var.units     = 'W m-2' 
         var.standard_name = 'surface_downwelling_longwave_flux'
 
-        
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:]
-        values  = self.nc_sr.variables['Downward longwave radiation flux'][:]                                
+        time_in = self.nc_sf.variables['time'][:]
+        values  = self.nc_sf.variables['Downward longwave radiation flux'][:]                                
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n]) 
@@ -1705,15 +1717,15 @@ class JRAscale(object):
         vn = 'PREC_JRA55_mm_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation JRA55 surface only'
-        var.units     = str_encode(self.nc_sr.variables['Total precipitation'].units)  
+        var.units     = 'kg m-2 s-1'
         var.standard_name = 'precipitation_amount'
         
         # interpolate station by station
-        time_in = self.nc_sr.variables['time'][:]
-        values  = self.nc_sr.variables['Total precipitation'][:]
+        time_in = self.nc_sf.variables['time'][:]
+        values  = self.nc_sf.variables['Total precipitation'][:]/24 #[mm/h]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
-            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n]) / 24 * self.time_step            
+            f = interp1d(time_in, values[:, n], kind = 'linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * 3600           
 
     def LW_Wm2_topo(self):
         """
@@ -1727,7 +1739,7 @@ class JRAscale(object):
         vn = 'LW_JRA55_Wm2_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation JRA-55 surface only'
-        var.units     = str_encode('W m-2')
+        var.units     = str_encode('W m-2') 
         var.standard_name = 'surface_downwelling_longwave_flux'
 
         # compute                            
@@ -1743,36 +1755,3 @@ class JRAscale(object):
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
         '''
         print("Warning: SH_JRA_kgkg_sur is not defined. Specific humidity data are not currently available")
-
-
-#     def conv_geotop(self):
-#         """
-#         preliminary geotop export
-#         """
-#         import pandas as pd
-#         
-#         outfile = '/home/xquan/src/globsim/examples/station/Meteo_mylist_jra55.txt'
-#         
-#         #read time object        
-#         time = self.rg.variables['time']        
-#         date = self.rg.variables['time'][:]
-#         
-#         #read all other values
-#         columns = ['Date','AIRT_JRA55_C_pl','AIRT_JRA55_C_sur','PREC_JRA55_mm_sur','RH_JRA55_per_sur','SW_JRA55_Wm2_sur','LW_JRA55_Wm2_sur','WSPD_JRA55_ms_sur','WDIR_JRA55_deg_sur']
-#         metdata = np.zeros((len(date),len(columns)))
-#         metdata[:,0] = date
-#         for n, vn in enumerate(columns[1:]):
-#             metdata[:,n+1] = self.rg.variables[vn][:, 0]
-#         
-#         #make data frame
-#         data = pd.DataFrame(metdata, columns=columns)
-#         data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
-# 
-#         # round
-#         decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
-#         data.round(decimals)
-# 
-#         #export to file
-#         fmt_date = "%d/%m/%Y %H:%M"
-#         data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
-
