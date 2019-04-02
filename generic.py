@@ -25,6 +25,7 @@ from __future__  import print_function
 from datetime    import datetime
 from csv         import QUOTE_NONE
 from os          import mkdir, path
+from math        import floor
 
 import pandas  as pd
 import netCDF4 as nc
@@ -220,8 +221,9 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
 
         # base variables
         time           = rootgrp.createVariable('time', 'i8',('time'))
-        time.long_name = 'time'  
+        time.long_name = 'time'
         time.axis      = 'T'
+        
         time.units = t_unit
         time.calendar  = 'gregorian'
         
@@ -232,19 +234,20 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
         
         latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
         latitude.standard_name  = 'latitude'
-        latitude.units      = 'degrees_N'  
+        latitude.units      = 'degrees_N'
         latitude.long_name  = 'WGS84 latitude'
         latitude.axis       = 'Y'
         
         longitude           = rootgrp.createVariable('longitude','f4',('station'))
         longitude.standard_name = 'longitude'
         longitude.long_name = 'WGS84 longitude'
-        longitude.units     = 'degrees_E'  
+        longitude.units     = 'degrees_E' 
         longitude.axis      = 'X'
         
         height           = rootgrp.createVariable('height','f4',('station'))
         height.standard_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm' 
         height.axis      = 'Z'
         height.positive  = 'up'
         
@@ -255,8 +258,6 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
         crs.semi_major_axis = 6378137
         crs.inverse_flattening = 298.2572236
         crs.wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]'
- 
-
         
         # assign base variables
         time[:]      = times_out
@@ -299,7 +300,32 @@ def convert_cummulative(data):
     diff[mask] = data[mask]
     
     #get full cummulative sum
-    return np.cumsum(diff, dtype=np.float64)  
+    return np.cumsum(diff, dtype=np.float64)
+
+def cummulative2total(data):
+    """
+    Convert values that are serially cummulative, such as precipitation or 
+    radiation, into a cummulative series from start to finish that can be 
+    interpolated on for sacling. 
+    data: 1-dimensional time series 
+    """                       
+    # get increment per time step
+    diff = np.diff(data)
+    diff = np.concatenate(([data[0]], diff))
+    
+    # where new forecast starts, the increment will be smaller than 0
+    # and the actual value is used
+    #mask = diff < 0
+    #diff[mask] = data[mask]
+    
+    n = floor(len(diff)/4)
+    i = 1 + np.arange(n)*4
+    diff[i] = data[i]
+    
+    mask = diff < 0
+    diff[mask] = 0
+    
+    return diff
     
 
 def series_interpolate(time_out, time_in, value_in, cum=False):
@@ -569,7 +595,7 @@ def create_globsim_directory(target_dir, name):
     
     return(True)    
     
-def nc_to_met(ncd, out_dir, src, start=None, end=None):
+def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
@@ -586,11 +612,13 @@ def nc_to_met(ncd, out_dir, src, start=None, end=None):
     time = nc.num2date(n['time'][:], 
                         units=n['time'].units, 
                         calendar=n['time'].calendar)
-        
-    HH =   [x.hour   for x in time]
-    MM =   [x.minute for x in time]
-    DDD =  [x.day    for x in time]
-    YYYY = [x.year   for x in time]
+    time_step = (time[1]-time[0]).seconds # in second
+    
+    
+    HH =   [x.timetuple().tm_hour for x in time]
+    MM =   [x.timetuple().tm_min  for x in time]
+    DDD =  [x.timetuple().tm_yday for x in time]
+    YYYY = [x.timetuple().tm_year for x in time]
     
     TIME = np.stack((HH, MM, DDD, YYYY))
     
@@ -604,7 +632,8 @@ def nc_to_met(ncd, out_dir, src, start=None, end=None):
     
     # get precip
     PREC = "PREC_{}_mm_sur".format(src)
-    PREC = n[PREC][:]
+    PREC = n[PREC][:] 
+    PREC /= time_step # [mm/0.5h] to [mm/s]
     
     # get temp
     AIRT = "AIRT_{}_C_sur".format(src)
@@ -671,8 +700,6 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     # get precip
     PREC = "PREC_{}_mm_sur".format(src)
     PREC = n[PREC][:]
-    print("warning!  Precipitation intensity units in NetCDF are mm",
-    "but units of mm/hr are required for geotop!!")
     
     # get wind velocity
     WSPD = "WSPD_{}_ms_sur".format(src)
