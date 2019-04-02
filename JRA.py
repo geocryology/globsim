@@ -16,8 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime        import datetime, timedelta
-#from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
-from generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
 from os              import path, listdir, remove, makedirs
 from math            import exp, floor
 from fnmatch         import filter
