@@ -38,8 +38,8 @@ def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True,
     
     # === ERA-Interim ===
     if ERAI:
-        ERAdownl = ERAdownload(pfile)
-        objects.append(ERAdownl)
+        ERAIdownl = ERAIdownload(pfile)
+        objects.append(ERAIdownl)
     
     # === ERA-5 ===
     if ERA5:
