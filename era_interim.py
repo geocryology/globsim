@@ -1297,13 +1297,13 @@ class ERAIscale(object):
         # input file handles
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
+                                self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_sa_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_sf_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
                                 'station/erai_to_' + 
                                 par.list_name + '.nc'), 'r')
