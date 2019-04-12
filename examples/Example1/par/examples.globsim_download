@@ -23,6 +23,4 @@ beg = 2017/07/01
 end = 2017/07/05
 
 # variables to download [CF Standard Name Table]
-variables = precipitation_amount,downwelling_longwave_flux_in_air, downwelling_longwave_flux_in_air_assuming_clear_sky,downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, relative_humidity,2-metre_air_temperature,10-metre_eastward_wind,10-metre_northward_wind
-air_temperature, relative_humidity, precipitation_amount,
-wind_from_direction, wind_speed
+variables = air_temperature, relative_humidity, wind_speed, wind_from_direction, precipitation_amount, downwelling_shortwave_flux_in_air, downwelling_longwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, downwelling_longwave_flux_in_air_assuming_clear_sky
