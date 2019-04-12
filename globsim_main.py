@@ -29,7 +29,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     """
-    Download data from multiple re-analyses. Each re-analysis is run as one 
+    Download data from multiple reanalyses. Each reanalysis is run as one 
     separate thread if 'multithread = True'. If 'multithread = False', each
     download is run sequentially. This is easier for interpreting the output.
     """
@@ -108,8 +108,8 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     """
     # === ERA-Interim ===
     if ERAI:
-        ERAsc = ERAscale(sfile)
-        ERAsc.process()
+        ERAIsc = ERAIscale(sfile)
+        ERAIsc.process()
     
     # === ERA5 ===
     if ERA5:

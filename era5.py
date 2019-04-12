@@ -736,7 +736,6 @@ class ERA5interpolate(object):
         self.dir_inp = path.join(par.project_directory,'era5') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
-        #self.list_name = par.list_name
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         self.list_name = par.station_list.split(path.extsep)[0]

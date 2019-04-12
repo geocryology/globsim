@@ -651,7 +651,7 @@ class ERAIinterpolate(object):
         self.ifile = ifile
         par = ParameterIO(self.ifile)
         self.dir_inp = path.join(par.project_directory,'erai') 
-        self.dir_out = path.join(par.project_directory,'station')
+        self.dir_out = self.makeOutDir(par)
         self.variables = par.variables
         self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
@@ -669,6 +669,17 @@ class ERAIinterpolate(object):
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par.chunk_size)
+        
+        
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirIntp = path.join(par.project_directory, 'interpolated')
+        
+        if not (path.isdir(dirIntp)):
+            makedirs(dirIntp)
+            
+        return dirIntp
     
 
     def ERAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
@@ -1288,26 +1299,27 @@ class ERAIscale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
+        self.intpdir = path.join(par.project_directory, 'interpolated')
+        self.scdir = self.makeOutDir(par)
         self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
         self.kernels = par.kernels
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
-            
+        
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(par.project_directory,
-                                'station/erai_pl_' + 
-                                self.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(par.project_directory,
-                                'station/erai_sa_' + 
+        self.nc_pl = nc.Dataset(path.join(self.intpdir,
+                                          'erai_pl_surface.nc'), 'r')
+        self.nc_sa = nc.Dataset(path.join(self.intpdir,
+                                'erai_sa_' + 
                                 self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'station/erai_sf_' + 
+                                'erai_sf_' + 
                                 self.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'station/erai_to_' + 
-                                par.list_name + '.nc'), 'r')
+                                'erai_to_' + 
+                                self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # check if output file exists and remove if overwrite parameter is set
@@ -1315,9 +1327,9 @@ class ERAIscale(object):
         
         # time vector for output data 
         # get time and convert to datetime object
-        nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
-        self.t_cal  = self.nc_pl.variables['time'].calendar
+        nctime = self.nc_sf.variables['time'][:]
+        self.t_unit = self.nc_sf.variables['time'].units #"hours since 1900-01-01 00:00:0.0"
+        self.t_cal  = self.nc_sf.variables['time'].calendar
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal) 
         
         # interpolation scale factor
@@ -1376,11 +1388,24 @@ class ERAIscale(object):
         
         timestep = str(par.time_step) + 'h'
         src = '_'.join(['scaled', src, timestep])
-        fname = [par.project_directory, scaleDir, src]
-        fname = '/'.join(fname)
-        fname = fname + '.nc'
+        src = src + '.nc'
+        #fname = [par.project_directory, scaleDir, src]
+        #fname = '/'.join(fname)
+        fname = path.join(self.scdir, src)
+        
         
         return fname
+    
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirSC = path.join(par.project_directory, 'scaled')
+        
+        if not (path.isdir(dirSC)):
+            makedirs(dirSC)
+            
+        return dirSC
+        
         
     def PRESS_Pa_pl(self):
         """

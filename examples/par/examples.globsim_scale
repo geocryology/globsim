@@ -1,5 +1,5 @@
 # Path to the parent directory of /par - It should match the download and interpolate files
-project_directory = /data
+project_directory = /opt/globsim/examples
 
 # Filename (without path) of csv containing site information (must match interpolation control file)
 station_list = siteslist.csv
