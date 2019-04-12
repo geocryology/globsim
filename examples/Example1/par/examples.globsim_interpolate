@@ -1,8 +1,10 @@
 # Path to the parent directory of /par - It should match the download and scale files
-project_directory =  /opt/globsim/examples/Example1/
+project_directory = /opt/globsim/examples/Example1/
 
 # Filename (without path) of csv containing site information (must match scaling control file)
 station_list = siteslist.csv
+
+list_name = 'LdG'
 
 # How many time steps to interpolate at once? This helps memory management.
 # Keep small for large area files and small memory computer, make larger to get 
