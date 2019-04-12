@@ -653,7 +653,7 @@ class ERAIinterpolate(object):
         self.dir_inp = path.join(par.project_directory,'erai') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
-        self.list_name = par.list_name
+        self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -1288,6 +1288,7 @@ class ERAIscale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
+        self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
         self.kernels = par.kernels

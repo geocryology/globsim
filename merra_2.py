@@ -1936,7 +1936,7 @@ class MERRAinterpolate(object):
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables
         
-        self.list_name = par.list_name
+        self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -2432,6 +2432,7 @@ class MERRAscale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
+        self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
         self.kernels = par.kernels
@@ -2441,16 +2442,16 @@ class MERRAscale(object):
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
+                                self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_sa_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
                                           'station/merra2_sf_' + 
-                                par.list_name + '.nc'), 'r')
-        #self.nc_sc = nc.Dataset(path.join(par.project_directory,
-        #                                  'station/merra2_to_' + 
-        #                        par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
+        self.nc_sc = nc.Dataset(path.join(par.project_directory,
+                                          'station/merra2_to_' + 
+                                self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_pl.variables['station'][:])
                               
         # check if output file exists and remove if overwrite parameter is set

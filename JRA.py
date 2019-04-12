@@ -878,7 +878,7 @@ class JRAinterpolate(object):
         self.dir_inp = path.join(par.project_directory,'jra55') 
         self.dir_out = path.join(par.project_directory,'station')
         self.variables = par.variables     
-        self.list_name = par.list_name
+        self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
         
@@ -1448,6 +1448,7 @@ class JRAscale(object):
         self.sfile = sfile
         par = ParameterIO(self.sfile)
         par.overwrite = True
+        self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
         self.kernels = par.kernels
@@ -1456,11 +1457,11 @@ class JRAscale(object):
             
         # input file names
         self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/jra_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
+                                self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(par.project_directory,'station/jra_sa_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,'station/jra_sf_' + 
-                                par.list_name + '.nc'), 'r')
+                                self.list_name + '.nc'), 'r')
                                
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')

@@ -2,7 +2,7 @@
 # Use extension like this: 'project_a.globsim_download'
 
 # logistics
-project_directory = /opt/globsim/examples/Example1/
+project_directory = /data
 credentials_directory = /root
 
 # chunk size for splitting files and download [days]
@@ -20,7 +20,7 @@ ele_max = 2500
 
 # time slice [YYYY/MM/DD]
 beg = 2017/07/01
-end = 2017/07/10
+end = 2017/07/05
 
 # variables to download [CF Standard Name Table]
 variables = precipitation_amount,downwelling_longwave_flux_in_air, downwelling_longwave_flux_in_air_assuming_clear_sky,downwelling_shortwave_flux_in_air, downwelling_shortwave_flux_in_air_assuming_clear_sky, relative_humidity,2-metre_air_temperature,10-metre_eastward_wind,10-metre_northward_wind
