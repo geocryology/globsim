@@ -1,14 +1,11 @@
 # Path to the parent directory of /par - It should match the download and interpolate files
-project_directory = /opt/globsim/examples/Example1/
-
-# Full path (with .nc extension) to output netcdf file
-output_file = /opt/globism/examples/siteslist_globsim_out.nc
+project_directory = /data
 
 # Filename (without path) of csv containing site information (must match interpolation control file)
 station_list = siteslist.csv
 
 # processing kernels to be used.  Unavailable kernels will be ignored
-kernels = PRESS_ERA_Pa_pl, AIRT_ERA_C_pl, AIRT_ERA_C_sur, PREC_ERA_mm_sur, RH_ERA_per_sur, WIND_ERA_sur, SW_ERA_Wm2_sur, LW_ERA_Wm2_sur, SH_ERA_kgkg_sur
+kernels = PRESS_Pa_pl, AIRT_C_pl, AIRT_C_sur, PREC_mm_sur, RH_per_sur, WIND_sur, SW_Wm2_sur, LW_Wm2_sur, SH_kgkg_sur
 
 # desired time step for output data [hours]
 time_step = 1
