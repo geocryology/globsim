@@ -1309,17 +1309,15 @@ class ERAIscale(object):
             self.kernels = [self.kernels]
         
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(self.intpdir,
-                                          'erai_pl_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(self.intpdir,
-                                'erai_sa_' + 
+        self.nc_pl = nc.Dataset(path.join(self.intpdir, 
+                                          'erai_pl_' + self.list_name + 
+                                          '_surface.nc'), 'r')
+        self.nc_sa = nc.Dataset(path.join(self.intpdir,'erai_sa_' + 
                                 self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'erai_sf_' + 
-                                self.list_name + '.nc'), 'r')
+                                'erai_sf_' + self.list_name + '.nc'), 'r')
         self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'erai_to_' + 
-                                self.list_name + '.nc'), 'r')
+                                'erai_to_' + self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # check if output file exists and remove if overwrite parameter is set
