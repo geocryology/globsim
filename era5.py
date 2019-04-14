@@ -734,7 +734,7 @@ class ERA5interpolate(object):
         self.ifile = ifile
         par = ParameterIO(self.ifile)
         self.dir_inp = path.join(par.project_directory,'era5') 
-        self.dir_out = path.join(par.project_directory,'station')
+        self.dir_out = self.makeOutDir(par)
         self.variables = par.variables
         self.stations_csv = path.join(par.project_directory,
                                       'par', par.station_list)
@@ -753,6 +753,16 @@ class ERA5interpolate(object):
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par.chunk_size)
     
+    
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirIntp = path.join(par.project_directory, 'interpolated')
+        
+        if not (path.isdir(dirIntp)):
+            makedirs(dirIntp)
+            
+        return dirIntp
 
     def ERAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                         variables=None, date=None):    
@@ -1232,6 +1242,9 @@ class ERA5scale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
+        self.intpdir = path.join(par.project_directory, 'interpolated')
+        self.scdir = self.makeOutDir(par)
+        self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
         self.kernels = par.kernels
@@ -1244,18 +1257,14 @@ class ERA5scale(object):
         self.list_name = par.station_list.split(path.extsep)[0]
         
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(par.project_directory,
-                                'station/era5_pl_' + 
-                                par.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(par.project_directory,
-                                'station/era5_sa_' + 
-                                par.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'station/era5_sf_' + 
-                                par.list_name + '.nc'), 'r')
-        self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'station/era5_to_' + 
-                                par.list_name + '.nc'), 'r')
+        self.nc_pl = nc.Dataset(path.join(self.intpdir, 'era5_pl_' + 
+                                self.list_name + '_surface.nc'), 'r')
+        self.nc_sa = nc.Dataset(path.join(self.intpdir, 'era5_sa_' + 
+                                self.list_name + '.nc'), 'r')
+        self.nc_sf = nc.Dataset(path.join(self.intpdir, 'era5_sf_' + 
+                                self.list_name + '.nc'), 'r')
+        self.nc_to = nc.Dataset(path.join(self.intpdir, 'era5_to_' + 
+                                self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # output file 
@@ -1297,9 +1306,8 @@ class ERA5scale(object):
         
         timestep = str(par.time_step) + 'h'
         src = '_'.join(['scaled', src, timestep])
-        fname = [par.project_directory, scaleDir, src]
-        fname = '/'.join(fname)
-        fname = fname + '.nc'
+        src = src + '.nc'
+        fname = path.join(self.scdir, src)
         
         return fname
         
