@@ -638,6 +638,148 @@ class ERAIto(ERAIgeneric):
         string = ("List of variables to query ECMWF server for "
                   "ERA-Interim air tenperature data: {0}")
         return string.format(self.getDictionary) 
+    
+
+class ERAIdownload(object):
+    """
+    Class for ERA-Interim data that has methods for querying 
+    the ECMWF server, returning all variables usually needed.
+       
+    Args:
+        pfile: Full path to a Globsim Download Parameter file. 
+              
+    Example:          
+        ERAd = ERAdownload(pfile) 
+        ERAd.retrieve()
+    """
+        
+    def __init__(self, pfile):
+        # read parameter file
+        self.pfile = pfile
+        par = ParameterIO(self.pfile)
+        
+        # assign bounding box
+        self.area  = {'north':  par.bbN,
+                      'south':  par.bbS,
+                      'west' :  par.bbW,
+                      'east' :  par.bbE}
+        
+        # sanity check to make sure area is good
+        if (par.bbN < par.bbS) or (par.bbE < par.bbW):        
+            raise Exception("Bounding box is invalid: {}".format(self.area))   
+            
+        # time bounds
+        self.date  = {'beg' : par.beg,
+                      'end' : par.end}
+
+        # elevation
+        self.elevation = {'min' : par.ele_min, 
+                          'max' : par.ele_max}
+        
+        # data directory for ERA-Interim  
+        self.directory = path.join(par.project_directory, "erai")  
+        if path.isdir(self.directory) == False:
+            makedirs(self.directory)
+     
+        # variables
+        self.variables = par.variables
+            
+        # chunk size for downloading and storing data [days]        
+        self.chunk_size = par.chunk_size            
+
+                           
+    def retrieve(self):
+        """
+        Retrieve all required ERA-Interim data from MARS server.
+        """        
+        # prepare time loop
+        date_i = {}
+        slices = floor(float((self.date['end'] - self.date['beg']).days)/
+                       self.chunk_size)+1
+        # topography
+        top = ERAIto(self.area, self.directory)
+        top.download()
+        
+        for ind in range (0, int(slices)): 
+            #prepare time slices   
+            date_i['beg'] = self.date['beg'] + timedelta(days = 
+                            self.chunk_size * ind)
+            date_i['end'] = self.date['beg'] + timedelta(days = 
+                            self.chunk_size * (ind+1) - 1)
+            if ind == (slices-1):
+                date_i['end'] = self.date['end']
+            
+            #actual functions                                                                           
+            pl = ERAIpl(date_i, self.area, self.elevation, 
+                       self.variables, self.directory) 
+            sa = ERAIsa(date_i, self.area, self.variables, self.directory) 
+            sf = ERAIsf(date_i, self.area, self.variables, self.directory) 
+        
+            #download from ECMWF server convert to netCDF  
+            ERAli = [pl, sa, sf]
+            for era in ERAli:
+                era.download()          
+                                         
+        
+        # report inventory
+        self.inventory()  
+        
+                                                                                                                                                                                                           
+    def inventory(self):
+        """
+        Report on data avaialbe in directory: time slice, variables, area 
+        """
+        print("\n\n\n")
+        print("=== INVENTORY FOR GLOBSIM ERA-INTERIM DATA === \n")
+        print("Download parameter file: \n" + self.pfile + "\n")
+        # loop over filetypes, read, report
+        file_type = ['erai_pl_*.nc', 'erai_sa_*.nc', 'erai_sf_*.nc', 'erai_t*.nc']
+        for ft in file_type:
+            infile = path.join(self.directory, ft)
+            nf = len(filter(listdir(self.directory), ft))
+            print(str(nf) + " FILE(S): " + infile)
+            
+            if nf > 0:
+                # open dataset
+                ncf = nc.MFDataset(infile, 'r')
+                
+                # list variables
+                keylist = [str_encode(x) for x in ncf.variables.keys()]                
+                    
+                print("    VARIABLES:")
+                print("        " + str(len(keylist)) + 
+                      " variables, inclusing dimensions")
+                for key in keylist:
+                    print("        " + ncf.variables[key].long_name)
+                
+                # time slice
+                time = ncf.variables['time']
+                tmin = '{:%Y/%m/%d}'.format(nc.num2date(min(time[:]), 
+                                     time.units, calendar=time.calendar))
+                tmax = '{:%Y/%m/%d}'.format(nc.num2date(max(time[:]), 
+                                     time.units, calendar=time.calendar))
+                print("    TIME SLICE")                     
+                print("        " + str(len(time[:])) + " time steps")
+                print("        " + tmin + " to " + tmax)
+                      
+                # area
+                lon = ncf.variables['longitude']
+                lat = ncf.variables['latitude']
+                nlat = str(len(lat))
+                nlon = str(len(lon))
+                ncel = str(len(lat) * len(lon))
+                print("    BOUNDING BOX / AREA")
+                print("        " + ncel + " cells, " + nlon + 
+                      " W-E and " + nlat + " S-N")
+                print("        N: " + str(max(lat)))
+                print("        S: " + str(min(lat)))
+                print("        W: " + str(min(lon)))
+                print("        E: " + str(max(lon)))
+                            
+                ncf.close()
+                   
+    def __str__(self):
+        return "Object for ERA-Interim data download and conversion"  
                  
 
 class ERAIinterpolate(object):
@@ -1137,147 +1279,6 @@ class ERAIinterpolate(object):
                               path.join(self.dir_out,'erai_pl_' + 
                                         self.list_name + '_surface.nc')) 
         
-        
-class ERAIdownload(object):
-    """
-    Class for ERA-Interim data that has methods for querying 
-    the ECMWF server, returning all variables usually needed.
-       
-    Args:
-        pfile: Full path to a Globsim Download Parameter file. 
-              
-    Example:          
-        ERAd = ERAdownload(pfile) 
-        ERAd.retrieve()
-    """
-        
-    def __init__(self, pfile):
-        # read parameter file
-        self.pfile = pfile
-        par = ParameterIO(self.pfile)
-        
-        # assign bounding box
-        self.area  = {'north':  par.bbN,
-                      'south':  par.bbS,
-                      'west' :  par.bbW,
-                      'east' :  par.bbE}
-        
-        # sanity check to make sure area is good
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):        
-            raise Exception("Bounding box is invalid: {}".format(self.area))   
-            
-        # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end}
-
-        # elevation
-        self.elevation = {'min' : par.ele_min, 
-                          'max' : par.ele_max}
-        
-        # data directory for ERA-Interim  
-        self.directory = path.join(par.project_directory, "erai")  
-        if path.isdir(self.directory) == False:
-            makedirs(self.directory)
-     
-        # variables
-        self.variables = par.variables
-            
-        # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size            
-
-                           
-    def retrieve(self):
-        """
-        Retrieve all required ERA-Interim data from MARS server.
-        """        
-        # prepare time loop
-        date_i = {}
-        slices = floor(float((self.date['end'] - self.date['beg']).days)/
-                       self.chunk_size)+1
-        # topography
-        top = ERAIto(self.area, self.directory)
-        top.download()
-        
-        for ind in range (0, int(slices)): 
-            #prepare time slices   
-            date_i['beg'] = self.date['beg'] + timedelta(days = 
-                            self.chunk_size * ind)
-            date_i['end'] = self.date['beg'] + timedelta(days = 
-                            self.chunk_size * (ind+1) - 1)
-            if ind == (slices-1):
-                date_i['end'] = self.date['end']
-            
-            #actual functions                                                                           
-            pl = ERAIpl(date_i, self.area, self.elevation, 
-                       self.variables, self.directory) 
-            sa = ERAIsa(date_i, self.area, self.variables, self.directory) 
-            sf = ERAIsf(date_i, self.area, self.variables, self.directory) 
-        
-            #download from ECMWF server convert to netCDF  
-            ERAli = [pl, sa, sf]
-            for era in ERAli:
-                era.download()          
-                                         
-        
-        # report inventory
-        self.inventory()  
-        
-                                                                                                                                                                                                           
-    def inventory(self):
-        """
-        Report on data avaialbe in directory: time slice, variables, area 
-        """
-        print("\n\n\n")
-        print("=== INVENTORY FOR GLOBSIM ERA-INTERIM DATA === \n")
-        print("Download parameter file: \n" + self.pfile + "\n")
-        # loop over filetypes, read, report
-        file_type = ['erai_pl_*.nc', 'erai_sa_*.nc', 'erai_sf_*.nc', 'erai_t*.nc']
-        for ft in file_type:
-            infile = path.join(self.directory, ft)
-            nf = len(filter(listdir(self.directory), ft))
-            print(str(nf) + " FILE(S): " + infile)
-            
-            if nf > 0:
-                # open dataset
-                ncf = nc.MFDataset(infile, 'r')
-                
-                # list variables
-                keylist = [str_encode(x) for x in ncf.variables.keys()]                
-                    
-                print("    VARIABLES:")
-                print("        " + str(len(keylist)) + 
-                      " variables, inclusing dimensions")
-                for key in keylist:
-                    print("        " + ncf.variables[key].long_name)
-                
-                # time slice
-                time = ncf.variables['time']
-                tmin = '{:%Y/%m/%d}'.format(nc.num2date(min(time[:]), 
-                                     time.units, calendar=time.calendar))
-                tmax = '{:%Y/%m/%d}'.format(nc.num2date(max(time[:]), 
-                                     time.units, calendar=time.calendar))
-                print("    TIME SLICE")                     
-                print("        " + str(len(time[:])) + " time steps")
-                print("        " + tmin + " to " + tmax)
-                      
-                # area
-                lon = ncf.variables['longitude']
-                lat = ncf.variables['latitude']
-                nlat = str(len(lat))
-                nlon = str(len(lon))
-                ncel = str(len(lat) * len(lon))
-                print("    BOUNDING BOX / AREA")
-                print("        " + ncel + " cells, " + nlon + 
-                      " W-E and " + nlat + " S-N")
-                print("        N: " + str(max(lat)))
-                print("        S: " + str(min(lat)))
-                print("        W: " + str(min(lon)))
-                print("        E: " + str(max(lon)))
-                            
-                ncf.close()
-                   
-    def __str__(self):
-        return "Object for ERA-Interim data download and conversion"                
 
                                                         
 class ERAIscale(object):
@@ -1309,15 +1310,14 @@ class ERAIscale(object):
             self.kernels = [self.kernels]
         
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(self.intpdir, 
-                                          'erai_pl_' + self.list_name + 
-                                          '_surface.nc'), 'r')
+        self.nc_pl = nc.Dataset(path.join(self.intpdir, 'erai_pl_' + 
+                                          self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir,'erai_sa_' + 
-                                self.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(par.project_directory,
-                                'erai_sf_' + self.list_name + '.nc'), 'r')
-        self.nc_to = nc.Dataset(path.join(par.project_directory,
-                                'erai_to_' + self.list_name + '.nc'), 'r')
+                                          self.list_name + '.nc'), 'r')
+        self.nc_sf = nc.Dataset(path.join(self.intpdir, 'erai_sf_' + 
+                                          self.list_name + '.nc'), 'r')
+        self.nc_to = nc.Dataset(path.join(self.intpdir, 'erai_to_' + 
+                                          self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               
         # check if output file exists and remove if overwrite parameter is set
@@ -1387,10 +1387,7 @@ class ERAIscale(object):
         timestep = str(par.time_step) + 'h'
         src = '_'.join(['scaled', src, timestep])
         src = src + '.nc'
-        #fname = [par.project_directory, scaleDir, src]
-        #fname = '/'.join(fname)
         fname = path.join(self.scdir, src)
-        
         
         return fname
     

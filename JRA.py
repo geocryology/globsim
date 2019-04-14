@@ -876,7 +876,7 @@ class JRAinterpolate(object):
         self.ifile = ifile
         par = ParameterIO(self.ifile)
         self.dir_inp = path.join(par.project_directory,'jra55') 
-        self.dir_out = path.join(par.project_directory,'station')
+        self.dir_out = self.makeOutDir(par)
         self.variables = par.variables     
         self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
@@ -892,6 +892,18 @@ class JRAinterpolate(object):
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par.chunk_size) * 200
+    
+    
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirIntp = path.join(par.project_directory, 'interpolated')
+        
+        if not (path.isdir(dirIntp)):
+            makedirs(dirIntp)
+            
+        return dirIntp
+    
         
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         '''
@@ -1447,7 +1459,8 @@ class JRAscale(object):
         # read parameter file
         self.sfile = sfile
         par = ParameterIO(self.sfile)
-        par.overwrite = True
+        self.intpdir = path.join(par.project_directory, 'interpolated')
+        self.scdir = self.makeOutDir(par)
         self.list_name = par.station_list.split(path.extsep)[0]
         
         # read kernels
@@ -1456,11 +1469,11 @@ class JRAscale(object):
             self.kernels = [self.kernels]
             
         # input file names
-        self.nc_pl = nc.Dataset(path.join(par.project_directory,'station/jra_pl_' + 
+        self.nc_pl = nc.Dataset(path.join(self.intpdir,'jra_pl_' + 
                                 self.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(par.project_directory,'station/jra_sa_' + 
+        self.nc_sa = nc.Dataset(path.join(self.intpdir,'jra_sa_' + 
                                 self.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(par.project_directory,'station/jra_sf_' + 
+        self.nc_sf = nc.Dataset(path.join(self.intpdir,'jra_sf_' + 
                                 self.list_name + '.nc'), 'r')
                                
         # check if output file exists and remove if overwrite parameter is set
@@ -1531,11 +1544,11 @@ class JRAscale(object):
         
         timestep = str(par.time_step) + 'h'
         src = '_'.join(['scaled', src, timestep])
-        fname = [par.project_directory, scaleDir, src]
-        fname = '/'.join(fname)
-        fname = fname + '.nc'
+        src = src + '.nc'
+        fname = path.join(self.scdir, src)
         
         return fname
+
 
     def PRESS_Pa_pl(self):
         """
