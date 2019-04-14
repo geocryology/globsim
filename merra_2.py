@@ -2453,17 +2453,17 @@ class MERRAscale(object):
             
         # input file names
         self.nc_pl = nc.Dataset(path.join(self.intpdir,
-                                          'station/merra2_pl_' + 
+                                          'merra2_pl_' + 
                                 self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir,
-                                          'station/merra2_sa_' + 
+                                          'merra2_sa_' + 
                                 self.list_name + '.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir,
-                                          'station/merra2_sf_' + 
+                                          'merra2_sf_' + 
                                 self.list_name + '.nc'), 'r')
-        self.nc_sc = nc.Dataset(path.join(self.intpdir,
-                                          'station/merra2_to_' + 
-                                self.list_name + '.nc'), 'r')
+        #self.nc_sc = nc.Dataset(path.join(self.intpdir,
+        #                                  'merra2_to_' + 
+        #                        self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_pl.variables['station'][:])
                               
         # check if output file exists and remove if overwrite parameter is set
