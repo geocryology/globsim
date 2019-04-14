@@ -1301,16 +1301,6 @@ class ERA5scale(object):
         #read station points 
         self.stations = StationListRead(self.stations_csv)
         
-    def getOutNCF(self, par, src, scaleDir = 'scale'):
-        '''make out file name'''
-        
-        timestep = str(par.time_step) + 'h'
-        src = '_'.join(['scaled', src, timestep])
-        src = src + '.nc'
-        fname = path.join(self.scdir, src)
-        
-        return fname
-        
     def process(self):
         """
         Run all relevant processes and save data. Each kernel processes one 
@@ -1332,6 +1322,26 @@ class ERA5scale(object):
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_to.close()
+        
+    def getOutNCF(self, par, src, scaleDir = 'scale'):
+        '''make out file name'''
+        
+        timestep = str(par.time_step) + 'h'
+        src = '_'.join(['scaled', src, timestep])
+        src = src + '.nc'
+        fname = path.join(self.scdir, src)
+        
+        return fname
+    
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirSC = path.join(par.project_directory, 'scaled')
+        
+        if not (path.isdir(dirSC)):
+            makedirs(dirSC)
+            
+        return dirSC
         
     def PRESS_Pa_pl(self):
         """

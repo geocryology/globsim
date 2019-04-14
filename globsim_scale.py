@@ -35,16 +35,18 @@ if __name__ == "__main__":
     
     
     args = parser.parse_args()
-
-    sfile = args.f
     
-    ERAI =  True if args.d is None or "ERAI"  in args.d else False
-    ERA5 =  True if args.d is None or "ERA5"  in args.d else False
-    JRA =   True if args.d is None or "JRA"   in args.d else False
-    MERRA = True if args.d is None or "MERRA" in args.d else False
+    if args.d in ['ERAI', 'ERA5', 'JRA', 'MERRRA']:
+        sfile = args.f
+        
+        ERAI =  True if args.d is None or "ERAI"  in args.d else False
+        ERA5 =  True if args.d is None or "ERA5"  in args.d else False
+        JRA =   True if args.d is None or "JRA"   in args.d else False
+        MERRA = True if args.d is None or "MERRA" in args.d else False
+        
+        GlobsimScale(sfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
     
-    GlobsimScale(sfile, ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
-    
+    else: print("Failed! Reanalysis source should be ERAI, ERA5, MERRA, JRA, please check")
 
 
 

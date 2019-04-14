@@ -2558,6 +2558,17 @@ class MERRAscale(object):
         
         return fname
 
+    
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirSC = path.join(par.project_directory, 'scaled')
+        
+        if not (path.isdir(dirSC)):
+            makedirs(dirSC)
+            
+        return dirSC
+    
     def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.

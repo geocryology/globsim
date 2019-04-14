@@ -1548,6 +1548,16 @@ class JRAscale(object):
         fname = path.join(self.scdir, src)
         
         return fname
+    
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirSC = path.join(par.project_directory, 'scaled')
+        
+        if not (path.isdir(dirSC)):
+            makedirs(dirSC)
+            
+        return dirSC
 
 
     def PRESS_Pa_pl(self):
