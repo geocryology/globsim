@@ -1745,7 +1745,7 @@ class JRAscale(object):
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:]
-        values  = self.nc_sf.variables['Total precipitation'][:]/24 #[mm/h]
+        values  = self.nc_sf.variables['Total precipitation'][:]/24/3600 #[mm/h]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             f = interp1d(time_in, values[:, n], kind = 'linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * 3600           
