@@ -1306,8 +1306,10 @@ class ERA5scale(object):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.output_file, self.nc_pl, self.times_out_nc,
-        t_unit = self.scaled_t_units, station_names = self.stations['station_name'])
+        self.rg = ScaledFileOpen(self.output_file, 
+                                 self.nc_pl, self.times_out_nc,
+                                 t_unit = self.scaled_t_units, 
+                                 station_names = self.stations['station_name'])
         
         
         # iterate thorugh kernels and start process
