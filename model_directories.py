@@ -153,7 +153,7 @@ class GTDirectory(BaseModelDir):
         mkdir('{}/out'.format(self.jobdir))
         
     def build(self):
-    	''' build directory from currently stored parameters '''
+        ''' build directory from currently stored parameters '''
         # write parameters file
         self.write_parameters()
         
@@ -180,7 +180,7 @@ class GTDirectory(BaseModelDir):
         return False
         
 class jobs_from_csv:
-	''' 
+    ''' 
     Create a directory containing CLASS and GEOtop job directories from a csv file.
     The csv file should have the following columns:
     
@@ -217,7 +217,7 @@ class jobs_from_csv:
         self.df = pd.read_csv(csv)
     
     def build(self):
-    	''' build directories based on parameters in csv file'''
+        ''' build directories based on parameters in csv file'''
         for index, row in self.df.iterrows():
             model = row['MODEL'].upper()
             
@@ -231,7 +231,7 @@ class jobs_from_csv:
                 raise NotImplementedError("Model type not implemented: {}".format(model))
             
     def build_GT(self, line):
-    	'''build geotop directory from a row in the csv file'''
+        '''build geotop directory from a row in the csv file'''
         inpts   = line['INPTS']
         forcing = line['FORCING']
         site    = line['SITE']
@@ -246,7 +246,7 @@ class jobs_from_csv:
         D.build()
         
     def build_CLASS(self, line):
-    	''' build CLASS directory from a row in the csv file '''
+        ''' build CLASS directory from a row in the csv file '''
         ini   = line['INI']
         ctm   = line['CTM']
         loop  = line['LOOP']
