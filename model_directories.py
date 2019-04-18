@@ -120,8 +120,8 @@ class GTDirectory(BaseModelDir):
         GTD.raw_forcing = GTD.gtpy.ascii_read(forcing_file, convert_geotop2=False) # read in forcing data
         
         # ensure start and end dates are appropriate
-        if not ('InitDateDDMMYYYYhhmm' in GTD.gtpy.inpts.keys()) or ('InitDateDDMMYYYYhhmm' in GTD.gtpy.inpts.keys()) :
-            print("No dates specified - using date range from forcing file")
+        if not (('InitDateDDMMYYYYhhmm' in GTD.gtpy.inpts.keys()) and ('InitDateDDMMYYYYhhmm' in GTD.gtpy.inpts.keys())) :
+            print("Missing beginning or end date - using date range from forcing file")
             GTD.gtpy.inpts['InitDateDDMMYYYYhhmm'] = min(GTD.raw_forcing['Date'])
             GTD.gtpy.inpts['EndDateDDMMYYYYhhmm'] = max(GTD.raw_forcing['Date'])
         else:
