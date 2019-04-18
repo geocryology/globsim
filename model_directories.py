@@ -15,6 +15,7 @@ import pandas as pd
 from globsim.generic import ParameterIO
 from globsim.CLASS_interaction import classp, INI
 from shutil import rmtree, copyfile
+from os import mkdir
 
 try:
     from geotop.geotop_interaction import DirectoryReader
@@ -126,12 +127,12 @@ class GTDirectory(BaseModelDir):
             GTD.gtpy.inpts['EndDateDDMMYYYYhhmm'] = max(GTD.raw_forcing['Date'])
         else:
             print("Using start and end dates from *.inpts file")
-            
+        
         return(GTD)
         
     @classmethod
     def from_abstraction(cls, rootdir, jobname):
-        ''' initialize using abstracted notions of forcing and initial conditions'''
+        ''' initilize using abstracted notions of forcing and initial conditions'''
         GTD = cls(rootdir, jobname)
         return(GTD)
 
@@ -147,21 +148,26 @@ class GTDirectory(BaseModelDir):
         #copyfile(self.forcing_file, out_forcing)
         meteofile = os.path.join(self.jobdir, self.gtpy.inpts['MeteoFile'].strip("\"") + "0001.txt")
         self.gtpy.ascii_write(meteofile, self.raw_forcing)
+
+    def make_outdir(self):
+        mkdir('{}/out'.format(self.jobdir))
         
     def build(self):
-        ''' build directory from currently stored parameters '''
+    	''' build directory from currently stored parameters '''
         # write parameters file
         self.write_parameters()
         
         # write forcing file
         self.write_forcing()
-    
+        # make model outputs directory
+        self.make_outdir()
+
     @staticmethod
     def is_valid(directory):
         ''' test whether directory is a valid geotop job'''
         try:
             # check if directory has a geotop.inpts file
-            inpts_file = os.path.join(directory, 'geotop.inpts')
+            inpts_file = glob.glob(os.path.join(directory, 'geotop*.inpts'))[0]
         
             # check if directory has an appropriately named forcing file
             meteo = ParameterIO(inpts_file).MeteoFile.strip("\"")
@@ -174,7 +180,7 @@ class GTDirectory(BaseModelDir):
         return False
         
 class jobs_from_csv:
-    ''' 
+	''' 
     Create a directory containing CLASS and GEOtop job directories from a csv file.
     The csv file should have the following columns:
     
@@ -192,7 +198,7 @@ class jobs_from_csv:
     geotop forcing files are cross-referenced with the geotop.inpts to
     ensure that the 
     '''
-    
+
     def __init__(self, csv, rootdir, overwrite=True):
         ''' 
         @args
@@ -211,7 +217,7 @@ class jobs_from_csv:
         self.df = pd.read_csv(csv)
     
     def build(self):
-        ''' build directories based on parameters in csv file'''
+    	''' build directories based on parameters in csv file'''
         for index, row in self.df.iterrows():
             model = row['MODEL'].upper()
             
@@ -225,12 +231,12 @@ class jobs_from_csv:
                 raise NotImplementedError("Model type not implemented: {}".format(model))
             
     def build_GT(self, line):
-        '''build geotop directory from a row in the csv file'''
+    	'''build geotop directory from a row in the csv file'''
         inpts   = line['INPTS']
         forcing = line['FORCING']
         site    = line['SITE']
         ID      = line['ID']
-        jobname = "{}-{}-{}".format(ID, site, "GT")  
+        jobname = "{}_{}_{}".format(ID, site, "GT")  
         
         D = GTDirectory.from_file_paths(rootdir=self.rootdir, 
                                         jobname=jobname,  
@@ -240,14 +246,14 @@ class jobs_from_csv:
         D.build()
         
     def build_CLASS(self, line):
-        ''' build CLASS directory from a row in the csv file '''
+    	''' build CLASS directory from a row in the csv file '''
         ini   = line['INI']
         ctm   = line['CTM']
         loop  = line['LOOP']
         met   = line['FORCING']
         site    = line['SITE']
         ID      = line['ID']
-        jobname = "{}-{}-{}".format(ID, site, "CLS")  
+        jobname = "{}_{}_{}".format(ID, site, "CLS")  
         
         D = CLASSDirectory.from_file_paths(rootdir=self.rootdir, 
                                            jobname=jobname,  
@@ -288,4 +294,3 @@ class CollectJobs():
 if __name__ == "__main__":
     import sys
     jobs_from_csv(sys.argv[1], sys.argv[2]).build()
-    
