@@ -1486,7 +1486,7 @@ class ERAIscale(object):
         
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in*3600, 
-                         cummulative2total(values[:, n])/interval_in,
+                         cummulative2total(values[:, n], time)/interval_in,
                          kind = 'linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
             
@@ -1577,11 +1577,10 @@ class ERAIscale(object):
         
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in*3600, 
-                         cummulative2total(values[:, n])/interval_in,
+                         cummulative2total(values[:, n], time)/interval_in,
                          kind = 'linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
-        
-        
+                
 
     def LW_Wm2_sur(self):
         """
@@ -1610,7 +1609,7 @@ class ERAIscale(object):
         
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             f = interp1d(time_in*3600, 
-                         cummulative2total(values[:, n])/interval_in, 
+                         cummulative2total(values[:, n], time)/interval_in, 
                          kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step 
                                                   

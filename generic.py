@@ -302,7 +302,7 @@ def convert_cummulative(data):
     #get full cummulative sum
     return np.cumsum(diff, dtype=np.float64)
 
-def cummulative2total(data):
+def cummulative2total(data, time):
     """
     Convert values that are serially cummulative, such as precipitation or 
     radiation, into a cummulative series from start to finish that can be 
@@ -315,12 +315,9 @@ def cummulative2total(data):
     
     # where new forecast starts, the increment will be smaller than 0
     # and the actual value is used
-    #mask = diff < 0
-    #diff[mask] = data[mask]
     
-    n = floor(len(diff)/4)
-    i = 1 + np.arange(n)*4
-    diff[i] = data[i]
+    mask = [timei.hour in [3,15] for timei in time]
+    diff[mask] = data[mask]
     
     mask = diff < 0
     diff[mask] = 0
