@@ -1003,14 +1003,14 @@ class ERA5interpolate(object):
                 if pl:
                     if ESMFnew:
                         # dfield has dimensions (station, variables, time, pressure levels
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]   # hasn't been changed to ESMFnew yet
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
                     else:
                         # dimension: time, level, station (pressure level files)
                         ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]        
                 else:   
                     if ESMFnew:
                         # dfield has dimensions (station, variables, time)
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:].transpose((1,0))
                     else:
                         # dfield has dimensions time, station (2D files)
                         ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]

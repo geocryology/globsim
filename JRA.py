@@ -1232,13 +1232,13 @@ class JRAinterpolate(object):
                     lev = ncf_in.variables['level'][:]
                     
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]
+                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
                     else:
                         # dimension: time, level, latitude, longitude
                         ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]      
                 else:
                     if ESMFnew:
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
+                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:].transpose((1,0))
                     else:
                         # time, latitude, longitude
                         ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
