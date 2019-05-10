@@ -462,6 +462,7 @@ class JRAsa(object):
 
         varlist = [item for item in varlist if item is not None]
         varlist = [item for sublist in varlist for item in sublist]
+        varlist.append('Pressure')
         
         return varlist
     
@@ -702,7 +703,7 @@ class JRAdownload(object):
         
         varf = np.sort(glob.glob(path.join(self.directory, 
                                            '*' + variables[0]+'*')))
-        ncf = nc.MFDataset(varf, aggdim ='initial_time0_hours')
+        ncf = nc.MFDataset(varf.tolist(), aggdim ='initial_time0_hours')
         
         if dataLev == 'pl':
             Levs = ncf['lv_ISBL1'][:].data
@@ -750,7 +751,7 @@ class JRAdownload(object):
         
         for vari in variables:
             flist = np.sort(glob.glob(path.join(self.directory, '*'+vari+'*')))
-            ncf = nc.MFDataset(flist, aggdim = self.timeName)
+            ncf = nc.MFDataset(flist.tolist(), aggdim = self.timeName)
             for n, var in enumerate(ncf.variables.keys()):
                 if variables_skip(self.ncfVar[var]):
                     continue                 
