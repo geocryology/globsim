@@ -363,7 +363,7 @@ class JRApl(object):
         varlist = [item for sublist in varlist for item in sublist]
         
         if len(varlist) > 0:
-            varlist += ['Geopotential height', 'level']
+            varlist += ['Geopotential height', 'level', 'pressure']
         
         return varlist
     
@@ -462,7 +462,6 @@ class JRAsa(object):
 
         varlist = [item for item in varlist if item is not None]
         varlist = [item for sublist in varlist for item in sublist]
-        varlist.append('Pressure')
         
         return varlist
     
@@ -526,6 +525,7 @@ class JRAsf(object):
 
         varlist = [item for item in varlist if item is not None]
         varlist = [item for sublist in varlist for item in sublist]
+        varlist.append('Pressure')
         
         return varlist
     
@@ -617,12 +617,13 @@ class JRAdownload(object):
                 'VGRD_GDS0_HTGL':        'v-component of wind',
                 'UGRD_GDS0_HTGL':        'u-component of wind',
                 'RH_GDS0_HTGL':          'Relative humidity',
+                'PRES_GDS0_SFC_ave3h':   'Pressure',
                 'TPRAT_GDS0_SFC_ave3h':  'Total precipitation',
                 'CSDSF_GDS0_SFC_ave3h':  'Clear sky downward solar radiation flux',
                 'CSDLF_GDS0_SFC_ave3h':  'Clear sky downward longwave radiation flux',
                 'DSWRF_GDS0_SFC_ave3h':  'Downward solar radiation flux',
                 'DLWRF_GDS0_SFC_ave3h':  'Downward longwave radiation flux'}
-    
+
     
     def __varCheck(self, par):
         '''convert one variable to a list'''
@@ -757,12 +758,14 @@ class JRAdownload(object):
                     continue                 
                 print("VAR: ", var)
                 if dataLev == 'pl':
-                    vari = ncn.createVariable(self.ncfVar[var],'f4',('time','level',
-                                                'latitude','longitude',))
+                    vari = ncn.createVariable(self.ncfVar[var],'f4',
+                                              ('time','level',
+                                               'latitude','longitude',))
                     vari[:,:,:,:] = ncf[var][:,:,:,:]
                 else:
-                    vari = ncn.createVariable(self.ncfVar[var],'f4',('time',
-                                                'latitude','longitude'))
+                    vari = ncn.createVariable(self.ncfVar[var],'f4',
+                                              ('time',
+                                               'latitude','longitude'))
                     vari[:,:,:] = ncf[var][:,:,:]
                     
                 vari.long_name = ncf[var].long_name
@@ -835,7 +838,7 @@ class JRAdownload(object):
                     rda.download(self.directory, ds)
                     self.makeNCF(ds)
                 doneI += dsIndex
-            time.sleep(20)
+            time.sleep(60*10)# check available data every 10 mins
         
         print('''\n======== Download Completed ========\n''')
         
@@ -1333,8 +1336,7 @@ class JRAinterpolate(object):
         for n, h in enumerate(height): 
             # convert geopotential [millibar] to height [m]
             # shape: (time, level)
-            ele = ncf.variables['Geopotential height'][:,:,n] / 9.80665
-            # TODO: check if height of stations in data range (+50m at top, lapse r.)
+            ele = ncf.variables['Geopotential height'][:,:,n]
             
             # difference in elevation. 
             # level directly above will be >= 0
@@ -1368,6 +1370,7 @@ class JRAinterpolate(object):
                 else:
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()
+            
                 ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
@@ -1421,7 +1424,7 @@ class JRAinterpolate(object):
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)          
 
-        # === 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA ===
+        # 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA
         # dictionary to translate CF Standard Names into MERRA2
         # pressure level variable keys. 
         dpar = {'air_temperature'   : ['air_temperature'],  # [K]
@@ -1574,12 +1577,11 @@ class JRAscale(object):
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
-        values  = self.nc_pl.variables['air_pressure'][:]                   
+        values  = self.nc_pl.variables['air_pressure'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             #scale from hPa to Pa 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                        time_in*3600, values[:, n]) * 100          
-
+                                        time_in, values[:, n]) * 100
 
     def AIRT_C_pl(self):
         """
