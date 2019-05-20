@@ -1299,9 +1299,7 @@ class JRAinterpolate(object):
                 else:
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()
-                    multvawa = np.multiply(data[va], wa, dtype='float64')
-                    multvbwb = np.multiply(data[vb], wb, dtype='float64')
-                ipol = multvawa + multvbwb   # interpolated value                    
+                ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
         rootgrp.close()
