@@ -46,7 +46,7 @@ import netCDF4 as nc
 
 from datetime     import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
-from math         import exp, floor
+from math         import exp, floor, atan2, pi
 from os           import path, listdir, remove, makedirs
 from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode, cummulative2total
 from fnmatch      import filter
@@ -1550,7 +1550,7 @@ class ERAIscale(object):
         var.long_name = '10 wind direction ERA-I surface only'
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'                                                           
-        self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
+        self.rg.variables[vn][:, :] = atan2(V, U)*180/pi + 180
         
     def SW_Wm2_sur(self):
         """

@@ -45,7 +45,7 @@ import netCDF4 as nc
 import cdsapi
 
 from datetime import datetime, timedelta
-from math     import exp, floor
+from math     import exp, floor, atan2, pi
 from os       import path, listdir, makedirs
 from fnmatch  import filter
 from ecmwfapi.api import ECMWFDataServer
@@ -671,7 +671,7 @@ class ERA5download(object):
         Report on data avaialbe in directory: time slice, variables, area 
         """
         print("\n\n\n")
-        print("=== INVENTORY FOR GLOBSIM ERA5 DATA === \n")
+        print("=== INVENTORY FOR GLOBSIM ERA5 DATA ===\n")
         print("Download parameter file: \n" + self.pfile + "\n")
         # loop over filetypes, read, report
         file_type = ['era5_pl_*.nc', 'era5_sa_*.nc', 
@@ -990,7 +990,6 @@ class ERA5interpolate(object):
             dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
                                                  self.stations, tmask_chunk,
                                                  variables=None, date=None) 
-
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end+1])
@@ -1489,7 +1488,7 @@ class ERA5scale(object):
         var.long_name = '10 wind direction ERA-5 surface only'
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'                                             
-        self.rg.variables[vn][:, :] = np.mod(np.degrees(np.arctan2(V,U))-90,360) 
+        self.rg.variables[vn][:, :] = atan2(V, U)*180/pi + 180
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
     def SW_Wm2_sur(self):
         """

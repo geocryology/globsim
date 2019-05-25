@@ -18,7 +18,7 @@ import numpy         as np
 from datetime        import datetime, timedelta
 from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
 from os              import path, listdir, remove, makedirs
-from math            import exp, floor
+from math            import exp, floor, atan2, pi
 from fnmatch         import filter
 from scipy.interpolate import interp1d
 
@@ -1692,10 +1692,8 @@ class JRAscale(object):
 
         WS = np.sqrt(np.power(V,2) + np.power(U,2))  
         self.rg.variables['WSPD_JRA55_ms_sur'][:, :] = WS                                          
-
-        WD = np.arctan2(V,U)               
-        WD = np.mod(np.degrees(WD)-90, 360) # make relative to North                                                                 
-        self.rg.variables['WDIR_JRA55_deg_sur'][:, :] = WD 
+                                                               
+        self.rg.variables['WDIR_JRA55_deg_sur'][:,:] = atan2(V, U)*180/pi + 180
 
     def SW_Wm2_sur(self):
         """
