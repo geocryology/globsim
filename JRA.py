@@ -1201,7 +1201,7 @@ class JRAinterpolate(object):
             # indices
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n*self.cs + self.cs, len(time_in)-1)
+            end = min(n*self.cs + self.cs - 1, len(time_in)-1)
             
             # time to make tmask for chunk 
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
@@ -1371,8 +1371,8 @@ class JRAinterpolate(object):
                     #read data from netCDF
                     data = ncf.variables[var][:,:,n].ravel()
             
-                multvawa = np.multiply(data[va], wa, dtype='float64')
-                multvbwb = np.multiply(data[vb], wb, dtype='float64')
+                multvawa = np.multiply(data[va], wa)
+                multvbwb = np.multiply(data[vb], wb)
                 ipol = multvawa + multvbwb
                 rootgrp.variables[var][:,n] = ipol # assign to file   
     
