@@ -2632,12 +2632,8 @@ class MERRAscale(object):
         """   
         
         # temporary variable,  interpolate station by station
-        dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['T2MDEW'][:]                   
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
-            dewp[:, n] = series_interpolate(self.times_out_nc, 
-                                            time_in*3600, values[:, n]-273.15) 
+        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
+        values = self.nc_pl.variables['RH'][:]
                                                              
         # add variable to ncdf file
         vn = 'RH_MERRA2_per_sur' # variable name
@@ -2647,8 +2643,10 @@ class MERRAscale(object):
         var.standard_name = 'relative_humidity'
         
         # simple: https://en.wikipedia.org/wiki/Dew_point
-        RH = 100-5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :]-dewp[:, :])
-        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
+        #RH = 100-5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :]-dewp[:, :])
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            self.rg.variables[vn][:, :] = series_interpolate(self.times_out_nc, 
+                                            time_in*3600, values[:, n])
                                                     
     def WIND_sur(self):
         """
