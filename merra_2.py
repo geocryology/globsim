@@ -2676,7 +2676,6 @@ class MERRAscale(object):
         var.long_name = '10 metre wind speed MERRA-2 surface only'
         var.units     = 'm s-1' 
         var.standard_name = 'wind_speed'
-        self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
  
         # add variable to ncdf file
         vn = 'WDIR_MERRA2_deg_sur' # variable name
@@ -2684,7 +2683,14 @@ class MERRAscale(object):
         var.long_name = '10 metre wind direction MERRA-2 surface only'
         var.units     = 'degree' 
         var.standard_name = 'wind_from_direction'
-        self.rg.variables[vn][:, :] = atan2(V, U)*180/pi + 180
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            WS = np.sqrt(np.power(V,2) + np.power(U,2))
+            WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
+                  180 for i in np.arange(V.shape[0])]
+            self.rg.variables['WSPD_MERRA2_ms_sur'][:, n] = WS
+            self.rg.variables['WDIR_MERRA2_deg_sur'][:,n] = WD
+        
 
     def SW_Wm2_sur(self):
         """

@@ -1480,15 +1480,20 @@ class ERA5scale(object):
         var.long_name = '10 wind speed ERA-5 surface only'
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
-        self.rg.variables[vn][:, :] = np.sqrt(np.power(V,2) + np.power(U,2))  
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
         vn = 'WDIR_ERA5_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA-5 surface only'
         var.units     = 'degree'
-        var.standard_name = 'wind_from_direction'                                             
-        self.rg.variables[vn][:, :] = atan2(V, U)*180/pi + 180
+        var.standard_name = 'wind_from_direction'
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            WS = np.sqrt(np.power(V,2) + np.power(U,2))
+            WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
+                  180 for i in np.arange(V.shape[0])]
+            self.rg.variables['WSPD_ERA5_ms_sur'][:, n] = WS
+            self.rg.variables['WDIR_ERA5_deg_sur'][:,n] = WD                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
     def SW_Wm2_sur(self):
         """

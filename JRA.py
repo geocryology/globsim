@@ -1687,13 +1687,16 @@ class JRAscale(object):
         # convert
         # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
         # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
-        V = self.rg.variables['10 metre V wind component'][:, :]
-        U = self.rg.variables['10 metre U wind component'][:, :] 
+        V = self.rg.variables['10 metre V wind component'][:]
+        U = self.rg.variables['10 metre U wind component'][:] 
 
-        WS = np.sqrt(np.power(V,2) + np.power(U,2))  
-        self.rg.variables['WSPD_JRA55_ms_sur'][:, :] = WS                                          
-                                                               
-        self.rg.variables['WDIR_JRA55_deg_sur'][:,:] = atan2(V, U)*180/pi + 180
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
+            WS = np.sqrt(np.power(V,2) + np.power(U,2))
+            WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
+                  180 for i in np.arange(V.shape[0])]
+            self.rg.variables['WSPD_JRA55_ms_sur'][:, n] = WS
+            self.rg.variables['WDIR_JRA55_deg_sur'][:,n] = WD
+    
 
     def SW_Wm2_sur(self):
         """
