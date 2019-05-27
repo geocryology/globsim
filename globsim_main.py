@@ -4,7 +4,10 @@
 # Generic classes, methods, functions used for more than one reanalysis.
 #
 #
-# (C) Copyright Stephan Gruber (2017)
+# (C) Copyright 2017-2019 Stephan Gruber
+#				2017-2018 Xiaojing Quan
+#				2018-2019 Nicholas Brown
+#				2018-2019 Bin Cao
 #         
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -19,7 +22,16 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+#
+# === CONTRIBUTIONS ============================================================
+# Intial code for GlobSim is designed by Stephan Gruber. Xiaojing Quan developed
+# MERRA-2, download part of ERA-Interim, and intial interpolation and scale  
+# parts of GlobSim. Bin Cao wrote the download parts of ERA5, JRA-55, and  
+# finilized the interpolation and scale part. Nicholas Brown improved ERA5, 
+# wrote the CF conventions part, and tested GlobSim.
 #===============================================================================
+
+
 from globsim.era_interim import ERAIdownload, ERAIinterpolate, ERAIscale
 from globsim.era5 import ERA5download, ERA5interpolate, ERA5scale
 from globsim.merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale 
