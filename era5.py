@@ -600,7 +600,10 @@ class ERA5download(object):
         
         # sanity check to make sure area is good
         if (par.bbN < par.bbS) or (par.bbE < par.bbW):
-            raise Exception("Bounding box is invalid: {}".format(self.area))         
+            raise Exception("Bounding box is invalid: {}".format(self.area))
+            
+        if (np.abs(par.bbN-par.bbS) < 1.5) or (np.abs(par.bbE-par.bbW) < 1.5):
+            raise Exception("Download area is too small to conduct interpolation.")
         
         # time bounds
         self.date  = {'beg' : par.beg,
