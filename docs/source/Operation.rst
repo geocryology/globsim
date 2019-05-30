@@ -1,16 +1,14 @@
 Operation
 =========
 
-Set-up
-------
 
 Parameter files
-^^^^^^^^^^^^^^^
+---------------
 Three parameter files are used to control GLOBSIM. There is one for each step in the procedure (download, interpolate, scale). The parameter files should all be in the /par subdirectory of the project directory. 
 
 
 Downloading
---------------
+^^^^^^^^^^^
 
 
 =========================         =============
@@ -34,7 +32,7 @@ Downloading
 .. note:: To check download progress, you can use your credentials to log onto the website for `JRA <https://rda.ucar.edu/#ckrqst>`_ and `ERA5 (CDS API) <https://cds.climate.copernicus.eu/cdsapp#!/yourrequests>`_
 
 Interpolating
--------------
+^^^^^^^^^^^^^
 
 =========================         ===============
    **Keyword**                    **Description** 
@@ -49,7 +47,7 @@ Interpolating
 
 
 Rescaling
----------
+^^^^^^^^^
 
 =========================         ===============
    **Keyword**                    **Description** 
@@ -62,3 +60,24 @@ Rescaling
 **kernels**                       Which processing kernels should be used. Missing or misspelled kernels will be ignored by globsim.
 =========================         ===============
 
+Station list for interpolation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This is an example of a Globsim station list file. The resulting netCDF file will use the station numbers as identifiers. Use extension like this: 'my_stations.csv'::
+
+     station_number, station_name, longitude_dd, latitude_dd, elevation_m 
+     1, yellowknife_airport, -114.44234, 62.46720, 207
+     2, ekati_airport, -110.60804, 64.70591, 461
+     
+     
+Project directory
+^^^^^^^^^^^^^^^^^     
+The **project directory** is the location to which data is downloaded and where processed data is found. The project directory is subdivided by re-analysis type and by the type of derived product::
+
+     project_a/              (project directory)
+     project_a/par/          (parameter files for data download and interpolation)
+     project_a/jra-55/       (JRA-55 data)
+     project_a/eraint/       (ERA-Interim data)
+     project_a/era5/         (ERA-5 data)
+     project_a/merra2/       (MERRA 2 data)
+     project_a/station/      (data interpolated to stations)
+     project_a/scale/        (final scaled files)
