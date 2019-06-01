@@ -2648,7 +2648,7 @@ class MERRAscale(object):
         # simple: https://en.wikipedia.org/wiki/Dew_point
         #RH = 100-5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :]-dewp[:, :])
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, :] = series_interpolate(self.times_out_nc, 
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n])
                                                     
     def WIND_sur(self):
