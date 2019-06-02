@@ -14,7 +14,7 @@ Open GlobSim Docker container
 -----------------------------
 Next, open a docker command-line window and download the globsim docker image::
 
-    docker pull geocryology/globsim:latest
+    docker pull geocryology/globsim:v1_0_5_GMDD
     
 Then, start the docker container! You'll want to attach it to a folder on your computer using the `-v` flag, replacing <directory> with a directory on your computer::
 
