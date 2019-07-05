@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, get_begin_date
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
@@ -1593,7 +1593,7 @@ class MERRAdownload(object):
             raise Exception("Download area is too small to conduct interpolation.")
                   
         # time bounds
-        self.date  = {'beg' : par.beg,
+        self.date  = {'beg' : get_begin_date(par, 'merra2', ["merra_pl*", "merra_sa*","merra_sf*"]),
                       'end' : par.end}
 
         # elevation

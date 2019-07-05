@@ -22,7 +22,7 @@
 #===============================================================================
 from __future__  import print_function
 
-from datetime    import datetime
+from datetime    import datetime, timedelta
 from csv         import QUOTE_NONE
 from os          import mkdir, path
 from math        import floor
@@ -30,7 +30,8 @@ from math        import floor
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
-
+import glob
+import os
 # handle python 3 string types
 try:
     basestring
@@ -324,7 +325,45 @@ def cummulative2total(data, time):
     
     return diff
     
+def get_begin_date(par, data_folder, match_strings):
+    """ Get the date to begin downloading when some files already exist
+    
+    Parameters
+    ----------
+    par : ParameterIO object
+    data_folder : str
+        name of subdirectory containing data files. Examples: merra2, era5
+    match_strings : list
+        list of glob-style strings to check. Examples ["merra_pl*", "merra_sa*","merra_sf*"]
+    
+    Returns
+    -------
+    datetime
+        datetime object corresponding to the desired begin date (replaces par['beg'])
+        
+    This makes an inventory of all the files that have been downloaded so far and
+    returns the next date to begin downloading.  If all match_strings are downloaded up to the same
+    day, then the following day is returned. Otherwise, the 
+    """
+    directory = par['project_directory']
+    print("Searching for existing files in directory")
+    
+    if not all([len(glob.glob(os.path.join(directory, data_folder, s))) > 0 for s in match_strings]):
+        print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
+        return par['beg']
+        
+    datasets = [nc.MFDataset(os.path.join(directory, data_folder, s)) for s in match_strings]
+    dates = [nc.num2date(x['time'][:], x['time'].units, x['time'].calendar) for x in datasets]
+    
+    latest = [max(d) for d in dates]
+    latest = [dt.replace(hour=0, minute=0, second=0, microsecond=0) for dt in latest]
+    latest_complete = min(latest)
 
+    begin_date = latest_complete + timedelta(days=1)
+    
+    print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d"))    )
+    return(begin_date)
+    
 def series_interpolate(time_out, time_in, value_in, cum=False):
     '''
     Interpolate single time series. Convenience function for usage in scaling 
