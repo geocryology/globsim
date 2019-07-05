@@ -40,8 +40,18 @@ ERA5
 ^^^^
 As of February 2019, the ECMWF servers can no longer be used to download ERA5 data. Instead, the copernicus climate data store (CDS) servers are used. 
 
+_`Register on CDS`<https://cds.climate.copernicus.eu/user/register?destination=%2F%23!%2Fhome>
 
-The same credential will be used as for ERAI but you will also need to accept the `copernicus user agreement <http://apps.ecmwf.int/datasets/licences/copernicus/>`_.
+_`Accept License to User Copernicus Producs`<https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form> (scroll to bottom)
+
+Get API key from user profile
+
+Create .cdsapirc:
+
+    url: https://cds.climate.copernicus.eu/api/v2
+    key: <get the key from your user profile>
+    verify: 0
+
 
 MERRA-2
 ^^^^^^^
