@@ -46,7 +46,7 @@ _`Accept License to User Copernicus Producs`<https://cds.climate.copernicus.eu/c
 
 Get API key from user profile
 
-Create .cdsapirc:
+Create .cdsapirc::
 
     url: https://cds.climate.copernicus.eu/api/v2
     key: <get the key from your user profile>
