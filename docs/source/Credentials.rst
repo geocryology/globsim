@@ -49,8 +49,9 @@ Get API key from user profile
 Create .cdsapirc::
 
     url: https://cds.climate.copernicus.eu/api/v2
-    key: <get the key from your user profile>
-    verify: 0
+    key: <uid>:<get the key from your user profile>
+
+_`Full details on CDS API`<https://cds.climate.copernicus.eu/api-how-to> 
 
 
 MERRA-2
