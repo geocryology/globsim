@@ -42,5 +42,6 @@ RUN apt-get install -y nano
 
 RUN git clone https://github.com/geocryology/globsim --branch v1.0.6 --depth 1 /opt/globsim
 
+
 RUN echo /opt >/usr/lib/python3/dist-packages/globsim.pth
 RUN ln -s /opt/esmf-install/ /opt/esmf
