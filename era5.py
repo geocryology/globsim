@@ -43,6 +43,7 @@ import re
 import numpy   as np
 import netCDF4 as nc
 import cdsapi
+import signal
 
 from datetime import datetime, timedelta
 from math     import exp, floor, atan2, pi
@@ -79,7 +80,8 @@ class ERA5generic(object):
     """
     Parent class for other ERA5 classes.
     
-    """           
+    """   
+    DL_TIMEOUT = 20*60 #seconds
     CDS_DICT =  {'130.128' : 'temperature',
                      '157.128' : 'relative_humidity',
                      '131.128' : 'u_component_of_wind',
@@ -150,17 +152,6 @@ class ERA5generic(object):
                       self.date['end'].strftime("%Y%m%d"))
     
     def download(self, api, storage):
-        if api == 'ecmwf':
-            server = ECMWFDataServer()
-            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-            server.retrieve(self.getDictionary())
-            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-        
-        elif api == 'cds':
-            self.download_cds(storage)
-    
-    def download_cds(self, storage='cds'):
-        ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
         server = cdsapi.Client()
         
         query = self.getDictionary()
@@ -168,22 +159,37 @@ class ERA5generic(object):
         levtype = query.pop('levtype')
         
         # select dataset
-        if storage == 'ecmwf':
-            dataset = 'reanalysis-era5-complete'
-        elif storage == 'cds':
-            dataset = {'pl' : 'reanalysis-era5-pressure-levels',
-                       'sfc': 'reanalysis-era5-single-levels'
-                      }[levtype]
-            query = self.ECM2CDS(query)
+        dataset = {'pl' : 'reanalysis-era5-pressure-levels',
+                   'sfc': 'reanalysis-era5-single-levels'
+                  }[levtype]
+        query = self.ECM2CDS(query)
         
         # launch download request
         print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
+        
         if path.isfile(target):
              print("WARNING: File '{}' already exists and was skipped".format(target))
+        
         else:
-            server.retrieve(dataset, query, target)
+            def handler(signum, frame):
+                raise OSError("GlobSim timeout. Retrying file. Adjust timeout duration if necessary")
+            
+            for i in range(10):
+                signal.signal(signal.SIGALRM, handler)
+                signal.alarm(self.DL_TIMEOUT)
+                
+                try:
+                    server.retrieve(dataset, query, target)
+                
+                except OSError as exc:
+                    print(exc)
+                    if path.isfile(target):
+                        os.remove(target)
+                        print("Removed partially downloaded file")
+                        
+                signal.alarm(0)
         print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
-    
+            
     
     def ECM2CDS(self, query):
         ''' convert ECMWF query to CDS format '''
