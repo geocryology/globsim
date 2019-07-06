@@ -47,7 +47,7 @@ import signal
 
 from datetime import datetime, timedelta
 from math     import exp, floor, atan2, pi
-from os       import path, listdir, makedirs
+from os       import path, listdir, makedirs, remove
 from fnmatch  import filter
 from ecmwfapi.api import ECMWFDataServer
 from scipy.interpolate import interp1d
@@ -180,11 +180,12 @@ class ERA5generic(object):
                 
                 try:
                     server.retrieve(dataset, query, target)
-                
+                    break 
+                    
                 except OSError as exc:
                     print(exc)
                     if path.isfile(target):
-                        os.remove(target)
+                        remove(target)
                         print("Removed partially downloaded file")
                         
                 signal.alarm(0)
