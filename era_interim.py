@@ -1496,7 +1496,7 @@ class ERAIscale(object):
     def RH_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]. Kernel AIRT_ERAI_C_sur must be run before.
+        range [0.001, 0.999]. Kernel AIRT_ERAI_C_sur must be run before.
         """         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
@@ -1515,7 +1515,7 @@ class ERAIscale(object):
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
         RH = 100 - 5 * (self.rg.variables['AIRT_ERAI_C_sur'][:, :]-dewp[:, :])
-        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
+        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)/100
         
         
     def WIND_sur(self):
