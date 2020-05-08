@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:18.04
 
 COPY esmf-python.tar.gz /opt
 COPY credential/ /root
