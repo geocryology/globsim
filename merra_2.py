@@ -157,9 +157,9 @@ class MERRAgeneric():
             urls_2dr: urls of 2D radiation Diagnostics datasets
             urls_2dv: urls of 2D Assimilation Single-Level Diagnostics datasets
             url_2dc: urls of 2D single-level constant model parameters datasets
-        """          
-        #Setup the based url strings    
-        baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') 
+        """
+        #Setup the based url strings
+        baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/')
         baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/')
         # 1980 ~ 1991 
         baseurl_3dn_1 = ('M2I6NPANA.5.12.4/','/MERRA2_100.inst6_3d_ana_Np.')                   
