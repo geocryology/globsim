@@ -99,7 +99,7 @@ class ERAIgeneric(object):
         #http://en.wikipedia.org/wiki/Barometric_formula
         return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
     
-    def getPressureLevels(self, elevation)Z:
+    def getPressureLevels(self, elevation):
         """Restrict list of ERA-interim pressure levels to be downloaded"""
         Pmax = self.getPressure(elevation['min']) + 55
         Pmin = self.getPressure(elevation['max']) - 55 
