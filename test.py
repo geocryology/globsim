@@ -51,7 +51,7 @@ def runDownload(parFile):
 runDownload(pfile)
 '''
 Download reanalysis data for area specified in par twice.
-
+runrunrunrun
    python globsim_download.py -d MERRA -f ./examples/JUNE11_BC/par/JUNE11_BC.globsim_download
    Multiple: python3 opt/globsim/globsim_download.py -d ERA5, MERRA -f ./examples/JUNE11_BC/par/JUNE11_BC.globsim_download
 
