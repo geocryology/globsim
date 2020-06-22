@@ -38,13 +38,13 @@ def runDownload(parFile):
 
     :return: rn - returns parfile updated, but also runs download and will put in place two downloaded files
 
-
+also try this
     subprocess.call("python globsim_download.py -d MERRRA, ERA5, JRA -f " + pfile, shell=True)
     parFile = parFile + '/fn'
     subprocess.call("python globsim_download.py -d MERRRA, ERA5, JRA -f ./examples/JUNE11_BC/par/JUNE11_BC.globsim_download", shell=True)
     return(parFile)
     '''
-    print("okokokok")
+    print("ggg")
     return (parFile)
 
 
