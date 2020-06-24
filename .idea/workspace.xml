@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="1aa3d183-6f7e-4540-82a7-6425f2eb60c8" name="Default Changelist" comment="22JUNE2020 -test.py commit #2 from pycharm IDE.">
+      <change afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/globsim.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/other.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/remote-mappings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/webServers.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/Example1/par/examples.globsim_download" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Example1/par/examples.globsim_download" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/Example1/par/examples.globsim_interpolate" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Example1/par/examples.globsim_interpolate" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/Example1/par/examples.globsim_scale" beforeDir="false" afterPath="$PROJECT_DIR$/examples/Example1/par/examples.globsim_scale" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="1dgToXrM0zPq5ZUMbGhkvEK2Tzg" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="TERMINAL_CUSTOM_COMMANDS_GOT_IT" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="true" />
+    <property name="WebServerToolWindowPanel.toolwindow.highlight.mappings" value="true" />
+    <property name="WebServerToolWindowPanel.toolwindow.highlight.symlinks" value="true" />
+    <property name="WebServerToolWindowPanel.toolwindow.show.date" value="false" />
+    <property name="WebServerToolWindowPanel.toolwindow.show.permissions" value="false" />
+    <property name="WebServerToolWindowPanel.toolwindow.show.size" value="false" />
+    <property name="com.intellij.ide.scratch.LRUPopupBuilder$1/New Scratch File" value="Python" />
+    <property name="nodejs_package_manager_path" value="npm" />
+    <property name="settings.editor.selected.configurable" value="preferences.keymap" />
+  </component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings module-name="globsim" is-module-sdk="true">
+        <option name="myUseModuleSdk" value="true" />
+        <option name="myModuleName" value="globsim" />
+      </console-settings>
+    </option>
+  </component>
+  <component name="RunManager">
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+      <module name="globsim" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SshConsoleOptionsProvider">
+    <option name="myEncoding" value="UTF-8" />
+    <option name="myConnectionType" value="DEFAULT_SDK" />
+    <option name="myConnectionId" value="" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration>$USER_HOME$/.subversion</configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="1aa3d183-6f7e-4540-82a7-6425f2eb60c8" name="Default Changelist" comment="" />
+      <created>1592845911486</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1592845911486</updated>
+      <workItem from="1592845913140" duration="77000" />
+      <workItem from="1592845994687" duration="3740000" />
+      <workItem from="1592856398592" duration="259000" />
+      <workItem from="1592856713978" duration="1877000" />
+      <workItem from="1592915452727" duration="192000" />
+      <workItem from="1592920677024" duration="729000" />
+      <workItem from="1592921571606" duration="2960000" />
+      <workItem from="1592925073889" duration="7707000" />
+      <workItem from="1592937694386" duration="1507000" />
+      <workItem from="1593000495070" duration="1644000" />
+      <workItem from="1593004435622" duration="164000" />
+      <workItem from="1593004621584" duration="8409000" />
+    </task>
+    <task id="LOCAL-00001" summary="22JUNE2020 -test.py commit #2 from pycharm IDE.">
+      <created>1592846576793</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1592846576793</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="2" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="22JUNE2020 -test.py commit #2 from pycharm IDE." />
+    <option name="LAST_COMMIT_MESSAGE" value="22JUNE2020 -test.py commit #2 from pycharm IDE." />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="320" y="115" key="#Deployment" timestamp="1593008589331">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="320" y="115" key="#Deployment/0.0.1440.900@0.0.1440.900" timestamp="1593008589331" />
+    <state x="603" y="320" width="645" height="412" key="#Notifications" timestamp="1593004480829">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="603" y="320" width="645" height="412" key="#Notifications/0.0.1440.900@0.0.1440.900" timestamp="1593004480829" />
+    <state x="82" y="36" key="#SSH_Configurations" timestamp="1592925139065">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="82" y="36" key="#SSH_Configurations/0.0.1440.900@0.0.1440.900" timestamp="1592925139065" />
+    <state x="352" y="259" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1593010293765">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="352" y="259" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1440.900@0.0.1440.900" timestamp="1593010293765" />
+    <state x="333" y="226" key="#com.intellij.tools.ToolEditorDialog" timestamp="1592855754166">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="333" y="226" key="#com.intellij.tools.ToolEditorDialog/0.0.1440.900@0.0.1440.900" timestamp="1592855754166" />
+    <state x="297" y="25" key="CommitChangelistDialog2" timestamp="1592876463921">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="297" y="25" key="CommitChangelistDialog2/0.0.1440.900@0.0.1440.900" timestamp="1592876463921" />
+    <state x="100" y="100" width="1240" height="700" key="DiffContextDialog" timestamp="1593009413598">
+      <screen x="0" y="23" width="1440" height="877" />
+    </state>
+    <state x="100" y="100" width="1240" height="700" key="DiffContextDialog/0.23.1440.877@0.23.1440.877" timestamp="1593009413598" />
+    <state x="548" y="56" key="FileChooserDialogImpl" timestamp="1592875598821">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="548" y="56" key="FileChooserDialogImpl/0.0.1440.900@0.0.1440.900" timestamp="1592875598821" />
+    <state x="0" y="23" key="SettingsEditor" timestamp="1593009205136">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="0" y="23" key="SettingsEditor/0.0.1440.900@0.0.1440.900" timestamp="1593009205136" />
+    <state x="508" y="371" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1592848153572">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="508" y="371" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.1440.900@0.0.1440.900" timestamp="1592848153572" />
+    <state x="505" y="333" key="com.jetbrains.plugins.remotesdk.ui.RemoteMappingsConfiguration" timestamp="1592938709080">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="505" y="333" key="com.jetbrains.plugins.remotesdk.ui.RemoteMappingsConfiguration/0.0.1440.900@0.0.1440.900" timestamp="1592938709080" />
+    <state x="626" y="188" width="325" height="525" key="ftp.server.browser" timestamp="1592925473394">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="626" y="188" width="325" height="525" key="ftp.server.browser/0.0.1440.900@0.0.1440.900" timestamp="1592925473394" />
+    <state x="385" y="196" width="670" height="676" key="search.everywhere.popup" timestamp="1592856154717">
+      <screen x="0" y="0" width="1440" height="900" />
+    </state>
+    <state x="385" y="196" width="670" height="676" key="search.everywhere.popup/0.0.1440.900@0.0.1440.900" timestamp="1592856154717" />
+  </component>
+</project>

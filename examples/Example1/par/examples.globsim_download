@@ -1,9 +1,10 @@
 # This is an example of a Globsim download parameter file
 # Use extension like this: 'project_a.globsim_download'
+#kernels = PRESS_Pa_pl, AIRT_C_pl, AIRT_C_sur, PREC_mm_sur, RH_per_sur, WIND_sur, SW_Wm2_sur, LW_Wm2_sur, SH_kgkg_sur
 
 # logistics
-project_directory = /opt/globsim/examples/Example1
-credentials_directory = /root
+project_directory = /home/hma000/globsim/examples/Example1
+credentials_directory = /home/hma000
 
 # chunk size for splitting files and download [days]
 chunk_size = 2
