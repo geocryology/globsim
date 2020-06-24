@@ -53,13 +53,14 @@ def checkData():
         # Returns list of file names from data directory
         #print(str(path.exists("/home/hma000/examples/JUNE11_BC/erai")))
         #print(path.exists("/home/hma000/examples/JUNE11_BC"))
-        print(os.listdir("/home/hma000/examples"))
+        print(PATH)
+        print(path.exists(PATH))
+        print(os.listdir(PATH))
         if path.exists(PATH+i):
             print('yup')
             ls = [os.listdir(PATH+i + "*.txt")]
             print(ls)
     #dt_stamp.strftime('%Y/%m/%d') # should return: '2019/01/09'
-
 
 def testScale():
     '''
@@ -77,4 +78,5 @@ if args.c == True: checkData()
 '''
     if not args.c:checkData()
     else: checkData()
+    
 '''
