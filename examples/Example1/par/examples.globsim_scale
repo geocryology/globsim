@@ -1,5 +1,5 @@
 # Path to the parent directory of /par - It should match the download and interpolate files
-project_directory = /opt/globsim/examples/Example1
+project_directory = /home/hma000/globsim/examples/Example1
 
 # Filename (without path) of csv containing site information (must match interpolation control file)
 station_list = siteslist.csv
@@ -12,3 +12,4 @@ time_step = 1
 
 # Should the output file be overwritten if it exists?
 overwrite = True
+
