@@ -74,6 +74,7 @@ class DataCheck(object):
     def checkVar(self, ):
         '''
         Takes list of missing times
+        want to check individual variables for time gaps - long periods of data drought
         '''
 
     def DataReadin(self, file_in):

@@ -8,8 +8,8 @@ docs/build/*
 /docs/build/*
 
 .DS_Store
-examples/
+projects/
 .idea/
 .pycharm_helpers/
-JUNE11_BC/
+projects/JUNE11_BC/
 model.py
