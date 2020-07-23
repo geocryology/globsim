@@ -584,7 +584,16 @@ def emissivity_clear_sky(RH,T):
     e_clear = 0.23 + x1*(pv/T)**(1/x2)  
     return e_clear
 
-
+def pressure_from_elevation(elevation):
+        """Convert elevation into air pressure using barometric formula"""
+        g  = 9.80665   #Gravitational acceleration [m/s2]
+        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
+        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
+        P0 = 101325    #Pressure at sea level [Pa]
+        T0 = 288.15    #Temperature at sea level [K]
+        #http://en.wikipedia.org/wiki/Barometric_formula
+        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
+        
 def str_encode(value, encoding = "UTF8"):
     '''
     handles encoding to allow compatibility between python 2 and 3
