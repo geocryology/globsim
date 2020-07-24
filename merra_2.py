@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -1564,41 +1564,20 @@ Args:
     
 
 """   
-class MERRAdownload(object):
+class MERRAdownload(GenericDownload):
     """
     Class for MERRA-2 data that has methods for querying NASA GES DISC server, 
     and returning all variables usually wanted.
     """
     def __init__(self, pfile):
-        # read parameter file
-        self.pfile = pfile
-        par = ParameterIO(self.pfile)
+        super().__init__(pfile)
+        par = self.par
         
-        # assign bounding box
-        self.area  = {'north':  par.bbN,
-                      'south':  par.bbS,
-                      'west' :  par.bbW,
-                      'east' :  par.bbE}
+        self._set_data_directory("merra2")
         
-        # sanity check to make sure area is good
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
-            raise Exception("Bounding box is invalid: {}".format(self.area))
-            
-        if (np.abs(par.bbN-par.bbS) < 1.5) or (np.abs(par.bbE-par.bbW) < 1.5):
-            raise Exception("Download area is too small to conduct interpolation.")
-                  
         # time bounds
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
-
-        # elevation
-        self.elevation = {'min' : par.ele_min, 
-                          'max' : par.ele_max}
-        
-        # data directory for MERRA-2  
-        self.directory = path.join(par.project_directory, "merra2")  
-        if path.isdir(self.directory) == False:
-            makedirs(self.directory)   
         
         # credential 
         self.credential = path.join(par.credentials_directory, ".merrarc")
@@ -1608,15 +1587,9 @@ class MERRAdownload(object):
         self.username = ''.join(self.inf[0].split())                                      
          # pass the second line to passworrd (covert list to str)
         self.password = ''.join(self.inf[1].split())                                    
-        
-        # variables
-        self.variables = par.variables
             
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size
-        
-        # the diretory for storing downloaded data
-        self.dir_data = self.directory
 
         #build full dictionary between variable names from input parameter 
         #file and original merra2 data products
@@ -1808,7 +1781,7 @@ class MERRAdownload(object):
                 # Output merra-2 meteorological analysis variable at pressure levels
                 #For T, V, U, H
                 SaveNCDF_pl_3dm().saveData(self.date, get_variables_3dmasm, get_variables_3dmana, id_lat, id_lon, id_lev, 
-                                           out_variable_3dmasm, out_variable_3dmana, chunk_size, time, lev, lat, lon, self.dir_data, self.elevation)
+                                           out_variable_3dmasm, out_variable_3dmana, chunk_size, time, lev, lat, lon, self.directory, self.elevation)
                                         
                 print("----------- Result NO.1: Completed -----------")
     
@@ -1828,7 +1801,7 @@ class MERRAdownload(object):
                 lat, lon, time = MERRAgeneric().latLon_2d(out_variable_2dm, id_lat, id_lon)
                                                                         
                 # Output merra-2 variable at surface level 
-                SaveNCDF_sa().saveData(self.date, get_variables_2dm, id_lat, id_lon, out_variable_2dm, chunk_size, time, lat, lon, self.dir_data)
+                SaveNCDF_sa().saveData(self.date, get_variables_2dm, id_lat, id_lon, out_variable_2dm, chunk_size, time, lat, lon, self.directory)
                 
                 print("----------- Result NO.2: Completed -----------")
     
@@ -1877,7 +1850,7 @@ class MERRAdownload(object):
                            get_variables_2ds, get_variables_2dv,
                            id_lat, id_lon, out_variable_2dr, 
                            out_variable_2ds, out_variable_2dv, 
-                           chunk_size, time, lat, lon, self.dir_data)
+                           chunk_size, time, lat, lon, self.directory)
                 
                 print("----------- Result NO.3: Completed -----------")
        
@@ -1914,7 +1887,7 @@ class MERRAdownload(object):
             # Output merra-2 variable at surface level 
             SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, 
                        out_variable_2dc, int(self.chunk_size), 
-                       time, lat, lon, self.dir_data)
+                       time, lat, lon, self.directory)
                       
 class MERRAinterpolate(object):
     """

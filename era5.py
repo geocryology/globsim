@@ -54,8 +54,9 @@ from scipy.interpolate import interp1d
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode,  create_empty_netcdf
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode, create_empty_netcdf, GenericDownload
 from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
+
 
 try:
     from nco import Nco
@@ -488,7 +489,7 @@ class ERA5to(ERA5generic):
         return string.format(self.getDictionary) 
 
 
-class ERA5download(object):
+class ERA5download(GenericDownload):
     """
     Class for ERA5 data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
@@ -504,39 +505,14 @@ class ERA5download(object):
     """
         
     def __init__(self, pfile, api='cds', storage='cds'):
-        # read parameter file
-        self.pfile = pfile
-        par = ParameterIO(self.pfile)
-        
-        # assign bounding box
-        self.area  = {'north':  par.bbN,
-                      'south':  par.bbS,
-                      'west' :  par.bbW,
-                      'east' :  par.bbE}
-        
-        # sanity check to make sure area is good
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
-            raise Exception("Bounding box is invalid: {}".format(self.area))
-            
-        if (np.abs(par.bbN-par.bbS) < 1.5) or (np.abs(par.bbE-par.bbW) < 1.5):
-            raise Exception("Download area is too small to conduct interpolation.")
+        super().__init__(pfile)
+        par = self.par
+        self._set_data_directory("era5")
         
         # time bounds
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
 
-        # elevation
-        self.elevation = {'min' : par.ele_min, 
-                          'max' : par.ele_max}
-        
-        # data directory for ERA5
-        self.directory = path.join(par.project_directory, "era5") 
-        if path.isdir(self.directory) == False:
-            makedirs(self.directory)   
-     
-        # variables
-        self.variables = par.variables
-            
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size   
 
@@ -584,7 +560,6 @@ class ERA5download(object):
         # report inventory
         self.inventory()  
         
-                                                                                                                                                                                                           
     def inventory(self):
         """
         Report on data avaialbe in directory: time slice, variables, area 
@@ -640,7 +615,7 @@ class ERA5download(object):
                    
     def __str__(self):
         return "Object for ERA5 data download and conversion"
-		
+
 
 class ERA5interpolate(object):
     """
@@ -1135,15 +1110,14 @@ class ERA5interpolate(object):
         self.ERA2station(path.join(self.dir_inp,'era5_pl_*.nc'), 
                          path.join(self.dir_out,'era5_pl_' + 
                                    self.list_name + '.nc'), self.stations,
-                                   varlist, date = self.date)  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                   varlist, date = self.date)
+                                   
         # 1D Interpolation for Pressure Level Data
         self.levels2elevation(path.join(self.dir_out,'era5_pl_' + 
                                         self.list_name + '.nc'), 
                               path.join(self.dir_out,'era5_pl_' + 
                                         self.list_name + '_surface.nc'))                 
 
-                                                        
 class ERA5scale(object):
     """
     Class for ERA5 data that has methods for scaling station data to
