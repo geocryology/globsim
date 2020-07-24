@@ -422,11 +422,9 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
             continue
         data = ncf.variables[var][:,sm]                                                                                                                                                                                                                                                                                                                                                                                               
         df = pd.concat([df,pd.DataFrame(data=data,columns=[var])],axis=1) 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-    return df          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+    return df 
+    
 def globsim2GEOtop(ncdf_globsim, txt_geotop):
     """
     Convert globsim scaled netCDF to GEOtop meteo file.
@@ -527,8 +525,7 @@ def satvapp_kPa_fT(T):
     T2 = 35.86   # [K]
     T += T1
     return e0 * np.exp((b*(T-T1))/(T-T2))
-                                                                                                                       
-
+    
 def vapp_kPa_fTd(Td): 
     '''
     Water vapour pressure [hPa] derived from dewpoint temperature [C]. Taken 
@@ -804,3 +801,81 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
         
         # create file
         out_df.to_csv(savepath, index=False, float_format="%10.5f")
+        
+def create_empty_netcdf(ncfile_out, stations, nc_in, time_units):
+        #TODO change date type from f4 to f8 for lat and lon
+        '''
+        Creates an empty station file to hold interpolated reults. The number of 
+        stations is defined by the variable stations, variables are determined by 
+        the variable list passed from the gridded original netCDF.
+        
+        ncfile_out: full name of the file to be created
+        stations:   station list read with generic.StationListRead() 
+        variables:  variables read from netCDF handle
+        lev:        list of pressure levels, empty is [] (default)
+        '''
+        
+        #Build the netCDF file
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.featureType = "timeSeries"
+                                                
+        # dimensions
+        station = rootgrp.createDimension('station', len(stations))
+        time    = rootgrp.createDimension('time', None)
+                
+        # base variables
+        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time.long_name = 'time'
+        time.units     = time_units
+        time.calendar  = 'gregorian'
+        station             = rootgrp.createVariable('station', 'i4',('station'))
+        station.long_name   = 'station for time series data'
+        station.units       = '1'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east' 
+        height           = rootgrp.createVariable('height','f4',('station'))
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm'  
+        
+        # assign station characteristics            
+        station[:]   = list(stations['station_number'])
+        latitude[:]  = list(stations['latitude_dd'])
+        longitude[:] = list(stations['longitude_dd'])
+        height[:]    = list(stations['elevation_m'])
+        
+        # extra treatment for pressure level files
+        try:
+            lev = nc_in.variables['level'][:]
+            print("== 3D: file has pressure levels")
+            level           = rootgrp.createDimension('level', len(lev))
+            level           = rootgrp.createVariable('level','i4',('level'))
+            level.long_name = 'pressure_level'
+            level.units     = 'hPa'  
+            level[:] = lev 
+        except:
+            print("== 2D: file without pressure levels")
+            lev = []
+                    
+        # create and assign variables based on input file
+        for n, var in enumerate(nc_in.variables):
+            if variables_skip(var):
+                continue                 
+            print("VAR: ", str_encode(var))
+            # extra treatment for pressure level files           
+            if len(lev):
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') 
+            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
+                    
+        return rootgrp
+        
+rootgrp = create_empty_netcdf()
+rootgrp.source = 'ERA5, interpolated bilinearly to stations'
+rootgrp.close()

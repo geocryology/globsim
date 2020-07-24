@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, get_begin_date, pressure_from_elevation
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, get_begin_date, pressure_from_elevation, create_empty_netcdf
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
@@ -772,11 +772,16 @@ class MERRAgeneric():
         return merralist
                       
     def netCDF_empty(self, ncfile_out, stations, nc_in):
-        '''Creates an empty station file to hold interpolated reults. 
-        Args:
-            ncfile_out: full name of the file to be created
-            stations: station list read with generic.StationListRead() 
-            nc_in: read in the multiple netCDF files by nc.MFDataset
+        #TODO change date type from f4 to f8 for lat and lon
+        '''
+        Creates an empty station file to hold interpolated reults. The number of 
+        stations is defined by the variable stations, variables are determined by 
+        the variable list passed from the gridded original netCDF.
+        
+        ncfile_out: full name of the file to be created
+        stations:   station list read with generic.StationListRead() 
+        variables:  variables read from netCDF handle
+        lev:        list of pressure levels, empty is [] (default)
         '''
         
         #Build the netCDF file
@@ -800,7 +805,7 @@ class MERRAgeneric():
         latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
         latitude.long_name  = 'latitude'
         latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude           = rootgrp.createVariable('longitude', 'f4',('station'))
         longitude.long_name = 'longitude'
         longitude.units     = 'degrees_east' 
         height           = rootgrp.createVariable('height','f4',('station'))
@@ -817,7 +822,7 @@ class MERRAgeneric():
         try:
             lev = nc_in.variables['level'][:]
             print("== 3D: file has pressure levels")
-            level = rootgrp.createDimension('level', len(lev))
+            level           = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'  
@@ -833,15 +838,14 @@ class MERRAgeneric():
         # create and assign variables based on input file
         for n, var in enumerate(varlist_merra):
             if variables_skip(var):
-                continue
-                                 
-            print("VAR: ", var            )
+                continue                  
+            print("VAR: ", str_encode(var))
             # extra treatment for pressure level files        
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+                tmp = rootgrp.createVariable(var,'f4', ('time', 'level', 'station'))
             else:
-                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
-            tmp.long_name = str_encode(nc_in.variables[var].standard_name) # for merra2
+                tmp = rootgrp.createVariable(var,'f4', ('time', 'station'))     
+            tmp.long_name = str_encode(nc_in.variables[var].long_name) # for merra2
             tmp.units     = str_encode(nc_in.variables[var].units)  
                     
         #close the file
