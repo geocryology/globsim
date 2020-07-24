@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime            import datetime, timedelta
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf, GenericDownload
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
 from math                import exp, floor, atan2, pi
@@ -551,39 +551,21 @@ class JRAsf(object):
         return self.dictionary
 
 
-class JRAdownload(object):
+class JRAdownload(GenericDownload):
     '''Return an objet to download JRA55 dataset client based on RDA'''
     
     #TODO add credential
     def __init__(self, pfile):
+        super().__init__(pfile)
+        par = self.par
+        self._set_data_directory("jra55")
+        
         self.dsID = 'ds628.0'
-        self.pfile = pfile
-        
-        par = ParameterIO(self.pfile)
+
         self.__varCheck(par)
-        
-        # assign bounding box
-        self.area  = {'north':  par.bbN,
-                      'south':  par.bbS,
-                      'west' :  par.bbW,
-                      'east' :  par.bbE}
-        
-        # sanity check to make sure area is good
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
-            raise Exception("Bounding box is invalid: {}".format(self.area))
-            
-        if (np.abs(par.bbN-par.bbS) < 1.5) or (np.abs(par.bbE-par.bbW) < 1.5):
-            raise Exception("Download area is too small to conduct interpolation.")
                  
         # time bounds
         self.date  = self.getDate(par)
-
-        # elevation
-        self.elevation = {'min' : par.ele_min, 
-                          'max' : par.ele_max}
-        
-        # data directory for JRA-55  
-        self.directory = par.project_directory + '/jra55'
         
         self.credential = path.join(par.credentials_directory, ".jrarc")
         #print(self.credential)
@@ -591,9 +573,6 @@ class JRAdownload(object):
         self.inf = self.account.readlines()
         self.username = ''.join(self.inf[0].split())
         self.password = ''.join(self.inf[1].split()) 
-     
-        # variables
-        self.variables = par.variables
             
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size*2000

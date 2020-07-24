@@ -48,7 +48,7 @@ from datetime            import datetime, timedelta
 from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload
 from globsim.meteorology import spec_hum_kgkg, LW_downward
 from fnmatch             import filter
 from scipy.interpolate   import interp1d
@@ -556,7 +556,7 @@ class ERAIto(ERAIgeneric):
         return string.format(self.getDictionary) 
     
 
-class ERAIdownload(object):
+class ERAIdownload(GenericDownload):
     """
     Class for ERA-Interim data that has methods for querying 
     the ECMWF server, returning all variables usually needed.
@@ -570,39 +570,14 @@ class ERAIdownload(object):
     """
         
     def __init__(self, pfile):
-        # read parameter file
-        self.pfile = pfile
-        par = ParameterIO(self.pfile)
+        super().__init__(pfile)
+        par = self.par
+        self._set_data_directory("erai")
         
-        # assign bounding box
-        self.area  = {'north':  par.bbN,
-                      'south':  par.bbS,
-                      'west' :  par.bbW,
-                      'east' :  par.bbE}
-        
-        # sanity check to make sure area is good
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):        
-            raise Exception("Bounding box is invalid: {}".format(self.area))
-        
-        if (np.abs(par.bbN-par.bbS) < 1.5) or (np.abs(par.bbE-par.bbW) < 1.5):
-            raise Exception("Download area is too small to conduct interpolation.")
-            
         # time bounds
         self.date  = {'beg' : par.beg,
                       'end' : par.end}
-
-        # elevation
-        self.elevation = {'min' : par.ele_min, 
-                          'max' : par.ele_max}
         
-        # data directory for ERA-Interim  
-        self.directory = path.join(par.project_directory, "erai")  
-        if path.isdir(self.directory) == False:
-            makedirs(self.directory)
-     
-        # variables
-        self.variables = par.variables
-            
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par.chunk_size            
 
