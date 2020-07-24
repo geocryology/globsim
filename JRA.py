@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime            import datetime, timedelta
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf, GenericDownload, GenericScale
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
 from math                import exp, floor, atan2, pi
@@ -835,7 +835,7 @@ class JRAdownload(GenericDownload):
          
 
 
-class JRAinterpolate(object):
+class JRAinterpolate(GenericInterpolate):
     """
     Algorithms to interpolate JRA55 netCDF files to station coordinates. 
     All variables retains their original units and time-steps. 
@@ -854,37 +854,13 @@ class JRAinterpolate(object):
     """
 
     def __init__(self, ifile):
-        #read parameter file
-        self.ifile = ifile
-        par = ParameterIO(self.ifile)
-        self.dir_inp = path.join(par.project_directory,'jra55') 
-        self.dir_out = self.makeOutDir(par)
-        self.variables = par.variables     
-        self.list_name = par.station_list.split(path.extsep)[0]
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)  
-        
-        # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end + timedelta(days=1)}
+        super().__init__(ifile)
+        par = self.par
 
-        # chunk size: how many time steps to interpolate at the same time?
-        # A small chunk size keeps memory usage down but is slow.
-        self.cs  = int(par.chunk_size) * 200
-    
-    
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirIntp = path.join(par.project_directory, 'interpolated')
-        
-        if not (path.isdir(dirIntp)):
-            makedirs(dirIntp)
-            
-        return dirIntp
+        self.dir_inp = path.join(par.project_directory,'jra55') 
+
+        # Override inherited chunk size
+        self.cs  *=  200
     
     def JRAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                     variables=None, date=None):    
@@ -1363,7 +1339,8 @@ class JRAscale(GenericScale):
         
     def __init__(self, sfile):
         super().__init__(sfile)
-            
+        par = self.par
+        
         # input file names
         self.nc_pl = nc.Dataset(path.join(self.intpdir,'jra_pl_' + 
                                 self.list_name + '_surface.nc'), 'r')

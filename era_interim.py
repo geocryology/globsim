@@ -48,7 +48,7 @@ from datetime            import datetime, timedelta
 from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload, GenericScale
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import spec_hum_kgkg, LW_downward
 from fnmatch             import filter
 from scipy.interpolate   import interp1d
@@ -676,47 +676,20 @@ class ERAIdownload(GenericDownload):
         return "Object for ERA-Interim data download and conversion"  
                  
 
-class ERAIinterpolate(object):
+class ERAIinterpolate(GenericInterpolate):
     """
     Collection of methods to interpolate ERA-Interim netCDF files to station
     coordinates. All variables retain theit original units and time stepping.
     """
         
     def __init__(self, ifile):
-        #read parameter file
-        self.ifile = ifile
-        par = ParameterIO(self.ifile)
+        super().__init__(ifile)
+        par = self.par 
         self.dir_inp = path.join(par.project_directory,'erai') 
-        self.dir_out = self.makeOutDir(par)
-        self.variables = par.variables
-        self.list_name = par.station_list.split(path.extsep)[0]
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)  
+
         #convert longitude to ERA notation if using negative numbers  
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360             
         
-        # time bounds, add one day to par.end to include entire last day
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end + timedelta(days=1)}
-    
-        # chunk size: how many time steps to interpolate at the same time?
-        # A small chunk size keeps memory usage down but is slow.
-        self.cs  = int(par.chunk_size)
-        
-        
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirIntp = path.join(par.project_directory, 'interpolated')
-        
-        if not (path.isdir(dirIntp)):
-            makedirs(dirIntp)
-            
-        return dirIntp
-    
 
     def ERAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                         variables=None, date=None):    
@@ -1169,7 +1142,7 @@ class ERAIinterpolate(object):
                          path.join(self.dir_out,'erai_pl_' + 
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+        
         # 1D Interpolation for Pressure Level Data
         self.levels2elevation(path.join(self.dir_out,'erai_pl_' + 
                                         self.list_name + '.nc'), 
@@ -1177,7 +1150,6 @@ class ERAIinterpolate(object):
                                         self.list_name + '_surface.nc')) 
         
 
-                                                        
 class ERAIscale(GenericScale):
     """
     Class for ERA-Interim data that has methods for scaling station data to
@@ -1195,6 +1167,7 @@ class ERAIscale(GenericScale):
         
     def __init__(self, sfile):
         super().__init__(sfile)
+        par = self.par
         
         # input file handles
         self.nc_pl = nc.Dataset(path.join(self.intpdir, 'erai_pl_' + 

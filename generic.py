@@ -175,7 +175,7 @@ class GenericDownload(object):
     def __init__(self, pfile):
         # read parameter file
         self.pfile = pfile
-        par = self.par = ParameterIO(self.pfile)
+        self.par = par = ParameterIO(self.pfile)
         
         self._set_elevation(par)        
         self._set_area(par)
@@ -208,12 +208,45 @@ class GenericDownload(object):
         if path.isdir(self.directory) == False:
             makedirs(self.directory) 
 
+class GenericInterpolate:
+    
+    def __init__(self, ifile):
+        #read parameter file
+        self.ifile = ifile
+        self.par = par = ParameterIO(self.ifile)
+        self.dir_out = self.makeOutDir(par)
+        self.variables = par.variables
+        self.list_name = par.station_list.split(path.extsep)[0]
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        
+        #read station points 
+        self.stations = StationListRead(self.stations_csv)  
+        
+        # time bounds, add one day to par.end to include entire last day
+        self.date  = {'beg' : par.beg,
+                      'end' : par.end + timedelta(days=1)}
+                      
+        # chunk size: how many time steps to interpolate at the same time?
+        # A small chunk size keeps memory usage down but is slow.
+        self.cs  = int(par.chunk_size)
+                      
+    def makeOutDir(self, par):
+        '''make directory to hold outputs'''
+        
+        dirIntp = path.join(par.project_directory, 'interpolated')
+        
+        if not (path.isdir(dirIntp)):
+            makedirs(dirIntp)
+            
+        return dirIntp
+        
 class GenericScale:
     
     def __init__(self, sfile):
         # read parameter file
         self.sfile = sfile
-        par = ParameterIO(self.sfile)
+        self.par = par = ParameterIO(self.sfile)
         self.intpdir = path.join(par.project_directory, 'interpolated')
         self.scdir = self.makeOutDir(par)
         self.list_name = par.station_list.split(path.extsep)[0]
