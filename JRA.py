@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime        import datetime, timedelta
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward, pressure_from_elevation
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward, pressure_from_elevation, create_empty_netcdf
 from os              import path, listdir, remove, makedirs
 from math            import exp, floor, atan2, pi
 from fnmatch         import filter
@@ -906,87 +906,6 @@ class JRAinterpolate(object):
             
         return dirIntp
     
-        
-    def netCDF_empty(self, ncfile_out, stations, nc_in):
-        '''
-        Creates an empty station file to hold interpolated reults. The number of 
-        stations is defined by the variable stations, variables are determined by 
-        the variable list passed from the gridded original netCDF.
-        
-        ncfile_out: full name of the file to be created
-        stations:   station list read with generic.StationListRead() 
-        variables:  variables read from netCDF handle
-        lev:        list of pressure levels, empty is [] (default)
-        '''
-        
-        #Build the netCDF file
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'JRA55, interpolated bilinearly to stations'
-        rootgrp.featureType = "timeSeries"
-                                                
-        # dimensions
-        station = rootgrp.createDimension('station', len(stations))
-        time    = rootgrp.createDimension('time', None)
-                
-        # base variables
-        time           = rootgrp.createVariable('time', 'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1800-01-01 00:00:0.0'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station', 
-                                                     'i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 
-                                                     'f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude',
-                                                     'f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east' 
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
-        
-        # assign station characteristics            
-        station[:]   = list(stations['station_number'])
-        latitude[:]  = list(stations['latitude_dd'])
-        longitude[:] = list(stations['longitude_dd'])
-        height[:]    = list(stations['elevation_m'])
-        
-        # extra treatment for pressure level files
-        try:
-            lev = nc_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
-            level = rootgrp.createDimension('level', len(lev))
-            level           = rootgrp.createVariable('level','i4',('level'))
-            level.long_name = 'pressure_level'
-            level.units     = 'hPa'  
-            level[:] = lev 
-        except:
-            print("== 2D: file without pressure levels")
-            lev = []
-                    
-        # create and assign variables based on input file
-        for n, var in enumerate(nc_in.variables):
-            if variables_skip(var):
-                continue                 
-            print("VAR: ", var)
-            # extra treatment for pressure level files           
-            if len(lev):
-                tmp = rootgrp.createVariable(var,'f4', 
-                                             ('time', 'level', 'station'))
-            else:
-                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
-            tmp.long_name = str_encode(nc_in.variables[var].long_name)
-            tmp.units     = str_encode(nc_in.variables[var].units)  
-                    
-        #close the file
-        rootgrp.close()
-        
-        
     def JRAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                     variables=None, date=None):    
         """
@@ -1159,8 +1078,11 @@ class JRAinterpolate(object):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        self.netCDF_empty(ncfile_out, self.stations, ncf_in) 
-                                     
+        rootgrp = create_empty_netcdf(ncfile_out, self.stations, ncf_in, 
+                                      time_units='hours since 1800-01-01 00:00:0.0') 
+        rootgrp.source = 'JRA55, interpolated bilinearly to stations'
+        rootgrp.close()  
+        
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
 
@@ -1178,8 +1100,8 @@ class JRAinterpolate(object):
         if len(time) ==1:
             invariant=True
         else:
-            invariant=False                                                                         
-                                                                                                                                                                                                                                            
+            invariant=False   
+        
         # restrict to date/time range if given
         if date is None:
             tmask = time < datetime(3000, 1, 1)

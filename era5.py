@@ -54,7 +54,7 @@ from scipy.interpolate import interp1d
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic  import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, str_encode
+from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, str_encode, pressure_from_elevation, create_empty_netcdf
 
 try:
     from nco import Nco
@@ -219,83 +219,7 @@ class ERA5generic(object):
                   "ERA5 data: {0}")
         return string.format(self.getDictionary) 
     
-    def netCDF_empty(self, ncfile_out, stations, nc_in):
-        #TODO change date type from f4 to f8 for lat and lon
-        '''
-        Creates an empty station file to hold interpolated reults. The number of 
-        stations is defined by the variable stations, variables are determined by 
-        the variable list passed from the gridded original netCDF.
-        
-        ncfile_out: full name of the file to be created
-        stations:   station list read with generic.StationListRead() 
-        variables:  variables read from netCDF handle
-        lev:        list of pressure levels, empty is [] (default)
-        '''
-        
-        #Build the netCDF file
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'ERA5, interpolated bilinearly to stations'
-        rootgrp.featureType = "timeSeries"
-                                                
-        # dimensions
-        station = rootgrp.createDimension('station', len(stations))
-        time    = rootgrp.createDimension('time', None)
-                
-        # base variables
-        time           = rootgrp.createVariable('time', 'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station', 'i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east' 
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
-        
-        # assign station characteristics            
-        station[:]   = list(stations['station_number'])
-        latitude[:]  = list(stations['latitude_dd'])
-        longitude[:] = list(stations['longitude_dd'])
-        height[:]    = list(stations['elevation_m'])
-        
-        # extra treatment for pressure level files
-        try:
-            lev = nc_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
-            level           = rootgrp.createVariable('level','i4',('level'))
-            level.long_name = 'pressure_level'
-            level.units     = 'hPa'  
-            level[:] = lev 
-        except:
-            print("== 2D: file without pressure levels")
-            lev = []
-                    
-        # create and assign variables based on input file
-        for n, var in enumerate(nc_in.variables):
-            if variables_skip(var):
-                continue                 
-            print("VAR: ", str_encode(var))
-            # extra treatment for pressure level files           
-            if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
-            else:
-                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
-            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') 
-            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
-                    
-        #close the file
-        rootgrp.close()
-
-        
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
     ECMWF server.
@@ -878,7 +802,7 @@ class ERA5interpolate(object):
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)        
         sfield.destroy() #free memory                  
-		    
+        
         return dfield, variables
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
@@ -891,7 +815,7 @@ class ERA5interpolate(object):
         of variable and file structure are determined from the input.
         
         This function creates an empty of netCDF file to hold the interpolated 
-        results, by calling ERA5generic().netCDF_empty. Then, data is 
+        results, by calling create_empty_netcdf(). Then, data is 
         interpolated in temporal chunks and appended. The temporal chunking can 
         be set in the interpolation parameter file.
         
@@ -923,8 +847,11 @@ class ERA5interpolate(object):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        ERA5generic().netCDF_empty(ncfile_out, self.stations, ncf_in) 
-                                     
+        rootgrp = create_empty_netcdf(ncfile_out, self.stations, ncf_in, 
+                                      time_units='hours since 1900-01-01 00:00:0.0') 
+        rootgrp.source = 'ERA5, interpolated bilinearly to stations'
+        rootgrp.close()   
+                                  
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
 
@@ -980,7 +907,7 @@ class ERA5interpolate(object):
                 # allow topography to work in same code
                 tmask_chunk = [True]
                  
-	    # get the interpolated variables
+            # get the interpolated variables
             dfield, variables = self.ERAinterp2D(ncfile_in, ncf_in, 
                                                  self.stations, tmask_chunk,
                                                  variables=None, date=None) 
@@ -1007,7 +934,7 @@ class ERA5interpolate(object):
                     else:
                         # dfield has dimensions time, station (2D files)
                         ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
-      		                                                                 	    
+
                                      
         #close the file
         ncf_in.close()
