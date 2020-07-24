@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime            import datetime, timedelta
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf, GenericDownload
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf, GenericDownload, GenericScale
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
 from math                import exp, floor, atan2, pi
@@ -1346,7 +1346,7 @@ class JRAinterpolate(object):
 
 
    
-class JRAscale(object):
+class JRAscale(GenericScale):
     """
     Class for JRA-55 data that has methods for scaling station data to
     better resemble near-surface fluxes.
@@ -1362,17 +1362,7 @@ class JRAscale(object):
     """
         
     def __init__(self, sfile):
-        # read parameter file
-        self.sfile = sfile
-        par = ParameterIO(self.sfile)
-        self.intpdir = path.join(par.project_directory, 'interpolated')
-        self.scdir = self.makeOutDir(par)
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
-        # read kernels
-        self.kernels = par.kernels
-        if not isinstance(self.kernels, list):
-            self.kernels = [self.kernels]
+        super().__init__(sfile)
             
         # input file names
         self.nc_pl = nc.Dataset(path.join(self.intpdir,'jra_pl_' + 
@@ -1402,11 +1392,7 @@ class JRAscale(object):
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
                                         calendar = self.t_cal)
-        # get the station file
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)
+
         
         
     def process(self):
@@ -1444,27 +1430,6 @@ class JRAscale(object):
         self.nc_pl.close()
         self.nc_sf.close()
         self.nc_sa.close()
-        
-    def getOutNCF(self, par, src, scaleDir = 'scale'):
-        '''make out file name'''
-        
-        timestep = str(par.time_step) + 'h'
-        src = '_'.join(['scaled', src, timestep])
-        src = src + '.nc'
-        fname = path.join(self.scdir, src)
-        
-        return fname
-    
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirSC = path.join(par.project_directory, 'scaled')
-        
-        if not (path.isdir(dirSC)):
-            makedirs(dirSC)
-            
-        return dirSC
-
 
     def PRESS_Pa_pl(self):
         """

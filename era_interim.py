@@ -48,7 +48,7 @@ from datetime            import datetime, timedelta
 from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload, GenericScale
 from globsim.meteorology import spec_hum_kgkg, LW_downward
 from fnmatch             import filter
 from scipy.interpolate   import interp1d
@@ -1178,7 +1178,7 @@ class ERAIinterpolate(object):
         
 
                                                         
-class ERAIscale(object):
+class ERAIscale(GenericScale):
     """
     Class for ERA-Interim data that has methods for scaling station data to
     better resemble near-surface fluxes.
@@ -1194,17 +1194,7 @@ class ERAIscale(object):
     """
         
     def __init__(self, sfile):
-        # read parameter file
-        self.sfile = sfile
-        par = ParameterIO(self.sfile)
-        self.intpdir = path.join(par.project_directory, 'interpolated')
-        self.scdir = self.makeOutDir(par)
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
-        # read kernels
-        self.kernels = par.kernels
-        if not isinstance(self.kernels, list):
-            self.kernels = [self.kernels]
+        super().__init__(sfile)
         
         # input file handles
         self.nc_pl = nc.Dataset(path.join(self.intpdir, 'erai_pl_' + 
@@ -1247,11 +1237,7 @@ class ERAIscale(object):
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
-        # get the station file
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)  
+
                
     def process(self):
         """
@@ -1278,27 +1264,6 @@ class ERAIscale(object):
         self.nc_sa.close()
         self.nc_to.close()
         
-    def getOutNCF(self, par, src, scaleDir = 'scale'):
-        '''make out file name'''
-        
-        timestep = str(par.time_step) + 'h'
-        src = '_'.join(['scaled', src, timestep])
-        src = src + '.nc'
-        fname = path.join(self.scdir, src)
-        
-        return fname
-    
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirSC = path.join(par.project_directory, 'scaled')
-        
-        if not (path.isdir(dirSC)):
-            makedirs(dirSC)
-            
-        return dirSC
-        
-        
     def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
@@ -1308,6 +1273,7 @@ class ERAIscale(object):
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA-I pressure levels only'
         var.units     = 'Pa'.encode('UTF8')  
+        var.standard_name = 'surface_air_pressure'
         
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)  
