@@ -55,7 +55,7 @@ from scipy.interpolate import interp1d
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode, create_empty_netcdf, GenericDownload
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode, create_empty_netcdf, GenericDownload, GenericScale
 from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
 
 
@@ -1082,7 +1082,7 @@ class ERA5interpolate(object):
                               path.join(self.dir_out,'era5_pl_' + 
                                         self.list_name + '_surface.nc'))                 
 
-class ERA5scale(object):
+class ERA5scale(GenericScale):
     """
     Class for ERA5 data that has methods for scaling station data to
     better resemble near-surface fluxes.
@@ -1098,23 +1098,8 @@ class ERA5scale(object):
     """
         
     def __init__(self, sfile):
-        # read parameter file
-        self.sfile = sfile
-        par = ParameterIO(self.sfile)
-        self.intpdir = path.join(par.project_directory, 'interpolated')
-        self.scdir = self.makeOutDir(par)
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
-        # read kernels
-        self.kernels = par.kernels
-        if not isinstance(self.kernels, list):
-            self.kernels = [self.kernels]
+        super().__init__(sfile)
 
-        # get the station file and list_name from it
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        self.list_name = par.station_list.split(path.extsep)[0]
-        
         # input file handles
         self.nc_pl = nc.Dataset(path.join(self.intpdir, 'era5_pl_' + 
                                 self.list_name + '_surface.nc'), 'r')
@@ -1156,9 +1141,6 @@ class ERA5scale(object):
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
-                                        
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)
         
     def process(self):
         """
@@ -1184,25 +1166,6 @@ class ERA5scale(object):
         self.nc_sa.close()
         self.nc_to.close()
         
-    def getOutNCF(self, par, src, scaleDir = 'scale'):
-        '''make out file name'''
-        
-        timestep = str(par.time_step) + 'h'
-        src = '_'.join(['scaled', src, timestep])
-        src = src + '.nc'
-        fname = path.join(self.scdir, src)
-        
-        return fname
-    
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirSC = path.join(par.project_directory, 'scaled')
-        
-        if not (path.isdir(dirSC)):
-            makedirs(dirSC)
-            
-        return dirSC
         
     def PRESS_Pa_pl(self):
         """
