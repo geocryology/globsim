@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload, GenericScale
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -1889,7 +1889,7 @@ class MERRAdownload(GenericDownload):
                        out_variable_2dc, int(self.chunk_size), 
                        time, lat, lon, self.directory)
                       
-class MERRAinterpolate(object):
+class MERRAinterpolate(GenericInterpolate):
     """
     Algorithms to interpolate MERRA-2 netCDF files to station coordinates. 
     All variables retains their original units and time-steps. 
@@ -1898,39 +1898,12 @@ class MERRAinterpolate(object):
     """
 
     def __init__(self, ifile):
-        #read parameter file
-        self.ifile = ifile
-        par = ParameterIO(self.ifile)
+        super().__init__(ifile)
+        par = self.par
+
         self.dir_inp = path.join(par.project_directory,'merra2')
-        self.dir_out = self.makeOutDir(par)
-        self.variables = par.variables
-        self.list_name = par.station_list.split(path.extsep)[0]
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)  
-        
-        # time bounds, add one day to par.end to include entire last day
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end + timedelta(days=1)}
-        
-        # chunk size: how many time steps to interpolate at the same time?
-        # A small chunk size keeps memory usage down but is slow.
-        self.cs  = int(par.chunk_size)
-    
-    
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirIntp = path.join(par.project_directory, 'interpolated')
-        
-        if not (path.isdir(dirIntp)):
-            makedirs(dirIntp)
-            
-        return dirIntp
-                                    
-                                    
+
+
     def MERRA2interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                        variables=None, date=None):    
         """
@@ -2409,7 +2382,8 @@ class MERRAscale(GenericScale):
         
     def __init__(self, sfile):
         super().__init__(sfile)
-            
+        par = self.par
+        
         # input file names
         self.nc_pl = nc.Dataset(path.join(self.intpdir,
                                           'merra2_pl_' + 

@@ -54,7 +54,7 @@ from scipy.interpolate import interp1d
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode, create_empty_netcdf, GenericDownload, GenericScale
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
 
 
@@ -617,46 +617,22 @@ class ERA5download(GenericDownload):
         return "Object for ERA5 data download and conversion"
 
 
-class ERA5interpolate(object):
+class ERA5interpolate(GenericInterpolate):
     """
     Collection of methods to interpolate ERA5 netCDF files to station
     coordinates. All variables retain their original units and time stepping.
     """
         
     def __init__(self, ifile):
-        #read parameter file
-        self.ifile = ifile
-        par = ParameterIO(self.ifile)
+        super().__init__(ifile)
+        par = self.par        
+       
         self.dir_inp = path.join(par.project_directory,'era5') 
-        self.dir_out = self.makeOutDir(par)
-        self.variables = par.variables
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
-        self.list_name = par.station_list.split(path.extsep)[0]
         
-        #read station points 
-        self.stations = StationListRead(self.stations_csv)  
         #convert longitude to ERA notation if using negative numbers  
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360             
         
-        # time bounds, add one day to par.end to include entire last day
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end + timedelta(days=1)}
     
-        # chunk size: how many time steps to interpolate at the same time?
-        # A small chunk size keeps memory usage down but is slow.
-        self.cs  = int(par.chunk_size)
-    
-    
-    def makeOutDir(self, par):
-        '''make directory to hold outputs'''
-        
-        dirIntp = path.join(par.project_directory, 'interpolated')
-        
-        if not (path.isdir(dirIntp)):
-            makedirs(dirIntp)
-            
-        return dirIntp
 
     def ERAinterp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                         variables=None, date=None):    
@@ -1135,7 +1111,8 @@ class ERA5scale(GenericScale):
         
     def __init__(self, sfile):
         super().__init__(sfile)
-
+        par = self.par
+        
         # input file handles
         self.nc_pl = nc.Dataset(path.join(self.intpdir, 'era5_pl_' + 
                                 self.list_name + '_surface.nc'), 'r')
