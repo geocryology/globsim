@@ -15,12 +15,13 @@ import re
 import netCDF4       as nc
 import numpy         as np
 
-from datetime        import datetime, timedelta
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward, pressure_from_elevation, create_empty_netcdf
-from os              import path, listdir, remove, makedirs
-from math            import exp, floor, atan2, pi
-from fnmatch         import filter
-from scipy.interpolate import interp1d
+from datetime            import datetime, timedelta
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf
+from globsim.meteorology import LW_downward, pressure_from_elevation
+from os                  import path, listdir, remove, makedirs
+from math                import exp, floor, atan2, pi
+from fnmatch             import filter
+from scipy.interpolate   import interp1d
 
 try:
     import ESMF
