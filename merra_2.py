@@ -112,7 +112,8 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, get_begin_date, pressure_from_elevation, create_empty_netcdf
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf
+from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep

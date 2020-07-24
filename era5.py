@@ -54,7 +54,8 @@ from scipy.interpolate import interp1d
 import urllib3
 urllib3.disable_warnings()
 
-from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, str_encode, pressure_from_elevation, create_empty_netcdf
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode,  create_empty_netcdf
+from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
 
 try:
     from nco import Nco

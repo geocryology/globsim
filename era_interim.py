@@ -44,13 +44,14 @@ import re
 import numpy   as np
 import netCDF4 as nc
 
-from datetime     import datetime, timedelta
-from ecmwfapi.api import ECMWFDataServer
-from math         import exp, floor, atan2, pi
-from os           import path, listdir, remove, makedirs
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, str_encode, cummulative2total, create_empty_netcdf
-from fnmatch      import filter
-from scipy.interpolate import interp1d
+from datetime            import datetime, timedelta
+from ecmwfapi.api        import ECMWFDataServer
+from math                import exp, floor, atan2, pi
+from os                  import path, listdir, remove, makedirs
+from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf
+from globsim.meteorology import spec_hum_kgkg, LW_downward
+from fnmatch             import filter
+from scipy.interpolate   import interp1d
 
 try:
     from nco import Nco
