@@ -191,14 +191,12 @@ class GenericDownload(object):
         if (np.abs(par.bbN - par.bbS) < 1.5) or (np.abs(par.bbE - par.bbW) < 1.5):
             raise ValueError("Download area is too small to conduct interpolation.")
     
-    @staticmethod        
     def _set_area(par):
         self.area  = {'north':  par.bbN,
                       'south':  par.bbS,
                       'west' :  par.bbW,
                       'east' :  par.bbE}
     
-    @staticmethod
     def _set_elevation(par):
         self.elevation = {'min' : par.ele_min, 
                           'max' : par.ele_max}
