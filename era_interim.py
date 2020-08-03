@@ -729,7 +729,6 @@ class ERAIinterpolate(GenericInterpolate):
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
 
-
         # get spatial dimensions
         if pl: # only for pressure level files
             lev  = ncf_in.variables['level'][:]

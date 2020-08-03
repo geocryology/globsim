@@ -1944,8 +1944,6 @@ class MERRAinterpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # get spatial dimensions
-        lat  = ncf_in.variables['latitude'][:]
-        lon  = ncf_in.variables['longitude'][:]
         if pl: # only for pressure level files
             lev  = ncf_in.variables['level'][:]
             nlev = len(lev)
@@ -1956,7 +1954,7 @@ class MERRAinterpolate(GenericInterpolate):
             raise ValueError('No time steps from netCDF file selected.')
     
         # get variables
-        varlist = [str_encode(x)for x in ncf_in.variables.keys()]
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
