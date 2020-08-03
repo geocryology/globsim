@@ -764,13 +764,9 @@ class MERRAgeneric():
        
     def MERRA_skip(self, merralist):
         ''' To remove the extra variables from downloaded MERRA2 data'''
-        for x in merralist:
-            if x == 'LWGEM': 
-               merralist.remove('LWGEM')
-               merralist.remove('LWGNT')
-               merralist.remove('LWGNTCLR')
-        
-        return merralist
+        for var in ['LWGEM', 'LWGNT', 'LWGNTCLR']:
+            if var in merralist : 
+               merralist.remove(var)
                       
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         #TODO change date type from f4 to f8 for lat and lon
@@ -834,7 +830,7 @@ class MERRAgeneric():
         
         #remove extra variables
         varlist_merra = [str_encode(x) for x in nc_in.variables.keys()]
-        varlist_merra = self.MERRA_skip(varlist_merra)                
+        self.MERRA_skip(varlist_merra)                
         
         # create and assign variables based on input file
         for n, var in enumerate(varlist_merra):
@@ -1902,59 +1898,9 @@ class MERRAinterpolate(GenericInterpolate):
         par = self.par
 
         self.dir_inp = path.join(par.project_directory,'merra2')
-
-
-    def MERRA2interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
-                       variables=None, date=None):    
-        """
-        Biliner interpolation from fields on regular grid (latitude, longitude) 
-        to individual point stations (latitude, longitude). This works for
-        surface and for pressure level files (all MERRA-2 files).
-          
-        Args:
-            ncfile_in: Full path to an MERRA-2 derived netCDF file. This can
-                        contain wildcards to point to multiple files if temporal
-                        chunking was used.
-              
-            ncf_in: A netCDF4.MFDataset derived from reading in MERRA-2 multiple 
-                    files (def MERRA2station_append())
-            
-            points: A dictionary of locations. See method StationListRead in
-                    generic.py for more details.
-        
-            variables:  List of variable(s) to interpolate such as 
-                        ['T','RH','U','V',' T2M', 'U2M', 'V2M', 'U10M', 'V10M', 
-                        'PRECTOT', 'SWGDN','SWGDNCLR','LWGDN', 'LWGDNCLR'].
-                        Defaults to using all variables available.
-        
-            date: Directory to specify begin and end time for the derived time 
-                  series. Defaluts to using all times available in ncfile_in.
-              
-        Example:
-            from datetime import datetime
-            date  = {'beg' : datetime(2008, 1, 1),
-                      'end' : datetime(2008,12,31)}
-            variables  = ['T','U', 'V']       
-            stations = StationListRead("points.csv")      
-            MERRA2station('merra_sa.nc', 'merra_sa_inter.nc', stations, 
-                        variables=variables, date=date)        
-        """   
-
-        # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
-
-        # get spatial dimensions
-        if pl: # only for pressure level files
-            lev  = ncf_in.variables['level'][:]
-            nlev = len(lev)
-              
-        # test if time steps to interpolate remain
-        nt = sum(tmask_chunk)
-        if nt == 0:
-            raise ValueError('No time steps from netCDF file selected.')
     
-        # get variables
-        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
+    def remove_select_variables(varlist, pl):
+        # OVERRIDING parent method for MERRA2 extra variables 
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -1962,70 +1908,8 @@ class MERRAinterpolate(GenericInterpolate):
             varlist.remove('level')
             
         # remove extra variables from merra2 
-        varlist = MERRAgeneric().MERRA_skip(varlist)  
-    
-        #list variables that should be interpolated
-        if variables is None:
-            variables = varlist
-        #test is variables given are available in file
-        if (set(variables) < set(varlist) == 0):
-            raise ValueError('One or more variables not in netCDF file.')
-       
-        # Create source grid from a SCRIP formatted file. As ESMF needs one
-        # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(filter(listdir(self.dir_inp), 
-                               path.basename(ncfile_in)))
-        ncsingle = path.join(self.dir_inp, flist[0])
-        sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
-
-        # create source field on source grid
-        if pl: #only for pressure level files
-            sfield = ESMF.Field(sgrid, name='sgrid',
-                                staggerloc=ESMF.StaggerLoc.CENTER,
-                                ndbounds=[len(variables), nt, nlev])
-        else: # 2D files
-            sfield = ESMF.Field(sgrid, name='sgrid',
-                                staggerloc=ESMF.StaggerLoc.CENTER,
-                                ndbounds=[len(variables), nt])
-
-        # assign data from ncdf: (variable, time, latitude, longitude) 
-        for n, var in enumerate(variables):
-            if pl: # only for pressure level files
-                if ESMFnew:
-                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
-                else:
-                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
-            else:
-                if ESMFnew:
-                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
-                else:
-                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))
-
-        # create locstream, CANNOT have third dimension!!!
-        locstream = ESMF.LocStream(len(self.stations), coord_sys=ESMF.CoordSys.SPH_DEG)
-        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
-        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
-
-        # create destination field
-        if pl: # only for pressure level files
-            dfield = ESMF.Field(locstream, name='dfield', 
-                                ndbounds=[len(variables), nt, nlev])
-        else:
-            dfield = ESMF.Field(locstream, name='dfield', 
-                                ndbounds=[len(variables), nt])    
-
-        # regridding function, consider ESMF.UnmappedAction.ERROR
-        regrid2D = ESMF.Regrid(sfield, dfield,
-                                regrid_method=ESMF.RegridMethod.BILINEAR,
-                                unmapped_action=ESMF.UnmappedAction.IGNORE,
-                                dst_mask_values=None)
-                  
-        # regrid operation, create destination field (variables, times, points)
-        dfield = regrid2D(sfield, dfield)        
-        sfield.destroy() #free memory                  
+        MERRAgeneric().MERRA_skip(varlist)  
         
-        return dfield, variables
-
     def MERRA2station(self, ncfile_in, ncfile_out, points,
                              variables = None, date = None):
         """
@@ -2126,7 +2010,7 @@ class MERRAinterpolate(GenericInterpolate):
                 tmask_chunk = [True]
            
             # get the interpolated variables
-            dfield, variables = self.MERRA2interp2D(ncfile_in, ncf_in, 
+            dfield, variables = self.interp2D(ncfile_in, ncf_in, 
                                                     self.stations, tmask_chunk,
                                                     variables=None, date=None) 
 
