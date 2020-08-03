@@ -47,7 +47,6 @@ import cdsapi
 from datetime import datetime, timedelta
 from math     import exp, floor, atan2, pi
 from os       import path, listdir, makedirs
-from fnmatch  import filter
 from ecmwfapi.api import ECMWFDataServer
 from scipy.interpolate import interp1d
 
@@ -785,13 +784,8 @@ class ERA5interpolate(GenericInterpolate):
         
         # list variables
         varlist = [str_encode(x) for x in ncf.variables.keys()]
-        varlist.remove('time')
-        varlist.remove('station')
-        varlist.remove('latitude')
-        varlist.remove('longitude')
-        varlist.remove('level')
-        varlist.remove('height')
-        varlist.remove('z')
+        for V in ['time', 'station', 'latitude', 'longitude', 'level','height','z']:
+            varlist.remove(V)
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -890,19 +884,6 @@ class ERA5interpolate(GenericInterpolate):
         ncf.close()
         # closed file ==========================================================    
 
-
-    def TranslateCF2short(self, dpar):
-        """
-        Map CF Standard Names into short codes used in ERA5 netCDF files.
-        """
-        varlist = [] 
-        for var in self.variables:
-            varlist.append(dpar.get(var))
-        # drop none
-        varlist = [item for item in varlist if item is not None]      
-        # flatten
-        varlist = [item for sublist in varlist for item in sublist]         
-        return(varlist) 
     
     def process(self):
         """

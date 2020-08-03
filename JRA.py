@@ -20,7 +20,6 @@ from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, st
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
 from math                import exp, floor, atan2, pi
-from fnmatch             import filter
 from scipy.interpolate   import interp1d
 
 try:
@@ -1013,6 +1012,7 @@ class JRAinterpolate(GenericInterpolate):
         
         """
         # open file 
+        
         ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
@@ -1043,25 +1043,21 @@ class JRAinterpolate(GenericInterpolate):
         time.long_name = 'time'
         time.units     = 'hours since 1800-01-01 00:00:0.0'
         time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station',  'i4',
-                                                     ('station'))
+        station             = rootgrp.createVariable('station',  'i4', ('station'))
         station.long_name   = 'station for time series data'
         station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',
-                                                     ('station'))
+        latitude            = rootgrp.createVariable('latitude', 'f4', ('station'))
         latitude.long_name  = 'latitude'
         latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',
-                                                     ('station'))
+        longitude           = rootgrp.createVariable('longitude','f4', ('station'))
         longitude.long_name = 'longitude'
         longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',
-                                                  ('station'))
+        height           = rootgrp.createVariable('height','f4',('station'))
         height.long_name = 'height_above_reference_ellipsoid'
         height.units     = 'm'  
        
         # assign base variables
-        time[:] = ncf.variables['time'][:]
+        time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
         latitude[:]  = ncf.variables['latitude'][:]
         longitude[:] = ncf.variables['longitude'][:]
@@ -1131,19 +1127,6 @@ class JRAinterpolate(GenericInterpolate):
         ncf.close()
         # closed file =========================================================
 
-
-    def TranslateCF2short(self, dpar):
-        """
-        Map CF Standard Names into short codes used in JRA-55 netCDF files.
-        """
-        varlist = [] 
-        for var in self.variables:
-            varlist.append(dpar.get(var))
-        # drop none
-        varlist = [item for item in varlist if item is not None]      
-        # flatten
-        varlist = [item for sublist in varlist for item in sublist]         
-        return(varlist) 
 
     def process(self):
         """
