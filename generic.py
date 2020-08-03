@@ -32,12 +32,24 @@ import netCDF4 as nc
 import numpy as np
 import glob
 import os
+import ESMF
+
 # handle python 3 string types
 try:
     basestring
 except:
     basestring = str
 
+try:
+    import ESMF
+    
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701  
+except ImportError:
+    print("*** ESMF not imported, interpolation not possible. ***")
+    pass 
+    
 class ParameterIO(object):
     """
     Reads generic parameter files and makes values available as dictionary.
@@ -212,7 +224,7 @@ class GenericInterpolate:
         #read parameter file
         self.ifile = ifile
         self.par = par = ParameterIO(self.ifile)
-        self.dir_out = self.makeOutDir(par)
+        self.dir_out = self.make_output_directory(par)
         self.variables = par.variables
         self.list_name = par.station_list.split(path.extsep)[0]
         self.stations_csv = path.join(par.project_directory,
@@ -228,8 +240,95 @@ class GenericInterpolate:
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par.chunk_size)
+        
+    def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
+                        variables=None, date=None):    
+        """
+        Bilinear interpolation from fields on regular grid (latitude, longitude) 
+        to individual point stations (latitude, longitude). This works for
+        surface and for pressure level files (all Era_Interim files).
+          
+        Args:
+            ncfile_in: Full path to an Era-Interim derived netCDF file. This can
+                       contain wildcards to point to multiple files if temporal
+                       chunking was used.
+              
+            ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim 
+                    multiple files (def ERA2station())
+            
+            points: A dictionary of locations. See method StationListRead in
+                    generic.py for more details.
+        
+            variables:  List of variable(s) to interpolate such as 
+                        ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
+                        Defaults to using all variables available.
+        
+            date: Directory to specify begin and end time for the derived time 
+                  series. Defaluts to using all times available in ncfile_in.
+              
+        Example:
+            from datetime import datetime
+            date  = {'beg' : datetime(2008, 1, 1),
+                      'end' : datetime(2008,12,31)}
+            variables  = ['t','u', 'v']       
+            stations = StationListRead("points.csv")      
+            ERA2station('era_sa.nc', 'era_sa_inter.nc', stations, 
+                        variables=variables, date=date)        
+        """   
+        
+        # is it a file with pressure levels?
+        pl = 'level' in ncf_in.dimensions.keys()
+
+        # get spatial dimensions
+        if pl: # only for pressure level files
+            lev  = ncf_in.variables['level'][:]
+            nlev = len(lev)
+              
+        # test if time steps to interpolate remain
+        nt = sum(tmask_chunk)
+        if nt == 0:
+            raise ValueError('No time steps from netCDF file selected.')
+    
+        # get variables
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
+        self.remove_select_variables(varlist, pl)
+    
+        #list variables that should be interpolated
+        if variables is None:
+            variables = varlist
+        #test is variables given are available in file
+        if (set(variables) < set(varlist) == 0):
+            raise ValueError('One or more variables not in netCDF file.')           
+
+        sgrid = self.create_source_grid(ncfile_in)  
+        
+        # create source field on source grid
+        if pl: #only for pressure level files
+            sfield = ESMF.Field(sgrid, name='sgrid',
+                                staggerloc=ESMF.StaggerLoc.CENTER,
+                                ndbounds=[len(variables), nt, nlev])
+        else: # 2D files
+            sfield = ESMF.Field(sgrid, name='sgrid',
+                                staggerloc=ESMF.StaggerLoc.CENTER,
+                                ndbounds=[len(variables), nt])
+
+        self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+                
+        locstream = self.create_loc_stream()    
+
+        # create destination field
+        if pl: # only for pressure level files
+            dfield = ESMF.Field(locstream, name='dfield', 
+                                ndbounds=[len(variables), nt, nlev])
+        else:
+            dfield = ESMF.Field(locstream, name='dfield', 
+                                ndbounds=[len(variables), nt])    
+        
+        dfield = self.regrid(sfield, dfield)                 
+            
+        return dfield, variables
                       
-    def makeOutDir(self, par):
+    def make_output_directory(self, par):
         '''make directory to hold outputs'''
         
         dirIntp = path.join(par.project_directory, 'interpolated')
@@ -238,7 +337,64 @@ class GenericInterpolate:
             makedirs(dirIntp)
             
         return dirIntp
+    
+    def create_source_grid(self, ncfile_in):
+        # Create source grid from a SCRIP formatted file. As ESMF needs one
+        # file rather than an MFDataset, give first file in directory.
+        flist = np.sort(filter(listdir(self.dir_inp), path.basename(ncfile_in)))
+        ncsingle = path.join(self.dir_inp, flist[0])
+        sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         
+        return sgrid
+    
+    def create_loc_stream(self):
+        # CANNOT have third dimension!!!
+        locstream = ESMF.LocStream(len(self.stations), 
+                                   coord_sys=ESMF.CoordSys.SPH_DEG)
+        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
+        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+        
+        return locstream
+    
+    @staticmethod
+    def regrid(sfield, dfield):
+    # regridding function, consider ESMF.UnmappedAction.ERROR
+        regrid2D = ESMF.Regrid(sfield, dfield,
+                                regrid_method=ESMF.RegridMethod.BILINEAR,
+                                unmapped_action=ESMF.UnmappedAction.IGNORE,
+                                dst_mask_values=None)
+                  
+        # regrid operation, create destination field (variables, times, points)
+        dfield = regrid2D(sfield, dfield)        
+        sfield.destroy() #free memory        
+        
+        return dfield
+        
+    @staticmethod
+    def nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl):
+        # assign data from ncdf: (variable, time, latitude, longitude) 
+        for n, var in enumerate(variables):
+            
+            if pl: # only for pressure level files
+                if ESMFnew:
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3,2,0,1)) 
+                else:
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0,1,3,2)) 
+                    
+            else:
+                if ESMFnew:
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2,1,0))
+                else:
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))     
+    
+    @staticmethod
+    def remove_select_variables(varlist, pl)
+        varlist.remove('time')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        if pl: #only for pressure level files
+            varlist.remove('level')      
+                      
 class GenericScale:
     
     def __init__(self, sfile):
