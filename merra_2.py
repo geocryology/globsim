@@ -114,7 +114,7 @@ from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
 from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
-from fnmatch           import filter
+
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
 from numpy.random      import uniform
@@ -2171,19 +2171,6 @@ class MERRAinterpolate(GenericInterpolate):
         rootgrp.close()
         ncf.close()
         # closed file ==========================================================    
-
-    def TranslateCF2short(self, dpar):
-        """
-        Map CF Standard Names into short codes used in MERRA2 netCDF files.
-        """
-        varlist = [] 
-        for var in self.variables:
-            varlist.append(dpar.get(var))
-        # drop none
-        varlist = [item for item in varlist if item is not None]      
-        # flatten
-        varlist = [item for sublist in varlist for item in sublist]         
-        return(varlist) 
 
     def process(self):
         """

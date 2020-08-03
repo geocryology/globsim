@@ -241,13 +241,26 @@ class GenericInterpolate:
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par.chunk_size)
+    
+    def TranslateCF2short(self, dpar):
+        """
+        Map CF Standard Names into short codes used in MERRA2 netCDF files.
+        """
+        varlist = [] 
+        for var in self.variables:
+            varlist.append(dpar.get(var))
+        # drop none
+        varlist = [item for item in varlist if item is not None]      
+        # flatten
+        varlist = [item for sublist in varlist for item in sublist]         
+        return(varlist) 
         
     def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
                         variables=None, date=None):    
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude) 
         to individual point stations (latitude, longitude). This works for
-        surface and for pressure level files (all Era_Interim files).
+        surface and for pressure level files
           
         Args:
             ncfile_in: Full path to an Era-Interim derived netCDF file. This can
@@ -259,6 +272,8 @@ class GenericInterpolate:
             
             points: A dictionary of locations. See method StationListRead in
                     generic.py for more details.
+                    
+            tmask_chunk: 
         
             variables:  List of variable(s) to interpolate such as 
                         ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
