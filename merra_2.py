@@ -1899,6 +1899,7 @@ class MERRAinterpolate(GenericInterpolate):
 
         self.dir_inp = path.join(par.project_directory,'merra2')
     
+    @staticmethod
     def remove_select_variables(varlist, pl):
         # OVERRIDING parent method for MERRA2 extra variables 
         varlist.remove('time')
