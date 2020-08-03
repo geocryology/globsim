@@ -1,3 +1,4 @@
+import numpy as np
 
 def satvapp_kPa_fT(T):
     '''
@@ -76,7 +77,7 @@ def pressure_from_elevation(elevation):
         P0 = 101325    #Pressure at sea level [Pa]
         T0 = 288.15    #Temperature at sea level [K]
         #http://en.wikipedia.org/wiki/Barometric_formula
-        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
+        return P0 * np.exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
 
 
 def LW_downward(RH,T,N):
