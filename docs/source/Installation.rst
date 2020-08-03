@@ -8,7 +8,7 @@ Requirements
 
 GlobSim source files can be obtained in one of two ways
 
-Using pip (not yet!!)::
+Using pip (does not work yet!!)::
 
     pip3 install globsim 
 
@@ -73,7 +73,7 @@ The following setup was used to install on Ubuntu 16.04::
     pip3 install https://software.ecmwf.int/wiki/download/attachments/56664858/ecmwf-api-client-python.tgz 
 
     ## Netcdf - C
-    apt install libnetcdf-bin
+    apt install netcdf-bin
     apt install libnetcdf-dev
 
     ## Netcdf - Fortran
