@@ -26,13 +26,14 @@ from datetime    import datetime, timedelta
 from csv         import QUOTE_NONE
 from os          import mkdir, path, makedirs
 from math        import floor
+from fnmatch     import filter as fnmatch_filter
 
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
 import glob
 import os
-import ESMF
+import re
 
 # handle python 3 string types
 try:
@@ -341,7 +342,7 @@ class GenericInterpolate:
     def create_source_grid(self, ncfile_in):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(filter(listdir(self.dir_inp), path.basename(ncfile_in)))
+        flist = np.sort(fnmatch_filter(os.listdir(self.dir_inp), path.basename(ncfile_in)))
         ncsingle = path.join(self.dir_inp, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         
@@ -388,7 +389,7 @@ class GenericInterpolate:
                     sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0,2,1))     
     
     @staticmethod
-    def remove_select_variables(varlist, pl)
+    def remove_select_variables(varlist, pl):
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
