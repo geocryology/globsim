@@ -49,7 +49,7 @@ from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
 from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
-from globsim.meteorology import spec_hum_kgkg, LW_downward
+from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from fnmatch             import filter
 from scipy.interpolate   import interp1d
 
