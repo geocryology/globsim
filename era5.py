@@ -669,6 +669,7 @@ class ERA5interpolate(GenericInterpolate):
                 
         # read in one type of mutiple netcdf files       
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+        
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
 
@@ -830,8 +831,8 @@ class ERA5interpolate(GenericInterpolate):
         # create and assign variables from input file
         for var in varlist:
             tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
-            tmp.long_name = ncf.variables[var].long_name.encode('UTF8')
-            tmp.units     = ncf.variables[var].units.encode('UTF8')  
+            tmp.long_name = str_encode(ncf.variables[var].long_name)
+            tmp.units     = str_encode(ncf.variables[var].units)  
 
         # add air pressure as new variable
         var = 'air_pressure'
