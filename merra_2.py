@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate, netcdf_base
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -780,34 +780,7 @@ class MERRAgeneric():
         variables:  variables read from netCDF handle
         lev:        list of pressure levels, empty is [] (default)
         '''
-        
-        #Build the netCDF file
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'MERRA-2, interpolated bilinearly to stations'
-        rootgrp.featureType = "timeSeries"
-                                                
-        # dimensions
-        station = rootgrp.createDimension('station', len(stations))
-        time    = rootgrp.createDimension('time', None)
-                
-        # base variables
-        time           = rootgrp.createVariable('time', 'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hour since 1980-01-01 00:00:00'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station', 'i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude', 'f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east' 
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
+        rootgrp = netcdf_base(ncfile_out, stations, 'hours since 1980-01-01 00:00:00')
         
         # assign station characteristics            
         station[:]   = list(stations['station_number'])
@@ -2098,7 +2071,7 @@ class MERRAinterpolate(GenericInterpolate):
         height.units     = 'm'  
         
         # assign base variables
-        time[:] = ncf.variables['time'][:]
+        time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
         latitude[:]  = ncf.variables['latitude'][:]
         longitude[:] = ncf.variables['longitude'][:]

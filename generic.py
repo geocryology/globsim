@@ -914,9 +914,9 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
 
         # create file
         np.savetxt(savepath, out_array,
-                   fmt = [" %02u", "%02u", " %03u", 
+                   fmt = [" %02u", "%02u", " %03u",
                           " %2u", "%8.2f", "%8.2f",
-                          "%13.4E", "%8.2f", "%11.3E", 
+                          "%13.4E", "%8.2f", "%11.3E",
                           "%7.2f", "%11.2f" ])
 
 
@@ -1005,75 +1005,79 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
 
 
 def create_empty_netcdf(ncfile_out, stations, nc_in, time_units):
-        """
-        Creates an empty station file to hold interpolated reults. The number of
-        stations is defined by the variable stations, variables are determined by
-        the variable list passed from the gridded original netCDF.
+    """
+    Creates an empty station file to hold interpolated reults. The number of
+    stations is defined by the variable stations, variables are determined by
+    the variable list passed from the gridded original netCDF.
 
-        ncfile_out: full name of the file to be created
-        stations:   station list read with generic.StationListRead()
-        variables:  variables read from netCDF handle
-        lev:        list of pressure levels, empty is [] (default)
-        """
-        # TODO change date type from f4 to f8 for lat and lon
-        # Build the netCDF file
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.featureType = "timeSeries"
+    ncfile_out: full name of the file to be created
+    stations:   station list read with generic.StationListRead()
+    variables:  variables read from netCDF handle
+    lev:        list of pressure levels, empty is [] (default)
+    """
+    rootgrp = netcdf_base(ncfile_out, stations, time_units)
 
-        # dimensions
-        station = rootgrp.createDimension('station', len(stations))
-        time    = rootgrp.createDimension('time', None)
+    # assign station characteristics
+    station[:]   = list(stations['station_number'])
+    latitude[:]  = list(stations['latitude_dd'])
+    longitude[:] = list(stations['longitude_dd'])
+    height[:]    = list(stations['elevation_m'])
 
-        # base variables
-        time           = rootgrp.createVariable('time', 'i4', ('time'))
-        time.long_name = 'time'
-        time.units     = time_units
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station', 'i4', ('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4', ('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'
-        longitude           = rootgrp.createVariable('longitude', 'f4', ('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'
-        height           = rootgrp.createVariable('height', 'f4', ('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'
+    # extra treatment for pressure level files
+    try:
+        lev = nc_in.variables['level'][:]
+        print("== 3D: file has pressure levels")
+        level           = rootgrp.createDimension('level', len(lev))
+        level           = rootgrp.createVariable('level', 'i4', ('level'))
+        level.long_name = 'pressure_level'
+        level.units     = 'hPa'
+        level[:] = lev
+    except Exception:
+        print("== 2D: file without pressure levels")
+        lev = []
 
-        # assign station characteristics
-        station[:]   = list(stations['station_number'])
-        latitude[:]  = list(stations['latitude_dd'])
-        longitude[:] = list(stations['longitude_dd'])
-        height[:]    = list(stations['elevation_m'])
-
+    # create and assign variables based on input file
+    for n, var in enumerate(nc_in.variables):
+        if variables_skip(var):
+            continue
+        print("VAR: ", str_encode(var))
         # extra treatment for pressure level files
-        try:
-            lev = nc_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
-            level           = rootgrp.createDimension('level', len(lev))
-            level           = rootgrp.createVariable('level', 'i4', ('level'))
-            level.long_name = 'pressure_level'
-            level.units     = 'hPa'
-            level[:] = lev
-        except Exception:
-            print("== 2D: file without pressure levels")
-            lev = []
+        if len(lev):
+            tmp = rootgrp.createVariable(var, 'f4', ('time', 'level', 'station'))
+        else:
+            tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
+        tmp.long_name = nc_in.variables[var].long_name.encode('UTF8')
+        tmp.units     = nc_in.variables[var].units.encode('UTF8')
 
-        # create and assign variables based on input file
-        for n, var in enumerate(nc_in.variables):
-            if variables_skip(var):
-                continue
-            print("VAR: ", str_encode(var))
-            # extra treatment for pressure level files
-            if len(lev):
-                tmp = rootgrp.createVariable(var, 'f4', ('time', 'level', 'station'))
-            else:
-                tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
-            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8')
-            tmp.units     = nc_in.variables[var].units.encode('UTF8')
+    return rootgrp
 
-        return rootgrp
+def netcdf_base(ncfile_out, stations, time_units):
+    # TODO change date type from f4 to f8 for lat and lon
+    # Build the netCDF file
+    rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+    rootgrp.Conventions = 'CF-1.6'
+    rootgrp.featureType = "timeSeries"
 
+    # dimensions
+    station = rootgrp.createDimension('station', len(stations))
+    time    = rootgrp.createDimension('time', None)
+
+    # base variables
+    time           = rootgrp.createVariable('time', 'i4', ('time'))
+    time.long_name = 'time'
+    time.units     = time_units
+    time.calendar  = 'gregorian'
+    station             = rootgrp.createVariable('station', 'i4', ('station'))
+    station.long_name   = 'station for time series data'
+    station.units       = '1'
+    latitude            = rootgrp.createVariable('latitude', 'f4', ('station'))
+    latitude.long_name  = 'latitude'
+    latitude.units      = 'degrees_north'
+    longitude           = rootgrp.createVariable('longitude', 'f4', ('station'))
+    longitude.long_name = 'longitude'
+    longitude.units     = 'degrees_east'
+    height           = rootgrp.createVariable('height', 'f4', ('station'))
+    height.long_name = 'height_above_reference_ellipsoid'
+    height.units     = 'm'
+
+    return rootgrp

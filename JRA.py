@@ -904,6 +904,7 @@ class JRAinterpolate(GenericInterpolate):
         
         # read in one type of mutiple netcdf files       
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
+        
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
 
