@@ -416,8 +416,8 @@ class GenericInterpolate:
         wa = np.absolute(elev_diff.ravel()[vb])
         wb = np.absolute(elev_diff.ravel()[va])
         wt = wa + wb
-        wa /= wt # Apply after ravel() of data.
-        wb /= wt # Apply after ravel() of data.
+        wa /= wt
+        wb /= wt
 
         return wa, wb
 

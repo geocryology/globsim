@@ -821,59 +821,7 @@ class MERRAgeneric():
         #close the file
         rootgrp.close()
         
-# block commenting this out - I don't think it is used (no usage of the function in this file)
-# maybe delete later if everything still works (NB)
-'''
-    def netCDF_merge(self, directory):
-        """
-        To combine mutiple downloaded merra2 netCDF files into a large file with 
-        specified chunk_size(e.g. 500).
-        Args:
-        ncfile_in: the full name of downloaded files 
-        e.g.:
-        '/home/username/src/globsim/examples/merra2/merra_sa_*.nc' 
-        '/home/username/src/globsim/examples/merra2/merra_pl_*.nc'
-        '/home/username/src/globsim/examples/merra2/merra_sf_*.nc'
-        Output: 
-        merged netCDF file: merra2_all_0.nc, merra2_all_1.nc, ...,
 
-        """
-        #set up nco operator
-        nco = Nco()
-  
-        # loop over filetypes, read, report
-        file_type = ['merra_sa_*.nc', 'merra_sf_*.nc', 'merra_pl_*.nc']
-        for ft in file_type:
-            ncfile_in = path.join(directory, ft)
-            
-            #get the file list
-            files_list = glob.glob(ncfile_in)
-            files_list.sort()
-            num = len(files_list)
-                        
-            #set up the name of merged file
-            if ncfile_in[-7:-5] == 'sa':
-                merged_file = path.join(ncfile_in[:-11],
-                'merra2_sa_all_'+ files_list[0][-23:-15] + "_" + files_list[num-1][-11:-3] +'.nc')
-            elif ncfile_in[-7:-5] == 'sf':
-                merged_file = path.join(ncfile_in[:-11],
-                'merra2_sf_all_' + files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] + '.nc')
-            elif ncfile_in[-7:-5] == 'pl':
-                merged_file = path.join(ncfile_in[:-11],
-                'merra2_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
-            else:
-                print('There is not such type of file'    )
-                        
-            # combined files into merged files
-            nco.ncrcat(input=files_list,output=merged_file, append = True)
-            
-            print('The Merged File below is saved:')
-            print(merged_file)
-            
-            #clear up the data
-            for fl in files_list:
-                remove(fl)
-            '''
 class SaveNCDF_pl_3dm():                                                        
         """ write output netCDF file for abstracted variables from original 
             meteorological data at pressure levels
@@ -2075,15 +2023,14 @@ class MERRAinterpolate(GenericInterpolate):
             # difference in elevation. 
             # level directly above will be >= 0
             elev_diff = -(elevation - h)
+            
             # vector of level indices that fall directly above station. 
-            # Apply after ravel() of data.
             va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1) 
             # mask for situations where station is below lowest level
             mask = va < (nl-1)
             va += np.arange(elevation.shape[0]) * elevation.shape[1]
             
             # Vector level indices that fall directly below station.
-            # Apply after ravel() of data.
             vb = va + mask # +1 when OK, +0 when below lowest level
             
             wa, wb = self.calculate_weights(elev_diff, va, vb)
