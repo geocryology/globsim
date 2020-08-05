@@ -88,21 +88,11 @@ class ERAIgeneric(object):
         res  = (date['beg'].strftime("%Y-%m-%d") + "/to/" +
                 date['end'].strftime("%Y-%m-%d"))       
         return(res)    
-        
-    def getPressure(self, elevation):
-        """Convert elevation into air pressure using barometric formula"""
-        g  = 9.80665   #Gravitational acceleration [m/s2]
-        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
-        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
-        P0 = 101325    #Pressure at sea level [Pa]
-        T0 = 288.15    #Temperature at sea level [K]
-        #http://en.wikipedia.org/wiki/Barometric_formula
-        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
-    
+
     def getPressureLevels(self, elevation):
         """Restrict list of ERA-interim pressure levels to be downloaded"""
-        Pmax = self.getPressure(elevation['min']) + 55
-        Pmin = self.getPressure(elevation['max']) - 55 
+        Pmax = pressure_from_elevation(elevation['min']) + 55
+        Pmin = pressure_from_elevation(elevation['max']) - 55 
         levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 
                          800, 825, 850, 875, 900, 925, 950, 975, 1000])
         mask = (levs >= Pmin) * (levs <= Pmax) #select

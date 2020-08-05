@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime        import datetime, timedelta
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward
+from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, LW_downward, pressure_from_elevation
 from os              import path, listdir, remove, makedirs
 from math            import exp, floor, atan2, pi
 from fnmatch         import filter
@@ -375,24 +375,15 @@ class JRApl(object):
         dateRange = beg + '/to/' + end
         
         return dateRange
-    
-    def getPressure(self, elevation):
-        g  = 9.80665   #Gravitational acceleration [m/s2]
-        R  = 8.31432   #Universal gas constant for air [N.m /(mol.K)]    
-        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
-        P0 = 101325    #Pressure at sea level [Pa]
-        T0 = 288.15    #Temperature at sea level [K]
-        #http://en.wikipedia.org/wiki/Barometric_formula
-        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
-    
+
     def getPressureLevels(self):
         total_ele37 = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550, 
                        600, 650, 700, 750, 775, 800, 825, 850, 875, 900, 
                        925, 950, 975, 1000]
         
         # flip max and min because 1000 is the bottom and 0 is the top
-        elevationMax = self.getPressure(self.elevation['min'])
-        elevationMin = self.getPressure(self.elevation['max'])
+        elevationMax = pressure_from_elevation(self.elevation['min'])
+        elevationMin = pressure_from_elevation(self.elevation['max'])
         
         minNum = min(total_ele37, key=lambda x:abs(x-elevationMin))
         maxNum = min(total_ele37, key=lambda x:abs(x-elevationMax))

@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward
+from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, spec_hum_kgkg, LW_downward, get_begin_date, pressure_from_elevation
 from fnmatch           import filter
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
@@ -373,22 +373,12 @@ class MERRAgeneric():
                
         return id_lat, id_lon 
 
-    def getPressure(self, elevation):
-        """Convert elevation into air pressure using barometric formula"""
-        g  = 9.80665   #Gravitational acceleration [m/s2]
-        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]    
-        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
-        P0 = 101325    #Pressure at sea level [Pa]
-        T0 = 288.15    #Temperature at sea level [K]
-        #http://en.wikipedia.org/wiki/Barometric_formula
-        return P0 * exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
-    
     def getPressureLevels(self, elevation): 
         """Restrict list of MERRA-2 pressure levels to be download"""
-        Pmax = self.getPressure(elevation['min']) + 55
-        Pmin = self.getPressure(elevation['max']) - 55
-        # Pmax = self.getPressure(ele_min) + 55
-        # Pmin = self.getPressure(ele_max) - 55
+        Pmax = pressure_from_elevation(elevation['min']) + 55
+        Pmin = pressure_from_elevation(elevation['max']) - 55
+        # Pmax = pressure_from_elevation(ele_min) + 55
+        # Pmin = pressure_from_elevation(ele_max) - 55
         levs = np.array([1000, 975, 950, 925, 900, 875, 850, 825, 800, 775, 750, 
                          725, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 
                          200, 150, 100, 70, 50, 40, 30, 20, 10, 7.0, 5.0, 4.0, 
