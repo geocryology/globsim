@@ -1481,14 +1481,14 @@ class ERA5scale(object):
 
         # wind speed, add variable to ncdf file, convert
         vna = 'WSPD_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var           = self.rg.createVariable(vna,'f4',('time', 'station'))    
         var.long_name = '10 wind speed {} surface only'.format(self.NAME)
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
         vnb = 'WDIR_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var           = self.rg.createVariable(vnb,'f4',('time', 'station'))    
         var.long_name = '10 wind direction {} surface only'.format(self.NAME)
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'
