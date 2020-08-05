@@ -877,28 +877,23 @@ class ERAIinterpolate(GenericInterpolate):
         # loop over stations
         for n, h in enumerate(height): 
             # convert geopotential [mbar] to height [m], shape: (time, level)
-            ele = ncf.variables['z'][:,:,n] / 9.80665
+            elevation = ncf.variables['z'][:,:,n] / 9.80665
             # TODO: check if height of stations in data range
             
             # difference in elevation, level directly above will be >= 0
-            dele = ele - h
+            elev_diff = elevation - h
             # vector of level indices that fall directly above station. 
             # Apply after ravel() of data.
-            va = np.argmin(dele + (dele < 0) * 100000, axis=1) 
+            va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1) 
             # mask for situations where station is below lowest level
             mask = va < (nl-1)
-            va += np.arange(ele.shape[0]) * ele.shape[1]
+            va += np.arange(elevation.shape[0]) * elevation.shape[1]
             
             # Vector level indices that fall directly below station.
             # Apply after ravel() of data.
             vb = va + mask # +1 when OK, +0 when below lowest level
             
-            # weights
-            wa = np.absolute(dele.ravel()[vb]) 
-            wb = np.absolute(dele.ravel()[va])
-            wt = wa + wb
-            wa /= wt # Apply after ravel() of data.
-            wb /= wt # Apply after ravel() of data.
+            wa, wb = self.calculate_weights(elev_diff, va, vb)
             
             #loop over variables and apply interpolation weights
             for v, var in enumerate(varlist):

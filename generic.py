@@ -410,6 +410,15 @@ class GenericInterpolate:
         if pl: # only for pressure level files
             varlist.remove('level')
 
+    @staticmethod
+    def calculate_weights(elev_diff, va, vb):
+        wa = np.absolute(elev_diff.ravel()[vb])
+        wb = np.absolute(elev_diff.ravel()[va])
+        wt = wa + wb
+        wa /= wt # Apply after ravel() of data.
+        wb /= wt # Apply after ravel() of data.
+
+        return wa, wb
 
 class GenericScale:
 
