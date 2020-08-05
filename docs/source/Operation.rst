@@ -77,7 +77,7 @@ The **project directory** is the location to which data is downloaded and where 
      project_a/par/          (parameter files for data download and interpolation)
      project_a/jra-55/       (JRA-55 data)
      project_a/eraint/       (ERA-Interim data)
-     project_a/era5/         (ERA-5 data)
+     project_a/era5/         (ERA5 data)
      project_a/merra2/       (MERRA 2 data)
      project_a/station/      (data interpolated to stations)
      project_a/scale/        (final scaled files)
