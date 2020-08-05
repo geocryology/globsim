@@ -23,19 +23,31 @@
 from __future__  import print_function
 
 from datetime    import datetime
-from csv         import QUOTE_NONE
-from os          import mkdir, path
-from math        import floor
+from os          import mkdir, path, makedirs
+from fnmatch     import filter as fnmatch_filter
 
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
 
+import re
+
 # handle python 3 string types
 try:
     basestring
-except:
+except NameError:
     basestring = str
+
+try:
+    import ESMF
+
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701
+except ImportError:
+    print("*** ESMF not imported, interpolation not possible. ***")
+    pass
+
 
 class ParameterIO(object):
     """
@@ -167,118 +179,312 @@ class ParameterIO(object):
         return {name: valu}
 
 
+class GenericDownload(object):
+    """
+    Generic functionality for download classes
+    """
+
+    def __init__(self, pfile):
+        # read parameter file
+        self.pfile = pfile
+        self.par = par = ParameterIO(self.pfile)
+
+        self._set_elevation(par)
+        self._set_area(par)
+        self._check_area(par)
+
+        self.variables = par.variables
+
+    def _check_area(self, par):
+        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
+            raise ValueError("Bounding box is invalid: {}".format(self.area))
+
+        if (np.abs(par.bbN - par.bbS) < 1.5) or (np.abs(par.bbE - par.bbW) < 1.5):
+            raise ValueError("Download area is too small to conduct interpolation.")
+
+    def _set_area(self, par):
+        self.area  = {'north': par.bbN,
+                      'south': par.bbS,
+                      'west' : par.bbW,
+                      'east' : par.bbE}
+
+    def _set_elevation(self, par):
+        self.elevation = {'min' : par.ele_min,
+                          'max' : par.ele_max}
+
+    def _set_data_directory(self, name):
+        self.directory = path.join(self.par.project_directory, name)
+        if not path.isdir(self.directory):
+            makedirs(self.directory)
+
+
+class GenericInterpolate:
+
+    def __init__(self, ifile):
+        # read parameter file
+        self.ifile = ifile
+        self.par = par = ParameterIO(self.ifile)
+        self.dir_out = self.make_output_directory(par)
+        self.variables = par.variables
+        self.list_name = par.station_list.split(path.extsep)[0]
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+
+        # read station points
+        self.stations = StationListRead(self.stations_csv)
+
+        # time bounds, add one day to par.end to include entire last day
+        self.date  = {'beg' : par.beg,
+                      'end' : par.end + timedelta(days=1)}
+
+        # chunk size: how many time steps to interpolate at the same time?
+        # A small chunk size keeps memory usage down but is slow.
+        self.cs  = int(par.chunk_size)
+
+    def TranslateCF2short(self, dpar):
+        """
+        Map CF Standard Names into short codes used in netCDF files.
+        """
+        varlist = []
+        for var in self.variables:
+            varlist.append(dpar.get(var))
+        # drop none
+        varlist = [item for item in varlist if item is not None]
+        # flatten
+        varlist = [item for sublist in varlist for item in sublist]
+        return(varlist)
+
+    def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
+                        variables=None, date=None):
+        """
+        Bilinear interpolation from fields on regular grid (latitude, longitude)
+        to individual point stations (latitude, longitude). This works for
+        surface and for pressure level files
+
+        Args:
+            ncfile_in: Full path to an Era-Interim derived netCDF file. This can
+                       contain wildcards to point to multiple files if temporal
+                       chunking was used.
+
+            ncf_in: A netCDF4.MFDataset derived from reading in Era-Interim
+                    multiple files (def ERA2station())
+
+            points: A dictionary of locations. See method StationListRead in
+                    generic.py for more details.
+
+            tmask_chunk:
+
+            variables:  List of variable(s) to interpolate such as
+                        ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
+                        Defaults to using all variables available.
+
+            date: Directory to specify begin and end time for the derived time
+                  series. Defaluts to using all times available in ncfile_in.
+
+        Example:
+            from datetime import datetime
+            date  = {'beg' : datetime(2008, 1, 1),
+                      'end' : datetime(2008,12,31)}
+            variables  = ['t','u', 'v']
+            stations = StationListRead("points.csv")
+            ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
+                        variables=variables, date=date)
+        """
+
+        # is it a file with pressure levels?
+        pl = 'level' in ncf_in.dimensions.keys()
+
+        # get spatial dimensions
+        if pl: # only for pressure level files
+            lev  = ncf_in.variables['level'][:]
+            nlev = len(lev)
+
+        # test if time steps to interpolate remain
+        nt = sum(tmask_chunk)
+        if nt == 0:
+            raise ValueError('No time steps from netCDF file selected.')
+
+        # get variables
+        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
+        self.remove_select_variables(varlist, pl)
+
+        # list variables that should be interpolated
+        if variables is None:
+            variables = varlist
+        # test is variables given are available in file
+        if (set(variables) < set(varlist) == 0):
+            raise ValueError('One or more variables not in netCDF file.')
+
+        sgrid = self.create_source_grid(ncfile_in)
+
+        # create source field on source grid
+        if pl:  # only for pressure level files
+            sfield = ESMF.Field(sgrid, name='sgrid',
+                                staggerloc=ESMF.StaggerLoc.CENTER,
+                                ndbounds=[len(variables), nt, nlev])
+        else: # 2D files
+            sfield = ESMF.Field(sgrid, name='sgrid',
+                                staggerloc=ESMF.StaggerLoc.CENTER,
+                                ndbounds=[len(variables), nt])
+
+        self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+
+        locstream = self.create_loc_stream()
+
+        # create destination field
+        if pl: # only for pressure level files
+            dfield = ESMF.Field(locstream, name='dfield',
+                                ndbounds=[len(variables), nt, nlev])
+        else:
+            dfield = ESMF.Field(locstream, name='dfield',
+                                ndbounds=[len(variables), nt])
+
+        dfield = self.regrid(sfield, dfield)
+
+        return dfield, variables
+
+    def make_output_directory(self, par):
+        """make directory to hold outputs"""
+
+        dirIntp = path.join(par.project_directory, 'interpolated')
+
+        if not (path.isdir(dirIntp)):
+            makedirs(dirIntp)
+
+        return dirIntp
+
+    def create_source_grid(self, ncfile_in):
+        # Create source grid from a SCRIP formatted file. As ESMF needs one
+        # file rather than an MFDataset, give first file in directory.
+        flist = np.sort(fnmatch_filter(os.listdir(self.dir_inp), path.basename(ncfile_in)))
+        ncsingle = path.join(self.dir_inp, flist[0])
+        sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+
+        return sgrid
+
+    def create_loc_stream(self):
+        # CANNOT have third dimension!!!
+        locstream = ESMF.LocStream(len(self.stations),
+                                   coord_sys=ESMF.CoordSys.SPH_DEG)
+        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
+        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+
+        return locstream
+
+    @staticmethod
+    def regrid(sfield, dfield):
+    # regridding function, consider ESMF.UnmappedAction.ERROR
+        regrid2D = ESMF.Regrid(sfield, dfield,
+                                regrid_method=ESMF.RegridMethod.BILINEAR,
+                                unmapped_action=ESMF.UnmappedAction.IGNORE,
+                                dst_mask_values=None)
+
+        # regrid operation, create destination field (variables, times, points)
+        dfield = regrid2D(sfield, dfield)
+        sfield.destroy()  # free memory
+
+        return dfield
+
+    @staticmethod
+    def nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl):
+        # assign data from ncdf: (variable, time, latitude, longitude)
+        for n, var in enumerate(variables):
+
+            if pl:  # only for pressure level files
+                if ESMFnew:
+                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3, 2, 0, 1))
+                else:
+                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0, 1, 3, 2))
+
+            else:
+                if ESMFnew:
+                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2, 1, 0))
+                else:
+                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0, 2, 1))
+
+    @staticmethod
+    def remove_select_variables(varlist, pl):
+        varlist.remove('time')
+        varlist.remove('latitude')
+        varlist.remove('longitude')
+        if pl: # only for pressure level files
+            varlist.remove('level')
+
+    @staticmethod
+    def calculate_weights(elev_diff, va, vb):
+        wa = np.absolute(elev_diff.ravel()[vb])
+        wb = np.absolute(elev_diff.ravel()[va])
+        wt = wa + wb
+        wa /= wt # Apply after ravel() of data.
+        wb /= wt # Apply after ravel() of data.
+
+        return wa, wb
+
+class GenericScale:
+
+    def __init__(self, sfile):
+        # read parameter file
+        self.sfile = sfile
+        self.par = par = ParameterIO(self.sfile)
+        self.intpdir = path.join(par.project_directory, 'interpolated')
+        self.scdir = self.makeOutDir(par)
+        self.list_name = par.station_list.split(path.extsep)[0]
+
+        # get the station file
+        self.stations_csv = path.join(par.project_directory,
+                                      'par', par.station_list)
+        # read station points
+        self.stations = StationListRead(self.stations_csv)
+
+        # read kernels
+        self.kernels = par.kernels
+        if not isinstance(self.kernels, list):
+            self.kernels = [self.kernels]
+
+    def getOutNCF(self, par, src, scaleDir='scale'):
+        """make out file name"""
+
+        timestep = str(par.time_step) + 'h'
+        src = '_'.join(['scaled', src, timestep])
+        src = src + '.nc'
+        fname = path.join(self.scdir, src)
+
+        return fname
+
+    def makeOutDir(self, par):
+        """make directory to hold outputs"""
+
+        dirSC = path.join(par.project_directory, 'scaled')
+
+        if not (path.isdir(dirSC)):
+            makedirs(dirSC)
+
+        return dirSC
+
+
 def variables_skip(variable_name):
-        '''
-        Which variable names to use? Drop the ones that are dimensions.
-        '''
-        skip = 0
-        dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height')
-        if variable_name in dims:
-            skip = 1
-        return skip
+    """
+    Which variable names to use? Drop the ones that are dimensions.
+    """
+    skip = 0
+    dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height')
+    if variable_name in dims:
+        skip = 1
+    return skip
+
 
 def StationListRead(sfile):
-    '''
+    """
     Reads ASCII station list and returns a pandas dataframe.
 
     # read station list
     stations = StationListRead('examples/par/examples_list1.globsim_interpolate')
     print(stations['station_number'])
-    '''
+    """
     # read file
     raw = pd.read_csv(sfile)
     raw = raw.rename(columns=lambda x: x.strip())
     return(raw)
-
-
-def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=None):
-    '''
-    Create netCDF file for scaled results (same for all reanalyses)
-    Returns the file object so that kernel functions can
-    successively write variables to it.
-
-    '''
-
-    if path.isfile(ncfile_out):  # raise exception if file exists
-        raise FileExistsError("File already exists: {}".format(ncfile_out))
-
-
-    # make netCDF outfile, variables are written in kernels
-    rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
-    rootgrp.Conventions = 'CF-1.6'
-    rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
-    rootgrp.featureType = "timeSeries"
-
-    name = ncfile_out[-9:-3]
-
-    # dimensions
-    station = rootgrp.createDimension('station',
-                    len(nc_interpol.variables['station'][:]))
-    time    = rootgrp.createDimension('time', len(times_out))
-
-    # base variables
-    time           = rootgrp.createVariable('time', 'i8',('time'))
-    time.long_name = 'time'
-    time.axis      = 'T'
-
-    time.units = t_unit
-    time.calendar  = 'gregorian'
-
-    station             = rootgrp.createVariable('station', 'i4',('station'))
-    station.long_name   = 'station index for time series data'
-    station.units       = ''
-    station.standard_name = 'platform_id'
-
-    latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-    latitude.standard_name  = 'latitude'
-    latitude.units      = 'degrees_N'
-    latitude.long_name  = 'WGS84 latitude'
-    latitude.axis       = 'Y'
-
-    longitude           = rootgrp.createVariable('longitude','f4',('station'))
-    longitude.standard_name = 'longitude'
-    longitude.long_name = 'WGS84 longitude'
-    longitude.units     = 'degrees_E'
-    longitude.axis      = 'X'
-
-    height           = rootgrp.createVariable('height','f4',('station'))
-    height.standard_name = 'height_above_reference_ellipsoid'
-    height.long_name = 'height_above_reference_ellipsoid'
-    height.units     = 'm'
-    height.axis      = 'Z'
-    height.positive  = 'up'
-
-    crs           = rootgrp.createVariable('crs','i4')
-    crs.long_name = 'coordinate system'
-    crs.grid_mapping_name = 'latitude_longitude'
-    crs.longitude_of_prime_meridian = 0.0
-    crs.semi_major_axis = 6378137
-    crs.inverse_flattening = 298.2572236
-    crs.wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]'
-
-    # assign base variables
-    time[:]      = times_out
-    station[:]   = nc_interpol.variables['station'][:]
-    latitude[:]  = nc_interpol.variables['latitude'][:]
-    longitude[:] = nc_interpol.variables['longitude'][:]
-    height[:]    = nc_interpol.variables['height'][:]
-
-    # add station names to netcdf
-    if station_names is not None:
-        # first convert to character array
-        names_out = nc.stringtochar(np.array(station_names, 'S32'))
-
-        # create space in the netcdf
-        nchar        = rootgrp.createDimension('name_strlen', 32)
-        st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
-        st.standard_name = 'platform_name'
-        st.units     = ''
-
-        # add data
-        st[:] = names_out
-
-    return rootgrp
-
 
 def convert_cummulative(data):
     """
@@ -296,8 +502,9 @@ def convert_cummulative(data):
     mask = diff < 0
     diff[mask] = data[mask]
 
-    #get full cummulative sum
+    # get full cummulative sum
     return np.cumsum(diff, dtype=np.float64)
+
 
 def cummulative2total(data, time):
     """
@@ -313,7 +520,7 @@ def cummulative2total(data, time):
     # where new forecast starts, the increment will be smaller than 0
     # and the actual value is used
 
-    mask = [timei.hour in [3,15] for timei in time]
+    mask = [timei.hour in [3, 15] for timei in time]
     diff[mask] = data[mask]
 
     mask = diff < 0
@@ -322,15 +529,20 @@ def cummulative2total(data, time):
     return diff
 
 
+
+
+
+
+
 def series_interpolate(time_out, time_in, value_in, cum=False):
-    '''
+    """
     Interpolate single time series. Convenience function for usage in scaling
     kernels.
     time_out: Array of times [s] for which output is desired. Integer.
     time_in:  Array of times [s] for which value_in is given. Integer.
     value_in: Value time series. Must have same length as time_in.
     cum:      Is valiable serially cummulative like LWin? Default: False.
-    '''
+    """
     time_step_sec = time_out[1]-time_out[0]
 
     # convert to continuous cummulative, if values are serially cummulative
@@ -347,8 +559,9 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
 
     return vi
 
+
 def globsimScaled2Pandas(ncdf_in, station_nr):
-    '''
+    """
     Read a scaled (or interpolated) globsim netCDF file and return all values
     for one station as a Pandas data frame.
 
@@ -357,7 +570,7 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     station_nr: station_number, as given in the stations .csv file to identify
                 the station.
 
-    '''
+    """
     # open file
     ncf = nc.Dataset(ncdf_in, 'r')
 
@@ -373,16 +586,15 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     time = nc.num2date(time, units = t_unit, calendar = t_cal)
 
     # make data frame with time
-    df = pd.DataFrame(data=time,columns=['time'])
+    df = pd.DataFrame(data=time, columns=['time'])
     # add variables
     for var in varlist:
         if variables_skip(var):
             continue
         data = ncf.variables[var][:,sm]
-        df = pd.concat([df,pd.DataFrame(data=data,columns=[var])],axis=1)
+        df = pd.concat([df, pd.DataFrame(data=data, columns=[var])], axis=1)
 
     return df
-
 
 
 def globsim2GEOtop(ncdf_globsim, txt_geotop):
@@ -392,26 +604,26 @@ def globsim2GEOtop(ncdf_globsim, txt_geotop):
 
     outfile = '/Users/stgruber/Supervision/MSc/Mary_Pascale_Laurentian/reanalysis/station/Meteo_0001.txt'
 
-    #read time object
+    # read time object
     time = self.rg.variables['time']
     date = self.rg.variables['time'][:]
 
-    #read all other values
-    columns = ['Date','AIRT_ERA_C_pl','AIRT_ERA_C_sur','PREC_ERA_mm_sur','RH_ERA_per_sur','SW_ERA_Wm2_sur','LW_ERA_Wm2_sur','WSPD_ERA_ms_sur','WDIR_ERA_deg_sur']
-    metdata = np.zeros((len(date),len(columns)))
+    # read all other values
+    columns = ['Date', 'AIRT_ERA_C_pl', 'AIRT_ERA_C_sur', 'PREC_ERA_mm_sur', 'RH_ERA_per_sur', 'SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'WSPD_ERA_ms_sur', 'WDIR_ERA_deg_sur']
+    metdata = np.zeros((len(date), len(columns)))
     metdata[:,0] = date
     for n, vn in enumerate(columns[1:]):
-        metdata[:,n+1] = self.rg.variables[vn][:, 0]
+        metdata[:, n+1] = self.rg.variables[vn][:, 0]
 
-    #make data frame
+    # make data frame
     data = pd.DataFrame(metdata, columns=columns)
     data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
 
     # round
-    decimals = pd.Series([2,1,1,1,1,1,1,1], index=columns[1:])
+    decimals = pd.Series([2, 1, 1, 1, 1, 1, 1, 1], index=columns[1:])
     data.round(decimals)
 
-    #export to file
+    # export to file
     fmt_date = "%d/%m/%Y %H:%M"
     data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
 
@@ -443,25 +655,25 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     """
 
     # columns to export
-    columns = ['time','SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'PREC_ERA_mmsec_sur',
-               'AIRT_ERA_C_sur','SH_ERA_kgkg_sur', 'WSPD_ERA_ms_sur',
+    columns = ['time', 'SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'PREC_ERA_mmsec_sur',
+               'AIRT_ERA_C_sur', 'SH_ERA_kgkg_sur', 'WSPD_ERA_ms_sur',
                'AIRT_PRESS_Pa_pl']
 
     # output ASCII formatting
-    formatters={"time":             "  {:%H %M  %j  %Y}".format,
-                "SW_ERA_Wm2_sur":   "{:8.2f}".format,
-                "LW_ERA_Wm2_sur":   "{:8.2f}".format,
-                "PREC_ERA_mmsec_sur":  "{:13.4E}".format,
-                "AIRT_ERA_C_sur":   "{:8.2f}".format,
-                "SH_ERA_kgkg_sur":  "{:11.3E}".format,
-                "WSPD_ERA_ms_sur":  "{:7.2f}".format,
+    formatters={"time": "  {:%H %M  %j  %Y}".format,
+                "SW_ERA_Wm2_sur": "{:8.2f}".format,
+                "LW_ERA_Wm2_sur": "{:8.2f}".format,
+                "PREC_ERA_mmsec_sur": "{:13.4E}".format,
+                "AIRT_ERA_C_sur": "{:8.2f}".format,
+                "SH_ERA_kgkg_sur": "{:11.3E}".format,
+                "WSPD_ERA_ms_sur": "{:7.2f}".format,
                 "AIRT_PRESS_Pa_pl": "{:11.2f}".format}
 
     # get data
     df = globsimScaled2Pandas(ncdf_globsim, station_nr)
 
     # convery precipitation
-    df["PREC_ERA_mmsec_sur"] = df["PREC_ERA_mm_sur"]/1800.
+    df["PREC_ERA_mmsec_sur"] = df["PREC_ERA_mm_sur"] / 1800.0
 
     # write FORTRAN formatted ASCII file
     with open(met_class, 'w') as f:
@@ -472,102 +684,17 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     f.close()
 
 
-def satvapp_kPa_fT(T):
-    '''
-    Saturation water vapour pressure [kPa] following the Tetens formula, Eq 4.2
-    in Stull, Practical Meteorology.
-
-    T: Temperature [C]
-    '''
-    e0 = 0.6113  # [kPa]
-    b  = 17.2694 # fitting constant
-    T1 = 273.15  # [K]
-    T2 = 35.86   # [K]
-    T += T1
-    return e0 * np.exp((b*(T-T1))/(T-T2))
-
-
-def vapp_kPa_fTd(Td):
-    '''
-    Water vapour pressure [hPa] derived from dewpoint temperature [C]. Taken
-    from www.eol.ucar.edu/projects/ceop/dm/documents/refdata_report/eqns.html
-    where it is attributed to (Bolton 1980)
-    https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
-
-    Td: Dew point temperature [C]
-
-    '''
-    #(Bolton 1980)
-    #https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
-    return 6.112 * np.exp((17.67 * Td)/(Td + 243.5))
-
-    #https://www.weather.gov/media/epz/wxcalc/vaporPressure.pdf
-    #return 6.112 * np.power(10,(7.5 * Td)/(237.3 + Td))
-
-def spec_hum_kgkg(Td, Pr):
-    '''
-    Specific humidity [Kg/Kg]. Eq 4.7 in Stull, Practical Meteorology.
-    Td: Dewpoint temperature [C]
-    Pr:  Air pressure [Pa]
-    '''
-    E = 0.622 # density of vater vapour / density of dry air
-    e  = vapp_kPa_fTd(Td) / 10
-    P = Pr/1000. # from Pa to kPa
-    spec_hum = E * e / (P - e * (1 - E))
-    return spec_hum
-
-def water_vap_pressure(RH,T):
-    '''
-    water vapour pressure [unit:1], Eq C9,C10 in Fiddes and Gruber (2014)
-    RH: relative humidity (%)
-    Tair: air temperature (kelvin)
-    '''
-    es0 = 6.11 # reference saturation vapour pressure at 0ºC
-    T0 = 273.15 # Kelvin
-    lv = 2.5 * 1000000 #latent heat of vaporization of water
-    Rv = 461.5 # gas constant for water vapour
-    es = es0 * np.exp((lv)/Rv * (1/T0 - 1/T))
-    pv = (RH * es)/100
-    return pv
-
-def emissivity_clear_sky(RH,T):
-    '''
-    clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)
-    pv: water vapour pressure (1)
-    T: air temperature (kelvin)
-    '''
-    pv = water_vap_pressure(RH, T)
-    x1 = 0.43
-    x2 = 5.7
-    e_clear = 0.23 + x1*(pv/T)**(1/x2)
-    return e_clear
-
-
 def str_encode(value, encoding = "UTF8"):
-    '''
+    """
     handles encoding to allow compatibility between python 2 and 3
     specifically with regards to netCDF variables.   Python 2 imports
     variable names as unicode, whereas python 3 imports them as str.
-    '''
+    """
     if type(value) == str:
         return(value)
     else:
         return(value.encode(encoding))
 
-def LW_downward(RH,T,N):
-    '''
-    incoming longware radiation [W/m2], Eq(14) in Fiddes and Gruber (2014)
-    e_clear: clear sky emissivity
-    N: cloud cover
-    T: air temperature
-    '''
-    e_clear = emissivity_clear_sky(RH,T)
-    p1 = 6
-    p2 = 4
-    e_as = 0.979
-    con = 5.67 * 10**(-8) # J/s/m/K4 Stefan-Boltzmann constant
-    lw = e_clear*(1-N**p1)+(e_as*(N**p2))*con*T**4
-    return lw
 
 def create_globsim_directory(target_dir, name):
     """
@@ -589,13 +716,14 @@ def create_globsim_directory(target_dir, name):
 
     return(True)
 
+
 def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
     src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
     """
-    #open netcdf if string provided
+    # open netcdf if string provided
     if type(ncd) is str:
         n = nc.Dataset(ncd)
 
@@ -604,9 +732,9 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
 
     # get date / time columns
     time = nc.num2date(n['time'][:],
-                        units=n['time'].units,
-                        calendar=n['time'].calendar)
-    time_step = (time[1]-time[0]).seconds # in second
+                       units=n['time'].units,
+                       calendar=n['time'].calendar)
+    time_step = (time[1] - time[0]).seconds # in second
 
 
     HH =   [x.timetuple().tm_hour for x in time]
@@ -654,11 +782,11 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     for i in range(nstn):
 
         # massage data into the right shape
-        out_array = data[:,:,i]
+        out_array = data[:, :, i]
         out_array = np.concatenate((TIME, out_array), 0)
         out_array = np.transpose(out_array)
 
-        #get station name
+        # get station name
         st_name = NAMES[i]
 
         filename = "{}_{}_{}.MET".format(i, st_name, src)
@@ -666,8 +794,10 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
 
         # create file
         np.savetxt(savepath, out_array,
-                fmt = [" %02u", "%02u", " %03u", " %2u", "%8.2f", "%8.2f",
-                        "%13.4E", "%8.2f", "%11.3E", "%7.2f", "%11.2f" ])
+                   fmt = [" %02u", "%02u", " %03u",
+                          " %2u", "%8.2f", "%8.2f",
+                          "%13.4E", "%8.2f", "%11.3E",
+                          "%7.2f", "%11.2f" ])
 
 
 def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
@@ -676,7 +806,7 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     ncd: netcdf dataset
     src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
     """
-    #open netcdf if string provided
+    # open netcdf if string provided
     if type(ncd) is str:
         n = nc.Dataset(ncd)
 
@@ -685,8 +815,8 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
 
     # get date / time column
     time = nc.num2date(n['time'][:],
-                        units=n['time'].units,
-                        calendar=n['time'].calendar)
+                       units=n['time'].units,
+                       calendar=n['time'].calendar)
 
     time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
     time = pd.DataFrame(time)
@@ -738,13 +868,12 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     for i in range(nstn):
 
         # massage data into the right shape
-        out_df = pd.DataFrame(np.transpose(data[:,:,i]))
+        out_df = pd.DataFrame(np.transpose(data[:, :, i]))
         out_df = pd.concat([time, out_df], axis=1)
         out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
                             "AirTemp", "AirPress", "SWglobal", "LWin"]
 
-
-        #get station name
+        # get station name
         st_name = NAMES[i]
 
         # prepare paths
@@ -753,3 +882,4 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
 
         # create file
         out_df.to_csv(savepath, index=False, float_format="%10.5f")
+
