@@ -1352,7 +1352,7 @@ class ERA5scale(object):
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'PRESS_ERA5_Pa_pl' # variable name
+        vn = 'PRESS_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure ERA5 pressure levels only'
         var.units     = 'Pa' 
@@ -1371,7 +1371,7 @@ class ERA5scale(object):
         Air temperature derived from pressure levels, exclusively.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_ERA5_C_pl' # variable name
+        vn = 'AIRT_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature ERA5 pressure levels only'
         var.units     = 'degrees_C' 
@@ -1389,7 +1389,7 @@ class ERA5scale(object):
         Air temperature derived from surface data, exclusively.
         """
         # add variable to ncdf file
-        vn = 'AIRT_ERA5_C_sur' # variable name
+        vn = 'AIRT_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA5 surface only'
         var.units     = 'degrees_C' 
@@ -1408,14 +1408,14 @@ class ERA5scale(object):
         Air temperature derived from surface data and pressure level data as
         shown by the method REDCAPP.
         """       
-        print("AIRT_ERA5_redcapp")            
+        print("AIRT_redcapp")            
 
     def PREC_mm_sur(self):
         """
         Precipitation sum in mm for the time step given.
         """   
         # add variable to ncdf file
-        vn  = 'PREC_ERA5_mm_sur' # variable name
+        vn  = 'PREC_sur' # variable name
         var = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation ERA5 surface only'
         var.units     = 'kg m-2 s-1'
@@ -1446,7 +1446,7 @@ class ERA5scale(object):
                                             time_in*3600, values[:, n]-273.15) 
                                                     
         # add variable to ncdf file
-        vn = 'RH_ERA5_per_sur' # variable name
+        vn = 'RH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Relative humidity ERA5 surface only'
         var.units     = 'percent'
@@ -1479,14 +1479,14 @@ class ERA5scale(object):
                                          time_in*3600, values[:, n]) 
 
         # wind speed, add variable to ncdf file, convert
-        vn = 'WSPD_ERA5_ms_sur' # variable name
+        vn = 'WSPD_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA5 surface only'
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
-        vn = 'WDIR_ERA5_deg_sur' # variable name
+        vn = 'WDIR_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA5 surface only'
         var.units     = 'degree'
@@ -1506,7 +1506,7 @@ class ERA5scale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'SW_ERA5_Wm2_sur' # variable name
+        vn = 'SW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards ERA5 surface only'
         var.units     = 'W m-2'
@@ -1527,7 +1527,7 @@ class ERA5scale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'LW_ERA5_Wm2_sur' # variable name
+        vn = 'LW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards ERA5 surface only'
         var.standard_name = 'surface_downwelling_longwave_flux'
@@ -1560,7 +1560,7 @@ class ERA5scale(object):
                            self.rg.variables['PRESS_ERA5_Pa_pl'][:, :])  
         
         # add variable to ncdf file
-        vn = 'SH_ERA5_kgkg_sur' # variable name
+        vn = 'SH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Specific humidity ERA5 surface only'
         var.units     = '1'  
