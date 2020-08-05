@@ -3,16 +3,16 @@ functions for creating netcdf files
 """
 import netCDF4 as nc
 
-def nc_create_basic_timeseries(ncfile_out):
+def nc_new_file(ncfile_out, featureType="timeSeries"):
     rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
     rootgrp.Conventions = 'CF-1.6'
-    rootgrp.featureType = "timeSeries"
+    rootgrp.featureType = featureType
 
     return rootgrp
 
 
 def ncvar_add_latitude(rootgrp, dimensions=('station')):
-    latitude  = rootgrp.createVariable('latitude', 'f4', dimensions)
+    latitude  = rootgrp.createVariable('latitude', 'f8', dimensions)
     latitude.long_name  = 'latitude'
     latitude.units  = 'degrees_north'
     latitude.standard_name = 'latitude'
@@ -22,7 +22,7 @@ def ncvar_add_latitude(rootgrp, dimensions=('station')):
 
 
 def ncvar_add_longitude(rootgrp, dimensions=('station')):
-    longitude           = rootgrp.createVariable('longitude', 'f4', dimensions)
+    longitude           = rootgrp.createVariable('longitude', 'f8', dimensions)
     longitude.long_name = 'longitude'
     longitude.units     = 'degrees_east'
     longitude.standard_name = 'longitude'
@@ -31,12 +31,13 @@ def ncvar_add_longitude(rootgrp, dimensions=('station')):
     return longitude
 
 
-def ncvar_add_time(rootgrp, units, calendar):
-    time           = rootgrp.createVariable('time', 'i4', ('time'))
+def ncvar_add_time(rootgrp, units, calendar, dimensions=('time'), dtype='i4'):
+    time           = rootgrp.createVariable('time', dtype, dimensions)
     time.long_name = 'time'
     time.units     = units
     time.calendar  = calendar
     time.standard_name = 'time'
+    time.axis = 'T'
 
     return time
 
@@ -49,11 +50,13 @@ def ncvar_add_station(rootgrp, dimensions=('station')):
     return station
 
 
-def ncvar_add_geoid_height(rootgrp, dimensions=('station')):
+def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
     height           = rootgrp.createVariable('height', 'f4', dimensions)
-    height.long_name = 'height_above_reference_ellipsoid'
+    height.long_name = 'Elevation relative to ellipsoid'
     height.units     = 'm'
-    height.standard_name = 'geoid_height_above_reference_ellipsoid'
+    height.axis      = 'Z'
+    height.standard_name = 'height_above_reference_ellipsoid'
+    height.positive  = 'up'
 
     return height
 
@@ -70,12 +73,8 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
 
 
     # make netCDF outfile, variables are written in kernels
-    rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
-    rootgrp.Conventions = 'CF-1.6'
+    rootgrp = nc_new_file(ncfile_out)
     rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
-    rootgrp.featureType = "timeSeries"
-
-    name = ncfile_out[-9:-3]
 
     # dimensions
     station = rootgrp.createDimension('station',
@@ -83,36 +82,13 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
     time    = rootgrp.createDimension('time', len(times_out))
 
     # base variables
-    time           = rootgrp.createVariable('time', 'i8',('time'))
-    time.long_name = 'time'
-    time.axis      = 'T'
-
-    time.units = t_unit
-    time.calendar  = 'gregorian'
-
-    station             = rootgrp.createVariable('station', 'i4',('station'))
-    station.long_name   = 'station index for time series data'
-    station.units       = ''
-    station.standard_name = 'platform_id'
-
-    latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-    latitude.standard_name  = 'latitude'
-    latitude.units      = 'degrees_N'
-    latitude.long_name  = 'WGS84 latitude'
-    latitude.axis       = 'Y'
-
-    longitude           = rootgrp.createVariable('longitude','f4',('station'))
-    longitude.standard_name = 'longitude'
-    longitude.long_name = 'WGS84 longitude'
-    longitude.units     = 'degrees_E'
-    longitude.axis      = 'X'
-
-    height           = rootgrp.createVariable('height','f4',('station'))
-    height.standard_name = 'height_above_reference_ellipsoid'
-    height.long_name = 'height_above_reference_ellipsoid'
-    height.units     = 'm'
-    height.axis      = 'Z'
-    height.positive  = 'up'
+    time           = ncvar_add_time(rootgrp, units=t_unit,
+                                    calendar='gregorian', dimensions=('time'),
+                                    dtype='i8')
+    station        = ncvar_add_station(rootgrp)
+    latitude       = ncvar_add_latitude(rootgrp)
+    longitude      = ncvar_add_longitude(rootgrp)
+    height         = ncvar_add_ellipsoid_height()
 
     crs           = rootgrp.createVariable('crs','i4')
     crs.long_name = 'coordinate system'
@@ -146,7 +122,7 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
     return rootgrp
 
 
-def create_empty_netcdf(ncfile_out, stations, nc_in, time_units):
+def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
@@ -157,7 +133,7 @@ def create_empty_netcdf(ncfile_out, stations, nc_in, time_units):
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
-    rootgrp = netcdf_base(ncfile_out, stations, time_units)
+    rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units)
 
     # assign station characteristics
     station[:]   = list(stations['station_number'])
@@ -193,33 +169,20 @@ def create_empty_netcdf(ncfile_out, stations, nc_in, time_units):
 
     return rootgrp
 
-def netcdf_base(ncfile_out, stations, time_units):
-    # TODO change date type from f4 to f8 for lat and lon
+def netcdf_base(ncfile_out, n_stations, n_time, time_units):
     # Build the netCDF file
-    rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
-    rootgrp.Conventions = 'CF-1.6'
-    rootgrp.featureType = "timeSeries"
+    rootgrp = nc_new_file(ncfile_out)
 
     # dimensions
-    station = rootgrp.createDimension('station', len(stations))
+    station = rootgrp.createDimension('station', n_stations)
     time    = rootgrp.createDimension('time', None)
 
     # base variables
-    time           = rootgrp.createVariable('time', 'i4', ('time'))
-    time.long_name = 'time'
-    time.units     = time_units
-    time.calendar  = 'gregorian'
-    station             = rootgrp.createVariable('station', 'i4', ('station'))
-    station.long_name   = 'station for time series data'
-    station.units       = '1'
-    latitude            = rootgrp.createVariable('latitude', 'f4', ('station'))
-    latitude.long_name  = 'latitude'
-    latitude.units      = 'degrees_north'
-    longitude           = rootgrp.createVariable('longitude', 'f4', ('station'))
-    longitude.long_name = 'longitude'
-    longitude.units     = 'degrees_east'
-    height           = rootgrp.createVariable('height', 'f4', ('station'))
-    height.long_name = 'height_above_reference_ellipsoid'
-    height.units     = 'm'
+    time           = ncvar_add_time(rootgrp, units=time_units,
+                                    calendar='gregorian', dimensions=('time'))
+    station        = ncvar_add_station(rootgrp)
+    latitude       = ncvar_add_latitude(rootgrp)
+    longitude      = ncvar_add_longitude(rootgrp)
+    height         = ncvar_add_ellipsoid_height()
 
     return rootgrp
