@@ -114,7 +114,7 @@ from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
 from globsim.generic   import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
-from globsim.nc_elements import netcdf_base, create_empty_netcdf, ScaledFileOpen
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
 from numpy.random      import uniform
@@ -780,7 +780,7 @@ class MERRAgeneric():
         variables:  variables read from netCDF handle
         lev:        list of pressure levels, empty is [] (default)
         '''
-        rootgrp = netcdf_base(ncfile_out, stations, 'hours since 1980-01-01 00:00:00')
+        rootgrp = netcdf_base(ncfile_out, stations, None, 'hours since 1980-01-01 00:00:00')
         
         # assign station characteristics            
         station[:]   = list(stations['station_number'])
@@ -2040,32 +2040,8 @@ class MERRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'MERRA-2, interpolated (bi)linearly to stations'
-        rootgrp.featureType = "timeSeries"
-
-        # dimensions
-        station = rootgrp.createDimension('station', len(height))
-        time    = rootgrp.createDimension('time', nt)
-
-        # base variables
-        time           = rootgrp.createVariable('time',     'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1980-01-01 00:00:00'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station',  'i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
+        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1980-01-01 00:00:00')
+        rootgrp.source  = 'MERRA-2, interpolated (bi)linearly to stations'
         
         # assign base variables
         time[:]      = ncf.variables['time'][:]
@@ -2282,7 +2258,7 @@ class MERRAscale(GenericScale):
         if not path.isdir(path.dirname(self.output_file)):
             makedirs(path.dirname(self.outfile))
         
-        self.rg = ScaledFileOpen(self.output_file, 
+        self.rg = new_scaled_netcdf(self.output_file, 
                                  self.nc_pl, 
                                  self.times_out_nc, 
                                  t_unit = self.scaled_t_units)

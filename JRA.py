@@ -16,7 +16,8 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime            import datetime, timedelta
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
+from globsim.generic     import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
 from math                import exp, floor, atan2, pi
@@ -832,8 +833,6 @@ class JRAdownload(GenericDownload):
         print('''\n======== JRA55: STOP ========\n''')
         
          
-
-
 class JRAinterpolate(GenericInterpolate):
     """
     Algorithms to interpolate JRA55 netCDF files to station coordinates. 
@@ -909,7 +908,7 @@ class JRAinterpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        rootgrp = create_empty_netcdf(ncfile_out, self.stations, ncf_in, 
+        rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in, 
                                       time_units='hours since 1800-01-01 00:00:0.0') 
         rootgrp.source = 'JRA55, interpolated bilinearly to stations'
         rootgrp.close()  
@@ -1027,33 +1026,9 @@ class JRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'JRA55, interpolated (bi)linearly to stations'
-        rootgrp.featureType = "timeSeries"
-
-        # dimensions
-        station = rootgrp.createDimension('station', len(height))
-        time    = rootgrp.createDimension('time', nt)
-
-        # base variables
-        time           = rootgrp.createVariable('time',     'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1800-01-01 00:00:0.0'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station',  'i4', ('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude', 'f4', ('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4', ('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
-       
+        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1800-01-01 00:00:0.0')
+        rootgrp.source = 'JRA-55, interpolated (bi)linearly to stations'
+        
         # assign base variables
         time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
@@ -1100,9 +1075,7 @@ class JRAinterpolate(GenericInterpolate):
             # weights
             wa = np.absolute(dele.ravel()[vb]) 
             wb = np.absolute(dele.ravel()[va])
-            
             wt = wa + wb
-            
             wa /= wt # Apply after ravel() of data.
             wb /= wt # Apply after ravel() of data.
             
@@ -1233,7 +1206,7 @@ class JRAscale(GenericScale):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.output_file, self.nc_pl, 
+        self.rg = new_scaled_netcdf(self.output_file, self.nc_pl, 
                                  self.times_out_nc, self.nc_pl['time'].units)
         
         # add station names to netcdf

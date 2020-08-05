@@ -48,7 +48,8 @@ from datetime            import datetime, timedelta
 from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
-from globsim.generic     import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, str_encode, cummulative2total, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
+from globsim.generic     import ParameterIO, StationListRead, series_interpolate, variables_skip, str_encode, cummulative2total, GenericDownload, GenericScale, GenericInterpolate
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from scipy.interpolate   import interp1d
 
@@ -732,7 +733,7 @@ class ERAIinterpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        rootgrp = create_empty_netcdf(ncfile_out, self.stations, ncf_in, 
+        rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in, 
                                       time_units= 'hours since 1900-01-01 00:00:0.0') 
         rootgrp.source = 'ERA_Interim, interpolated bilinearly to stations'
         rootgrp.close()   
@@ -849,32 +850,8 @@ class ERAIinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'ERA-Interim, interpolated (bi)linearly to stations'
-        rootgrp.featureType = "timeSeries"
-
-        # dimensions
-        station = rootgrp.createDimension('station', len(height))
-        time    = rootgrp.createDimension('time', nt)
-
-        # base variables
-        time           = rootgrp.createVariable('time',     'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station','i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude','f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
+        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1900-01-01 00:00:0.0')
+        rootgrp.source = 'ERA-Interim, interpolated (bi)linearly to stations'
        
         # assign base variables
         time[:]      = ncf.variables['time'][:]
@@ -1075,7 +1052,7 @@ class ERAIscale(GenericScale):
         """
         if path.isfile(self.output_file):
             print("Warning, output file already exists. This may cause problems")    
-        self.rg = ScaledFileOpen(self.output_file, self.nc_pl, 
+        self.rg = new_scaled_netcdf(self.output_file, self.nc_pl, 
                                  self.times_out_nc, 
                                  t_unit = self.scaled_t_units, 
                                  station_names = self.stations['station_name'])

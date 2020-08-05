@@ -53,7 +53,8 @@ from scipy.interpolate import interp1d
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip,  str_encode, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate
+from globsim.generic import ParameterIO, StationListRead,  series_interpolate, variables_skip,  str_encode, GenericDownload, GenericScale, GenericInterpolate
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
 
 
@@ -641,7 +642,7 @@ class ERA5interpolate(GenericInterpolate):
         of variable and file structure are determined from the input.
         
         This function creates an empty of netCDF file to hold the interpolated 
-        results, by calling create_empty_netcdf(). Then, data is 
+        results, by calling new_interpolated_netcdf(). Then, data is 
         interpolated in temporal chunks and appended. The temporal chunking can 
         be set in the interpolation parameter file.
         
@@ -674,7 +675,7 @@ class ERA5interpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        rootgrp = create_empty_netcdf(ncfile_out, self.stations, ncf_in, 
+        rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in, 
                                       time_units='hours since 1900-01-01 00:00:0.0') 
         rootgrp.source = 'ERA5, interpolated bilinearly to stations'
         rootgrp.close()   
@@ -791,33 +792,9 @@ class ERA5interpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4')
-        rootgrp.Conventions = 'CF-1.6'
-        rootgrp.source      = 'ERA5, interpolated (bi)linearly to stations'
-        rootgrp.featureType = "timeSeries"
-
-        # dimensions
-        station = rootgrp.createDimension('station', len(height))
-        time    = rootgrp.createDimension('time', nt)
-
-        # base variables
-        time           = rootgrp.createVariable('time',     'i4',('time'))
-        time.long_name = 'time'
-        time.units     = 'hours since 1900-01-01 00:00:0.0'
-        time.calendar  = 'gregorian'
-        station             = rootgrp.createVariable('station','i4',('station'))
-        station.long_name   = 'station for time series data'
-        station.units       = '1'
-        latitude            = rootgrp.createVariable('latitude','f4',('station'))
-        latitude.long_name  = 'latitude'
-        latitude.units      = 'degrees_north'    
-        longitude           = rootgrp.createVariable('longitude','f4',('station'))
-        longitude.long_name = 'longitude'
-        longitude.units     = 'degrees_east'  
-        height           = rootgrp.createVariable('height','f4',('station'))
-        height.long_name = 'height_above_reference_ellipsoid'
-        height.units     = 'm'  
-       
+        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1900-01-01 00:00:0.0')
+        rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
+        
         # assign base variables
         time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
@@ -946,7 +923,8 @@ class ERA5interpolate(GenericInterpolate):
         self.levels2elevation(path.join(self.dir_out,'era5_pl_' + 
                                         self.list_name + '.nc'), 
                               path.join(self.dir_out,'era5_pl_' + 
-                                        self.list_name + '_surface.nc'))                 
+                                        self.list_name + '_surface.nc'))      
+                                                   
 
 class ERA5scale(GenericScale):
     """
@@ -1014,7 +992,7 @@ class ERA5scale(GenericScale):
         Run all relevant processes and save data. Each kernel processes one 
         variable and adds it to the netCDF file.
         """    
-        self.rg = ScaledFileOpen(self.output_file, 
+        self.rg = new_scaled_netcdf(self.output_file, 
                                  self.nc_pl, self.times_out_nc,
                                  t_unit = self.scaled_t_units, 
                                  station_names = self.stations['station_name'])
