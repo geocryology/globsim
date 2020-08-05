@@ -199,7 +199,7 @@ def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=Non
 
     '''
 
-    if path.isdir(ncfile_out):  # raise exception if file exists
+    if path.isfile(ncfile_out):  # raise exception if file exists
         raise FileExistsError("File already exists: {}".format(ncfile_out))
 
 
