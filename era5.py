@@ -1354,7 +1354,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'PRESS_ERA5_Pa_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_pressure ERA-5 pressure levels only'
+        var.long_name = 'air_pressure ERA5 pressure levels only'
         var.units     = 'Pa' 
         var.standard_name = 'surface_air_pressure'
         
@@ -1373,7 +1373,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_ERA5_C_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_temperature ERA-5 pressure levels only'
+        var.long_name = 'air_temperature ERA5 pressure levels only'
         var.units     = 'degrees_C' 
         var.standard_name = 'air_temperature'
         
@@ -1391,7 +1391,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_ERA5_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '2_metre_temperature ERA-5 surface only'
+        var.long_name = '2_metre_temperature ERA5 surface only'
         var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
         
         # interpolate station by station
@@ -1416,7 +1416,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn  = 'PREC_ERA5_mm_sur' # variable name
         var = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Total precipitation ERA-5 surface only'
+        var.long_name = 'Total precipitation ERA5 surface only'
         var.units     = 'kg m-2 s-1'
         var.standard_name = 'precipitation_amount'
         
@@ -1447,7 +1447,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'RH_ERA5_per_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Relative humidity ERA-5 surface only'
+        var.long_name = 'Relative humidity ERA5 surface only'
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
         
@@ -1480,14 +1480,14 @@ class ERA5scale(object):
         # wind speed, add variable to ncdf file, convert
         vn = 'WSPD_ERA5_ms_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind speed ERA-5 surface only'
+        var.long_name = '10 wind speed ERA5 surface only'
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
         vn = 'WDIR_ERA5_deg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind direction ERA-5 surface only'
+        var.long_name = '10 wind direction ERA5 surface only'
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'
 
@@ -1507,7 +1507,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'SW_ERA5_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards ERA-5 surface only'
+        var.long_name = 'Surface solar radiation downwards ERA5 surface only'
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_shortwave_flux'
 
@@ -1528,7 +1528,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'LW_ERA5_Wm2_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
+        var.long_name = 'Surface thermal radiation downwards ERA5 surface only'
         var.standard_name = 'surface_downwelling_longwave_flux'
         var.units     = 'W m-2'
         
@@ -1561,7 +1561,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'SH_ERA5_kgkg_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Specific humidity ERA-5 surface only'
+        var.long_name = 'Specific humidity ERA5 surface only'
         var.units     = '1'  
         var.standard_name = 'specific_humidity'
         self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
