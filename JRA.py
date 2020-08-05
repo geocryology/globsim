@@ -1701,8 +1701,8 @@ class JRAscale(object):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
                   180 for i in np.arange(V.shape[0])]
-            self.rg.variables['WSPD_JRA55_ms_sur'][:, n] = WS
-            self.rg.variables['WDIR_JRA55_deg_sur'][:,n] = WD
+            self.rg.variables['WSPD_sur'][:, n] = WS
+            self.rg.variables['WDIR_sur'][:,n] = WD
     
 
     def SW_Wm2_sur(self):
@@ -1779,10 +1779,10 @@ class JRAscale(object):
         var.standard_name = 'surface_downwelling_longwave_flux'
 
         # compute                            
-        for i in range(0, len(self.rg.variables['RH_JRA55_per_sur'][:])):
+        for i in range(0, len(self.rg.variables['RH_sur'][:])):
             for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_JRA55_per_sur'][i, n],
-                     self.rg.variables['AIRT_JRA55_C_sur'][i, n]+273.15, N[n])
+                LW = LW_downward(self.rg.variables['RH_sur'][i, n],
+                     self.rg.variables['AIRT_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
 
     def SH_kgkg_sur(self):
@@ -1790,4 +1790,4 @@ class JRAscale(object):
         Specific humidity [kg/kg]
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
         '''
-        print("Warning: SH_JRA_kgkg_sur is not defined. Specific humidity data are not currently available")
+        print("Warning: SH_sur is not defined. Specific humidity data are not currently available")

@@ -1435,7 +1435,7 @@ class ERA5scale(object):
     def RH_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]. Kernel AIRT_ERA5_C_sur must be run before.
+        range [0.1,99.9]. Kernel AIRT_sur must be run before.
         """         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
@@ -1453,7 +1453,7 @@ class ERA5scale(object):
         var.standard_name = 'relative_humidity'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
-        RH = 100 - 5 * (self.rg.variables['AIRT_ERA5_C_sur'][:, :]-dewp[:, :])
+        RH = 100 - 5 * (self.rg.variables['AIRT_sur'][:, :]-dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
         
         
@@ -1479,14 +1479,14 @@ class ERA5scale(object):
                                          time_in*3600, values[:, n]) 
 
         # wind speed, add variable to ncdf file, convert
-        vn = 'WSPD_sur' # variable name
+        vna = 'WSPD_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind speed ERA5 surface only'
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
-        vn = 'WDIR_sur' # variable name
+        vnb = 'WDIR_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 wind direction ERA5 surface only'
         var.units     = 'degree'
@@ -1496,8 +1496,8 @@ class ERA5scale(object):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
                   180 for i in np.arange(V.shape[0])]
-            self.rg.variables['WSPD_ERA5_ms_sur'][:, n] = WS
-            self.rg.variables['WDIR_ERA5_deg_sur'][:,n] = WD                                          
+            self.rg.variables[vna][:, n] = WS
+            self.rg.variables[vnb][:,n] = WD                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
     def SW_Wm2_sur(self):
         """
@@ -1557,7 +1557,7 @@ class ERA5scale(object):
 
         # compute
         SH = spec_hum_kgkg(dewp[:, :], 
-                           self.rg.variables['PRESS_ERA5_Pa_pl'][:, :])  
+                           self.rg.variables['PRESS_pl'][:, :])  
         
         # add variable to ncdf file
         vn = 'SH_sur' # variable name

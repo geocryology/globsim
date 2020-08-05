@@ -2645,7 +2645,7 @@ class MERRAscale(object):
         var.standard_name = 'relative_humidity'
         
         # simple: https://en.wikipedia.org/wiki/Dew_point
-        #RH = 100-5 * (self.rg.variables['AIRT_MERRA2_C_sur'][:, :]-dewp[:, :])
+        #RH = 100-5 * (self.rg.variables['AIRT_sur'][:, :]-dewp[:, :])
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n])
@@ -2690,8 +2690,8 @@ class MERRAscale(object):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
                   180 for i in np.arange(V.shape[0])]
-            self.rg.variables['WSPD_MERRA2_ms_sur'][:, n] = WS
-            self.rg.variables['WDIR_MERRA2_deg_sur'][:,n] = WD
+            self.rg.variables['WSPD_sur'][:, n] = WS
+            self.rg.variables['WDIR_sur'][:,n] = WD
         
 
     def SW_Wm2_sur(self):
@@ -2810,8 +2810,8 @@ class MERRAscale(object):
         var.standard_name = 'surface_downwelling_longwave_flux'
 
         # compute                            
-        for i in range(0, len(self.rg.variables['RH_MERRA2_per_sur'][:])):
+        for i in range(0, len(self.rg.variables['RH_sur'][:])):
             for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_MERRA2_per_sur'][i, n],
-                     self.rg.variables['AIRT_MERRA2_C_sur'][i, n]+273.15, N[n])
+                LW = LW_downward(self.rg.variables['RH_sur'][i, n],
+                     self.rg.variables['AIRT_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
