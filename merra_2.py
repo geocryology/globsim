@@ -2438,7 +2438,8 @@ class MERRAscale(object):
         MERRAd = MERRAscale(sfile) 
         MERRAd.process()
     """
-        
+    NAME = "MERRA-2"
+    
     def __init__(self, sfile):
         # read parameter file
         self.sfile = sfile
@@ -2595,7 +2596,7 @@ class MERRAscale(object):
         """        
         vn = 'AIRT_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_temperature MERRA2 pressure levels only'
+        var.long_name = 'air_temperature {} pressure levels only'.format(self.NAME)
         var.units     = 'degrees_C'
         var.standard_name = 'air_temperature'
         
@@ -2615,7 +2616,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'AIRT_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '2_metre_temperature MERRA2 surface only'
+        var.long_name = '2_metre_temperature {} surface only'.format(self.NAME)
         var.units     = 'degrees_C'
         var.standard_name = 'air_temperature'
         
@@ -2640,7 +2641,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'RH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Relative humidity MERRA2 surface only'
+        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
         
@@ -2675,14 +2676,14 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'WSPD_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre wind speed MERRA-2 surface only'
+        var.long_name = '10 metre wind speed {} surface only'.format(self.NAME)
         var.units     = 'm s-1' 
         var.standard_name = 'wind_speed'
  
         # add variable to ncdf file
         vn = 'WDIR_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 metre wind direction MERRA-2 surface only'
+        var.long_name = '10 metre wind direction {} surface only'.format(self.NAME)
         var.units     = 'degree' 
         var.standard_name = 'wind_from_direction'
         
@@ -2702,7 +2703,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'SW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards MERRA-2 surface only'
+        var.long_name = 'Surface solar radiation downwards {} surface only'.format(self.NAME)
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_shortwave_flux'
 
@@ -2721,7 +2722,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'LW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface thermal radiation downwards MERRA-2 surface only'
+        var.long_name = 'Surface thermal radiation downwards {} surface only'.format(self.NAME)
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_longwave_flux'
 
@@ -2742,7 +2743,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'PREC_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Total precipitation MERRA2 surface only'
+        var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
         var.units     = str_encode('mm')  
         var.standard_name = 'precipitation_amount' 
         
@@ -2763,7 +2764,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'PRECCORR_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Corrected Total precipitation MERRA2 surface only'
+        var.long_name = 'Corrected Total precipitation {} surface only'.format(self.NAME)
         var.units     = str_encode('mm') 
         var.standard_name = 'precipitation_amount' 
         
@@ -2783,7 +2784,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'SH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Specific humidity MERRA-2 surface only'
+        var.long_name = 'Specific humidity {} surface only'.format(self.NAME)
         var.units     = '1'
         var.standard_name = 'specific_humidity'
 
@@ -2805,7 +2806,7 @@ class MERRAscale(object):
         # add variable to ncdf file
         vn = 'LW_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Incoming long-wave radiation MERRA-2 surface only'
+        var.long_name = 'Incoming long-wave radiation {} surface only'.format(self.NAME)
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_longwave_flux'
 

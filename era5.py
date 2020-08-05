@@ -1239,7 +1239,8 @@ class ERA5scale(object):
         ERAd = ERA5scale(sfile) 
         ERAd.process()
     """
-        
+    NAME = "ERA5"
+       
     def __init__(self, sfile):
         # read parameter file
         self.sfile = sfile
@@ -1354,7 +1355,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'PRESS_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_pressure ERA5 pressure levels only'
+        var.long_name = 'air_pressure {} pressure levels only'.format(self.NAME)
         var.units     = 'Pa' 
         var.standard_name = 'surface_air_pressure'
         
@@ -1373,7 +1374,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_temperature ERA5 pressure levels only'
+        var.long_name = 'air_temperature {} pressure levels only'.format(self.NAME)
         var.units     = 'degrees_C' 
         var.standard_name = 'air_temperature'
         
@@ -1391,7 +1392,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'AIRT_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '2_metre_temperature ERA5 surface only'
+        var.long_name = '2_metre_temperature {} surface only'.format(self.NAME)
         var.units     = 'degrees_C' 
         var.standard_name = 'air_temperature'
         
@@ -1417,7 +1418,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn  = 'PREC_sur' # variable name
         var = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Total precipitation ERA5 surface only'
+        var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
         var.units     = 'kg m-2 s-1'
         var.standard_name = 'precipitation_amount'
         
@@ -1448,7 +1449,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'RH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Relative humidity ERA5 surface only'
+        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
         
@@ -1481,14 +1482,14 @@ class ERA5scale(object):
         # wind speed, add variable to ncdf file, convert
         vna = 'WSPD_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind speed ERA5 surface only'
+        var.long_name = '10 wind speed {} surface only'.format(self.NAME)
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
         vnb = 'WDIR_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind direction ERA5 surface only'
+        var.long_name = '10 wind direction {} surface only'.format(self.NAME)
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'
 
@@ -1508,7 +1509,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'SW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards ERA5 surface only'
+        var.long_name = 'Surface solar radiation downwards {} surface only'.format(self.NAME)
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_shortwave_flux'
 
@@ -1529,7 +1530,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'LW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface thermal radiation downwards ERA5 surface only'
+        var.long_name = 'Surface thermal radiation downwards {} surface only'.format(self.NAME)
         var.standard_name = 'surface_downwelling_longwave_flux'
         var.units     = 'W m-2'
         
@@ -1562,7 +1563,7 @@ class ERA5scale(object):
         # add variable to ncdf file
         vn = 'SH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Specific humidity ERA5 surface only'
+        var.long_name = 'Specific humidity {} surface only'.format(self.NAME)
         var.units     = '1'  
         var.standard_name = 'specific_humidity'
         self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
