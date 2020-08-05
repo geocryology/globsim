@@ -1578,7 +1578,7 @@ class JRAscale(object):
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'PRESS_JRA55_Pa_pl' # variable name
+        vn = 'PRESS_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_pressure JRA-55 pressure levels only'
         var.units     = 'Pa'
@@ -1596,7 +1596,7 @@ class JRAscale(object):
         """
         Air temperature derived from pressure levels, exclusively.
         """        
-        vn = 'AIRT_JRA55_C_pl' # variable name
+        vn = 'AIRT_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
         var.long_name = 'air_temperature JRA55 pressure levels only'
         var.units     = 'degrees_C'
@@ -1616,7 +1616,7 @@ class JRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'AIRT_JRA55_C_sur' # variable name
+        vn = 'AIRT_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature JRA55 surface only'
         var.units     = 'degrees_C'
@@ -1633,7 +1633,7 @@ class JRAscale(object):
         Relative Humidity derived from surface data, exclusively.
         """        
         # add variable to ncdf file
-        vn = 'RH_JRA55_per_sur' # variable name
+        vn = 'RH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'relative humidity JRA55 surface only'
         var.units     = 'percent'
@@ -1678,14 +1678,14 @@ class JRAscale(object):
                                                     time_in, values[:, n]) 
 
         # add variable to ncdf file
-        vn = 'WSPD_JRA55_ms_sur' # variable name
+        vn = 'WSPD_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre wind speed JRA55 surface only'
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
         
         # add variable to ncdf file
-        vn = 'WDIR_JRA55_deg_sur' # variable name
+        vn = 'WDIR_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '10 metre wind direction JRA55 surface only'
         var.units     = 'degree'  
@@ -1711,7 +1711,7 @@ class JRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'SW_JRA55_Wm2_sur' # variable name
+        vn = 'SW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface solar radiation downwards JRA-55 surface only'
         var.units     = 'W m-2'
@@ -1730,7 +1730,7 @@ class JRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'LW_JRA55_Wm2_sur' # variable name
+        vn = 'LW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Surface thermal radiation downwards JRA-55 surface only'
         var.units     = 'W m-2' 
@@ -1750,7 +1750,7 @@ class JRAscale(object):
         """   
         
         # add variable to ncdf file
-        vn = 'PREC_JRA55_mm_sur' # variable name
+        vn = 'PREC_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Total precipitation JRA55 surface only'
         var.units     = 'kg m-2 s-1'
@@ -1772,7 +1772,7 @@ class JRAscale(object):
         N = np.asarray(list(self.stations['sky_view'][:]))
 
         # add variable to ncdf file
-        vn = 'LW_JRA55_Wm2_topo' # variable name
+        vn = 'LW_topo' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = 'Incoming long-wave radiation JRA-55 surface only'
         var.units     = str_encode('W m-2') 
