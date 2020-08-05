@@ -751,10 +751,7 @@ class ERAIinterpolate(GenericInterpolate):
         time = nc.num2date(nctime, units = t_unit, calendar = t_cal)
         
         # detect invariant files (topography etc.)
-        if len(time) ==1:
-            invariant=True
-        else:
-            invariant=False                                                                         
+        invariant = True if len(time) == 1 else False                                                                         
                                                                                                                                                                                                                                             
         # restrict to date/time range if given
         if date is None:

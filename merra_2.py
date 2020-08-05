@@ -112,9 +112,9 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, ScaledFileOpen, str_encode, series_interpolate, variables_skip, get_begin_date, create_empty_netcdf, GenericDownload, GenericScale, GenericInterpolate, netcdf_base
+from globsim.generic   import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
-
+from globsim.nc_elements import netcdf_base, create_empty_netcdf, ScaledFileOpen
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
 from time              import sleep
 from numpy.random      import uniform
@@ -1938,10 +1938,7 @@ class MERRAinterpolate(GenericInterpolate):
         time = np.asarray(time)
                                                                                     
         # detect invariant files (topography etc.)
-        if len(time) ==1:
-            invariant=True
-        else:
-            invariant=False                                                                         
+        invariant = True if len(time) == 1 else False                                                                     
         
         # restrict to date/time range if given
         if date is None:
