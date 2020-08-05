@@ -1392,7 +1392,8 @@ class ERA5scale(object):
         vn = 'AIRT_ERA5_C_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
         var.long_name = '2_metre_temperature ERA5 surface only'
-        var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
+        var.units     = 'degrees_C' 
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)      
