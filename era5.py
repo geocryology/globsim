@@ -49,6 +49,7 @@ from math     import exp, floor, atan2, pi
 from os       import path, listdir, makedirs
 from ecmwfapi.api import ECMWFDataServer
 from scipy.interpolate import interp1d
+from fnmatch import filter as fnfilter
 
 import urllib3
 urllib3.disable_warnings()
@@ -571,7 +572,7 @@ class ERA5download(GenericDownload):
                      'era5_sf_*.nc', 'era5_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
-            nf = len(filter(listdir(self.directory), ft))
+            nf = len(fnfilter(listdir(self.directory), ft))
             print(str(nf) + " FILE(S): " + infile)
             
             if nf > 0:
