@@ -60,7 +60,7 @@ def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
 
     return height
 
-def ScaledFileOpen(ncfile_out, nc_interpol, times_out, t_unit, station_names=None):
+def new_scaled_netcdf(ncfile_out, nc_interpol, times_out, t_unit, station_names=None):
     """
     Create netCDF file for scaled results (same for all reanalyses)
     Returns the file object so that kernel functions can

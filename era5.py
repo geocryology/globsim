@@ -221,7 +221,6 @@ class ERA5generic(object):
                   "ERA5 data: {0}")
         return string.format(self.getDictionary) 
     
-            level = rootgrp.createDimension('level', len(lev))
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
     ECMWF server.
