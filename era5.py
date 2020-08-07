@@ -74,8 +74,6 @@ try:
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
-            
-
 
 
 class ERA5generic(object):
@@ -113,8 +111,7 @@ class ERA5generic(object):
         res  = (date['beg'].strftime("%Y-%m-%d") + "/to/" +
                 date['end'].strftime("%Y-%m-%d"))       
         return(res)    
-        
-    
+
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
         Pmax = pressure_from_elevation(elevation['min']) + 55
@@ -177,8 +174,7 @@ class ERA5generic(object):
         else:
             server.retrieve(dataset, query, target)
         print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
-    
-    
+
     def ECM2CDS(self, query):
         ''' convert ECMWF query to CDS format '''
 
@@ -221,7 +217,8 @@ class ERA5generic(object):
         string = ("List of generic variables to query ECMWF server for "
                   "ERA5 data: {0}")
         return string.format(self.getDictionary) 
-    
+
+
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
     ECMWF server.
@@ -342,7 +339,6 @@ class ERA5sa(ERA5generic):
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
-        
     
     def getTime(self):
         
@@ -352,7 +348,6 @@ class ERA5sa(ERA5generic):
         times = '/'.join(times)
         
         return times
-
 
     def getDictionary(self):
         self.dictionary = {
@@ -417,7 +412,6 @@ class ERA5sf(ERA5generic):
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
 
-        
     def getStep(self):
         steps = np.arange(1, 13)
         steps = [str(s) for s in steps]
@@ -447,7 +441,8 @@ class ERA5sf(ERA5generic):
         string = ("List of variables to query ECMWF server for "
                   "ERA5 air tenperature data: {0}")
         return string.format(self.getDictionary)      
-                
+
+
 class ERA5to(ERA5generic):
     """
     Returns an object for downloading and handling ERA5
@@ -520,7 +515,6 @@ class ERA5download(GenericDownload):
         self.api = api
         self.storage = storage
 
-                           
     def retrieve(self):
         """
         Retrieve all required ERA5 data from MARS/CDS server.
@@ -764,8 +758,7 @@ class ERA5interpolate(GenericInterpolate):
         #close the file
         ncf_in.close()
         ncf_out.close()
-                         
-       
+
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
         Linear 1D interpolation of pressure level data available for individual
@@ -854,7 +847,6 @@ class ERA5interpolate(GenericInterpolate):
         ncf.close()
         # closed file ==========================================================    
 
-    
     def process(self):
         """
         Interpolate point time series from downloaded data. Provides access to 
@@ -1006,7 +998,6 @@ class ERA5scale(GenericScale):
         self.nc_sa.close()
         self.nc_to.close()
         
-        
     def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
@@ -1113,8 +1104,7 @@ class ERA5scale(GenericScale):
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
         RH = 100 - 5 * (self.rg.variables['AIRT_ERA5_C_sur'][:, :]-dewp[:, :])
-        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
-        
+        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
         
     def WIND_sur(self):
         """
@@ -1178,7 +1168,6 @@ class ERA5scale(GenericScale):
             f = interp1d(time_in*3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step
 
-
     def LW_Wm2_sur(self):
         """
         Long-wave downwelling radiation derived from surface data, exclusively.  
@@ -1198,8 +1187,7 @@ class ERA5scale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             f = interp1d(time_in*3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step   
-                                          
-                                                  
+
     def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg]

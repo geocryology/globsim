@@ -420,6 +420,7 @@ class GenericInterpolate:
 
         return wa, wb
 
+
 class GenericScale:
 
     def __init__(self, sfile):
@@ -472,7 +473,6 @@ def variables_skip(variable_name):
         skip = 1
     return skip
 
-
 def StationListRead(sfile):
     """
     Reads ASCII station list and returns a pandas dataframe.
@@ -505,7 +505,6 @@ def convert_cummulative(data):
     # get full cummulative sum
     return np.cumsum(diff, dtype=np.float64)
 
-
 def cummulative2total(data, time):
     """
     Convert values that are serially cummulative, such as precipitation or
@@ -527,12 +526,6 @@ def cummulative2total(data, time):
     diff[mask] = 0
 
     return diff
-
-
-
-
-
-
 
 def series_interpolate(time_out, time_in, value_in, cum=False):
     """
@@ -558,7 +551,6 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
         vi = np.float32(np.concatenate(([vi[0]], vi)))
 
     return vi
-
 
 def globsimScaled2Pandas(ncdf_in, station_nr):
     """
@@ -596,7 +588,6 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
 
     return df
 
-
 def globsim2GEOtop(ncdf_globsim, txt_geotop):
     """
     Convert globsim scaled netCDF to GEOtop meteo file.
@@ -626,7 +617,6 @@ def globsim2GEOtop(ncdf_globsim, txt_geotop):
     # export to file
     fmt_date = "%d/%m/%Y %H:%M"
     data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
-
 
 def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     """
@@ -683,7 +673,6 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
                 header=False, index=False))
     f.close()
 
-
 def str_encode(value, encoding = "UTF8"):
     """
     handles encoding to allow compatibility between python 2 and 3
@@ -694,7 +683,6 @@ def str_encode(value, encoding = "UTF8"):
         return(value)
     else:
         return(value.encode(encoding))
-
 
 def create_globsim_directory(target_dir, name):
     """
@@ -715,7 +703,6 @@ def create_globsim_directory(target_dir, name):
     mkdir(path.join(TL, "era5"))
 
     return(True)
-
 
 def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     """
@@ -798,7 +785,6 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
                           " %2u", "%8.2f", "%8.2f",
                           "%13.4E", "%8.2f", "%11.3E",
                           "%7.2f", "%11.2f" ])
-
 
 def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     """

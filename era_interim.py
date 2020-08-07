@@ -432,7 +432,6 @@ class ERAIsa(ERAIgeneric):
         self.TranslateCF2ERA(variables, dpar)
         print(self.param)
 
-
     def getDictionary(self):
         self.dictionary = {
            'levtype'  : "sfc",
@@ -447,7 +446,7 @@ class ERAIsa(ERAIgeneric):
         
     def __str__(self):
         string = ("Class for ERA-Interim surface analysis data: {0}")
-        return string.format(self.getDictionary)         
+        return string.format(self.getDictionary)
 
 
 class ERAIsf(ERAIgeneric):
@@ -497,7 +496,6 @@ class ERAIsf(ERAIgeneric):
         self.TranslateCF2ERA(variables, dpar)
         print(self.param)
 
-
     def getDictionary(self):
         self.dictionary = {
            'levtype'  : "sfc",
@@ -513,7 +511,8 @@ class ERAIsf(ERAIgeneric):
     def __str__(self):
         string = ("List of variables to query ECMWF server for "
                   "ERA-Interim air tenperature data: {0}")
-        return string.format(self.getDictionary)      
+        return string.format(self.getDictionary)
+
                 
 class ERAIto(ERAIgeneric):
     """
@@ -579,8 +578,7 @@ class ERAIdownload(GenericDownload):
                       'end' : par.end}
         
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size            
-
+        self.chunk_size = par.chunk_size
                            
     def retrieve(self):
         """
@@ -616,8 +614,7 @@ class ERAIdownload(GenericDownload):
                                          
         
         # report inventory
-        self.inventory()  
-        
+        self.inventory()
                                                                                                                                                                                                            
     def inventory(self):
         """
@@ -821,8 +818,7 @@ class ERAIinterpolate(GenericInterpolate):
                                      
         #close the file
         ncf_in.close()
-        ncf_out.close()         
-                         
+        ncf_out.close()
        
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
@@ -911,7 +907,6 @@ class ERAIinterpolate(GenericInterpolate):
         ncf.close()
         # closed file ==========================================================    
 
-    
     def process(self):
         """
         Interpolate point time series from downloaded data. Provides access to 
@@ -1039,7 +1034,6 @@ class ERAIscale(GenericScale):
                                         units = self.scaled_t_units, 
                                         calendar = self.t_cal) 
 
-               
     def process(self):
         """
         Run all relevant processes and save data. Each kernel processes one 
@@ -1177,8 +1171,7 @@ class ERAIscale(GenericScale):
         # simple: https://doi.org/10.1175/BAMS-86-2-225
         RH = 100 - 5 * (self.rg.variables['AIRT_ERAI_C_sur'][:, :]-dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
-        
-        
+
     def WIND_sur(self):
         """
         Wind speed and direction temperature derived from surface data, 
@@ -1249,7 +1242,6 @@ class ERAIscale(GenericScale):
                          cummulative2total(values[:, n], time)/interval_in,
                          kind = 'linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
-                
 
     def LW_Wm2_sur(self):
         """

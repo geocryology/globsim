@@ -79,7 +79,6 @@ def pressure_from_elevation(elevation):
         #http://en.wikipedia.org/wiki/Barometric_formula
         return P0 * np.exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
 
-
 def LW_downward(RH,T,N):
     '''
     incoming longware radiation [W/m2], Eq(14) in Fiddes and Gruber (2014)
