@@ -980,7 +980,7 @@ class ERAIinterpolate(GenericInterpolate):
 
 
 class ERAIscale(GenericScale):
-  NAME = "ERA-I"
+    NAME = "ERA-I"
 
     """
     Class for ERA-Interim data that has methods for scaling station data to

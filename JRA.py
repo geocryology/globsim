@@ -117,8 +117,7 @@ class RDA(object):
         url = self.urlOpen(theurl)
         
         print(url.read().decode())
-        
-    
+
     def getSummary(self, dsID = None):
         '''get the summary of given dataset'''
         
@@ -158,8 +157,7 @@ class RDA(object):
         url = self.urlOpen(theurl)
         
         print(url.read().decode())
-        
-        
+
     def submit(self, controlparms):      
         '''submit JRA55 dataset request based on predescribed control
         parameters'''
@@ -238,8 +236,7 @@ class RDA(object):
             filecount = filecount + 1
             percentcomplete = (float(filecount) / float(length))
         self.update_progress(percentcomplete, directory)
-        
-    
+
     def update_progress(self, progress, outdir):
         
         barLength = 20  # Modify this to change the length of the progress bar
@@ -281,7 +278,6 @@ class RDA(object):
         
         return dsIndex
 
-    
     def download(self, directory, ds):
         '''download all the data completed from the NCAR server'''
         
@@ -334,7 +330,8 @@ class RDA(object):
                             print('Please verify your login information at http://rda.ucar.edu\n.')
                             sys.exit()
             
-            print(url.read().decode())   
+            print(url.read().decode())
+
 
 class JRApl(object):
     
@@ -407,7 +404,6 @@ class JRApl(object):
         elevation = '/'.join(elevation)
         
         return elevation
-        
     
     def getDictionary(self):
         self.dictionary = {
@@ -427,7 +423,7 @@ class JRApl(object):
                 }
         
         return self.dictionary
-               
+
 
 class JRAsa(object):
     
@@ -465,8 +461,7 @@ class JRAsa(object):
         dateRange = beg + '/to/' + end
         
         return dateRange
-        
-    
+
     def getDictionary(self):
         self.dictionary = {
                 'dataset': 'ds628.0',
@@ -485,7 +480,7 @@ class JRAsa(object):
                 }
         
         return self.dictionary
-    
+
 
 class JRAsf(object):
     
@@ -529,8 +524,7 @@ class JRAsf(object):
         dateRange = beg + '/to/' + end
         
         return dateRange
-        
-    
+
     def getDictionary(self):
         self.dictionary = {
                 'dataset': 'ds628.0',
@@ -602,7 +596,6 @@ class JRAdownload(GenericDownload):
                 'DSWRF_GDS0_SFC_ave3h':  'Downward solar radiation flux',
                 'DLWRF_GDS0_SFC_ave3h':  'Downward longwave radiation flux'}
 
-    
     def __varCheck(self, par):
         '''convert one variable to a list'''
         
@@ -672,8 +665,7 @@ class JRAdownload(GenericDownload):
         elif dataLev in ['sa', 'sf']:
             self.lonName = 'g0_lon_2'
             self.latName = 'g0_lat_1'
-        
-    
+
     def makeNCF(self, dsi):
         
         variables = self.getVars(dsi)
@@ -998,7 +990,6 @@ class JRAinterpolate(GenericInterpolate):
         #close the file
         ncf_in.close()
         ncf_out.close()
-
    
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
@@ -1093,7 +1084,6 @@ class JRAinterpolate(GenericInterpolate):
         ncf.close()
         # closed file =========================================================
 
-
     def process(self):
         """
         Interpolate point time series from downloaded data. Provides access to 
@@ -1144,7 +1134,6 @@ class JRAinterpolate(GenericInterpolate):
                               path.join(self.dir_out,'jra_pl_' + 
                                         self.list_name + '_surface.nc'))
 
-
    
 class JRAscale(GenericScale):
     """
@@ -1193,8 +1182,6 @@ class JRAscale(GenericScale):
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 
                                         calendar = self.t_cal)
-
-        
         
     def process(self):
         """
@@ -1267,8 +1254,7 @@ class JRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
                                                     time_in, values[:, n])-273.15            
-                
- 
+
     def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
@@ -1286,7 +1272,8 @@ class JRAscale(GenericScale):
         values  = self.nc_sa.variables['Temperature'][:]                   
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
-                                                    time_in, values[:, n])-273.15  
+                                                    time_in, values[:, n])-273.15
+
     def RH_per_sur(self):
         """
         Relative Humidity derived from surface data, exclusively.
@@ -1360,9 +1347,10 @@ class JRAscale(GenericScale):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
                   180 for i in np.arange(V.shape[0])]
+            
             self.rg.variables['WSPD_sur'][:, n] = WS
             self.rg.variables['WDIR_sur'][:,n] = WD
-    
+
 
     def SW_Wm2_sur(self):
         """

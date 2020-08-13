@@ -100,7 +100,6 @@ class testingFunctions():
         GlobsimScale(ls[0], ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
         GlobsimScale(ls[1], ERAI=ERAI, ERA5=ERA5, JRA=JRA, MERRA=MERRA)
 
-# function to create the mask of your shapefile
     def makeMask(self, lon, lat, res):
         source_ds = ogr.Open(shapefile)
         source_layer = source_ds.GetLayer()

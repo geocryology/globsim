@@ -1054,7 +1054,8 @@ class SaveNCDF_pl_3dm():
     
                 #close the root group
                 rootgrp.close()
-          
+
+
 class SaveNCDF_sa():                                  
         """ write output netCDF file for abstracted variables from original 2D 
             meteorological Diagnostics dataset and suface flux Diagnostics datasets
@@ -1196,7 +1197,8 @@ class SaveNCDF_sa():
             
                 #close the root group
                 rootgrp.close() 
-                                          
+
+
 class SaveNCDF_sf():                               
     """ write output netCDF file for abstracted variables from original 2D 
         radiation Diagnostics datasets  datasets
@@ -1401,6 +1403,7 @@ class SaveNCDF_sf():
         
             #close the root group
             rootgrp.close()          
+
 
 class SaveNCDF_sc():                                  
         """ write output netCDF file for abstracted variables from original 2D 
@@ -1857,7 +1860,8 @@ class MERRAdownload(GenericDownload):
             SaveNCDF_sc().saveData(get_variables_2dc, id_lat, id_lon, 
                        out_variable_2dc, int(self.chunk_size), 
                        time, lat, lon, self.directory)
-                      
+
+
 class MERRAinterpolate(GenericInterpolate):
     """
     Algorithms to interpolate MERRA-2 netCDF files to station coordinates. 
@@ -2241,9 +2245,7 @@ class MERRAscale(GenericScale):
         self.scaled_t_units = 'seconds since 1980-01-01 00:00:00'
         self.times_out_nc = nc.date2num(self.times_out, 
                                         units = self.scaled_t_units, 
-                                        calendar = self.t_cal) 
-
-                                                                                
+                                        calendar = self.t_cal)
         
     def process(self):
         """
@@ -2323,7 +2325,6 @@ class MERRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
                                             time_in*3600, values[:, n]-273.15)            
-
 
     def AIRT_C_sur(self):
         """
@@ -2408,10 +2409,11 @@ class MERRAscale(GenericScale):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
                   180 for i in np.arange(V.shape[0])]
+
             self.rg.variables['WSPD_sur'][:, n] = WS
             self.rg.variables['WDIR_sur'][:,n] = WD
-        
 
+            
     def SW_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
@@ -2490,8 +2492,7 @@ class MERRAscale(GenericScale):
         values  = self.nc_sf.variables['PRECTOTCORR'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc, 
-                                          time_in*3600, values[:, n]) * self.time_step            
-
+                                          time_in*3600, values[:, n]) * self.time_step
 
     def SH_kgkg_sur(self):
         '''
