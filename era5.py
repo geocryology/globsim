@@ -111,6 +111,24 @@ class ERA5generic(object):
         res  = (date['beg'].strftime("%Y-%m-%d") + "/" +
                 date['end'].strftime("%Y-%m-%d"))
         return(res)  
+    
+    def timeString(self, productType):
+
+        if productType == 'reanalysis':
+            times = np.arange(0, 24)
+        if productType in ['ensemble_mean','ensemble_members','ensemble_spread']:
+            times = np.arange(0, 24, 3)
+
+        times = [str(t).zfill(2) for t in times]
+        times = [t + ':00' for t in times]
+
+        return times
+
+    def varString(self, param):
+
+        varstr = [self.CDS_DICT[L] for L in self.param.split('/')]
+
+        return varstr
 
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
@@ -119,7 +137,7 @@ class ERA5generic(object):
         levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 
                          800, 825, 850, 875, 900, 925, 950, 975, 1000])
         mask = (levs >= Pmin) * (levs <= Pmax) #select
-        levs = '/'.join(map(str, levs[mask]))
+        levs = [str(levi) for levi in levs[mask]]
         return levs
 
     def getDictionaryGen(self, area, date):
