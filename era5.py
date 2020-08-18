@@ -43,10 +43,11 @@ import re
 import numpy   as np
 import netCDF4 as nc
 import cdsapi
+import signal
 
 from datetime import datetime, timedelta
 from math     import exp, floor, atan2, pi
-from os       import path, listdir, makedirs
+from os       import path, listdir, makedirs, remove
 from ecmwfapi.api import ECMWFDataServer
 from scipy.interpolate import interp1d
 from fnmatch import filter as fnfilter
@@ -54,9 +55,9 @@ from fnmatch import filter as fnfilter
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic import ParameterIO, StationListRead,  series_interpolate, variables_skip,  str_encode, GenericDownload, GenericScale, GenericInterpolate
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
+
+from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, str_encode
+
 
 
 try:
@@ -82,21 +83,20 @@ class ERA5generic(object):
     
     """           
     CDS_DICT =  {'130.128' : 'temperature',
-                     '157.128' : 'relative_humidity',
-                     '131.128' : 'u_component_of_wind',
-                     '132.128' : 'v_component_of_wind',
-                     '129.128' : 'geopotential',
-                     '167.128' : '2m_temperature',
-                     '168.128' : '2m_dewpoint_temperature',
-                     '206.128' : 'total_column_ozone',        # also consider surface_solar_radiation_downward_clear_sky
-                     '137.128' : 'total_column_water_vapour', # also consider surface_solar_radiation_downward_clear_sky
-                     '165.128' : '10m_u_component_of_wind',
-                     '166.128' : '10m_v_component_of_wind',
-                     '228.128' : 'total_precipitation',
-                     '169.128' : 'surface_solar_radiation_downwards',
-                     '175.128' : 'surface_thermal_radiation_downwards',
-                     '172.128' : 'land_sea_mask'
-                     }
+                 '157.128' : 'relative_humidity',
+                 '131.128' : 'u_component_of_wind',
+                 '132.128' : 'v_component_of_wind',
+                 '129.128' : 'geopotential',
+                 '167.128' : '2m_temperature',
+                 '168.128' : '2m_dewpoint_temperature',
+                 '206.128' : 'total_column_ozone',        
+                 '137.128' : 'total_column_water_vapour',
+                 '165.128' : '10m_u_component_of_wind',
+                 '166.128' : '10m_v_component_of_wind',
+                 '228.128' : 'total_precipitation',
+                 '169.128' : 'surface_solar_radiation_downwards',
+                 '175.128' : 'surface_thermal_radiation_downwards',
+                 '172.128' : 'land_sea_mask'}
                      
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
@@ -108,9 +108,9 @@ class ERA5generic(object):
         
     def dateString(self, date):
         """Converts datetime objects into string"""
-        res  = (date['beg'].strftime("%Y-%m-%d") + "/to/" +
-                date['end'].strftime("%Y-%m-%d"))       
-        return(res)    
+        res  = (date['beg'].strftime("%Y-%m-%d") + "/" +
+                date['end'].strftime("%Y-%m-%d"))
+        return(res)  
 
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
