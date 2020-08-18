@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from globsim.generic   import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate
+from globsim.generic   import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
 from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -1548,7 +1548,7 @@ class MERRAdownload(GenericDownload):
         self._set_data_directory("merra2")
         
         # time bounds
-        self.date  = {'beg' : par.beg,
+        self.date  = {'beg' : get_begin_date(par, 'merra2', ["merra_pl*", "merra_sa*","merra_sf*"]),
                       'end' : par.end}
         
         # credential 
