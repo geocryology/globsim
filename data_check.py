@@ -31,10 +31,8 @@ class DataCheck(object):
     """
         To check  the continuity of the time coverage from all the downloaded
         netCDF files with a wildward expression
-
         Args:
         ifile: Full path to interpolation parameter file.
-
     """
 
     def __init__(self, ifile, varF):
@@ -80,12 +78,10 @@ class DataCheck(object):
     def DataReadin(self, file_in):
         """
         To read in all the downloaded netCDF files with a wildward expression
-
         Args:
             ncfile_in: Full path to an reanalysis derived netCDF file. This can
                         contain wildcards to point to multiple files if temporal
                         chunking was used.
-
             ncfile_out: Full path to the output netCDF file to write.
           """
         # open netcdf file handle, can be one file of several with wildcards
