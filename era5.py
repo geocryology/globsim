@@ -147,77 +147,47 @@ class ERA5generic(object):
         dictionary_gen = {
           'area'    : self.areaString(area),
           'date'    : self.dateString(date),
-          'dataset' : "era5",
           'stream'  : "oper",
           'class'   : "ea",
-          'format'  : "netcdf",
-          'grid'    : "0.25/0.25"}
+          'format'  : "netcdf"
+        }
         return dictionary_gen
  
     def getDstring(self):
-        return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
+        return ('_' + self.date['beg'].strftime("%Y%m%d") + "_" +
                       self.date['end'].strftime("%Y%m%d"))
     
     def download(self, api, storage):
-        if api == 'ecmwf':
-            server = ECMWFDataServer()
-            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-            server.retrieve(self.getDictionary())
-            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-        
-        elif api == 'cds':
-            self.download_cds(storage)
-    
-    def download_cds(self, storage='cds'):
-        ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
         server = cdsapi.Client()
-        
-        query = self.getDictionary()
-        target = query.pop('target')
-        levtype = query.pop('levtype')
-        
-        # select dataset
-        if storage == 'ecmwf':
-            dataset = 'reanalysis-era5-complete'
-        elif storage == 'cds':
-            dataset = {'pl' : 'reanalysis-era5-pressure-levels',
-                       'sfc': 'reanalysis-era5-single-levels'
-                      }[levtype]
-            query = self.ECM2CDS(query)
-        
+        query   = self.getDictionary()
+
         # launch download request
         print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
-        if path.isfile(target):
-             print("WARNING: File '{}' already exists and was skipped".format(target))
+
+        if path.isfile(self.file_ncdf):
+             print("WARNING: File '{}' already exists and was skipped".format(self.file_ncdf))
+
         else:
-            server.retrieve(dataset, query, target)
+            def handler(signum, frame):
+                raise OSError("GlobSim timeout. Retrying file. Adjust timeout duration if necessary")
+
+            for i in range(10):
+                signal.signal(signal.SIGALRM, handler)
+                signal.alarm(self.DL_TIMEOUT)
+
+                try:
+                    server.retrieve(self.levelType, query, self.file_ncdf)
+                    break 
+
+                except OSError as exc:
+                    print(exc)
+                    if path.isfile(self.file_ncdf):
+                        remove(self.file_ncdf)
+                        print("Removed partially downloaded file")
+
+                signal.alarm(0)
         print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
 
-    def ECM2CDS(self, query):
-        ''' convert ECMWF query to CDS format '''
-
-        # remove unnecessary keys
-        for key in ['class', 'dataset', 'stream', 'type']:
-            query.pop(key)
-        
-        # replace key('param'):val(str)  string with key('variables'):val(list)
-        query['variable'] = [self.CDS_DICT[L] for L in query.pop('param').split('/')]
-        
-        # replace levellist if in dictionary (also string '100/200/300' to list ['100', '200', '300'])
-        if 'levellist' in query:
-            query['pressure_level'] = [L for L in query.pop('levellist').split('/')]
-            
-        # reformat date range (start/to/end --> start/end)
-        query['date'] = re.sub("/to", "", query['date'])
-        
-        # reformat time string into list
-        query['time'] = [t[0:5] for t in query['time'].split('/')]
-        
-        # add product type (one of Reanalysis, Ensemble members, Ensemble mean, Ensemble spread)
-        query['product_type'] = 'reanalysis'
-        
-        return(query)
-        
     def TranslateCF2ERA(self, variables, dpar):
         """
         Translate CF Standard Names into ERA5 code numbers.
@@ -226,16 +196,91 @@ class ERA5generic(object):
         for var in variables:
             try:
                 self.param += dpar.get(var)+'/'
-                
+
             except TypeError:
                 pass    
         self.param = self.param.rstrip('/') #fix last                                        
-                
+
     def __str__(self):
         string = ("List of generic variables to query ECMWF server for "
                   "ERA5 data: {0}")
         return string.format(self.getDictionary) 
 
+    def netCDF_empty(self, ncfile_out, stations, nc_in):
+        #TODO change date type from f4 to f8 for lat and lon
+        '''
+        Creates an empty station file to hold interpolated reults. The number of 
+        stations is defined by the variable stations, variables are determined by 
+        the variable list passed from the gridded original netCDF.
+        
+        ncfile_out: full name of the file to be created
+        stations:   station list read with generic.StationListRead() 
+        variables:  variables read from netCDF handle
+        lev:        list of pressure levels, empty is [] (default)
+        '''
+
+        #Build the netCDF file
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.source      = 'ERA5, interpolated bilinearly to stations'
+        rootgrp.featureType = "timeSeries"
+
+        # dimensions
+        station = rootgrp.createDimension('station', len(stations))
+        time    = rootgrp.createDimension('time', None)
+
+        # base variables
+        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time.long_name = 'time'
+        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.calendar  = 'gregorian'
+        station             = rootgrp.createVariable('station', 'i4',('station'))
+        station.long_name   = 'station for time series data'
+        station.units       = '1'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east' 
+        height           = rootgrp.createVariable('height','f4',('station'))
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm'  
+
+        # assign station characteristics            
+        station[:]   = list(stations['station_number'])
+        latitude[:]  = list(stations['latitude_dd'])
+        longitude[:] = list(stations['longitude_dd'])
+        height[:]    = list(stations['elevation_m'])
+
+        # extra treatment for pressure level files
+        try:
+            lev = nc_in.variables['level'][:]
+            print("== 3D: file has pressure levels")
+            level           = rootgrp.createDimension('level', len(lev))
+            level           = rootgrp.createVariable('level','i4',('level'))
+            level.long_name = 'pressure_level'
+            level.units     = 'hPa'  
+            level[:] = lev 
+        except:
+            print("== 2D: file without pressure levels")
+            lev = []
+
+        # create and assign variables based on input file
+        for n, var in enumerate(nc_in.variables):
+            if variables_skip(var):
+                continue                 
+            print("VAR: ", str_encode(var))
+            # extra treatment for pressure level files           
+            if len(lev):
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') 
+            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
+
+        #close the file
+        rootgrp.close()
 
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
@@ -271,13 +316,15 @@ class ERA5pl(ERA5generic):
         ERA5pl = ERA5pl(date, area, elevation, variables, directory) 
         ERA5pl.download()
     """
-    def __init__(self, date, area, elevation, variables, directory):
-        self.date       = date
-        self.area       = area
-        self.elevation  = elevation
-        self.directory  = directory
-        outfile = 'era5_pl' + self.getDstring() + '.nc'
-        self.file_ncdf  = path.join(self.directory, outfile)
+    def __init__(self, prodcutTpye, date, area, elevation, variables, directory):
+        self.productType = prodcutTpye
+        self.levelType   = 'reanalysis-era5-pressure-levels'
+        self.date        = date
+        self.area        = area
+        self.elevation   = elevation
+        self.directory   = directory
+        outfile          = 'era5_pl' + self.getDstring() + '.nc'
+        self.file_ncdf   = path.join(self.directory, outfile)
  
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable names. 
@@ -288,25 +335,16 @@ class ERA5pl(ERA5generic):
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
         self.param += '/129.128' # geopotential always needed [m2 s-2]
-        self.time = ("00:00:00/01:00:00/02:00:00/03:00:00/"
-                     "04:00:00/05:00:00/06:00:00/07:00:00/"
-                     "08:00:00/09:00:00/10:00:00/11:00:00/"
-                     "12:00:00/13:00:00/14:00:00/15:00:00/"
-                     "16:00:00/17:00:00/18:00:00/19:00:00/"
-                     "20:00:00/21:00:00/22:00:00/23:00:00")
     
     def getDictionary(self):
         self.dictionary = {
-           'levtype'  : "pl",
-           'levellist': self.getPressureLevels(self.elevation),
-           'time'     : self.time,
-           'step'     : "0",
-           'type'     : "an",
-           'param'    : self.param,
-           'target'   : self.file_ncdf
+            'product_type': self.productType,
+            'levellist':    self.getPressureLevels(self.elevation),
+            'variable' :    self.varString(self.param),
+            'time'     :    self.timeString(self.productType),
            } 
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
-        return self.dictionary    
+        return self.dictionary       
         
     def __str__(self):
         string = ("List of variables to query ECMWF server for "
