@@ -1,6 +1,13 @@
 """
 Export functions to convert globsim output to other file types
 """
+from datetime import datetime
+from os import path
+
+import pandas  as pd
+import netCDF4 as nc
+import numpy as np
+
 
 
 def globsimScaled2Pandas(ncdf_in, station_nr):
@@ -98,9 +105,9 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     """
 
     # columns to export
-    columns = ['time', 'SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'PREC_ERA_mmsec_sur',
-               'AIRT_ERA_C_sur', 'SH_ERA_kgkg_sur', 'WSPD_ERA_ms_sur',
-               'AIRT_PRESS_Pa_pl']
+    columns = ['time', 'SW_sur', 'LW_sur', 'PREC_sur',
+               'AIRT_sur', 'SH_sur', 'WSPD_sur',
+               'AIRT_pl']
 
     # output ASCII formatting
     formatters={"time": "  {:%H %M  %j  %Y}".format,
@@ -115,7 +122,7 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     # get data
     df = globsimScaled2Pandas(ncdf_globsim, station_nr)
 
-    # convery precipitation
+    # convert precipitation
     df["PREC_ERA_mmsec_sur"] = df["PREC_ERA_mm_sur"] / 1800.0
 
     # write FORTRAN formatted ASCII file
@@ -127,11 +134,19 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     f.close()
 
 
-def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
+def globsim_to_classic_met(ncd, out_dir, site=None):
     """
     @args
-    ncd: netcdf dataset
-    src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
+    ncd : str
+        path to output globsim dataset
+    out_dir : str
+        where files should be saved
+    site : int or str
+        index of site (zero-indexed) or site name if only one site is desired.
+        For all sites, leave as None
+
+    Returns
+    list : paths of output files
     """
     # open netcdf if string provided
     if type(ncd) is str:
@@ -155,32 +170,32 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     TIME = np.stack((HH, MM, DDD, YYYY))
 
     # get shortwave
-    SW = "SW_{}_Wm2_sur".format(src)
+    SW = "SW_sur"
     SW = n[SW][:]
 
     # get longwave
-    LW = "LW_{}_Wm2_sur".format(src)
+    LW = "LW_sur"
     LW = n[LW][:]
 
     # get precip
-    PREC = "PREC_{}_mm_sur".format(src)
+    PREC = "PREC_sur"
     PREC = n[PREC][:]
-    PREC /= time_step # [mm/0.5h] to [mm/s]
+    PREC /= time_step # [mm] to [mm/s]
 
     # get temp
-    AIRT = "AIRT_{}_C_sur".format(src)
+    AIRT = "AIRT_sur"
     AIRT = n[AIRT][:]
 
     # get specific humidity
-    SH = "SH_{}_kgkg_sur".format(src)
+    SH = "SH_sur"
     SH = n[SH][:]
 
     # get wind speed
-    WSPD = "WSPD_{}_ms_sur".format(src)
+    WSPD = "WSPD_sur"
     WSPD = n[WSPD][:]
 
     # get pressure
-    PRESS = "PRESS_{}_Pa_pl".format(src)
+    PRESS = "PRESS_pl"
     PRESS = n[PRESS][:]
 
     # get site names
@@ -189,32 +204,34 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
 
     # write output files
+    files = []
     for i in range(nstn):
+        if (site is None) or (site == i) or (site == NAMES[i]):
+            # massage data into the right shape
+            out_array = data[:, :, i]
+            out_array = np.concatenate((TIME, out_array), 0)
+            out_array = np.transpose(out_array)
 
-        # massage data into the right shape
-        out_array = data[:, :, i]
-        out_array = np.concatenate((TIME, out_array), 0)
-        out_array = np.transpose(out_array)
+            # get station name
+            st_name = NAMES[i]
 
-        # get station name
-        st_name = NAMES[i]
-
-        filename = "{}_{}_{}.MET".format(i, st_name, src)
-        savepath = path.join(out_dir, filename)
-
-        # create file
-        np.savetxt(savepath, out_array,
-                   fmt = [" %02u", "%02u", " %03u",
-                          " %2u", "%8.2f", "%8.2f",
-                          "%13.4E", "%8.2f", "%11.3E",
-                          "%7.2f", "%11.2f" ])
+            filename = "{}_{}.MET".format(i, st_name)
+            savepath = path.join(out_dir, filename)
+            files.append(savepath)
+            # create file
+            np.savetxt(savepath, out_array,
+                    newline='\n', # windows line endings breaks the converter
+                    fmt = [" %02u", "%02u", " %03u",
+                            " %2u", "%8.2f", "%8.2f",
+                            "%13.4E", "%8.2f", "%11.3E",
+                            "%7.2f", "%11.2f" ])
+    return files
 
 
-def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
+def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
-    src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
     """
     # open netcdf if string provided
     if type(ncd) is str:
@@ -232,40 +249,40 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     time = pd.DataFrame(time)
 
     # get precip
-    PREC = "PREC_{}_mm_sur".format(src)
+    PREC = "PREC_sur"
     PREC = n[PREC][:]
 
     # get wind velocity
-    WSPD = "WSPD_{}_ms_sur".format(src)
+    WSPD = "WSPD_sur"
     WSPD = n[WSPD][:]
 
     # get wind direction
-    WDIR = "WDIR_{}_deg_sur".format(src)
+    WDIR = "WDIR_sur"
     WDIR = n[WDIR][:]
 
     # get windx and windy
 
     # get RH
-    RH = "RH_{}_per_sur".format(src)
+    RH = "RH_sur"
     RH = n[RH][:]
 
     # get air temp
-    AIRT = "AIRT_{}_C_sur".format(src)
+    AIRT = "AIRT_sur"
     AIRT = n[AIRT][:]
 
     # get dew temp (missing?)
 
     # get air pressure
-    PRESS = "PRESS_{}_Pa_pl".format(src)
+    PRESS = "PRESS_pl"
     PRESS = n[PRESS][:]
     PRESS *= 1e-5      # convert to bar for geotop
 
     # get shortwave solar global (direct / diffuse missing?)
-    SW = "SW_{}_Wm2_sur".format(src)
+    SW = "SW_sur"
     SW = n[SW][:]
 
     # get longwave incoming
-    LW = "LW_{}_Wm2_sur".format(src)
+    LW = "LW_sur"
     LW = n[LW][:]
 
     # get site names
@@ -275,20 +292,24 @@ def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
 
     # write output files
+    files = []
     for i in range(nstn):
+        if (site is None) or (site == i) or (site == NAMES[i]):
+            # massage data into the right shape
+            out_df = pd.DataFrame(np.transpose(data[:, :, i]))
+            out_df = pd.concat([time, out_df], axis=1)
+            out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
+                                "AirTemp", "AirPress", "SWglobal", "LWin"]
 
-        # massage data into the right shape
-        out_df = pd.DataFrame(np.transpose(data[:, :, i]))
-        out_df = pd.concat([time, out_df], axis=1)
-        out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
-                            "AirTemp", "AirPress", "SWglobal", "LWin"]
+            # get station name
+            st_name = NAMES[i]
 
-        # get station name
-        st_name = NAMES[i]
+            # prepare paths
+            filename = "{}-{}_Forcing_0001.txt".format(i, st_name)
+            savepath = path.join(out_dir, filename)
+            files.append(savepath)
 
-        # prepare paths
-        filename = "{}-{}_{}_Forcing_0001.txt".format(i, st_name, src)
-        savepath = path.join(out_dir, filename)
+            # create file
+            out_df.to_csv(savepath, index=False, float_format="%10.5f")
 
-        # create file
-        out_df.to_csv(savepath, index=False, float_format="%10.5f")
+    return files
