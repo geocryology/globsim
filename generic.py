@@ -22,14 +22,13 @@
 #===============================================================================
 from __future__  import print_function
 
-from datetime    import datetime, timedelta
+from datetime    import datetime
 from os          import mkdir, path, makedirs
 from fnmatch     import filter as fnmatch_filter
 
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
-
 import glob
 
 import re
@@ -422,7 +421,6 @@ class GenericInterpolate:
 
         return wa, wb
 
-
 class GenericScale:
 
     def __init__(self, sfile):
@@ -475,6 +473,7 @@ def variables_skip(variable_name):
         skip = 1
     return skip
 
+
 def StationListRead(sfile):
     """
     Reads ASCII station list and returns a pandas dataframe.
@@ -507,6 +506,7 @@ def convert_cummulative(data):
     # get full cummulative sum
     return np.cumsum(diff, dtype=np.float64)
 
+
 def cummulative2total(data, time):
     """
     Convert values that are serially cummulative, such as precipitation or
@@ -529,44 +529,10 @@ def cummulative2total(data, time):
 
     return diff
 
-def get_begin_date(par, data_folder, match_strings):
-    """ Get the date to begin downloading when some files already exist
-    
-    Parameters
-    ----------
-    par : ParameterIO object
-    data_folder : str
-        name of subdirectory containing data files. Examples: merra2, era5
-    match_strings : list
-        list of glob-style strings to check. Examples ["merra_pl*", "merra_sa*","merra_sf*"]
-    
-    Returns
-    -------
-    datetime
-        datetime object corresponding to the desired begin date (replaces par['beg'])
-        
-    This makes an inventory of all the files that have been downloaded so far and
-    returns the next date to begin downloading.  If all match_strings are downloaded up to the same
-    day, then the following day is returned. Otherwise, the 
-    """
-    directory = par['project_directory']
-    print("Searching for existing files in directory")
 
-    if not all([len(glob.glob(os.path.join(directory, data_folder, s))) > 0 for s in match_strings]):
-        print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
-        return par['beg']
 
-    datasets = [nc.MFDataset(os.path.join(directory, data_folder, s)) for s in match_strings]
-    dates = [nc.num2date(x['time'][:], x['time'].units, x['time'].calendar) for x in datasets]
 
-    latest = [max(d) for d in dates]
-    latest = [dt.replace(hour=0, minute=0, second=0, microsecond=0) for dt in latest]
-    latest_complete = min(latest)
 
-    begin_date = latest_complete + timedelta(days=1)
-
-    print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d"))    )
-    return(begin_date)
 
 
 def series_interpolate(time_out, time_in, value_in, cum=False):
@@ -593,6 +559,7 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
         vi = np.float32(np.concatenate(([vi[0]], vi)))
 
     return vi
+
 
 def globsimScaled2Pandas(ncdf_in, station_nr):
     """
@@ -630,6 +597,7 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
 
     return df
 
+
 def globsim2GEOtop(ncdf_globsim, txt_geotop):
     """
     Convert globsim scaled netCDF to GEOtop meteo file.
@@ -659,6 +627,7 @@ def globsim2GEOtop(ncdf_globsim, txt_geotop):
     # export to file
     fmt_date = "%d/%m/%Y %H:%M"
     data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
+
 
 def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     """
@@ -715,6 +684,7 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
                 header=False, index=False))
     f.close()
 
+
 def str_encode(value, encoding = "UTF8"):
     """
     handles encoding to allow compatibility between python 2 and 3
@@ -725,6 +695,7 @@ def str_encode(value, encoding = "UTF8"):
         return(value)
     else:
         return(value.encode(encoding))
+
 
 def create_globsim_directory(target_dir, name):
     """
@@ -745,6 +716,7 @@ def create_globsim_directory(target_dir, name):
     mkdir(path.join(TL, "era5"))
 
     return(True)
+
 
 def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     """
@@ -827,6 +799,7 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
                           " %2u", "%8.2f", "%8.2f",
                           "%13.4E", "%8.2f", "%11.3E",
                           "%7.2f", "%11.2f" ])
+
 
 def nc_to_gtmet(ncd, out_dir, src, start=None, end=None):
     """
@@ -934,7 +907,7 @@ def get_begin_date(par, data_folder, match_strings):
     directory = par['project_directory']
     print("Searching for existing files in directory")
     
-    if not all([len(glob.glob(os.path.join(directory, data_folder, s))) > 0 for s in match_strings]):
+    if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
         print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
         return par['beg']
         
