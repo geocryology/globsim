@@ -10,6 +10,7 @@ def nc_new_file(ncfile_out, featureType="timeSeries"):
 
     return rootgrp
 
+
 def ncvar_add_latitude(rootgrp, dimensions=('station')):
     latitude  = rootgrp.createVariable('latitude', 'f8', dimensions)
     latitude.long_name  = 'latitude'
@@ -19,6 +20,7 @@ def ncvar_add_latitude(rootgrp, dimensions=('station')):
 
     return latitude
 
+
 def ncvar_add_longitude(rootgrp, dimensions=('station')):
     longitude           = rootgrp.createVariable('longitude', 'f8', dimensions)
     longitude.long_name = 'longitude'
@@ -27,6 +29,7 @@ def ncvar_add_longitude(rootgrp, dimensions=('station')):
     longitude.axis  = 'X'
 
     return longitude
+
 
 def ncvar_add_time(rootgrp, units, calendar, dimensions=('time'), dtype='i4'):
     time           = rootgrp.createVariable('time', dtype, dimensions)
@@ -38,12 +41,14 @@ def ncvar_add_time(rootgrp, units, calendar, dimensions=('time'), dtype='i4'):
 
     return time
 
+
 def ncvar_add_station(rootgrp, dimensions=('station')):
     station             = rootgrp.createVariable('station', 'i4', dimensions)
     station.long_name   = 'station for time series data'
     station.units       = '1'
 
     return station
+
 
 def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
     height           = rootgrp.createVariable('height', 'f4', dimensions)
@@ -115,6 +120,7 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out, t_unit, station_names=
         st[:] = names_out
 
     return rootgrp
+
 
 def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     """
