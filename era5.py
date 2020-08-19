@@ -179,7 +179,6 @@ class ERA5generic(object):
     
     
     def ECM2CDS(self, query):
-        import pdb; pdb.set_trace()
         ''' convert ECMWF query to CDS format '''
 
         # remove unnecessary keys
