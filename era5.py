@@ -43,19 +43,21 @@ import re
 import numpy   as np
 import netCDF4 as nc
 import cdsapi
+import signal
 
 from datetime import datetime, timedelta
 from math     import exp, floor, atan2, pi
-from os       import path, listdir, makedirs
+from os       import path, listdir, makedirs, remove
 from ecmwfapi.api import ECMWFDataServer
 from scipy.interpolate import interp1d
+from fnmatch import filter as fnfilter
 
 import urllib3
 urllib3.disable_warnings()
 
-from globsim.generic import ParameterIO, StationListRead,  series_interpolate, variables_skip,  str_encode, GenericDownload, GenericScale, GenericInterpolate
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
+
+from generic import ParameterIO, StationListRead, ScaledFileOpen, series_interpolate, variables_skip, spec_hum_kgkg, str_encode
+
 
 
 try:
@@ -73,8 +75,6 @@ try:
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass   
-            
-
 
 
 class ERA5generic(object):
@@ -83,21 +83,20 @@ class ERA5generic(object):
     
     """           
     CDS_DICT =  {'130.128' : 'temperature',
-                     '157.128' : 'relative_humidity',
-                     '131.128' : 'u_component_of_wind',
-                     '132.128' : 'v_component_of_wind',
-                     '129.128' : 'geopotential',
-                     '167.128' : '2m_temperature',
-                     '168.128' : '2m_dewpoint_temperature',
-                     '206.128' : 'total_column_ozone',        # also consider surface_solar_radiation_downward_clear_sky
-                     '137.128' : 'total_column_water_vapour', # also consider surface_solar_radiation_downward_clear_sky
-                     '165.128' : '10m_u_component_of_wind',
-                     '166.128' : '10m_v_component_of_wind',
-                     '228.128' : 'total_precipitation',
-                     '169.128' : 'surface_solar_radiation_downwards',
-                     '175.128' : 'surface_thermal_radiation_downwards',
-                     '172.128' : 'land_sea_mask'
-                     }
+                 '157.128' : 'relative_humidity',
+                 '131.128' : 'u_component_of_wind',
+                 '132.128' : 'v_component_of_wind',
+                 '129.128' : 'geopotential',
+                 '167.128' : '2m_temperature',
+                 '168.128' : '2m_dewpoint_temperature',
+                 '206.128' : 'total_column_ozone',        
+                 '137.128' : 'total_column_water_vapour',
+                 '165.128' : '10m_u_component_of_wind',
+                 '166.128' : '10m_v_component_of_wind',
+                 '228.128' : 'total_precipitation',
+                 '169.128' : 'surface_solar_radiation_downwards',
+                 '175.128' : 'surface_thermal_radiation_downwards',
+                 '172.128' : 'land_sea_mask'}
                      
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
@@ -109,11 +108,28 @@ class ERA5generic(object):
         
     def dateString(self, date):
         """Converts datetime objects into string"""
-        res  = (date['beg'].strftime("%Y-%m-%d") + "/to/" +
-                date['end'].strftime("%Y-%m-%d"))       
-        return(res)    
-        
+        res  = (date['beg'].strftime("%Y-%m-%d") + "/" +
+                date['end'].strftime("%Y-%m-%d"))
+        return(res)  
     
+    def timeString(self, productType):
+
+        if productType == 'reanalysis':
+            times = np.arange(0, 24)
+        if productType in ['ensemble_mean','ensemble_members','ensemble_spread']:
+            times = np.arange(0, 24, 3)
+
+        times = [str(t).zfill(2) for t in times]
+        times = [t + ':00' for t in times]
+
+        return times
+
+    def varString(self, param):
+
+        varstr = [self.CDS_DICT[L] for L in self.param.split('/')]
+
+        return varstr
+
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
         Pmax = pressure_from_elevation(elevation['min']) + 55
@@ -121,7 +137,7 @@ class ERA5generic(object):
         levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 
                          800, 825, 850, 875, 900, 925, 950, 975, 1000])
         mask = (levs >= Pmin) * (levs <= Pmax) #select
-        levs = '/'.join(map(str, levs[mask]))
+        levs = [str(levi) for levi in levs[mask]]
         return levs
 
     def getDictionaryGen(self, area, date):
@@ -131,78 +147,47 @@ class ERA5generic(object):
         dictionary_gen = {
           'area'    : self.areaString(area),
           'date'    : self.dateString(date),
-          'dataset' : "era5",
           'stream'  : "oper",
           'class'   : "ea",
-          'format'  : "netcdf",
-          'grid'    : "0.25/0.25"}
+          'format'  : "netcdf"
+        }
         return dictionary_gen
  
     def getDstring(self):
-        return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
+        return ('_' + self.date['beg'].strftime("%Y%m%d") + "_" +
                       self.date['end'].strftime("%Y%m%d"))
     
     def download(self, api, storage):
-        if api == 'ecmwf':
-            server = ECMWFDataServer()
-            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-            server.retrieve(self.getDictionary())
-            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-        
-        elif api == 'cds':
-            self.download_cds(storage)
-    
-    def download_cds(self, storage='cds'):
-        ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
         server = cdsapi.Client()
-        
-        query = self.getDictionary()
-        target = query.pop('target')
-        levtype = query.pop('levtype')
-        
-        # select dataset
-        if storage == 'ecmwf':
-            dataset = 'reanalysis-era5-complete'
-        elif storage == 'cds':
-            dataset = {'pl' : 'reanalysis-era5-pressure-levels',
-                       'sfc': 'reanalysis-era5-single-levels'
-                      }[levtype]
-            query = self.ECM2CDS(query)
-        
+        query   = self.getDictionary()
+
         # launch download request
         print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
-        if path.isfile(target):
-             print("WARNING: File '{}' already exists and was skipped".format(target))
-        else:
-            server.retrieve(dataset, query, target)
-        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
-    
-    
-    def ECM2CDS(self, query):
-        ''' convert ECMWF query to CDS format '''
 
-        # remove unnecessary keys
-        for key in ['class', 'dataset', 'stream', 'type']:
-            query.pop(key)
-        
-        # replace key('param'):val(str)  string with key('variables'):val(list)
-        query['variable'] = [self.CDS_DICT[L] for L in query.pop('param').split('/')]
-        
-        # replace levellist if in dictionary (also string '100/200/300' to list ['100', '200', '300'])
-        if 'levellist' in query:
-            query['pressure_level'] = [L for L in query.pop('levellist').split('/')]
-            
-        # reformat date range (start/to/end --> start/end)
-        query['date'] = re.sub("/to", "", query['date'])
-        
-        # reformat time string into list
-        query['time'] = [t[0:5] for t in query['time'].split('/')]
-        
-        # add product type (one of Reanalysis, Ensemble members, Ensemble mean, Ensemble spread)
-        query['product_type'] = 'reanalysis'
-        
-        return(query)
-        
+        if path.isfile(self.file_ncdf):
+             print("WARNING: File '{}' already exists and was skipped".format(self.file_ncdf))
+
+        else:
+            def handler(signum, frame):
+                raise OSError("GlobSim timeout. Retrying file. Adjust timeout duration if necessary")
+
+            for i in range(10):
+                signal.signal(signal.SIGALRM, handler)
+                signal.alarm(self.DL_TIMEOUT)
+
+                try:
+                    server.retrieve(self.levelType, query, self.file_ncdf)
+                    break 
+
+                except OSError as exc:
+                    print(exc)
+                    if path.isfile(self.file_ncdf):
+                        remove(self.file_ncdf)
+                        print("Removed partially downloaded file")
+
+                signal.alarm(0)
+        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
+
     def TranslateCF2ERA(self, variables, dpar):
         """
         Translate CF Standard Names into ERA5 code numbers.
@@ -211,16 +196,92 @@ class ERA5generic(object):
         for var in variables:
             try:
                 self.param += dpar.get(var)+'/'
-                
+
             except TypeError:
                 pass    
         self.param = self.param.rstrip('/') #fix last                                        
-                
+
     def __str__(self):
         string = ("List of generic variables to query ECMWF server for "
                   "ERA5 data: {0}")
         return string.format(self.getDictionary) 
-    
+
+    def netCDF_empty(self, ncfile_out, stations, nc_in):
+        #TODO change date type from f4 to f8 for lat and lon
+        '''
+        Creates an empty station file to hold interpolated reults. The number of 
+        stations is defined by the variable stations, variables are determined by 
+        the variable list passed from the gridded original netCDF.
+        
+        ncfile_out: full name of the file to be created
+        stations:   station list read with generic.StationListRead() 
+        variables:  variables read from netCDF handle
+        lev:        list of pressure levels, empty is [] (default)
+        '''
+
+        #Build the netCDF file
+        rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+        rootgrp.Conventions = 'CF-1.6'
+        rootgrp.source      = 'ERA5, interpolated bilinearly to stations'
+        rootgrp.featureType = "timeSeries"
+
+        # dimensions
+        station = rootgrp.createDimension('station', len(stations))
+        time    = rootgrp.createDimension('time', None)
+
+        # base variables
+        time           = rootgrp.createVariable('time', 'i4',('time'))
+        time.long_name = 'time'
+        time.units     = 'hours since 1900-01-01 00:00:0.0'
+        time.calendar  = 'gregorian'
+        station             = rootgrp.createVariable('station', 'i4',('station'))
+        station.long_name   = 'station for time series data'
+        station.units       = '1'
+        latitude            = rootgrp.createVariable('latitude', 'f4',('station'))
+        latitude.long_name  = 'latitude'
+        latitude.units      = 'degrees_north'    
+        longitude           = rootgrp.createVariable('longitude','f4',('station'))
+        longitude.long_name = 'longitude'
+        longitude.units     = 'degrees_east' 
+        height           = rootgrp.createVariable('height','f4',('station'))
+        height.long_name = 'height_above_reference_ellipsoid'
+        height.units     = 'm'  
+
+        # assign station characteristics            
+        station[:]   = list(stations['station_number'])
+        latitude[:]  = list(stations['latitude_dd'])
+        longitude[:] = list(stations['longitude_dd'])
+        height[:]    = list(stations['elevation_m'])
+
+        # extra treatment for pressure level files
+        try:
+            lev = nc_in.variables['level'][:]
+            print("== 3D: file has pressure levels")
+            level           = rootgrp.createDimension('level', len(lev))
+            level           = rootgrp.createVariable('level','i4',('level'))
+            level.long_name = 'pressure_level'
+            level.units     = 'hPa'  
+            level[:] = lev 
+        except:
+            print("== 2D: file without pressure levels")
+            lev = []
+
+        # create and assign variables based on input file
+        for n, var in enumerate(nc_in.variables):
+            if variables_skip(var):
+                continue                 
+            print("VAR: ", str_encode(var))
+            # extra treatment for pressure level files           
+            if len(lev):
+                tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))     
+            tmp.long_name = nc_in.variables[var].long_name.encode('UTF8') 
+            tmp.units     = nc_in.variables[var].units.encode('UTF8')  
+
+        #close the file
+        rootgrp.close()
+
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
     ECMWF server.
@@ -255,13 +316,15 @@ class ERA5pl(ERA5generic):
         ERA5pl = ERA5pl(date, area, elevation, variables, directory) 
         ERA5pl.download()
     """
-    def __init__(self, date, area, elevation, variables, directory):
-        self.date       = date
-        self.area       = area
-        self.elevation  = elevation
-        self.directory  = directory
-        outfile = 'era5_pl' + self.getDstring() + '.nc'
-        self.file_ncdf  = path.join(self.directory, outfile)
+    def __init__(self, prodcutTpye, date, area, elevation, variables, directory):
+        self.productType = prodcutTpye
+        self.levelType   = 'reanalysis-era5-pressure-levels'
+        self.date        = date
+        self.area        = area
+        self.elevation   = elevation
+        self.directory   = directory
+        outfile          = 'era5_pl' + self.getDstring() + '.nc'
+        self.file_ncdf   = path.join(self.directory, outfile)
  
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable names. 
@@ -272,28 +335,19 @@ class ERA5pl(ERA5generic):
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
         self.param += '/129.128' # geopotential always needed [m2 s-2]
-        self.time = ("00:00:00/01:00:00/02:00:00/03:00:00/"
-                     "04:00:00/05:00:00/06:00:00/07:00:00/"
-                     "08:00:00/09:00:00/10:00:00/11:00:00/"
-                     "12:00:00/13:00:00/14:00:00/15:00:00/"
-                     "16:00:00/17:00:00/18:00:00/19:00:00/"
-                     "20:00:00/21:00:00/22:00:00/23:00:00")
     
     def getDictionary(self):
         self.dictionary = {
-           'levtype'  : "pl",
-           'levellist': self.getPressureLevels(self.elevation),
-           'time'     : self.time,
-           'step'     : "0",
-           'type'     : "an",
-           'param'    : self.param,
-           'target'   : self.file_ncdf
+            'product_type': self.productType,
+            'levellist':    self.getPressureLevels(self.elevation),
+            'variable' :    self.varString(self.param),
+            'time'     :    self.timeString(self.productType),
            } 
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
-        return self.dictionary    
+        return self.dictionary       
         
     def __str__(self):
-        string = ("List of variables to query ECMWF server for "
+        string = ("List of variables to query CDS server for "
                   "ERA5 data: {0}")
         return string.format(self.getDictionary) 
 
@@ -323,10 +377,12 @@ class ERA5sa(ERA5generic):
         ERA5sa = ERA5sa(date, area, variables, directory) 
         ERA5sa.download()      
     """
-    def __init__(self, date, area, variables, directory):
-        self.date       = date
-        self.area       = area
-        self.directory  = directory
+    def __init__(self, prodcutTpye, date, area, variables, directory):
+        self.productType = prodcutTpye
+        self.levelType   = 'reanalysis-era5-single-levels'
+        self.date        = date
+        self.area        = area
+        self.directory   = directory
         outfile = 'era5_sa' + self.getDstring() + '.nc'
         self.file_ncdf  = path.join(self.directory, outfile)
         
@@ -341,27 +397,14 @@ class ERA5sa(ERA5generic):
                 
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
-        
     
-    def getTime(self):
-        
-        times = np.arange(0, 24)
-        times = [str(t).zfill(2) for t in times]
-        times = [t+':00:00' for t in times]
-        times = '/'.join(times)
-        
-        return times
-
 
     def getDictionary(self):
         self.dictionary = {
-           'levtype'  : "sfc",
-           'time'     : self.getTime(),
-           'step'     : "0",
-           'type'     : "an",
-           'param'    : self.param,
-           'target'   : self.file_ncdf
-           } 
+            'product_type': self.productType,
+            'variable'    : self.varString(self.param),
+            'time'        : self.timeString(self.productType)
+           }        
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
         return self.dictionary  
         
@@ -397,7 +440,9 @@ class ERA5sf(ERA5generic):
         ERA5sf = ERA5sf(date, area, variables, directory) 
         ERA5sf.download()   
     """
-    def __init__(self, date, area, variables, directory):
+    def __init__(self, prodcutTpye, date, area, variables, directory):
+        self.productType = prodcutTpye
+        self.levelType   = 'reanalysis-era5-single-levels'        
         self.date       = date
         self.area       = area
         self.directory  = directory
@@ -416,37 +461,23 @@ class ERA5sf(ERA5generic):
         # translate variables into those present in ERA pl data        
         self.TranslateCF2ERA(variables, dpar)
 
-        
-    def getStep(self):
-        steps = np.arange(1, 13)
-        steps = [str(s) for s in steps]
-        steps = '/'.join(steps)
-        
-        return steps
 
     def getDictionary(self):
     
         self.dictionary = {
-           'levtype'  : "sfc",
-           'time'     : ("00:00:00/01:00:00/02:00:00/03:00:00/"
-                     "04:00:00/05:00:00/06:00:00/07:00:00/"
-                     "08:00:00/09:00:00/10:00:00/11:00:00/"
-                     "12:00:00/13:00:00/14:00:00/15:00:00/"
-                     "16:00:00/17:00:00/18:00:00/19:00:00/"
-                     "20:00:00/21:00:00/22:00:00/23:00:00"),
-           'step'     : self.getStep(),
-           'type'     : "fc",
-           'param'    : self.param,
-           'target'   : self.file_ncdf
+            'product_type': self.productType,
+            'variable'    : self.varString(self.param),
+            'time'     : self.timeString(self.productType),
            } 
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
         return self.dictionary  
         
     def __str__(self):
-        string = ("List of variables to query ECMWF server for "
+        string = ("List of variables to query CDS server for "
                   "ERA5 air tenperature data: {0}")
         return string.format(self.getDictionary)      
-                
+
+
 class ERA5to(ERA5generic):
     """
     Returns an object for downloading and handling ERA5
@@ -463,21 +494,23 @@ class ERA5to(ERA5generic):
         ERA5to = ERA5to(area, directory) 
         ERA5to.download()       
     """
-    def __init__(self, area, directory):
+    def __init__(self, productType, area,  directory):
+        self.productType = productType
+        self.levelType   = 'reanalysis-era5-single-levels'        
         self.area       = area
         self.date       = {'beg' : datetime(2017, 1, 1),
                            'end' : datetime(2017, 1, 1)}
         self.directory  = directory
         self.file_ncdf  = path.join(self.directory,'era5_to.nc')
+        
+        #dpar = {'orography'     : '129.128', 
+        #'land_sea_mask' : '172.128'}
+        #self.param = '129.128/172.128'
 
     def getDictionary(self):
         self.dictionary = {
-           'levtype'  : "sfc",
-           'time'     : "00:00:00",
-           'step'     : "0",
-           'type'     : "an",
-           'param'    : "129.128/172.128", # geopotential and land-sea mask
-           'target'   : self.file_ncdf
+           'product_type' : self.productType,
+           'variable'     : ['orography', 'land_sea_mask'],
            } 
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
         return self.dictionary   
@@ -503,10 +536,13 @@ class ERA5download(GenericDownload):
         ERAd.retrieve()
     """
         
-    def __init__(self, pfile, api='cds', storage='cds'):
+    def __init__(self, pfile, era5Type, api = 'cds', storage = 'cds'):
         super().__init__(pfile)
         par = self.par
         self._set_data_directory("era5")
+        
+        # product type
+        self.product  = era5Type 
         
         # time bounds
         self.date  = {'beg' : par.beg,
@@ -519,7 +555,6 @@ class ERA5download(GenericDownload):
         self.api = api
         self.storage = storage
 
-                           
     def retrieve(self):
         """
         Retrieve all required ERA5 data from MARS/CDS server.
@@ -533,7 +568,7 @@ class ERA5download(GenericDownload):
         if path.isfile(path.join(self.directory,'era5_to.nc')):
             print("WARNING: File 'era5_to.nc' already exists. Skipping.")
         else: 
-            top = ERA5to(self.area, self.directory)
+            top = ERA5to(self.product, self.area, self.directory)
             top.download(self.api, self.storage)
         
         for ind in range (0, int(slices)): 
@@ -546,10 +581,12 @@ class ERA5download(GenericDownload):
                 date_i['end'] = self.date['end']
             
             #actual functions                                                                           
-            pl = ERA5pl(date_i, self.area, self.elevation, 
-                       self.variables, self.directory) 
-            sa = ERA5sa(date_i, self.area, self.variables, self.directory) 
-            sf = ERA5sf(date_i, self.area, self.variables, self.directory) 
+            pl = ERA5pl(self.product, date_i, self.area, self.elevation, 
+                        self.variables, self.directory) 
+            sa = ERA5sa(self.product, date_i, self.area, self.variables, 
+                        self.directory) 
+            sf = ERA5sf(self.product, date_i, self.area, self.variables, 
+                        self.directory) 
         
             #download from ECMWF server convert to netCDF  
             ERAli = [pl, sa, sf]
@@ -571,7 +608,7 @@ class ERA5download(GenericDownload):
                      'era5_sf_*.nc', 'era5_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
-            nf = len(filter(listdir(self.directory), ft))
+            nf = len(fnfilter(listdir(self.directory), ft))
             print(str(nf) + " FILE(S): " + infile)
             
             if nf > 0:
@@ -763,8 +800,7 @@ class ERA5interpolate(GenericInterpolate):
         #close the file
         ncf_in.close()
         ncf_out.close()
-                         
-       
+
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
         Linear 1D interpolation of pressure level data available for individual
@@ -853,7 +889,6 @@ class ERA5interpolate(GenericInterpolate):
         ncf.close()
         # closed file ==========================================================    
 
-    
     def process(self):
         """
         Interpolate point time series from downloaded data. Provides access to 
@@ -934,7 +969,8 @@ class ERA5scale(GenericScale):
         ERAd = ERA5scale(sfile) 
         ERAd.process()
     """
-        
+    NAME = "ERA5"
+       
     def __init__(self, sfile):
         super().__init__(sfile)
         par = self.par
@@ -1005,15 +1041,14 @@ class ERA5scale(GenericScale):
         self.nc_sa.close()
         self.nc_to.close()
         
-        
     def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """        
         # add variable to ncdf file
-        vn = 'PRESS_ERA5_Pa_pl' # variable name
+        vn = 'PRESS_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_pressure ERA-5 pressure levels only'
+        var.long_name = 'air_pressure {} pressure levels only'.format(self.NAME)
         var.units     = 'Pa' 
         var.standard_name = 'surface_air_pressure'
         
@@ -1030,9 +1065,9 @@ class ERA5scale(GenericScale):
         Air temperature derived from pressure levels, exclusively.
         """        
         # add variable to ncdf file
-        vn = 'AIRT_ERA5_C_pl' # variable name
+        vn = 'AIRT_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))    
-        var.long_name = 'air_temperature ERA-5 pressure levels only'
+        var.long_name = 'air_temperature {} pressure levels only'.format(self.NAME)
         var.units     = 'degrees_C' 
         var.standard_name = 'air_temperature'
         
@@ -1048,10 +1083,11 @@ class ERA5scale(GenericScale):
         Air temperature derived from surface data, exclusively.
         """
         # add variable to ncdf file
-        vn = 'AIRT_ERA5_C_sur' # variable name
+        vn = 'AIRT_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '2_metre_temperature ERA-5 surface only'
-        var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')  
+        var.long_name = '2_metre_temperature {} surface only'.format(self.NAME)
+        var.units     = 'degrees_C' 
+        var.standard_name = 'air_temperature'
         
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)      
@@ -1066,16 +1102,16 @@ class ERA5scale(GenericScale):
         Air temperature derived from surface data and pressure level data as
         shown by the method REDCAPP.
         """       
-        print("AIRT_ERA5_redcapp")            
+        print("AIRT_redcapp")            
 
     def PREC_mm_sur(self):
         """
         Precipitation sum in mm for the time step given.
         """   
         # add variable to ncdf file
-        vn  = 'PREC_ERA5_mm_sur' # variable name
+        vn  = 'PREC_sur' # variable name
         var = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Total precipitation ERA-5 surface only'
+        var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
         var.units     = 'kg m-2 s-1'
         var.standard_name = 'precipitation_amount'
         
@@ -1093,7 +1129,7 @@ class ERA5scale(GenericScale):
     def RH_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]. Kernel AIRT_ERA5_C_sur must be run before.
+        range [0.001, 0.999]. Kernel AIRT_ERA5_C_sur must be run before.
         """         
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
@@ -1104,16 +1140,16 @@ class ERA5scale(GenericScale):
                                             time_in*3600, values[:, n]-273.15) 
                                                     
         # add variable to ncdf file
-        vn = 'RH_ERA5_per_sur' # variable name
+        vn = 'RH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Relative humidity ERA-5 surface only'
+        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
         
         # simple: https://doi.org/10.1175/BAMS-86-2-225
-        RH = 100 - 5 * (self.rg.variables['AIRT_ERA5_C_sur'][:, :]-dewp[:, :])
-        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)    
-        
+        RH = 100 - 5 * (self.rg.variables['AIRT_sur'][:, :]-dewp[:, :])
+        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)/100 #[1]
+
         
     def WIND_sur(self):
         """
@@ -1137,16 +1173,16 @@ class ERA5scale(GenericScale):
                                          time_in*3600, values[:, n]) 
 
         # wind speed, add variable to ncdf file, convert
-        vn = 'WSPD_ERA5_ms_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind speed ERA-5 surface only'
+        vna = 'WSPD_sur' # variable name
+        var           = self.rg.createVariable(vna,'f4',('time', 'station'))    
+        var.long_name = '10 wind speed {} surface only'.format(self.NAME)
         var.units     = 'm s-1'  
         var.standard_name = 'wind_speed'
                 
         # wind direction, add variable to ncdf file, convert, relative to North 
-        vn = 'WDIR_ERA5_deg_sur' # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = '10 wind direction ERA-5 surface only'
+        vnb = 'WDIR_sur' # variable name
+        var           = self.rg.createVariable(vnb,'f4',('time', 'station'))    
+        var.long_name = '10 wind direction {} surface only'.format(self.NAME)
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'
 
@@ -1154,8 +1190,8 @@ class ERA5scale(GenericScale):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n])*(180/pi) + 
                   180 for i in np.arange(V.shape[0])]
-            self.rg.variables['WSPD_ERA5_ms_sur'][:, n] = WS
-            self.rg.variables['WDIR_ERA5_deg_sur'][:,n] = WD                                          
+            self.rg.variables[vna][:, n] = WS
+            self.rg.variables[vnb][:,n] = WD                                          
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
     def SW_Wm2_sur(self):
         """
@@ -1164,9 +1200,9 @@ class ERA5scale(GenericScale):
         """   
         
         # add variable to ncdf file
-        vn = 'SW_ERA5_Wm2_sur' # variable name
+        vn = 'SW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface solar radiation downwards ERA-5 surface only'
+        var.long_name = 'Surface solar radiation downwards {} surface only'.format(self.NAME)
         var.units     = 'W m-2'
         var.standard_name = 'surface_downwelling_shortwave_flux'
 
@@ -1177,7 +1213,6 @@ class ERA5scale(GenericScale):
             f = interp1d(time_in*3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step
 
-
     def LW_Wm2_sur(self):
         """
         Long-wave downwelling radiation derived from surface data, exclusively.  
@@ -1185,9 +1220,9 @@ class ERA5scale(GenericScale):
         """   
         
         # add variable to ncdf file
-        vn = 'LW_ERA5_Wm2_sur' # variable name
+        vn = 'LW_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
+        var.long_name = 'Surface thermal radiation downwards {} surface only'.format(self.NAME)
         var.standard_name = 'surface_downwelling_longwave_flux'
         var.units     = 'W m-2'
         
@@ -1197,8 +1232,7 @@ class ERA5scale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()): 
             f = interp1d(time_in*3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)*self.time_step   
-                                          
-                                                  
+
     def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg]
@@ -1215,12 +1249,12 @@ class ERA5scale(GenericScale):
 
         # compute
         SH = spec_hum_kgkg(dewp[:, :], 
-                           self.rg.variables['PRESS_ERA5_Pa_pl'][:, :])  
+                           self.rg.variables['PRESS_pl'][:, :])  
         
         # add variable to ncdf file
-        vn = 'SH_ERA5_kgkg_sur' # variable name
+        vn = 'SH_sur' # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
-        var.long_name = 'Specific humidity ERA-5 surface only'
+        var.long_name = 'Specific humidity {} surface only'.format(self.NAME)
         var.units     = '1'  
         var.standard_name = 'specific_humidity'
         self.rg.variables[vn][:, :] = SH                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
