@@ -29,6 +29,7 @@ from fnmatch     import filter as fnmatch_filter
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
+import glob
 
 import re
 
@@ -906,7 +907,7 @@ def get_begin_date(par, data_folder, match_strings):
     directory = par['project_directory']
     print("Searching for existing files in directory")
     
-    if not all([len(glob.glob(os.path.join(directory, data_folder, s))) > 0 for s in match_strings]):
+    if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
         print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
         return par['beg']
         
