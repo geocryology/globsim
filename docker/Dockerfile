@@ -1,14 +1,8 @@
 FROM ubuntu:18.04
-
-COPY esmf-python.tar.gz /opt
-COPY credential/ /root
-
-RUN tar xvfz /opt/esmf-python.tar.gz -C /opt
-RUN rm /opt/esmf-python.tar.gz
+RUN apt-get update
 
 ENV PYTHONPATH=/opt/python/lib/python3.6/site-packages
 
-RUN apt-get update
 RUN apt-get install -y dialog
 RUN apt-get install -y apt-utils
 RUN apt-get install -y python3
@@ -40,7 +34,12 @@ RUN apt-get install -y libnetcdf-dev
 RUN apt-get install -y libnetcdff-dev
 RUN apt-get install -y nano
 
-RUN git clone https://github.com/geocryology/globsim --branch v1.0.6 --depth 1 /opt/globsim
+COPY esmf-python.tar.gz /opt
+
+RUN tar xvfz /opt/esmf-python.tar.gz -C /opt
+RUN rm /opt/esmf-python.tar.gz
+
+RUN git clone https://github.com/geocryology/globsim --depth 1 /opt/globsim
 
 RUN echo /opt >/usr/lib/python3/dist-packages/globsim.pth
 RUN ln -s /opt/esmf-install/ /opt/esmf
