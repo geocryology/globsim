@@ -33,13 +33,15 @@ RUN apt-get install -y netcdf-bin
 RUN apt-get install -y libnetcdf-dev
 RUN apt-get install -y libnetcdff-dev
 RUN apt-get install -y nano
+RUN apt-get install -y git-lfs
 
-COPY esmf-python.tar.gz /opt
+#COPY esmf-python.tar.gz /opt
 
-RUN tar xvfz /opt/esmf-python.tar.gz -C /opt
-RUN rm /opt/esmf-python.tar.gz
+#RUN tar xvfz /opt/esmf-python.tar.gz -C /opt
+#RUN rm /opt/esmf-python.tar.gz
 
-RUN git clone https://github.com/geocryology/globsim --depth 1 /opt/globsim
+RUN git lfs clone https://github.com/geocryology/globsim --depth 1 /opt/globsim
+RUN tar xvfz /opt/globsim/docker/esmf-python.tar.gz -C /opt
 
 RUN echo /opt >/usr/lib/python3/dist-packages/globsim.pth
 RUN ln -s /opt/esmf-install/ /opt/esmf
