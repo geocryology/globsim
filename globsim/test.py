@@ -17,7 +17,7 @@ from netCDF4 import Dataset, MFDataset
 import h5py
 import numpy as np
 import os.path
-from data_check import DataCheck, GlobsimScale
+from globsim.data_check import DataCheck, GlobsimScale
 import unittest
 from osgeo import gdal, osr, ogr
 import matplotlib.pyplot as plt

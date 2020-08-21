@@ -24,11 +24,11 @@
 #
 #
 # === CONTRIBUTIONS ============================================================
-# Intial code for GlobSim is designed by Stephan Gruber. Xiaojing Quan developed
+# Intial code for globsim is designed by Stephan Gruber. Xiaojing Quan developed
 # MERRA-2, download part of ERA-Interim, and intial interpolation and scale  
-# parts of GlobSim. Bin Cao wrote the download parts of ERA5, JRA-55, and  
+# parts of globsim. Bin Cao wrote the download parts of ERA5, JRA-55, and
 # finilized the interpolation and scale part. Nicholas Brown improved ERA5, 
-# wrote the CF conventions part, and tested GlobSim.
+# wrote the CF conventions part, and tested globsim.
 #===============================================================================
 
 
