@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="On explicit save action" serverName="hma000" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc,docker" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="On explicit save action" exclude=".svn;.cvs;.idea;.DS_Store;.git;.hg;*.hprof;*.pyc,docker" autoUploadExternalChanges="true">
     <serverData>
       <paths name="hma000">
         <serverdata>
           <mappings>
             <mapping deploy="/globsim" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/projects" local="$PROJECT_DIR$/../projects" web="/" />
           </mappings>
         </serverdata>
       </paths>
