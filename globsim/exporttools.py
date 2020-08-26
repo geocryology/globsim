@@ -217,11 +217,11 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
                           "%7.2f", "%11.2f" ])
 
 
-def globsim_to_geotop(ncd, out_dir, src, start=None, end=None):
+def globsim_to_geotop(ncd, out_dir, site, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
-    src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
+    site: site name or index
     """
     # open netcdf if string provided
     if type(ncd) is str:
@@ -239,40 +239,40 @@ def globsim_to_geotop(ncd, out_dir, src, start=None, end=None):
     time = pd.DataFrame(time)
 
     # get precip
-    PREC = "PREC_sur".format(src)
+    PREC = "PREC_sur"
     PREC = n[PREC][:]
 
     # get wind velocity
-    WSPD = "WSPD_sur".format(src)
+    WSPD = "WSPD_sur"
     WSPD = n[WSPD][:]
 
     # get wind direction
-    WDIR = "WDIR_sur".format(src)
+    WDIR = "WDIR_sur"
     WDIR = n[WDIR][:]
 
     # get windx and windy
 
     # get RH
-    RH = "RH_sur".format(src)
+    RH = "RH_sur"
     RH = n[RH][:]
 
     # get air temp
-    AIRT = "AIRT_sur".format(src)
+    AIRT = "AIRT_sur"
     AIRT = n[AIRT][:]
 
     # get dew temp (missing?)
 
     # get air pressure
-    PRESS = "PRESS_pl".format(src)
+    PRESS = "PRESS_pl"
     PRESS = n[PRESS][:]
     PRESS *= 1e-5      # convert to bar for geotop
 
     # get shortwave solar global (direct / diffuse missing?)
-    SW = "SW_sur".format(src)
+    SW = "SW_sur"
     SW = n[SW][:]
 
     # get longwave incoming
-    LW = "LW_sur".format(src)
+    LW = "LW_sur"
     LW = n[LW][:]
 
     # get site names
@@ -282,20 +282,24 @@ def globsim_to_geotop(ncd, out_dir, src, start=None, end=None):
     data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
 
     # write output files
+    files = []
     for i in range(nstn):
-
-        # massage data into the right shape
-        out_df = pd.DataFrame(np.transpose(data[:, :, i]))
-        out_df = pd.concat([time, out_df], axis=1)
-        out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
-                            "AirTemp", "AirPress", "SWglobal", "LWin"]
-
         # get station name
         st_name = NAMES[i]
+        
+        if (i == site or st_name == site):
+            # massage data into the right shape
+            out_df = pd.DataFrame(np.transpose(data[:, :, i]))
+            out_df = pd.concat([time, out_df], axis=1)
+            out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
+                                "AirTemp", "AirPress", "SWglobal", "LWin"]
 
-        # prepare paths
-        filename = "{}-{}_{}_Forcing_0001.txt".format(i, st_name, src)
-        savepath = path.join(out_dir, filename)
+            # prepare paths
+            filename = "{}-{}_Forcing_0001.txt".format(i, st_name)
+            savepath = path.join(out_dir, filename)
 
-        # create file
-        out_df.to_csv(savepath, index=False, float_format="%10.5f")
+            # create file
+            out_df.to_csv(savepath, index=False, float_format="%10.5f")
+            files.append(savepath)
+    
+    return files
