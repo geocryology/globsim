@@ -782,6 +782,11 @@ class MERRAgeneric():
         '''
         rootgrp = netcdf_base(ncfile_out, len(stations), None, 'hours since 1980-01-01 00:00:00')
         
+        station = rootgrp["station"]
+        latitude = rootgrp["latitude"]
+        longitude = rootgrp["longitude"]
+        height = rootgrp["height"]
+        
         # assign station characteristics            
         station[:]   = list(stations['station_number'])
         latitude[:]  = list(stations['latitude_dd'])
@@ -2046,6 +2051,12 @@ class MERRAinterpolate(GenericInterpolate):
         # create a file (Dataset object, also the root group).
         rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1980-01-01 00:00:00')
         rootgrp.source  = 'MERRA-2, interpolated (bi)linearly to stations'
+        
+        time = rootgrp["time"]
+        station = rootgrp["station"]
+        latitude = rootgrp["latitude"]
+        longitude = rootgrp["longitude"]
+        height = rootgrp["height"]
         
         # assign base variables
         time[:]      = ncf.variables['time'][:]
