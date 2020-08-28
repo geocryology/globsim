@@ -358,7 +358,7 @@ class GenericInterpolate:
     def create_source_grid(self, ncfile_in):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(fnmatch_filter(os.listdir(self.dir_inp), path.basename(ncfile_in)))
+        flist = np.sort(fnmatch_filter(listdir(self.dir_inp), path.basename(ncfile_in)))
         ncsingle = path.join(self.dir_inp, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
@@ -550,11 +550,11 @@ def get_begin_date(par, data_folder, match_strings):
     """
     directory = par['project_directory']
     print("Searching for existing files in directory")
-    if not all([len(glob.glob(os.path.join(directory, data_folder, s))) > 0 for s in match_strings]):
+    if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
         print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
         return par['beg']
 
-    datasets = [nc.MFDataset(os.path.join(directory, data_folder, s)) for s in match_strings]
+    datasets = [nc.MFDataset(path.join(directory, data_folder, s)) for s in match_strings]
     dates = [nc.num2date(x['time'][:], x['time'].units, x['time'].calendar) for x in datasets]
 
     latest = [max(d) for d in dates]
@@ -645,11 +645,11 @@ def get_begin_date(par, data_folder, match_strings):
     directory = par['project_directory']
     print("Searching for existing files in directory")
     
-    if not all([len(glob.glob(os.path.join(directory, data_folder, s))) > 0 for s in match_strings]):
+    if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
         print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
         return par['beg']
         
-    datasets = [nc.MFDataset(os.path.join(directory, data_folder, s)) for s in match_strings]
+    datasets = [nc.MFDataset(path.join(directory, data_folder, s)) for s in match_strings]
     dates = [nc.num2date(x['time'][:], x['time'].units, x['time'].calendar) for x in datasets]
     
     latest = [max(d) for d in dates]
