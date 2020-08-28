@@ -177,6 +177,6 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units):
     station        = ncvar_add_station(rootgrp)
     latitude       = ncvar_add_latitude(rootgrp)
     longitude      = ncvar_add_longitude(rootgrp)
-    height         = ncvar_add_ellipsoid_height()
+    height         = ncvar_add_ellipsoid_height(rootgrp)
 
     return rootgrp
