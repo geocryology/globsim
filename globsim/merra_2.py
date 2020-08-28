@@ -780,7 +780,7 @@ class MERRAgeneric():
         variables:  variables read from netCDF handle
         lev:        list of pressure levels, empty is [] (default)
         '''
-        rootgrp = netcdf_base(ncfile_out, stations, None, 'hours since 1980-01-01 00:00:00')
+        rootgrp = netcdf_base(ncfile_out, len(stations), None, 'hours since 1980-01-01 00:00:00')
         
         # assign station characteristics            
         station[:]   = list(stations['station_number'])
