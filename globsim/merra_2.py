@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from generic   import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
+from generic   import StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator

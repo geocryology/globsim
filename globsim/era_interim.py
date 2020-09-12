@@ -48,7 +48,7 @@ from datetime            import datetime, timedelta
 from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
-from generic     import ParameterIO, StationListRead, series_interpolate, variables_skip, str_encode, cummulative2total, GenericDownload, GenericScale, GenericInterpolate
+from generic     import StationListRead, series_interpolate, variables_skip, str_encode, cummulative2total, GenericDownload, GenericScale, GenericInterpolate
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from scipy.interpolate   import interp1d
