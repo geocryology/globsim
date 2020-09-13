@@ -1,0 +1,64 @@
+# This is a TOML document
+
+title = "Globsim Control File"
+
+[download]
+# logistics
+project_directory = "/opt/globsim/examples/Example1"
+credentials_directory = "/root"
+
+# chunk size for splitting files and download [days]
+chunk_size = 2
+
+# area bounding box [decimal degrees]
+bbN = 66
+bbS = 62
+bbW = -112
+bbE = -108
+
+# ground elevation range within area [m]
+ele_min = 0
+ele_max = 2500
+
+# time slice [YYYY/MM/DD]
+beg = "2017/07/01"
+end = "2017/07/05"
+
+# variables to download [CF Standard Name Table]
+variables = ["air_temperature", "relative_humidity", "wind_speed", "wind_from_direction", "precipitation_amount", "downwelling_shortwave_flux_in_air", "downwelling_longwave_flux_in_air", "downwelling_shortwave_flux_in_air_assuming_clear_sky", "downwelling_longwave_flux_in_air_assuming_clear_sky"]
+
+[interpolate]
+# Path to the parent directory of /par - It should match the download and scale files
+project_directory = "/opt/globsim/examples/Example1"
+
+# Filename (without path) of csv containing site information (must match scaling control file)
+station_list = "siteslist.csv"
+
+# How many time steps to interpolate at once? This helps memory management.
+# Keep small for large area files and small memory computer, make larger to get 
+# speed on big machines and when working with small area files.
+# for a small area, we suggest values up to 2000, but consider the memory limit of your computer
+chunk_size = 2000
+
+# time slice [YYYY/MM/DD] assuming 00:00 hours
+beg = "2017/07/01"
+end = "2017/07/05"
+
+# variables to interpolate [CF Standard Name Table]
+variables = ["air_temperature", "relative_humidity", "wind_speed", "wind_from_direction", "precipitation_amount", "downwelling_shortwave_flux_in_air", "downwelling_longwave_flux_in_air", "downwelling_shortwave_flux_in_air_assuming_clear_sky", "downwelling_longwave_flux_in_air_assuming_clear_sky"]
+
+[scale]
+# Path to the parent directory of /par - It should match the download and interpolate files
+project_directory = "/opt/globsim/examples/Example1"
+
+# Filename (without path) of csv containing site information (must match interpolation control file)
+station_list = "siteslist.csv"
+
+# processing kernels to be used.  Unavailable kernels will be ignored
+kernels = ["PRESS_Pa_pl", "AIRT_C_pl", "AIRT_C_sur", "PREC_mm_sur", "RH_per_sur", "WIND_sur", "SW_Wm2_sur", "LW_Wm2_sur", "SH_kgkg_sur"]
+
+# desired time step for output data [hours]
+time_step = 1
+
+# Should the output file be overwritten if it exists?
+overwrite = true
