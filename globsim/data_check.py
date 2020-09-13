@@ -18,7 +18,7 @@ from os                import path
 #from netCDF4           import Dataset, MFDataset
 from generic           import ParameterIO, StationListRead
 
-
+import tomlkit
 import numpy as np
 import csv
 import netCDF4 as nc
@@ -38,20 +38,24 @@ class DataCheck(object):
     def __init__(self, ifile, varF):
         self.ifile = ifile                      # read parameter file for interpolaiton
         par = ParameterIO(self.ifile)           # Reads generic par files and makes values available as dictionary.
-
+        with open(self.ifile) as FILE:
+            config = tomlkit.parse(FILE.read())
+            par = config['interpolate']
+            
         # read file, access first reanalysis variable, access data_directory, access N of bounding box
-        self.dir_inp = path.join(par.project_directory, varF)
-        self.dir_out = path.join(par.project_directory, 'station')
-        self.variables = par.variables
+        self.dir_inp = path.join(par['project_directory'], varF)
+        self.dir_out = path.join(par['project_directory'], 'station')
+        self.variables = par['variables']
 
-        # self.list_name = par.list_name
-        self.stations_csv = path.join(par.project_directory, 'par', par.station_list)
+        # self.list_name = par['list_name']
+        self.stations_csv = path.join(par['project_directory'],
+                                      'par', par['station_list'])
 
         # read station points
         self.stations = StationListRead(self.stations_csv)
 
         # time bounds
-        self.date = {'beg': par.beg, 'end': par.end}
+        self.date = {'beg': par['beg'], 'end': par['end']}
 
     def findStep(self, file_in):
         '''
