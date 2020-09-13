@@ -509,11 +509,11 @@ class ERA5download(GenericDownload):
         self._set_data_directory("era5")
         
         # time bounds
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end}
+        self.date  = {'beg' : par['beg'],
+                      'end' : par['end']}
 
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size   
+        self.chunk_size = par['chunk_size']   
 
         # set api and download server/storage
         self.api = api
@@ -626,7 +626,7 @@ class ERA5interpolate(GenericInterpolate):
         super().__init__(ifile)
         par = self.par        
        
-        self.dir_inp = path.join(par.project_directory,'era5') 
+        self.dir_inp = path.join(par['project_directory'],'era5') 
         
         #convert longitude to ERA notation if using negative numbers  
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360             
@@ -961,13 +961,13 @@ class ERA5scale(GenericScale):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
         # interpolation scale factor
-        self.time_step = par.time_step * 3600    # [s] scaled file
+        self.time_step = par['time_step'] * 3600    # [s] scaled file
         self.interval_in = (time[1]-time[0]).seconds #interval in seconds
         self.interpN = floor(self.interval_in/self.time_step)
         
         #number of time steps for output, include last value
         self.nt = int(floor((max(time) - min(time)).total_seconds()
-                            / 3600 / par.time_step)) + 1 
+                            / 3600 / par['time_step'])) + 1 
 
         # vector of output time steps as datetime object
         # 'seconds since 1900-01-01 00:00:0.0'
