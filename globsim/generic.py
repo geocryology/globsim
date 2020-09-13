@@ -26,6 +26,7 @@ from datetime    import datetime, timedelta
 from os          import mkdir, path, makedirs, listdir
 from fnmatch     import filter as fnmatch_filter
 
+import tomlkit
 import pandas  as pd
 import netCDF4 as nc
 import numpy as np
@@ -51,136 +52,6 @@ except ImportError:
     pass
 
 
-class ParameterIO(object):
-    """
-    Reads generic parameter files and makes values available as dictionary.
-
-    # read file
-    par = ParameterIO('examples/par/examples.globsim_download')
-
-    # access first reanalysis variable
-    par.variables[0]
-
-    # access data_directory
-    par.data_directory
-
-    # access north end of bounding box
-    par.bbN
-    """
-
-    def __init__(self, pfile):
-        """
-        Instantiate a new object and set conventions.
-        """
-        self.fmt_date = "%Y/%m/%d"
-        self.pfile    = pfile
-        self.comment  = "#"
-        self.assign   = "="
-        self.file_read()
-
-    def __getitem__(self, item):
-        attr = getattr(self, item)
-        return(attr)
-
-    def file_read(self):
-        """
-        Read parameter file into a list of strings (each line is one entry) and
-        parse content into a dictionary.
-        """
-        # read file
-        with open(self.pfile, "r") as myfile:
-            inpts_str = myfile.readlines()
-
-        # parse content
-        for line in inpts_str:
-            d = self.line2dict(line)
-            if d is not None:
-                self.__dict__[list(d.keys())[0]] = list(d.values())[0]
-
-    def __is_only_comment(self, lin):
-        # checks whether line contains nothing but comment
-        for c in lin:
-            if c != " ":
-                if c == self.comment:
-                    return True
-                else:
-                    return False
-
-    def __string2datetime(self, valu):
-        # checks if value is a date string. If true, a datetime object is
-        # returned. If false, value is returned unchanged.
-        if not isinstance(valu, basestring):
-            return valu
-
-        # see if time conversion is possible
-        try:
-            valu = datetime.strptime(valu, self.fmt_date)
-        except ValueError:
-            pass
-        return valu
-
-    def __string2logical(self, valu):
-        # checks if value is a true / false. If true, a logical object is
-        # returned. If false, value is returned unchanged.
-        if not isinstance(valu, basestring):
-            return valu
-
-        # see if time conversion is possible
-        if valu.lower() == "false":
-            valu = False
-        if valu.lower() == "true":
-            valu = True
-        return valu
-
-    def __string2datetime_list(self, dates):
-        # convert list of date strings to datetime
-        return [self.__string2datetime(date) for date in dates]
-
-    def line2dict(self, lin):
-        """
-        Converts one line of a parameter file into a dictionary. Comments
-        are recognised and ignored, float vectors are preserved, datetime
-        converted from string.
-        """
-        # Check if this is valid
-        if self.__is_only_comment(lin):
-            return None
-
-        # Remove possible trailing comment form line
-        lin = lin.split(self.comment)[0]
-
-        # Discard lines without value assignment
-        if len(lin.split(self.assign)) != 2:
-            return None
-
-        # Extract name and value, strip of leading/trailling blanks
-        name = lin.split(self.assign)[0].strip()
-        valu = lin.split(self.assign)[1].strip()
-
-        # Make a vector is commas are found
-        if valu.find(",") > 0:
-            # Convert to float or list of float if numeric
-            try:
-                valu = list(map(float, valu.split(",")))
-            except ValueError:
-                valu = list(valu.split(","))
-                valu = [v.strip() for v in valu]
-        else:
-            try:
-                valu = float(valu)
-            except ValueError:
-                pass
-
-        # Convert to datetime if it is datetime
-        valu = self.__string2datetime(valu)
-
-        # Convert to logical if logical
-        valu = self.__string2logical(valu)
-
-        # Make dictionary and return
-        return {name: valu}
-
-
 class GenericDownload(object):
     """
     Generic functionality for download classes
@@ -189,33 +60,35 @@ class GenericDownload(object):
     def __init__(self, pfile):
         # read parameter file
         self.pfile = pfile
-        self.par = par = ParameterIO(self.pfile)
+        with open(self.pfile) as FILE:
+            config = tomlkit.parse(FILE.read())
+            self.par = par = config['download']
 
         self._set_elevation(par)
         self._set_area(par)
         self._check_area(par)
 
-        self.variables = par.variables
+        self.variables = par['variables']
 
     def _check_area(self, par):
-        if (par.bbN < par.bbS) or (par.bbE < par.bbW):
+        if (par['bbN'] < par['bbS']) or (par['bbE'] < par['bbW']):
             raise ValueError("Bounding box is invalid: {}".format(self.area))
 
-        if (np.abs(par.bbN - par.bbS) < 1.5) or (np.abs(par.bbE - par.bbW) < 1.5):
+        if (np.abs(par['bbN'] - par['bbS']) < 1.5) or (np.abs(par['bbE'] - par['bbW']) < 1.5):
             raise ValueError("Download area is too small to conduct interpolation.")
 
     def _set_area(self, par):
-        self.area  = {'north': par.bbN,
-                      'south': par.bbS,
-                      'west' : par.bbW,
-                      'east' : par.bbE}
+        self.area  = {'north': par['bbN'],
+                      'south': par['bbS'],
+                      'west' : par['bbW'],
+                      'east' : par['bbE']}
 
     def _set_elevation(self, par):
-        self.elevation = {'min' : par.ele_min,
-                          'max' : par.ele_max}
+        self.elevation = {'min' : par['ele_min'],
+                          'max' : par['ele_max']}
 
     def _set_data_directory(self, name):
-        self.directory = path.join(self.par.project_directory, name)
+        self.directory = path.join(self.par['project_directory'], name)
         if not path.isdir(self.directory):
             makedirs(self.directory)
 
@@ -225,23 +98,25 @@ class GenericInterpolate:
     def __init__(self, ifile):
         # read parameter file
         self.ifile = ifile
-        self.par = par = ParameterIO(self.ifile)
+        with open(self.ifile) as FILE:
+            config = tomlkit.parse(FILE.read())
+            self.par = par = config['interpolate']
         self.dir_out = self.make_output_directory(par)
-        self.variables = par.variables
-        self.list_name = par.station_list.split(path.extsep)[0]
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
+        self.variables = par['variables']
+        self.list_name = par['station_list'].split(path.extsep)[0]
+        self.stations_csv = path.join(par['project_directory'],
+                                      'par', par['station_list'])
 
         # read station points
         self.stations = StationListRead(self.stations_csv)
 
-        # time bounds, add one day to par.end to include entire last day
-        self.date  = {'beg' : par.beg,
-                      'end' : par.end + timedelta(days=1)}
+        # time bounds, add one day to par['end'] to include entire last day
+        self.date  = {'beg' : par['beg'],
+                      'end' : par['end'] + timedelta(days=1)}
 
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
-        self.cs  = int(par.chunk_size)
+        self.cs  = int(par['chunk_size'])
 
     def TranslateCF2short(self, dpar):
         """
@@ -348,7 +223,7 @@ class GenericInterpolate:
     def make_output_directory(self, par):
         """make directory to hold outputs"""
 
-        dirIntp = path.join(par.project_directory, 'interpolated')
+        dirIntp = path.join(par['project_directory'], 'interpolated')
 
         if not (path.isdir(dirIntp)):
             makedirs(dirIntp)
@@ -428,26 +303,28 @@ class GenericScale:
     def __init__(self, sfile):
         # read parameter file
         self.sfile = sfile
-        self.par = par = ParameterIO(self.sfile)
-        self.intpdir = path.join(par.project_directory, 'interpolated')
+        with open(self.sfile) as FILE:
+            config = tomlkit.parse(FILE.read())
+            self.par = par = config['scale']
+        self.intpdir = path.join(par['project_directory'], 'interpolated')
         self.scdir = self.makeOutDir(par)
-        self.list_name = par.station_list.split(path.extsep)[0]
+        self.list_name = par['station_list'].split(path.extsep)[0]
 
         # get the station file
-        self.stations_csv = path.join(par.project_directory,
-                                      'par', par.station_list)
+        self.stations_csv = path.join(par['project_directory'],
+                                      'par', par['station_list'])
         # read station points
         self.stations = StationListRead(self.stations_csv)
 
         # read kernels
-        self.kernels = par.kernels
+        self.kernels = par['kernels']
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
 
     def getOutNCF(self, par, src, scaleDir='scale'):
         """make out file name"""
 
-        timestep = str(par.time_step) + 'h'
+        timestep = str(par['time_step']) + 'h'
         src = '_'.join(['scaled', src, timestep])
         src = src + '.nc'
         fname = path.join(self.scdir, src)
@@ -457,7 +334,7 @@ class GenericScale:
     def makeOutDir(self, par):
         """make directory to hold outputs"""
 
-        dirSC = path.join(par.project_directory, 'scaled')
+        dirSC = path.join(par['project_directory'], 'scaled')
 
         if not (path.isdir(dirSC)):
             makedirs(dirSC)
@@ -535,7 +412,8 @@ def get_begin_date(par, data_folder, match_strings):
     
     Parameters
     ----------
-    par : ParameterIO object
+    par : dict
+        download section of configuration file as read in by tomlkit
     data_folder : str
         name of subdirectory containing data files. Examples: merra2, era5
     match_strings : list
@@ -627,7 +505,8 @@ def get_begin_date(par, data_folder, match_strings):
     
     Parameters
     ----------
-    par : ParameterIO object
+    par : dict
+        download section of configuration file as read in by tomlkit
     data_folder : str
         name of subdirectory containing data files. Examples: merra2, era5
     match_strings : list
