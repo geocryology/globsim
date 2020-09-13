@@ -16,7 +16,7 @@ from __future__        import print_function
 from datetime          import datetime, timedelta, date
 from os                import path
 #from netCDF4           import Dataset, MFDataset
-from generic           import ParameterIO, StationListRead
+from generic           import StationListRead
 
 import tomlkit
 import numpy as np
@@ -36,9 +36,8 @@ class DataCheck(object):
     """
 
     def __init__(self, ifile, varF):
-        self.ifile = ifile                      # read parameter file for interpolaiton
-        par = ParameterIO(self.ifile)           # Reads generic par files and makes values available as dictionary.
-        with open(self.ifile) as FILE:
+        self.ifile = ifile                      # read parameter file for interpolation
+        with open(self.ifile) as FILE:  # Reads generic par files and makes values available as dictionary.
             config = tomlkit.parse(FILE.read())
             par = config['interpolate']
             
