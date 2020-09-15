@@ -794,6 +794,13 @@ class ERA5interpolate(GenericInterpolate):
         rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1900-01-01 00:00:0.0')
         rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
         
+        time  = rootgrp['time']
+        station = rootgrp['station']
+        latitude = rootgrp['latitude']
+        longitude = rootgrp['longitude'] 
+        height  = rootgrp['height'] 
+        
+ 
         # assign base variables
         time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]

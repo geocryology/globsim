@@ -2,9 +2,11 @@
 functions for creating netcdf files
 """
 import netCDF4 as nc
-
-def nc_new_file(ncfile_out, featureType="timeSeries"):
-    rootgrp = nc.Dataset(ncfile_out, 'w', format='NETCDF4_CLASSIC')
+from generic import variables_skip, str_encode
+from os import path
+import numpy as np
+def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):
+    rootgrp = nc.Dataset(ncfile_out, 'w', format=fmt)
     rootgrp.Conventions = 'CF-1.6'
     rootgrp.featureType = featureType
 
@@ -68,7 +70,7 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out, t_unit, station_names=
 
 
     # make netCDF outfile, variables are written in kernels
-    rootgrp = nc_new_file(ncfile_out)
+    rootgrp = nc_new_file(ncfile_out, fmt='NETCDF4')
     rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
 
     # dimensions
@@ -83,7 +85,7 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out, t_unit, station_names=
     station        = ncvar_add_station(rootgrp)
     latitude       = ncvar_add_latitude(rootgrp)
     longitude      = ncvar_add_longitude(rootgrp)
-    height         = ncvar_add_ellipsoid_height()
+    height         = ncvar_add_ellipsoid_height(rootgrp)
 
     crs           = rootgrp.createVariable('crs','i4')
     crs.long_name = 'coordinate system'
@@ -128,6 +130,11 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     lev:        list of pressure levels, empty is [] (default)
     """
     rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units)
+
+    station = rootgrp['station']
+    latitude = rootgrp['latitude']
+    longitude = rootgrp['longitude']
+    height = rootgrp['height']
 
     # assign station characteristics
     station[:]   = list(stations['station_number'])

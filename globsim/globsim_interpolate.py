@@ -21,7 +21,6 @@
 #
 #===============================================================================
 import argparse
-import configparser
 
 from globsim_main import GlobsimInterpolateStation
 
