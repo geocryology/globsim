@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime            import datetime, timedelta
-from generic     import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
+from generic     import StationListRead, str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
@@ -561,7 +561,7 @@ class JRAdownload(GenericDownload):
         # time bounds
         self.date  = self.getDate(par)
         
-        self.credential = path.join(par.credentials_directory, ".jrarc")
+        self.credential = path.join(par['credentials_directory'], ".jrarc")
         #print(self.credential)
         self.account = open(self.credential, "r")
         self.inf = self.account.readlines()
@@ -569,7 +569,7 @@ class JRAdownload(GenericDownload):
         self.password = ''.join(self.inf[1].split()) 
             
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size*2000
+        self.chunk_size = par['chunk_size']*2000
         
         self.ncfVar  = {
                 'initial_time0_hours':   'time', 
@@ -599,13 +599,13 @@ class JRAdownload(GenericDownload):
     def __varCheck(self, par):
         '''convert one variable to a list'''
         
-        if not isinstance(par.variables, (list,)):
-            par.variables = [par.variables]
+        if not isinstance(par['variables'], (list,)):
+            par['variables'] = [par['variables']]
             
     def getDate(self, par):
         '''get download daterange'''
         
-        dateRange = {'beg' : par.beg, 'end' : par.end}
+        dateRange = {'beg' : par['beg'], 'end' : par['end']}
         dateRange['end'] = dateRange['end'] + timedelta(hours=23)
         
         return dateRange
@@ -847,7 +847,7 @@ class JRAinterpolate(GenericInterpolate):
         super().__init__(ifile)
         par = self.par
 
-        self.dir_inp = path.join(par.project_directory,'jra55') 
+        self.dir_inp = path.join(par['project_directory'],'jra55') 
 
         # Override inherited chunk size
         self.cs  *=  200
@@ -1173,11 +1173,11 @@ class JRAscale(GenericScale):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
         #number of time steps
-        self.nt = floor((max(time)-min(time)).total_seconds()/3600/par.time_step)+1
-        self.time_step = par.time_step
+        self.nt = floor((max(time)-min(time)).total_seconds()/3600/par['time_step'])+1
+        self.time_step = par['time_step']
                               
         # vector of output time steps as datetime object
-        self.times_out    = [min(time) + timedelta(hours=x*par.time_step) 
+        self.times_out    = [min(time) + timedelta(hours=x*par['time_step']) 
                                 for x in range(0, self.nt)]
         # vector of output time steps as written in ncdf file
         self.times_out_nc = nc.date2num(self.times_out, units = self.t_unit, 

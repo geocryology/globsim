@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from generic   import ParameterIO, StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
+from generic   import StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -1554,10 +1554,10 @@ class MERRAdownload(GenericDownload):
         
         # time bounds
         self.date  = {'beg' : get_begin_date(par, 'merra2', ["merra_pl*", "merra_sa*","merra_sf*"]),
-                      'end' : par.end}
+                      'end' : par['end']}
         
         # credential 
-        self.credential = path.join(par.credentials_directory, ".merrarc")
+        self.credential = path.join(par['credentials_directory'], ".merrarc")
         self.account = open(self.credential, "r")
         self.inf = self.account.readlines()
         # pass the first line to username  (covert list to str)
@@ -1566,7 +1566,7 @@ class MERRAdownload(GenericDownload):
         self.password = ''.join(self.inf[1].split())                                    
             
         # chunk size for downloading and storing data [days]        
-        self.chunk_size = par.chunk_size
+        self.chunk_size = par['chunk_size']
 
         #build full dictionary between variable names from input parameter 
         #file and original merra2 data products
@@ -1879,7 +1879,7 @@ class MERRAinterpolate(GenericInterpolate):
         super().__init__(ifile)
         par = self.par
 
-        self.dir_inp = path.join(par.project_directory,'merra2')
+        self.dir_inp = path.join(par['project_directory'],'merra2')
     
     @staticmethod
     def remove_select_variables(varlist, pl):
@@ -2237,14 +2237,14 @@ class MERRAscale(GenericScale):
         time = nc.num2date(nctime, units = self.t_unit, calendar = self.t_cal)
         
         # interpolation scale factor
-        self.time_step = par.time_step * 3600    # [s] scaled file
+        self.time_step = par['time_step'] * 3600    # [s] scaled file
         interval_in = (time[1]-time[0]).seconds #interval in seconds
         self.interpN = floor(interval_in/self.time_step)
         
         #number of time steps for output
         self.nt = int(floor((max(time) - min(time)).total_seconds() 
-                      / 3600 / par.time_step))+1 # +1 : include last value
-        self.time_step = par.time_step * 3600    # [s] scaled file
+                      / 3600 / par['time_step']))+1 # +1 : include last value
+        self.time_step = par['time_step'] * 3600    # [s] scaled file
         
         # vector of output time steps as datetime object
         # 'seconds since 1980-01-01 00:00:00'
