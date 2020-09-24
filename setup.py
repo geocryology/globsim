@@ -25,7 +25,6 @@ setuptools.setup(
     ],
     install_requires=[
                     'numpy',
-                    'tomlkit',
-                    'netCDF4'
+                    'tomlkit'
     ]
 )
