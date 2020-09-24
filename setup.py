@@ -23,4 +23,9 @@ setuptools.setup(
         "Topic :: Scientific/Engineering :: Atmospheric Science"
         
     ],
+    install_requires=[
+                    'numpy',
+                    'tomlkit',
+                    'netCDF4'
+    ]
 )
