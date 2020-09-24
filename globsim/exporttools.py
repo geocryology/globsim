@@ -1,13 +1,13 @@
 """
 Export functions to convert globsim output to other file types
 """
-from datetime import datetime
 from os import path
 
-import pandas  as pd
+import pandas as pd
 import netCDF4 as nc
 import numpy as np
 
+from generic import variables_skip
 
 
 def globsimScaled2Pandas(ncdf_in, station_nr):
@@ -45,37 +45,6 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
         df = pd.concat([df, pd.DataFrame(data=data, columns=[var])], axis=1)
 
     return df
-
-
-def globsim2GEOtop(ncdf_globsim, txt_geotop):
-    """
-    Convert globsim scaled netCDF to GEOtop meteo file.
-    """
-
-    outfile = '/Users/stgruber/Supervision/MSc/Mary_Pascale_Laurentian/reanalysis/station/Meteo_0001.txt'
-
-    # read time object
-    time = self.rg.variables['time']
-    date = self.rg.variables['time'][:]
-
-    # read all other values
-    columns = ['Date', 'AIRT_ERA_C_pl', 'AIRT_ERA_C_sur', 'PREC_ERA_mm_sur', 'RH_ERA_per_sur', 'SW_ERA_Wm2_sur', 'LW_ERA_Wm2_sur', 'WSPD_ERA_ms_sur', 'WDIR_ERA_deg_sur']
-    metdata = np.zeros((len(date), len(columns)))
-    metdata[:,0] = date
-    for n, vn in enumerate(columns[1:]):
-        metdata[:, n+1] = self.rg.variables[vn][:, 0]
-
-    # make data frame
-    data = pd.DataFrame(metdata, columns=columns)
-    data[['Date']] = nc.num2date(date, time.units, calendar=time.calendar)
-
-    # round
-    decimals = pd.Series([2, 1, 1, 1, 1, 1, 1, 1], index=columns[1:])
-    data.round(decimals)
-
-    # export to file
-    fmt_date = "%d/%m/%Y %H:%M"
-    data.to_csv(outfile, date_format=fmt_date, index=False, float_format='%.2f')
 
 
 def globsim2CLASS(ncdf_globsim, met_class, station_nr):
@@ -134,11 +103,19 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     f.close()
 
 
-def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
+def globsim_to_classic_met(ncd, out_dir, site=None):
     """
     @args
-    ncd: netcdf dataset
-    src: data source ("ERAI","ERA5" "MERRA2", "JRA55")
+    ncd : str
+        path to output globsim dataset
+    out_dir : str
+        where files should be saved
+    site : int or str
+        index of site (zero-indexed) or site name if only one site is desired.
+        For all sites, leave as None
+
+    Returns
+    list : paths of output files
     """
     # open netcdf if string provided
     if type(ncd) is str:
@@ -162,32 +139,32 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     TIME = np.stack((HH, MM, DDD, YYYY))
 
     # get shortwave
-    SW = "SW_sur".format(src)
+    SW = "SW_sur"
     SW = n[SW][:]
 
     # get longwave
-    LW = "LW_sur".format(src)
+    LW = "LW_sur"
     LW = n[LW][:]
 
     # get precip
-    PREC = "PREC_sur".format(src)
+    PREC = "PREC_sur"
     PREC = n[PREC][:]
     PREC /= time_step # [mm] to [mm/s]
 
     # get temp
-    AIRT = "AIRT_sur".format(src)
+    AIRT = "AIRT_sur"
     AIRT = n[AIRT][:]
 
     # get specific humidity
-    SH = "SH_sur".format(src)
+    SH = "SH_sur"
     SH = n[SH][:]
 
     # get wind speed
-    WSPD = "WSPD_sur".format(src)
+    WSPD = "WSPD_sur"
     WSPD = n[WSPD][:]
 
     # get pressure
-    PRESS = "PRESS_pl".format(src)
+    PRESS = "PRESS_pl"
     PRESS = n[PRESS][:]
 
     # get site names
@@ -196,28 +173,31 @@ def nc_to_clsmet(ncd, out_dir, src, start=None, end=None):
     data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
 
     # write output files
+    files = []
     for i in range(nstn):
+        if (site is None) or (site == i) or (site == NAMES[i]):
+            # massage data into the right shape
+            out_array = data[:, :, i]
+            out_array = np.concatenate((TIME, out_array), 0)
+            out_array = np.transpose(out_array)
 
-        # massage data into the right shape
-        out_array = data[:, :, i]
-        out_array = np.concatenate((TIME, out_array), 0)
-        out_array = np.transpose(out_array)
+            # get station name
+            st_name = NAMES[i]
 
-        # get station name
-        st_name = NAMES[i]
-
-        filename = "{}_{}_{}.MET".format(i, st_name, src)
-        savepath = path.join(out_dir, filename)
-
-        # create file
-        np.savetxt(savepath, out_array,
-                   fmt = [" %02u", "%02u", " %03u",
-                          " %2u", "%8.2f", "%8.2f",
-                          "%13.4E", "%8.2f", "%11.3E",
-                          "%7.2f", "%11.2f" ])
+            filename = "{}_{}.MET".format(i, st_name)
+            savepath = path.join(out_dir, filename)
+            files.append(savepath)
+            # create file
+            np.savetxt(savepath, out_array,
+                    newline='\n', # windows line endings breaks the converter
+                    fmt = [" %02u", "%02u", " %03u",
+                            " %2u", "%8.2f", "%8.2f",
+                            "%13.4E", "%8.2f", "%11.3E",
+                            "%7.2f", "%11.2f" ])
+    return files
 
 
-def globsim_to_geotop(ncd, out_dir, site, start=None, end=None):
+def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
     """
     @args
     ncd: netcdf dataset
@@ -284,22 +264,22 @@ def globsim_to_geotop(ncd, out_dir, site, start=None, end=None):
     # write output files
     files = []
     for i in range(nstn):
-        # get station name
-        st_name = NAMES[i]
-        
-        if (i == site or st_name == site):
+        if (site is None) or (site == i) or (site == NAMES[i]):
             # massage data into the right shape
             out_df = pd.DataFrame(np.transpose(data[:, :, i]))
             out_df = pd.concat([time, out_df], axis=1)
             out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
                                 "AirTemp", "AirPress", "SWglobal", "LWin"]
 
+            # get station name
+            st_name = NAMES[i]
+
             # prepare paths
             filename = "{}-{}_Forcing_0001.txt".format(i, st_name)
             savepath = path.join(out_dir, filename)
+            files.append(savepath)
 
             # create file
             out_df.to_csv(savepath, index=False, float_format="%10.5f")
-            files.append(savepath)
-    
+
     return files
