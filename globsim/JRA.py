@@ -33,7 +33,8 @@ except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass 
 
-
+def get_userinfo():
+    return None, None
 
 class RDA(object):
     
@@ -1020,6 +1021,13 @@ class JRAinterpolate(GenericInterpolate):
         rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1800-01-01 00:00:0.0')
         rootgrp.source = 'JRA-55, interpolated (bi)linearly to stations'
         
+        # access variables
+        time = rootgrp['time']
+        station = rootgrp['station']
+        latitude = rootgrp['latitude']
+        longitude = rootgrp['longitude']
+        height = rootgrp['height']
+
         # assign base variables
         time[:]      = ncf.variables['time'][:]
         station[:]   = ncf.variables['station'][:]
