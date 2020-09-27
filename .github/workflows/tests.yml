@@ -6,8 +6,12 @@ name: Tests
 on:
   push:
     branches: [ master ]
+    paths:
+    - 'globsim/**'
   pull_request:
     branches: [ master ]
+    paths:
+    - 'globsim/**'
 
 jobs:
   build:
