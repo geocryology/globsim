@@ -525,7 +525,7 @@ def get_begin_date(par, data_folder, match_strings):
     print("Searching for existing files in directory")
     
     if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
-        print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
+        print("No existing files found. Starting download from {}".format(par['beg']))
         return par['beg']
         
     datasets = [nc.MFDataset(path.join(directory, data_folder, s)) for s in match_strings]
@@ -537,5 +537,5 @@ def get_begin_date(par, data_folder, match_strings):
 
     begin_date = latest_complete + timedelta(days=1)
     
-    print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d"))    )
+    print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d")))
     return(begin_date)

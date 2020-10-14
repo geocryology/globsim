@@ -39,7 +39,9 @@ from JRA import JRAdownload, JRAinterpolate, JRAscale
 from multiprocessing.dummy import Pool as ThreadPool
 
 
-def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True, JRA=True):
+def GlobsimDownload(pfile, multithread = True, 
+                    ERAI=True, ERA5=True, 
+                    ERA5ENS=True, MERRA=True, JRA=True):
     """
     Download data from multiple reanalyses. Each reanalysis is run as one 
     separate thread if 'multithread = True'. If 'multithread = False', each
@@ -55,8 +57,13 @@ def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True,
     
     # === ERA5 ===
     if ERA5:
-        ERA5downl = ERA5download(pfile)
-        objects.append(ERA5downl)
+        ERA5REAdownl = ERA5download(pfile, 'reanalysis')
+        objects.append(ERA5REAdownl)
+    
+    # === ERA5 10-member ensemble ===
+    if ERA5ENS:
+        ERA5ENSdownl = ERA5download(pfile, 'ensemble_members')
+        objects.append(ERA5ENSdownl)
     
     # === MERRA-2 ===
     if MERRA:
@@ -82,7 +89,8 @@ def GlobsimDownload(pfile, multithread = True, ERAI=True, ERA5=True, MERRA=True,
             print(result)
         print('Serial download finished')
     
-def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, MERRA=True, JRA=True):
+def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True, 
+                              MERRA=True, JRA=True):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
     The temporal granularity and variables of each re-analysis are preserved. 
@@ -99,6 +107,11 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, MERRA=True, JRA=True)
     if ERA5:
         ERA5interp = ERA5interpolate(ifile)
         ERA5interp.process()
+        
+    # === ERA5ENS ===
+    if ERA5ENS:
+        ERA5interp = ERA5interpolate(ifile)
+        ERA5interp.process()
     
     # === MERRA-2 ===
     if MERRA:
@@ -111,7 +124,7 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, MERRA=True, JRA=True)
         JRAinterp.process()
   
             
-def GlobsimScale(sfile, ERAI=True, ERA5=True, MERRA=True, JRA=True):
+def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True):
     """
     Use re-analysis data that has been interpolated to station locations to 
     derive fluxes scaled / converted / adjusted to drive point-scale 
@@ -125,6 +138,11 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, MERRA=True, JRA=True):
     
     # === ERA5 ===
     if ERA5:
+        ERA5sc = ERA5scale(sfile)
+        ERA5sc.process()
+        
+    # === ERA5ENS ===
+    if ERA5ENS:
         ERA5sc = ERA5scale(sfile)
         ERA5sc.process()
     

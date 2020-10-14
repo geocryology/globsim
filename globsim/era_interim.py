@@ -52,6 +52,7 @@ from generic     import StationListRead, series_interpolate, variables_skip, str
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from scipy.interpolate   import interp1d
+from fnmatch import filter
 
 try:
     from nco import Nco
@@ -118,12 +119,17 @@ class ERAIgeneric(object):
         return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
                       self.date['end'].strftime("%Y%m%d"))
     
-    def download(self):
-        #TODO test for file existence
-        server = ECMWFDataServer()
-        print(server.trace('=== ERA Interim: START ===='))
-        server.retrieve(self.getDictionary())
-        print(server.trace('=== ERA Interim: STOP =====')  )
+    def download(self):        
+        query = self.getDictionary()
+        target = query.pop('target')
+        
+        if path.isfile(target):
+            print("WARNING: File '{}' already exists and was skipped".format(target))
+        else:
+            server = ECMWFDataServer()
+            print(server.trace('=== ERA Interim: START ===='))
+            server.retrieve(self.getDictionary())
+            print(server.trace('=== ERA Interim: STOP ====='))
 
     def TranslateCF2ERA(self, variables, dpar):
         """
@@ -144,11 +150,13 @@ class ERAIgeneric(object):
         
     def netCDF_merge(self, directory):
         """
-        To combine mutiple downloaded erai netCDF files into a large file with specified chunk_size(e.g. 500), 
+        To combine mutiple downloaded erai netCDF files into a large file with 
+        specified chunk_size(e.g. 500), 
         -- give the full name of merged file to the output = outfile
         -- pass all data from the first input netfile to the merged file name
         -- loop over the files_list, append file one by one into the merge file
-        -- pass the mergae netcdf file to interpolation module to process( to use nc.MFDataset by reading it)
+        -- pass the mergae netcdf file to interpolation module to process
+        (to use nc.MFDataset by reading it)
         
         Args:
             ncfile_in: the full name of downloaded files (file directory + files names)
@@ -575,13 +583,12 @@ class ERAIdownload(GenericDownload):
         self._set_data_directory("erai")
         
         # time bounds
-        self.date  = {'beg' : par['beg'],
-                      'end' : par['end']}
+        self.date  = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
+                      'end': datetime.strptime(par['end'], '%Y/%m/%d')}
         
         # chunk size for downloading and storing data [days]        
         self.chunk_size = par['chunk_size']            
 
-                           
     def retrieve(self):
         """
         Retrieve all required ERA-Interim data from MARS server.
@@ -648,10 +655,10 @@ class ERAIdownload(GenericDownload):
                 
                 # time slice
                 time = ncf.variables['time']
-                tmin = '{:%Y/%m/%d}'.format(nc.num2date(min(time[:]), 
-                                     time.units, calendar=time.calendar))
-                tmax = '{:%Y/%m/%d}'.format(nc.num2date(max(time[:]), 
-                                     time.units, calendar=time.calendar))
+                tmin = nc.num2date(min(time[:]), time.units, 
+                                   calendar=time.calendar).strftime('%Y/%m/%d')
+                tmax = nc.num2date(max(time[:]), time.units, 
+                                   calendar=time.calendar).strftime('%Y/%m/%d')
                 print("    TIME SLICE")                     
                 print("        " + str(len(time[:])) + " time steps")
                 print("        " + tmin + " to " + tmax)

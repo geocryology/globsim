@@ -320,7 +320,7 @@ class RDA(object):
                 url = opener.open(request)
             except urllib.error.HTTPError as e:
                 if e.code == 401:
-                    print('RDA username and password invalid.  Please try again\n')
+                    print('RDA username and password invalid. Please try again\n')
                     opener = self.makeOpener(theurl)
                     try:
                         url = opener.open(request)
@@ -438,6 +438,7 @@ class JRAsa(object):
 
         dpar = {'air_temperature'  : ['Temperature'],
                 'relative_humidity': ['Relative humidity'],
+                'specific_humidity': ['Specific humidity'],
                 'wind_speed'       : ['u-component of wind', 
                                       'v-component of wind']}
         
@@ -590,6 +591,7 @@ class JRAdownload(GenericDownload):
                 'VGRD_GDS0_HTGL':        'v-component of wind',
                 'UGRD_GDS0_HTGL':        'u-component of wind',
                 'RH_GDS0_HTGL':          'Relative humidity',
+                'SPFH_GDS0_HTGL':        'Specific humidity',
                 'PRES_GDS0_SFC_ave3h':   'Pressure',
                 'TPRAT_GDS0_SFC_ave3h':  'Total precipitation',
                 'CSDSF_GDS0_SFC_ave3h':  'Clear sky downward solar radiation flux',
@@ -606,7 +608,8 @@ class JRAdownload(GenericDownload):
     def getDate(self, par):
         '''get download daterange'''
         
-        dateRange = {'beg' : par['beg'], 'end' : par['end']}
+        dateRange = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'), 
+                     'end': datetime.strptime(par['end'], '%Y/%m/%d')}
         dateRange['end'] = dateRange['end'] + timedelta(hours=23)
         
         return dateRange
@@ -1442,7 +1445,18 @@ class JRAscale(GenericScale):
 
     def SH_kgkg_sur(self):
         '''
-        Specific humidity [kg/kg]
-        https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
-        '''
-        print("Warning: SH_sur is not defined. Specific humidity data are not currently available")
+        Specific humidity [kg/kg] derived from surface data, exclusively
+        '''  
+        # add variable to ncdf file
+        vn = 'SH_sur' # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))    
+        var.long_name = 'specific humidity {} surface only'.format(self.NAME)
+        var.units     = 'kg/kg'
+        var.standard_name = 'specific_humidity'
+        
+        # interpolate station by station
+        time_in = self.nc_sa.variables['time'][:]
+        values  = self.nc_sa.variables['Specific humidity'][:]                   
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):  
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc, 
+                                                    time_in, values[:, n]) 

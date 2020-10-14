@@ -534,7 +534,7 @@ class MERRAgeneric():
         data_area = {}
         for i in range(0, len(data)): 
             print("Run", "Day NO.:", i+1)
-            data_area[i] = data[i][:,id_lev,:,:]  
+            data_area[i] = data[i][:,id_lev,:,:]
 
         for j in range(0, len(data_area)):
             data_area[j] = data_area[j][:,:,id_lat,:]
@@ -1553,8 +1553,13 @@ class MERRAdownload(GenericDownload):
         self._set_data_directory("merra2")
         
         # time bounds
-        self.date  = {'beg' : get_begin_date(par, 'merra2', ["merra_pl*", "merra_sa*","merra_sf*"]),
-                      'end' : par['end']}
+        self.date  = {'beg': datetime.strptime(get_begin_date(par, 
+                                                              'merra2', 
+                                                              ["merra_pl*", 
+                                                               "merra_sa*",
+                                                               "merra_sf*"]),
+                                               '%Y/%m/%d'),
+                      'end': datetime.strptime(par['end'], '%Y/%m/%d')}
         
         # credential 
         self.credential = path.join(par['credentials_directory'], ".merrarc")
