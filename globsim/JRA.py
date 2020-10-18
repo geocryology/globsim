@@ -851,7 +851,7 @@ class JRAinterpolate(GenericInterpolate):
         super().__init__(ifile)
         par = self.par
 
-        self.dir_inp = path.join(par['project_directory'],'jra55') 
+        self.dir_raw = path.join(par['project_directory'],'jra55') 
 
         # Override inherited chunk size
         self.cs  *=  200
@@ -1108,8 +1108,8 @@ class JRAinterpolate(GenericInterpolate):
                 'relative_humidity' : ['relative_humidity'], # [%]                                                       
                 'wind_speed' : ['eastward_wind', 'northward_wind']} # [m s-1] 2m & 10m values   
         varlist = self.TranslateCF2short(dpar)
-        self.JRA2station(path.join(self.dir_inp,'jra55_sa_*.nc'),
-                            path.join(self.dir_out,'jra_sa_' + 
+        self.JRA2station(path.join(self.dir_raw,'jra55_sa_*.nc'),
+                            path.join(self.dir_inp,'jra_sa_' + 
                                       self.list_name + '.nc'), self.stations,
                                       varlist, date = self.date)
         
@@ -1122,8 +1122,8 @@ class JRAinterpolate(GenericInterpolate):
                 'downwelling_longwave_flux_in_air_assuming_clear_sky': ['downwelling_longwave_flux_in_air_assuming_clear_sky'],
                 'precipitation_amount' : ['total_precipitation']} # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)                           
-        self.JRA2station(path.join(self.dir_inp,'jra55_sf_*.nc'), 
-                          path.join(self.dir_out,'jra_sf_' + 
+        self.JRA2station(path.join(self.dir_raw,'jra55_sf_*.nc'), 
+                          path.join(self.dir_inp,'jra_sf_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)          
 
@@ -1134,15 +1134,15 @@ class JRAinterpolate(GenericInterpolate):
                 'relative_humidity' : ['relative_humidity'], # [%]
                 'wind_speed'        : ['eastward_wind', 'northward_wind']}  # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('geopotential_height')
-        self.JRA2station(path.join(self.dir_inp,'jra55_pl_*.nc'), 
-                          path.join(self.dir_out,'jra_pl_' + 
+        self.JRA2station(path.join(self.dir_raw,'jra55_pl_*.nc'), 
+                          path.join(self.dir_inp,'jra_pl_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
                                                                                           
         # 1D Interpolation for Pressure Level Data 
-        self.levels2elevation(path.join(self.dir_out,'jra_pl_' + 
+        self.levels2elevation(path.join(self.dir_inp,'jra_pl_' + 
                                         self.list_name + '.nc'), 
-                              path.join(self.dir_out,'jra_pl_' + 
+                              path.join(self.dir_inp,'jra_pl_' + 
                                         self.list_name + '_surface.nc'))
 
    
