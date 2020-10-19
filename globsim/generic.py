@@ -101,22 +101,28 @@ class GenericInterpolate:
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config['interpolate']
-        self.dir_out = self.make_output_directory(par)
+        self.dir_inp = self.make_output_directory(par)
         self.variables = par['variables']
         self.list_name = par['station_list'].split(path.extsep)[0]
         self.stations_csv = path.join(par['project_directory'],
                                       'par', par['station_list'])
-
+        
         # read station points
         self.stations = StationListRead(self.stations_csv)
 
         # time bounds, add one day to par['end'] to include entire last day
-        self.date  = {'beg' : par['beg'],
-                      'end' : par['end'] + timedelta(days=1)}
+        self.date = {'beg' : datetime.strptime(par['beg'], '%Y/%m/%d'),
+                     'end' : datetime.strptime(par['end'], '%Y/%m/%d') + 
+                     timedelta(days=1)}
 
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs  = int(par['chunk_size'])
+        
+        
+    def _set_data_directory(self, name):
+        self.dir_raw = path.join(self.par['project_directory'], name)
+        
 
     def TranslateCF2short(self, dpar):
         """
@@ -132,7 +138,7 @@ class GenericInterpolate:
         return(varlist)
 
     def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
-                        variables=None, date=None):
+                 variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
         to individual point stations (latitude, longitude). This works for
@@ -161,7 +167,7 @@ class GenericInterpolate:
         Example:
             from datetime import datetime
             date  = {'beg' : datetime(2008, 1, 1),
-                      'end' : datetime(2008,12,31)}
+                     'end' : datetime(2008,12,31)}
             variables  = ['t','u', 'v']
             stations = StationListRead("points.csv")
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
@@ -204,7 +210,8 @@ class GenericInterpolate:
                                 staggerloc=ESMF.StaggerLoc.CENTER,
                                 ndbounds=[len(variables), nt])
 
-        self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+        self.nc_data_to_source_field(variables, sfield, ncf_in, 
+                                     tmask_chunk, pl)
 
         locstream = self.create_loc_stream()
 
@@ -233,8 +240,9 @@ class GenericInterpolate:
     def create_source_grid(self, ncfile_in):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(fnmatch_filter(listdir(self.dir_inp), path.basename(ncfile_in)))
-        ncsingle = path.join(self.dir_inp, flist[0])
+        flist = np.sort(fnmatch_filter(listdir(self.dir_raw), 
+                                       path.basename(ncfile_in)))
+        ncsingle = path.join(self.dir_raw, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
         return sgrid
@@ -258,26 +266,21 @@ class GenericInterpolate:
 
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)
-        sfield.destroy()  # free memory
+        sfield.destroy() # free memory
 
         return dfield
 
     @staticmethod
     def nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl):
         # assign data from ncdf: (variable, time, latitude, longitude)
+        
         for n, var in enumerate(variables):
 
             if pl:  # only for pressure level files
-                if ESMFnew:
-                    sfield.data[:,:,n,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((3, 2, 0, 1))
-                else:
-                    sfield.data[n,:,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:,:].transpose((0, 1, 3, 2))
+                sfield.data[:,:,n,:,:] = ncf_in[var][tmask_chunk,:,:,:].transpose((3,2,0,1))
 
             else:
-                if ESMFnew:
-                    sfield.data[:,:,n,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((2, 1, 0))
-                else:
-                    sfield.data[n,:,:,:] = ncf_in.variables[var][tmask_chunk,:,:].transpose((0, 2, 1))
+                sfield.data[:,:,n,:] = ncf_in[var][tmask_chunk,:,:].transpose((2,1,0))
 
     @staticmethod
     def remove_select_variables(varlist, pl):
@@ -347,7 +350,8 @@ def variables_skip(variable_name):
     Which variable names to use? Drop the ones that are dimensions.
     """
     skip = 0
-    dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height')
+    dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height', 
+            'number')
     if variable_name in dims:
         skip = 1
     return skip
@@ -471,7 +475,7 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
 def str_encode(value, encoding = "UTF8"):
     """
     handles encoding to allow compatibility between python 2 and 3
-    specifically with regards to netCDF variables.   Python 2 imports
+    specifically with regards to netCDF variables. Python 2 imports
     variable names as unicode, whereas python 3 imports them as str.
     """
     if type(value) == str:
