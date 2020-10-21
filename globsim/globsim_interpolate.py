@@ -38,14 +38,15 @@ if __name__ == "__main__":
 
     pfile = args.f
     
-    ERAI =  True if args.d is None or "ERAI"  in args.d else False
-    ERA5 =  True if args.d is None or "ERA5"  in args.d else False
-    JRA =   True if args.d is None or "JRA"   in args.d else False
-    MERRA = True if args.d is None or "MERRA" in args.d else False
+    ERAI 	=  True if args.d is None or "ERAI"  in args.d else False
+    ERA5 	=  True if args.d is None or "ERA5"  in args.d else False
+    ERA5ENS =  True if args.d is None or "ERA5ENS"  in args.d else False
+    JRA 	=  True if args.d is None or "JRA"   in args.d else False
+    MERRA 	= True if args.d is None or "MERRA" in args.d else False
     
-    if sum([ERAI, ERA5, JRA, MERRA]) > 0:
+    if sum([ERAI, ERA5, ERA5ENS, JRA, MERRA]) > 0:
         
-        GlobsimInterpolateStation(pfile, ERAI = ERAI, ERA5 = ERA5, 
+        GlobsimInterpolateStation(pfile, ERAI = ERAI, ERA5 = ERA5, ERA5ENS = ERA5ENS,
                                          JRA = JRA, MERRA = MERRA)
         
     else: print("Failed! Reanalysis source should be ERAI, ERA5, MERRA, JRA, please check")

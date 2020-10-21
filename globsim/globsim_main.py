@@ -110,7 +110,7 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
         
     # === ERA5ENS ===
     if ERA5ENS:
-        ERA5interp = ERA5interpolate(ifile)
+        ERA5interp = ERA5interpolate(ifile, 'ensemble_members')
         ERA5interp.process()
     
     # === MERRA-2 ===

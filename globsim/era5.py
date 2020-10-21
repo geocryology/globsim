@@ -66,18 +66,7 @@ except ImportError:
     print("*** NCO not imported, netCDF appending not possible. ***")
     pass 
 
-try:
-    import ESMF
-    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
-    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
-    ESMFnew = ESMFv > 701
-    
-except ImportError:
-    print("*** ESMF not imported, interpolation not possible. ***")
-    pass   
-            
-
-
+import ESMF
 
 class ERA5generic(object):
     """
@@ -111,11 +100,11 @@ class ERA5generic(object):
     
     def timeString(self, era5type):
         
-        if era5type == 'reanalysis':
-            times = np.arange(0, 24)
-        if era5type in ['ensemble_mean','ensemble_members','ensemble_spread']:
+        if era5type == 'ensemble_members':
             times = np.arange(0, 24, 3)
-        
+        elif era5type == 'reanalysis':
+            times = np.arange(0, 24)
+            
         times = [str(t).zfill(2) for t in times]
         times = [t + ':00' for t in times]
         
@@ -123,7 +112,7 @@ class ERA5generic(object):
         
     def dateString(self, date):
         """Converts datetime objects into string"""
-        res  = (date['beg'].strftime("%Y-%m-%d") + "/to/" +
+        res  = (date['beg'].strftime("%Y-%m-%d") + "/" +
                 date['end'].strftime("%Y-%m-%d"))       
         return(res)
     
@@ -141,7 +130,7 @@ class ERA5generic(object):
         levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775, 
                          800, 825, 850, 875, 900, 925, 950, 975, 1000])
         mask = (levs >= Pmin) * (levs <= Pmax) #select
-        levs = '/'.join(map(str, levs[mask]))
+        levs = [str(levi) for levi in levs[mask]]
         return levs
 
     def getDictionaryGen(self, area, date):
@@ -149,34 +138,27 @@ class ERA5generic(object):
         Makes dictionary of generic variables for a server call
         """
         dictionary_gen = {
-            #'product_type': 'reanalysis',
             'area'    : self.areaString(area),
             'date'    : self.dateString(date),
             'dataset' : "era5",
             'stream'  : "oper",
             'class'   : "ea",
-            'format'  : "netcdf",
-            #'grid'    : "0.25/0.25"
-            }
+            'format'  : "netcdf"}
         return dictionary_gen
  
     def getDstring(self):
         return ('_' + self.date['beg'].strftime("%Y%m%d") + "_to_" +
                       self.date['end'].strftime("%Y%m%d"))
     
-    #TODO:DO WE STILL NEED THIS FUNCTION
-    def download(self, api, storage):
-        if api == 'ecmwf':
-            server = ECMWFDataServer()
-            print(server.trace('=== ERA5 ({}API): START ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-            server.retrieve(self.getDictionary())
-            print(server.trace('=== ERA5 ({}API): END ACCESS ON {} ===='.format('ECMWF', storage.upper())))
-        
-        elif api == 'cds':
-            self.download_cds(storage)
+    def getDownFile(self, levStr):
+        '''make outfile name with data level string'''
+        typeStr = self.typeString(self.era5type)
+        outfile = typeStr + '_' + levStr + self.getDstring() + '.nc'
+        return outfile
     
-    def download_cds(self, storage='cds'):
-        ''' 'patched' download function to allow download using cdsapi from MARS or CDS servers  '''
+    
+    def download(self, storage='cds'):
+        ''' 'patched' download function to allow download using cdsapi from CDS servers'''
         server = cdsapi.Client()
         
         query = self.getDictionary()
@@ -184,13 +166,10 @@ class ERA5generic(object):
         levtype = query.pop('levtype')
         
         # select dataset
-        if storage == 'ecmwf':
-            dataset = 'reanalysis-era5-complete'
-        elif storage == 'cds':
-            dataset = {'pl' : 'reanalysis-era5-pressure-levels',
-                       'sfc': 'reanalysis-era5-single-levels'
-                      }[levtype]
-            query = self.ECM2CDS(query)
+        dataset = {'pl' : 'reanalysis-era5-pressure-levels',
+                   'sfc': 'reanalysis-era5-single-levels'
+                  }[levtype]
+        query = self.ECM2CDS(query)
         
         # launch download request
         print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
@@ -211,19 +190,7 @@ class ERA5generic(object):
         # replace key('param'):val(str)  string with key('variables'):val(list)
         query['variable'] = [self.CDS_DICT[L] for L in query.pop('param').split('/')]
         
-        # replace levellist if in dictionary (also string '100/200/300' to list ['100','200','300'])
-        if 'levellist' in query:
-            query['pressure_level'] = [L for L in query.pop('levellist').split('/')]
             
-        # reformat date range (start/to/end --> start/end)
-        query['date'] = re.sub("/to", "", query['date'])
-        
-        # reformat time string into list
-        # query['time'] = [t[0:5] for t in query['time'].split('/')]
-        
-        # add product type (one of Reanalysis, Ensemble members, Ensemble mean, Ensemble spread)
-        #query['product_type'] = 'reanalysis'
-        
         return(query)
         
     def TranslateCF2ERA(self, variables, dpar):
@@ -284,7 +251,7 @@ class ERA5pl(ERA5generic):
         self.area       = area
         self.elevation  = elevation
         self.directory  = directory
-        outfile         = self.typeString(self.era5type) + '_pl' + self.getDstring() + '.nc'
+        outfile         = self.getDownFile('pl')
         self.file_ncdf  = path.join(self.directory, outfile)
  
         # dictionary to translate CF Standard Names into ERA5
@@ -347,7 +314,7 @@ class ERA5sa(ERA5generic):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        outfile         = self.typeString(self.era5type) + '_sa' + self.getDstring() + '.nc'
+        outfile         = self.getDownFile('sa')
         self.file_ncdf  = path.join(self.directory, outfile)
         
         # dictionary to translate CF Standard Names into ERA5
@@ -423,7 +390,7 @@ class ERA5sf(ERA5generic):
         self.date       = date
         self.area       = area
         self.directory  = directory
-        outfile         = self.typeString(self.era5type) + '_sf' + self.getDstring() + '.nc'
+        outfile         = self.getDownFile('sf')
         self.file_ncdf  = path.join(self.directory, outfile)
 
         # dictionary to translate CF Standard Names into ERA5
@@ -560,7 +527,7 @@ class ERA5download(GenericDownload, ERA5generic):
             print("WARNING: File 'era5_to.nc' already exists. Skipping.")
         else: 
             top = ERA5to(self.era5type, self.area, self.directory)
-            top.download(self.api, self.storage)
+            top.download(self.storage)
         
         for ind in range (0, int(slices)): 
             #prepare time slices   
@@ -578,11 +545,10 @@ class ERA5download(GenericDownload, ERA5generic):
                         self.variables, self.directory) 
             sf = ERA5sf(self.era5type, date_i, self.area, 
                         self.variables, self.directory) 
-        
-            #download from ECMWF server convert to netCDF  
+            
             ERAli = [pl, sa, sf]
             for era in ERAli:
-                era.download(self.api, self.storage)          
+                era.download(self.storage)          
         
         # report inventory
         self.inventory()  
@@ -654,14 +620,45 @@ class ERA5interpolate(GenericInterpolate):
     coordinates. All variables retain their original units and time stepping.
     """
         
-    def __init__(self, ifile):
+    def __init__(self, ifile, era5type = 'reanalysis'):
         super().__init__(ifile)
-        par = self.par        
-       
-        self.dir_inp = path.join(par['project_directory'],'era5') 
+        self.era5type = era5type
+        
+        if self.era5type == 'reanalysis':
+            self._set_data_directory("era5")
+            self.ens = False
+        elif self.era5type == 'ensemble_members':
+            self._set_data_directory("era5ens")
+            self.ens = True
         
         #convert longitude to ERA notation if using negative numbers  
-        self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360             
+        self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
+
+    def getInFile(self, levStr):
+        
+        if self.ens:
+            typeStr = 'ens'
+        else:
+            typeStr = 'rea'
+
+        nome = 'era5_{}_{}_*.nc'
+            
+        if levStr == 'to':
+            infile = path.join(self.dir_raw, 'era5_{}_to.nc'.format(typeStr))
+        else:
+            infile = path.join(self.dir_raw, nome.format(typeStr, levStr))
+            
+        return infile
+    
+    def getOutFile(self, levStr):
+        
+        if self.ens:
+            nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
+        else:
+            nome = 'era5_rea_{}_'.format(levStr) + self.list_name + '.nc'
+        outfile = path.join(self.dir_inp, nome)
+            
+        return outfile
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
                     variables = None, date = None):
@@ -692,24 +689,25 @@ class ERA5interpolate(GenericInterpolate):
                     Defaults to using all variables available.
     
         date: Directory to specify begin and end time for the derived time 
-                series. Defaluts to using all times available in ncfile_in.
-        
-        cs: chunk size, i.e. how many time steps to interpolate at once. This 
-            helps to manage overall memory usage (small cs is slower but less
-            memory intense).          
+                series. Defaluts to using all times available in ncfile_in.     
         """
                 
         # read in one type of mutiple netcdf files       
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim ='time')
         
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
+        pl  = 'level' in ncf_in.dimensions.keys()
+        ens = 'number' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in, 
-                                      time_units='hours since 1900-01-01 00:00:0.0') 
-        rootgrp.source = 'ERA5, interpolated bilinearly to stations'
-        rootgrp.close()   
+                                          time_units='hours since 1900-01-01 00:00:0.0')
+        if self.ens:
+            rootgrp.source = 'ERA5 10-member ensemble, interpolated bilinearly to stations'
+        else:
+            rootgrp.source = 'ERA5, interpolated bilinearly to stations'
+        
+        rootgrp.close()
                                   
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
@@ -765,8 +763,8 @@ class ERA5interpolate(GenericInterpolate):
                  
             # get the interpolated variables
             dfield, variables = self.interp2D(ncfile_in, ncf_in, 
-                                                 self.stations, tmask_chunk,
-                                                 variables=None, date=None) 
+                                              self.stations, tmask_chunk,
+                                              variables=None, date=None) 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
                                                      time_in[beg:end+1])
@@ -775,27 +773,29 @@ class ERA5interpolate(GenericInterpolate):
             for i, var in enumerate(variables):
                 if variables_skip(var):
                     continue
-                                                              
-                if pl:
-                    if ESMFnew:
-                        # dfield has dimensions (station, variables, time, pressure levels
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
+                
+                if ens:
+                    num = ncf_in.variables['number'][:]
+                    for ni in num:
+                        if pl:
+                            # dfield [station, variables, time, levels, number]
+                            vi = dfield[ni].data[:,i,:,:].transpose((1,2,0)) 
+                            ncf_out.variables[var][beg:end+1,ni,:,:] = vi  
+                        else:
+                            vi = dfield[ni].data[:,i,:].transpose((1,0))
+                            ncf_out.variables[var][beg:end+1,ni,:] = vi
+                else:
+                    if pl:
+                        vi = dfield.data[:,i,:,:].transpose((1,2,0)) 
+                        ncf_out.variables[var][beg:end+1,:,:] = vi  
                     else:
-                        # dimension: time, level, station (pressure level files)
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]        
-                else:   
-                    if ESMFnew:
-                        # dfield has dimensions (station, variables, time)
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:].transpose((1,0))
-                    else:
-                        # dfield has dimensions time, station (2D files)
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
+                        vi = dfield.data[:,i,:].transpose((1,0))
+                        ncf_out.variables[var][beg:end+1,:] = vi
 
-                                     
         #close the file
         ncf_in.close()
         ncf_out.close()
-                         
+        
        
     def levels2elevation(self, ncfile_in, ncfile_out):    
         """
@@ -814,8 +814,11 @@ class ERA5interpolate(GenericInterpolate):
         
         # list variables
         varlist = [str_encode(x) for x in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude', 'level','height','z']:
+        for V in ['time', 'station', 'latitude', 'longitude', 
+                  'level','height','z']:
             varlist.remove(V)
+        if self.ens:
+            varlist.remove('number')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -823,9 +826,13 @@ class ERA5interpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1900-01-01 00:00:0.0')
-        rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
-        
+        rootgrp = netcdf_base(ncf, ncfile_out, len(height), nt, 
+                              'hours since 1900-01-01 00:00:0.0')
+        if self.ens:
+            rootgrp.source = 'ERA5 10-member ensemble, interpolated (bi)linearly to stations'
+        else:
+            rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
+            
         time  = rootgrp['time']
         station = rootgrp['station']
         latitude = rootgrp['latitude']
@@ -842,56 +849,66 @@ class ERA5interpolate(GenericInterpolate):
         
         # create and assign variables from input file
         for var in varlist:
-            tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
+            if self.ens:
+                tmp = rootgrp.createVariable(var,
+                                             'f4',('time','number','station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4',('time', 'station'))    
             tmp.long_name = str_encode(ncf.variables[var].long_name)
             tmp.units     = str_encode(ncf.variables[var].units)  
 
         # add air pressure as new variable
         var = 'air_pressure'
         varlist.append(var)
-        tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))    
+        if self.ens:
+            tmp = rootgrp.createVariable(var,'f4',('time','number','station'))
+        else:
+            tmp = rootgrp.createVariable(var,'f4',('time','station'))    
         tmp.long_name = var.encode('UTF8')
         tmp.units     = 'hPa'.encode('UTF8') 
         # end file prepation ===================================================
-                                                                                                
+
         # loop over stations
         for n, h in enumerate(height): 
-            # convert geopotential [mbar] to height [m], shape: (time, level)
-            elevation = ncf.variables['z'][:,:,n] / 9.80665
-            # TODO: check if height of stations in data range
-            
-            # difference in elevation, level directly above will be >= 0
-            elev_diff = elevation - h
-            # vector of level indices that fall directly above station. 
-            # Apply after ravel() of data.
-            va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1) 
-            # mask for situations where station is below lowest level
-            mask = va < (nl-1)
-            va += np.arange(elevation.shape[0]) * elevation.shape[1]
-            
-            # Vector level indices that fall directly below station.
-            # Apply after ravel() of data.
-            vb = va + mask # +1 when OK, +0 when below lowest level
-            
-            wa, wb = self.calculate_weights(elev_diff, va, vb)
-            
-            #loop over variables and apply interpolation weights
-            for v, var in enumerate(varlist):
-                if var == 'air_pressure':
-                    # pressure [Pa] variable from levels, shape: (time, level)
-                    data = np.repeat([ncf.variables['level'][:]],
-                                      len(time),axis=0).ravel() 
-                else:    
-                    #read data from netCDF
-                    data = ncf.variables[var][:,:,n].ravel()
-                    
-                ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
-                rootgrp.variables[var][:,n] = ipol # assign to file   
+            if self.ens:
+                num = ncf.variables['number'][:]
+                for ni in num:
+                    elevation = ncf.variables['z'][:,ni,:,n] / 9.80665
+                    elev_diff, va, vb = self.ele_interpolate(elevation, h, nl)
+                    wa, wb = self.calculate_weights(elev_diff, va, vb)
+                    for v, var in enumerate(varlist):
+                        if var == 'air_pressure':
+                            # pressure [Pa] variable from levels, shape: (time, level)
+                            data = np.repeat([ncf.variables['level'][:]],
+                                              len(time),axis=0).ravel() 
+                        else:    
+                            #read data from netCDF
+                            data = ncf.variables[var][:,ni,:,n].ravel()
+                            
+                        ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
+                        rootgrp.variables[var][:,ni,n] = ipol # assign to file
+            else:
+                # convert geopotential [mbar] to height [m], shape: (time, level)
+                elevation = ncf.variables['z'][:,:,n] / 9.80665
+                elev_diff, va, vb = self.ele_interpolate(elevation, h, nl)
+                wa, wb = self.calculate_weights(elev_diff, va, vb)
+                
+                #loop over variables and apply interpolation weights
+                for v, var in enumerate(varlist):
+                    if var == 'air_pressure':
+                        # pressure [Pa] variable from levels, shape: (time, level)
+                        data = np.repeat([ncf.variables['level'][:]],
+                                          len(time),axis=0).ravel() 
+                    else:    
+                        #read data from netCDF
+                        data = ncf.variables[var][:,:,n].ravel()
+                        
+                    ipol = data[va]*wa + data[vb]*wb   # interpolated value                    
+                    rootgrp.variables[var][:,n] = ipol # assign to file   
     
         rootgrp.close()
         ncf.close()
-        # closed file ==========================================================    
-
+        # closed file ==========================================================
     
     def process(self):
         """
@@ -904,10 +921,8 @@ class ERA5interpolate(GenericInterpolate):
         # pressure level variable keys.            
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
                        'end' : datetime(1979, 1, 1, 12, 0)}     
-        self.ERA2station(path.join(self.dir_inp,'era5_to.nc'), 
-                         path.join(self.dir_out,'era5_to_' + 
-                                   self.list_name + '.nc'), self.stations,
-                                   ['z', 'lsm'], date = dummy_date)  
+        self.ERA2station(self.getInFile('to'), self.getOutFile('to'), 
+                         self.stations, ['z', 'lsm'], date = dummy_date)
                                   
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into ERA5
@@ -919,10 +934,8 @@ class ERA5interpolate(GenericInterpolate):
                                         # [kg m-2] Total column W vapor                                                             
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values   
         varlist = self.TranslateCF2short(dpar)                      
-        self.ERA2station(path.join(self.dir_inp,'era5_sa_*.nc'), 
-                         path.join(self.dir_out,'era5_sa_' + 
-                                   self.list_name + '.nc'), self.stations,
-                                   varlist, date = self.date)          
+        self.ERA2station(self.getInFile('sa'), self.getOutFile('sa'), 
+                         self.stations, varlist, date = self.date)
         
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd' 
         # dictionary to translate CF Standard Names into ERA5
@@ -934,10 +947,8 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'], 
                 'downwelling_longwave_flux_in_air'  : ['strd']} 
         varlist = self.TranslateCF2short(dpar)                           
-        self.ERA2station(path.join(self.dir_inp,'era5_sf_*.nc'), 
-                         path.join(self.dir_out,'era5_sf_' + 
-                                   self.list_name + '.nc'), self.stations,
-                                   varlist, date = self.date)          
+        self.ERA2station(self.getInFile('sf'), self.getOutFile('sf'), 
+                         self.stations, varlist, date = self.date)
                          
         
         # === 2D Interpolation for Pressure Level Data ===
@@ -947,16 +958,16 @@ class ERA5interpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(path.join(self.dir_inp,'era5_pl_*.nc'), 
-                         path.join(self.dir_out,'era5_pl_' + 
-                                   self.list_name + '.nc'), self.stations,
-                                   varlist, date = self.date)
+        self.ERA2station(self.getInFile('pl'), self.getOutFile('pl'), 
+                         self.stations, varlist, date = self.date)
                                    
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.dir_out,'era5_pl_' + 
-                                        self.list_name + '.nc'), 
-                              path.join(self.dir_out,'era5_pl_' + 
-                                        self.list_name + '_surface.nc'))      
+        if self.ens:
+            outf = 'era5_ens_pl_'
+        else:
+            outf = 'era5_rea_pl_'
+        outf = path.join(self.dir_inp, outf +  self.list_name + '_surface.nc')
+        self.levels2elevation(self.getOutFile('pl'), outf)      
                                                    
 
 class ERA5scale(GenericScale):
@@ -979,13 +990,13 @@ class ERA5scale(GenericScale):
         par = self.par
         
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(self.intpdir, 'era5_pl_' + 
+        self.nc_pl = nc.Dataset(path.join(self.intpdir, 'era5_rea_pl_' + 
                                 self.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(self.intpdir, 'era5_sa_' + 
+        self.nc_sa = nc.Dataset(path.join(self.intpdir, 'era5_rea_sa_' + 
                                 self.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(self.intpdir, 'era5_sf_' + 
+        self.nc_sf = nc.Dataset(path.join(self.intpdir, 'era5_rea_sf_' + 
                                 self.list_name + '.nc'), 'r')
-        self.nc_to = nc.Dataset(path.join(self.intpdir, 'era5_to_' + 
+        self.nc_to = nc.Dataset(path.join(self.intpdir, 'era5_rea_to_' + 
                                 self.list_name + '.nc'), 'r')
         self.nstation = len(self.nc_to.variables['station'][:])                     
                               

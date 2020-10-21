@@ -44,8 +44,13 @@ def ncvar_add_station(rootgrp, dimensions=('station')):
     station             = rootgrp.createVariable('station', 'i4', dimensions)
     station.long_name   = 'station for time series data'
     station.units       = '1'
+    
+def ncvar_add_number(rootgrp, dimensions=('number')):
+    number             = rootgrp.createVariable('number', 'i4', dimensions)
+    number.long_name   = 'ensemble_member'
+    number.units       = '1'
 
-    return station
+    return number
 
 def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
     height           = rootgrp.createVariable('height', 'f4', dimensions)
@@ -57,7 +62,8 @@ def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
 
     return height
 
-def new_scaled_netcdf(ncfile_out, nc_interpol, times_out, t_unit, station_names=None):
+def new_scaled_netcdf(ncfile_out, nc_interpol, times_out, 
+                      t_unit, station_names=None):
     """
     Create netCDF file for scaled results (same for all reanalyses)
     Returns the file object so that kernel functions can
@@ -129,7 +135,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
-    rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units)
+    rootgrp = netcdf_base(nc_in, ncfile_out, len(stations), None, time_units)
 
     station = rootgrp['station']
     latitude = rootgrp['latitude']
@@ -141,7 +147,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     latitude[:]  = list(stations['latitude_dd'])
     longitude[:] = list(stations['longitude_dd'])
     height[:]    = list(stations['elevation_m'])
-
+    
     # extra treatment for pressure level files
     try:
         lev = nc_in.variables['level'][:]
@@ -154,6 +160,11 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     except Exception:
         print("== 2D: file without pressure levels")
         lev = []
+    
+    try:
+        num = rootgrp['number'][:]
+    except Exception:
+        num = []
 
     # create and assign variables based on input file
     for n, var in enumerate(nc_in.variables):
@@ -161,23 +172,33 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
             continue
         print("VAR: ", str_encode(var))
         # extra treatment for pressure level files
-        if len(lev):
-            tmp = rootgrp.createVariable(var, 'f4', ('time', 'level', 'station'))
+        if len(num):
+            if len(lev):
+                tmp = rootgrp.createVariable(var,'f4',('time',  'number', 
+                                                       'level', 'station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4',('time','number',
+                                                       'station'))
         else:
-            tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
+            if len(lev):
+                tmp = rootgrp.createVariable(var,'f4', ('time','level', 
+                                                         'station'))
+            else:
+                tmp = rootgrp.createVariable(var,'f4', ('time','station'))
+            
         tmp.long_name = nc_in.variables[var].long_name.encode('UTF8')
         tmp.units     = nc_in.variables[var].units.encode('UTF8')
 
     return rootgrp
 
-def netcdf_base(ncfile_out, n_stations, n_time, time_units):
+def netcdf_base(nc_in, ncfile_out, n_stations, n_time, time_units):
     # Build the netCDF file
     rootgrp = nc_new_file(ncfile_out)
 
     # dimensions
     station = rootgrp.createDimension('station', n_stations)
     time    = rootgrp.createDimension('time', None)
-
+    
     # base variables
     time           = ncvar_add_time(rootgrp, units=time_units,
                                     calendar='gregorian', dimensions=('time'))
@@ -185,5 +206,15 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units):
     latitude       = ncvar_add_latitude(rootgrp)
     longitude      = ncvar_add_longitude(rootgrp)
     height         = ncvar_add_ellipsoid_height(rootgrp)
-
+    
+    # for ERA5 enmsemble member only
+    try:
+        num    = nc_in.variables['number'][:]
+        number = rootgrp.createDimension('number', len(num))
+        number = ncvar_add_number(rootgrp)
+        number = rootgrp['number']
+        number[:] = num
+    except Exception:
+        pass
+    
     return rootgrp

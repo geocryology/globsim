@@ -175,12 +175,15 @@ class GenericInterpolate:
         """
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
+        pl  = 'level' in ncf_in.dimensions.keys()
+        ens = 'number' in ncf_in.dimensions.keys()
 
         # get spatial dimensions
         if pl: # only for pressure level files
             lev  = ncf_in.variables['level'][:]
             nlev = len(lev)
+        if ens:
+            num = ncf_in.variables['number'][:]
 
         # test if time steps to interpolate remain
         nt = sum(tmask_chunk)
@@ -189,7 +192,7 @@ class GenericInterpolate:
 
         # get variables
         varlist = [str_encode(x) for x in ncf_in.variables.keys()]
-        self.remove_select_variables(varlist, pl)
+        self.remove_select_variables(varlist, pl, ens)
 
         # list variables that should be interpolated
         if variables is None:
@@ -201,29 +204,55 @@ class GenericInterpolate:
         sgrid = self.create_source_grid(ncfile_in)
 
         # create source field on source grid
-        if pl:  # only for pressure level files
-            sfield = ESMF.Field(sgrid, name='sgrid',
-                                staggerloc=ESMF.StaggerLoc.CENTER,
-                                ndbounds=[len(variables), nt, nlev])
-        else: # 2D files
-            sfield = ESMF.Field(sgrid, name='sgrid',
-                                staggerloc=ESMF.StaggerLoc.CENTER,
-                                ndbounds=[len(variables), nt])
+        if ens:
+            sfield = []
+            for ni in num:
+                if pl:  # only for pressure level files
+                    sfield.append(
+                        ESMF.Field(sgrid, name='sgrid',
+                                   staggerloc=ESMF.StaggerLoc.CENTER,
+                                   ndbounds=[len(variables), nt, nlev]))
+                else: # 2D files
+                    sfield.append(
+                        ESMF.Field(sgrid, name='sgrid',
+                                   staggerloc=ESMF.StaggerLoc.CENTER,
+                                   ndbounds=[len(variables), nt]))
+            
+        else:    
+            if pl:  # only for pressure level files
+                sfield = ESMF.Field(sgrid, name='sgrid',
+                                    staggerloc=ESMF.StaggerLoc.CENTER,
+                                    ndbounds=[len(variables), nt, nlev])
+            else: # 2D files
+                sfield = ESMF.Field(sgrid, name='sgrid',
+                                    staggerloc=ESMF.StaggerLoc.CENTER,
+                                    ndbounds=[len(variables), nt])
 
         self.nc_data_to_source_field(variables, sfield, ncf_in, 
-                                     tmask_chunk, pl)
+                                     tmask_chunk, pl, ens)
 
         locstream = self.create_loc_stream()
 
         # create destination field
-        if pl: # only for pressure level files
-            dfield = ESMF.Field(locstream, name='dfield',
-                                ndbounds=[len(variables), nt, nlev])
+        if ens:
+            dfield = []
+            for ni in num:
+                if pl: # only for pressure level files
+                    di = ESMF.Field(locstream, name='dfield',
+                                    ndbounds=[len(variables), nt, nlev])
+                else:
+                    di = ESMF.Field(locstream, name='dfield',
+                                    ndbounds=[len(variables), nt])
+                dfield.append(self.regrid(sfield[ni], di))
         else:
-            dfield = ESMF.Field(locstream, name='dfield',
-                                ndbounds=[len(variables), nt])
-
-        dfield = self.regrid(sfield, dfield)
+            if pl: # only for pressure level files
+                dfield = ESMF.Field(locstream, name='dfield',
+                                    ndbounds=[len(variables), nt, nlev])
+            else:
+                dfield = ESMF.Field(locstream, name='dfield',
+                                    ndbounds=[len(variables), nt])
+    
+            dfield = self.regrid(sfield, dfield)
 
         return dfield, variables
 
@@ -260,9 +289,9 @@ class GenericInterpolate:
     def regrid(sfield, dfield):
     # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
-                                regrid_method=ESMF.RegridMethod.BILINEAR,
-                                unmapped_action=ESMF.UnmappedAction.IGNORE,
-                                dst_mask_values=None)
+                               regrid_method=ESMF.RegridMethod.BILINEAR,
+                               unmapped_action=ESMF.UnmappedAction.IGNORE,
+                               dst_mask_values=None)
 
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)
@@ -271,24 +300,57 @@ class GenericInterpolate:
         return dfield
 
     @staticmethod
-    def nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl):
+    def nc_data_to_source_field(variables, sfield, ncf_in, 
+                                tmask_chunk, pl, ens):
         # assign data from ncdf: (variable, time, latitude, longitude)
         
         for n, var in enumerate(variables):
-
-            if pl:  # only for pressure level files
-                sfield.data[:,:,n,:,:] = ncf_in[var][tmask_chunk,:,:,:].transpose((3,2,0,1))
-
+            if ens:
+                for ni in ncf_in['number'][:]:
+                    if pl: 
+                        # sfield.data [lon, lat, var, time, number, level]
+                        # vi [time, number, level, lat, lon]
+                        vi = ncf_in[var][tmask_chunk,ni,:,:,:]
+                        sfield[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+                    else:
+                        vi = ncf_in[var][tmask_chunk,ni,:,:]
+                        sfield[ni].data[:,:,n,:] = vi.transpose((2,1,0))
             else:
-                sfield.data[:,:,n,:] = ncf_in[var][tmask_chunk,:,:].transpose((2,1,0))
+                if pl: 
+                    vi = ncf_in[var][tmask_chunk,:,:,:]
+                    sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+    
+                else:
+                    vi = ncf_in[var][tmask_chunk,:,:]
+                    sfield.data[:,:,n,:] = vi.transpose((2,1,0))
 
     @staticmethod
-    def remove_select_variables(varlist, pl):
+    def remove_select_variables(varlist, pl, ens):
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
         if pl: # only for pressure level files
             varlist.remove('level')
+        if ens:
+            varlist.remove('number')
+   
+    @staticmethod      
+    def ele_interpolate(elevation, h, nl):
+        # difference in elevation, level directly above will be >= 0
+        elev_diff = elevation - h
+        # vector of level indices that fall directly above station. 
+        # Apply after ravel() of data.
+        va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1) 
+        # mask for situations where station is below lowest level
+        mask = va < (nl-1)
+        va += np.arange(elevation.shape[0]) * elevation.shape[1]
+        
+        # Vector level indices that fall directly below station.
+        # Apply after ravel() of data.
+        vb = va + mask # +1 when OK, +0 when below lowest level
+        
+        return elev_diff, va, vb
+
 
     @staticmethod
     def calculate_weights(elev_diff, va, vb):
