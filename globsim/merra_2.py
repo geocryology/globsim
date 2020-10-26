@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from generic   import StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
+from generic import StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -163,40 +163,40 @@ class MERRAgeneric():
         baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/') 
         baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/')
         # 1980 ~ 1991 
-        baseurl_3dn_1 = ('M2I6NPANA.5.12.4/','/MERRA2_100.inst6_3d_ana_Np.')                   
-        baseurl_3da_1 = ('M2I3NPASM.5.12.4/','/MERRA2_100.inst3_3d_asm_Np.')            
-        baseurl_2dm_1 = ('M2I1NXASM.5.12.4/','/MERRA2_100.inst1_2d_asm_Nx.')                
-        baseurl_2dr_1 = ('M2T1NXRAD.5.12.4/','/MERRA2_100.tavg1_2d_rad_Nx.')             
-        baseurl_2ds_1 = ('M2T1NXFLX.5.12.4/','/MERRA2_100.tavg1_2d_flx_Nx.')            
-        baseurl_2dv_1 = ('M2T1NXSLV.5.12.4/','/MERRA2_100.tavg1_2d_slv_Nx.')                                                                                                                                            
+        baseurl_3dn_1 = ('M2I6NPANA.5.12.4/','/MERRA2_100.inst6_3d_ana_Np.')
+        baseurl_3da_1 = ('M2I3NPASM.5.12.4/','/MERRA2_100.inst3_3d_asm_Np.')
+        baseurl_2dm_1 = ('M2I1NXASM.5.12.4/','/MERRA2_100.inst1_2d_asm_Nx.')
+        baseurl_2dr_1 = ('M2T1NXRAD.5.12.4/','/MERRA2_100.tavg1_2d_rad_Nx.')
+        baseurl_2ds_1 = ('M2T1NXFLX.5.12.4/','/MERRA2_100.tavg1_2d_flx_Nx.')
+        baseurl_2dv_1 = ('M2T1NXSLV.5.12.4/','/MERRA2_100.tavg1_2d_slv_Nx.')
         # 1992 ~ 2000
-        baseurl_3dn_2 = ('M2I6NPANA.5.12.4/','/MERRA2_200.inst6_3d_ana_Np.')                     
-        baseurl_3da_2 = ('M2I3NPASM.5.12.4/','/MERRA2_200.inst3_3d_asm_Np.')            
-        baseurl_2dm_2 = ('M2I1NXASM.5.12.4/','/MERRA2_200.inst1_2d_asm_Nx.')                 
-        baseurl_2dr_2 = ('M2T1NXRAD.5.12.4/','/MERRA2_200.tavg1_2d_rad_Nx.')             
-        baseurl_2ds_2 = ('M2T1NXFLX.5.12.4/','/MERRA2_200.tavg1_2d_flx_Nx.')            
-        baseurl_2dv_2 = ('M2T1NXSLV.5.12.4/','/MERRA2_200.tavg1_2d_slv_Nx.')                                                                                                                                                                                                          
+        baseurl_3dn_2 = ('M2I6NPANA.5.12.4/','/MERRA2_200.inst6_3d_ana_Np.')
+        baseurl_3da_2 = ('M2I3NPASM.5.12.4/','/MERRA2_200.inst3_3d_asm_Np.')
+        baseurl_2dm_2 = ('M2I1NXASM.5.12.4/','/MERRA2_200.inst1_2d_asm_Nx.')
+        baseurl_2dr_2 = ('M2T1NXRAD.5.12.4/','/MERRA2_200.tavg1_2d_rad_Nx.')
+        baseurl_2ds_2 = ('M2T1NXFLX.5.12.4/','/MERRA2_200.tavg1_2d_flx_Nx.')
+        baseurl_2dv_2 = ('M2T1NXSLV.5.12.4/','/MERRA2_200.tavg1_2d_slv_Nx.')
         # 2001 ~ 2010  
-        baseurl_3dn_3 = ('M2I6NPANA.5.12.4/','/MERRA2_300.inst6_3d_ana_Np.')                   
-        baseurl_3da_3 = ('M2I3NPASM.5.12.4/','/MERRA2_300.inst3_3d_asm_Np.')            
-        baseurl_2dm_3 = ('M2I1NXASM.5.12.4/','/MERRA2_300.inst1_2d_asm_Nx.')               
-        baseurl_2dr_3 = ('M2T1NXRAD.5.12.4/','/MERRA2_300.tavg1_2d_rad_Nx.')           
-        baseurl_2ds_3 = ('M2T1NXFLX.5.12.4/','/MERRA2_300.tavg1_2d_flx_Nx.')                                                                                       
-        baseurl_2dv_3 = ('M2T1NXSLV.5.12.4/','/MERRA2_300.tavg1_2d_slv_Nx.')                                                                                                                                                                                                          
+        baseurl_3dn_3 = ('M2I6NPANA.5.12.4/','/MERRA2_300.inst6_3d_ana_Np.')
+        baseurl_3da_3 = ('M2I3NPASM.5.12.4/','/MERRA2_300.inst3_3d_asm_Np.')
+        baseurl_2dm_3 = ('M2I1NXASM.5.12.4/','/MERRA2_300.inst1_2d_asm_Nx.')
+        baseurl_2dr_3 = ('M2T1NXRAD.5.12.4/','/MERRA2_300.tavg1_2d_rad_Nx.')
+        baseurl_2ds_3 = ('M2T1NXFLX.5.12.4/','/MERRA2_300.tavg1_2d_flx_Nx.')
+        baseurl_2dv_3 = ('M2T1NXSLV.5.12.4/','/MERRA2_300.tavg1_2d_slv_Nx.')
         # 2011 ~ present
-        baseurl_3dn_4 = ('M2I6NPANA.5.12.4/','/MERRA2_400.inst6_3d_ana_Np.')               
-        baseurl_3da_4 = ('M2I3NPASM.5.12.4/','/MERRA2_400.inst3_3d_asm_Np.')           
-        baseurl_2dm_4 = ('M2I1NXASM.5.12.4/','/MERRA2_400.inst1_2d_asm_Nx.')           
-        baseurl_2dr_4 = ('M2T1NXRAD.5.12.4/','/MERRA2_400.tavg1_2d_rad_Nx.')           
-        baseurl_2ds_4 = ('M2T1NXFLX.5.12.4/','/MERRA2_400.tavg1_2d_flx_Nx.')                                                               
+        baseurl_3dn_4 = ('M2I6NPANA.5.12.4/','/MERRA2_400.inst6_3d_ana_Np.')
+        baseurl_3da_4 = ('M2I3NPASM.5.12.4/','/MERRA2_400.inst3_3d_asm_Np.')
+        baseurl_2dm_4 = ('M2I1NXASM.5.12.4/','/MERRA2_400.inst1_2d_asm_Nx.')
+        baseurl_2dr_4 = ('M2T1NXRAD.5.12.4/','/MERRA2_400.tavg1_2d_rad_Nx.')
+        baseurl_2ds_4 = ('M2T1NXFLX.5.12.4/','/MERRA2_400.tavg1_2d_flx_Nx.')
         baseurl_2dv_4 = ('M2T1NXSLV.5.12.4/','/MERRA2_400.tavg1_2d_slv_Nx.')
         # netCDF4         
         format = ('.nc4')
-                        
+
         #Setup the start and end of dates
         Begin = date['beg']
         End  =  date['end']
-                
+        
         #Setup the based string of dates for urls 
         res1 = [d.strftime("%Y/%m") for d in pandas.date_range(Begin,End)]
         res2 = [d.strftime("%Y%m%d") for d in pandas.date_range(Begin,End)]        
@@ -751,7 +751,7 @@ class MERRAgeneric():
                             data_lev[id_interp] = data_lev[z_top]
                         else: 
                             data_lev[z] = data_lev[z]           
-                                           
+                        
                     data_time[k][:] = data_lev
 
                 #replace the interpolation value to each single pixel
@@ -1456,7 +1456,7 @@ class SaveNCDF_sc():
                         del var_total
                         var_list.append([get_variables_2dc[i], var_out[x][0], var_out[x][1], var_out[x][2], var_out[x][3]])
             
-            return var_list 
+            return var_list
         
         def saveData(self, get_variables_2dc, id_lat, id_lon, out_variable_2dc, chunk_size, time, lat, lon, dir_data):
             """create a NetCDF file for saving output variables (Dataset object, also the root group)"""
@@ -1552,13 +1552,11 @@ class MERRAdownload(GenericDownload):
         
         self._set_data_directory("merra2")
         
+        
         # time bounds
-        self.date  = {'beg': datetime.strptime(get_begin_date(par, 
-                                                              'merra2', 
-                                                              ["merra_pl*", 
-                                                               "merra_sa*",
-                                                               "merra_sf*"]),
-                                               '%Y/%m/%d'),
+        self.date  = {'beg': get_begin_date(par, 'merra2', 
+                                            ["merra_pl*", "merra_sa*",
+                                             "merra_sf*"]),
                       'end': datetime.strptime(par['end'], '%Y/%m/%d')}
         
         # credential 
@@ -1603,7 +1601,7 @@ class MERRAdownload(GenericDownload):
                 'downwelling_shortwave_flux_in_air': [
                         'surface_incoming_shortwave_flux' ],
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': [
-                        'surface_incoming_shortwave_flux_assuming_clear_sky' ],
+                        'surface_incoming_shortwave_flux_assuming_clear_sky'],
                 'downwelling_longwave_flux_in_air': [
                         'surface_net_downward_longwave_flux',
                         'longwave_flux_emitted_from_surface' ],
@@ -1639,6 +1637,8 @@ class MERRAdownload(GenericDownload):
                                   'surface_net_downward_longwave_flux':'LWGNT',
                                   'longwave_flux_emitted_from_surface': 'LWGEM',
                                   'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR'}
+        
+       
 
     def getVariables(self, full_variables_dic, full_variables_type):
         """

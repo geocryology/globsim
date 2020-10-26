@@ -24,6 +24,7 @@ RUN pip3 install pyproj
 RUN pip3 install cdsapi
 RUN pip3 install requests
 RUN pip3 install lxml
+RUN pip3 install 'cftime==1.0.3.4'
 
 RUN pip3 install pygrib==2.0.1
 RUN pip3 install tomlkit

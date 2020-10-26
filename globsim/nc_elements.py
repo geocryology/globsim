@@ -41,9 +41,11 @@ def ncvar_add_time(rootgrp, units, calendar, dimensions=('time'), dtype='i4'):
     return time
 
 def ncvar_add_station(rootgrp, dimensions=('station')):
-    station             = rootgrp.createVariable('station', 'i4', dimensions)
-    station.long_name   = 'station for time series data'
-    station.units       = '1'
+    station            = rootgrp.createVariable('station', 'i4', dimensions)
+    station.long_name  = 'station for time series data'
+    station.units      = '1'
+    
+    return station
     
 def ncvar_add_number(rootgrp, dimensions=('number')):
     number             = rootgrp.createVariable('number', 'i4', dimensions)
