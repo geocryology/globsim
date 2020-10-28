@@ -120,15 +120,8 @@ from time              import sleep
 from numpy.random      import uniform
 from nco               import Nco
 
-try:
-    import ESMF
-    
-    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
-    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
-    ESMFnew = ESMFv > 701   
-except ImportError:
-    print("*** ESMF not imported, interpolation not possible. ***")
-    pass   
+import ESMF
+
 
     
 class MERRAgeneric():
@@ -780,7 +773,8 @@ class MERRAgeneric():
         variables:  variables read from netCDF handle
         lev:        list of pressure levels, empty is [] (default)
         '''
-        rootgrp = netcdf_base(ncfile_out, len(stations), None, 'hours since 1980-01-01 00:00:00')
+        rootgrp = netcdf_base(nc_in, ncfile_out, len(stations), None, 
+                              'hours since 1980-01-01 00:00:00')
         
         station = rootgrp["station"]
         latitude = rootgrp["latitude"]
@@ -1540,7 +1534,8 @@ Args:
     pfile: Full path to a Globsim Download Parameter file.
     
 
-"""   
+"""
+#TODO update functions of checking available files
 class MERRAdownload(GenericDownload):
     """
     Class for MERRA-2 data that has methods for querying NASA GES DISC server, 
@@ -1554,9 +1549,7 @@ class MERRAdownload(GenericDownload):
         
         
         # time bounds
-        self.date  = {'beg': get_begin_date(par, 'merra2', 
-                                            ["merra_pl*", "merra_sa*",
-                                             "merra_sf*"]),
+        self.date  = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),#get_begin_date(par, 'merra2', ["merra_pl*", "merra_sa*", "merra_sf*"]),
                       'end': datetime.strptime(par['end'], '%Y/%m/%d')}
         
         # credential 
@@ -1884,10 +1877,12 @@ class MERRAinterpolate(GenericInterpolate):
         super().__init__(ifile)
         par = self.par
 
-        self.dir_inp = path.join(par['project_directory'],'merra2')
+        self.dir_raw = path.join(par['project_directory'],'merra2')
     
+    
+    #TODO CHECK
     @staticmethod
-    def remove_select_variables(varlist, pl):
+    def remove_select_variables(varlist, pl, ens = False):
         # OVERRIDING parent method for MERRA2 extra variables 
         varlist.remove('time')
         varlist.remove('latitude')
@@ -1897,9 +1892,9 @@ class MERRAinterpolate(GenericInterpolate):
             
         # remove extra variables from merra2 
         MERRAgeneric().MERRA_skip(varlist)  
-        
+       
     def MERRA2station(self, ncfile_in, ncfile_out, points,
-                             variables = None, date = None):
+                      variables = None, date = None):
         """
         Given the type of variables to interpoalted from MERRA2 downloaded diretory
         Create the empty of netCDF file to hold the interpolated results, by calling 
@@ -1996,8 +1991,8 @@ class MERRAinterpolate(GenericInterpolate):
            
             # get the interpolated variables
             dfield, variables = self.interp2D(ncfile_in, ncf_in, 
-                                                    self.stations, tmask_chunk,
-                                                    variables=None, date=None) 
+                                              self.stations, tmask_chunk,
+                                              variables=None, date=None) 
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:], 
@@ -2010,18 +2005,9 @@ class MERRAinterpolate(GenericInterpolate):
                 # extra treatment for pressure level files
                 if pl:
                     lev = ncf_in.variables['level'][:]
-                    
-                    if ESMFnew:
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]
-                    else:
-                        # dimension: time, level, latitude, longitude
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]      
+                    ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:]
                 else:
-                    if ESMFnew:
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
-                    else:
-                        # time, latitude, longitude
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
+                    ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:]
                                      
         #close the file
         ncf_in.close()
@@ -2054,7 +2040,8 @@ class MERRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1980-01-01 00:00:00')
+        rootgrp = netcdf_base(ncf, ncfile_out, len(height), nt, 
+                              'hours since 1980-01-01 00:00:00')
         rootgrp.source  = 'MERRA-2, interpolated (bi)linearly to stations'
         
         time = rootgrp["time"]
@@ -2145,8 +2132,8 @@ class MERRAinterpolate(GenericInterpolate):
         dummy_date  = {'beg' : datetime(1992, 1, 2, 3, 0),
                        'end' : datetime(1992, 1, 2, 4, 0)}
         
-        if not path.isdir(self.dir_out):
-            makedirs(self.dir_out) 
+        if not path.isdir(self.dir_inp):
+            makedirs(self.dir_inp) 
 
         # === 2D Interpolation for Surface Analysis Data ===    
         # dictionary to translate CF Standard Names into MERRA2
@@ -2155,10 +2142,10 @@ class MERRAinterpolate(GenericInterpolate):
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M'],   # [m s-1] 2m & 10m values 
                 'relative_humidity' : ['QV2M']} # 2m value
         varlist = self.TranslateCF2short(dpar)                      
-        self.MERRA2station(path.join(self.dir_inp,'merra_sa_*.nc'), 
-                           path.join(self.dir_out,'merra2_sa_' + 
+        self.MERRA2station(path.join(self.dir_raw,'merra_sa_*.nc'), 
+                           path.join(self.dir_inp,'merra2_sa_' + 
                                      self.list_name + '.nc'), self.stations,
-                                     varlist, date = self.date)          
+                                     varlist, date = self.date)
         
         # 2D Interpolation for Single-level Radiation Diagnostics Data 'SWGDN', 
         # 'LWGDN', 'SWGDNCLR'. 'LWGDNCLR' 
@@ -2171,8 +2158,8 @@ class MERRAinterpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'], # [W/m2] short-wave downward assuming clear sky
                 'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']} # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)                           
-        self.MERRA2station(path.join(self.dir_inp,'merra_sf_*.nc'), 
-                           path.join(self.dir_out,'merra2_sf_' + 
+        self.MERRA2station(path.join(self.dir_raw,'merra_sf_*.nc'), 
+                           path.join(self.dir_inp,'merra2_sf_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)          
                         
@@ -2184,15 +2171,15 @@ class MERRAinterpolate(GenericInterpolate):
                 'wind_speed'        : ['U', 'V'],      # [m s-1]
                 'relative_humidity' : ['RH']}          # [1]
         varlist = self.TranslateCF2short(dpar).append('H')
-        self.MERRA2station(path.join(self.dir_inp,'merra_pl_*.nc'), 
-                           path.join(self.dir_out,'merra2_pl_' + 
+        self.MERRA2station(path.join(self.dir_raw,'merra_pl_*.nc'), 
+                           path.join(self.dir_inp,'merra2_pl_' + 
                                     self.list_name + '.nc'), self.stations,
                                     varlist, date = self.date)  
                                                                                                                                                                        
         # 1D Interpolation for Pressure Level Analyzed Meteorological Data 
-        self.levels2elevation(path.join(self.dir_out,'merra2_pl_' + 
+        self.levels2elevation(path.join(self.dir_inp,'merra2_pl_' + 
                                         self.list_name + '.nc'), 
-                              path.join(self.dir_out,'merra2_pl_' + 
+                              path.join(self.dir_inp,'merra2_pl_' + 
                                         self.list_name + '_surface.nc'))
 
       

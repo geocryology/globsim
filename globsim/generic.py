@@ -192,7 +192,7 @@ class GenericInterpolate:
 
         # get variables
         varlist = [str_encode(x) for x in ncf_in.variables.keys()]
-        self.remove_select_variables(varlist, pl, ens)
+        self.remove_select_variables(varlist, pl, ens = False)
 
         # list variables that should be interpolated
         if variables is None:
@@ -304,6 +304,7 @@ class GenericInterpolate:
                                 tmask_chunk, pl, ens):
         # assign data from ncdf: (variable, time, latitude, longitude)
         
+        print(variables)
         for n, var in enumerate(variables):
             if ens:
                 for ni in ncf_in['number'][:]:
@@ -325,7 +326,7 @@ class GenericInterpolate:
                     sfield.data[:,:,n,:] = vi.transpose((2,1,0))
 
     @staticmethod
-    def remove_select_variables(varlist, pl, ens):
+    def remove_select_variables(varlist, pl, ens = False):
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
@@ -413,8 +414,8 @@ def variables_skip(variable_name):
     Which variable names to use? Drop the ones that are dimensions.
     """
     skip = 0
-    dims = ('time', 'level', 'latitude', 'longitude', 'station', 'height', 
-            'number')
+    dims = ('time', 'number', 'level', 
+            'latitude', 'longitude', 'station', 'height')
     if variable_name in dims:
         skip = 1
     return skip

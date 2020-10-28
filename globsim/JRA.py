@@ -23,15 +23,8 @@ from os                  import path, listdir, remove, makedirs
 from math                import exp, floor, atan2, pi
 from scipy.interpolate   import interp1d
 
-try:
-    import ESMF
-    
-    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r 
-    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
-    ESMFnew = ESMFv > 701  
-except ImportError:
-    print("*** ESMF not imported, interpolation not possible. ***")
-    pass 
+import ESMF
+
 
 def get_userinfo():
     return None, None
@@ -978,18 +971,9 @@ class JRAinterpolate(GenericInterpolate):
                 if pl:
                     lev = ncf_in.variables['level'][:]
                     
-                    if ESMFnew:
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
-                    else:
-                        # dimension: time, level, latitude, longitude
-                        ncf_out.variables[var][beg:end+1,:,:] = dfield.data[i,:,:,:]      
+                    ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))  
                 else:
-                    if ESMFnew:
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:].transpose((1,0))
-                    else:
-                        # time, latitude, longitude
-                        ncf_out.variables[var][beg:end+1,:] = dfield.data[i,:,:]
-                    
+                    ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:].transpose((1,0))
                     
         #close the file
         ncf_in.close()
@@ -1021,7 +1005,8 @@ class JRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1800-01-01 00:00:0.0')
+        rootgrp = netcdf_base(ncf, ncfile_out, len(height), nt, 
+                              'hours since 1800-01-01 00:00:0.0')
         rootgrp.source = 'JRA-55, interpolated (bi)linearly to stations'
         
         # access variables
