@@ -48,7 +48,7 @@ from datetime            import datetime, timedelta
 from ecmwfapi.api        import ECMWFDataServer
 from math                import exp, floor, atan2, pi
 from os                  import path, listdir, remove, makedirs
-from generic     import StationListRead, series_interpolate, variables_skip, str_encode, cummulative2total, GenericDownload, GenericScale, GenericInterpolate
+from common_utils     import StationListRead, series_interpolate, variables_skip, str_encode, cummulative2total, GenericDownload, GenericScale, GenericInterpolate
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from scipy.interpolate   import interp1d
@@ -719,7 +719,7 @@ class ERAIinterpolate(GenericInterpolate):
         ncfile_out: Full path to the output netCDF file to write.     
         
         points: A dictionary of locations. See method StationListRead in
-                generic.py for more details.
+                common_utils.py for more details.
     
         variables:  List of variable(s) to interpolate such as 
                     ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].

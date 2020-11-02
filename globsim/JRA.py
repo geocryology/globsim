@@ -16,7 +16,7 @@ import netCDF4       as nc
 import numpy         as np
 
 from datetime            import datetime, timedelta
-from generic     import StationListRead, str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
+from common_utils     import StationListRead, str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from meteorology import LW_downward, pressure_from_elevation
 from os                  import path, listdir, remove, makedirs
@@ -871,7 +871,7 @@ class JRAinterpolate(GenericInterpolate):
         ncfile_out: Full path to the output netCDF file to write.     
         
         points: A dictionary of locations. See method StationListRead in
-                generic.py for more details.
+                common_utils.py for more details.
     
         variables:  List of variable(s) to interpolate such as 
                     [air_temperature, easteard_wind, northward_wind, 

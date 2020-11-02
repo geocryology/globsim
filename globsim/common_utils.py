@@ -151,7 +151,7 @@ class GenericInterpolate:
                     multiple files (def ERA2station())
 
             points: A dictionary of locations. See method StationListRead in
-                    generic.py for more details.
+                    common_utils.py for more details.
 
             tmask_chunk:
 

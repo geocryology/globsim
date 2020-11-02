@@ -2,7 +2,7 @@
 functions for creating netcdf files
 """
 import netCDF4 as nc
-from generic import variables_skip, str_encode
+from common_utils import variables_skip, str_encode
 from os import path
 import numpy as np
 def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):
@@ -133,7 +133,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     the variable list passed from the gridded original netCDF.
 
     ncfile_out: full name of the file to be created
-    stations:   station list read with generic.StationListRead()
+    stations:   station list read with common_utils.StationListRead()
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """

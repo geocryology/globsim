@@ -16,7 +16,7 @@ from __future__        import print_function
 from datetime          import datetime, timedelta, date
 from os                import path
 #from netCDF4           import Dataset, MFDataset
-from generic           import StationListRead
+from common_utils           import StationListRead
 
 import tomlkit
 import numpy as np

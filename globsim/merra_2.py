@@ -112,7 +112,7 @@ from os                import path, listdir, makedirs, remove
 from netCDF4           import Dataset, MFDataset
 from dateutil.rrule    import rrule, DAILY
 from math              import exp, floor, atan2, pi
-from generic import StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
+from common_utils import StationListRead, str_encode, series_interpolate, variables_skip, get_begin_date, GenericDownload, GenericScale, GenericInterpolate, get_begin_date
 from meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from scipy.interpolate import interp1d, griddata, RegularGridInterpolator, NearestNDInterpolator, LinearNDInterpolator
@@ -769,7 +769,7 @@ class MERRAgeneric():
         the variable list passed from the gridded original netCDF.
         
         ncfile_out: full name of the file to be created
-        stations:   station list read with generic.StationListRead() 
+        stations:   station list read with common_utils.StationListRead() 
         variables:  variables read from netCDF handle
         lev:        list of pressure levels, empty is [] (default)
         '''
@@ -1911,7 +1911,7 @@ class MERRAinterpolate(GenericInterpolate):
         ncfile_out: Full path to the output netCDF file to write.     
         
         points: A dictionary of locations. See method StationListRead in
-                generic.py for more details.
+                common_utils.py for more details.
     
         variables:  List of variable(s) to interpolate such as 
                     ['T','RH','U','V',' T2M', 'U2M', 'V2M', 'U10M', 'V10M', 
