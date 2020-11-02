@@ -19,15 +19,15 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#===============================================================================
-from __future__  import print_function
+# ===============================================================================
+from __future__ import print_function
 
-from datetime    import datetime, timedelta
-from os          import mkdir, path, makedirs, listdir
-from fnmatch     import filter as fnmatch_filter
+from datetime import datetime, timedelta
+from os import mkdir, path, makedirs, listdir
+from fnmatch import filter as fnmatch_filter
 
 import tomlkit
-import pandas  as pd
+import pandas as pd
 import netCDF4 as nc
 import numpy as np
 
@@ -78,14 +78,14 @@ class GenericDownload(object):
             raise ValueError("Download area is too small to conduct interpolation.")
 
     def _set_area(self, par):
-        self.area  = {'north': par['bbN'],
-                      'south': par['bbS'],
-                      'west' : par['bbW'],
-                      'east' : par['bbE']}
+        self.area = {'north': par['bbN'],
+                     'south': par['bbS'],
+                     'west': par['bbW'],
+                     'east': par['bbE']}
 
     def _set_elevation(self, par):
-        self.elevation = {'min' : par['ele_min'],
-                          'max' : par['ele_max']}
+        self.elevation = {'min': par['ele_min'],
+                          'max': par['ele_max']}
 
     def _set_data_directory(self, name):
         self.directory = path.join(self.par['project_directory'], name)
@@ -106,23 +106,21 @@ class GenericInterpolate:
         self.list_name = par['station_list'].split(path.extsep)[0]
         self.stations_csv = path.join(par['project_directory'],
                                       'par', par['station_list'])
-        
+
         # read station points
         self.stations = StationListRead(self.stations_csv)
 
         # time bounds, add one day to par['end'] to include entire last day
-        self.date = {'beg' : datetime.strptime(par['beg'], '%Y/%m/%d'),
-                     'end' : datetime.strptime(par['end'], '%Y/%m/%d') + 
+        self.date = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
+                     'end': datetime.strptime(par['end'], '%Y/%m/%d') +
                      timedelta(days=1)}
 
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
-        self.cs  = int(par['chunk_size'])
-        
-        
+        self.cs = int(par['chunk_size'])
+
     def _set_data_directory(self, name):
         self.dir_raw = path.join(self.par['project_directory'], name)
-        
 
     def TranslateCF2short(self, dpar):
         """
@@ -175,12 +173,12 @@ class GenericInterpolate:
         """
 
         # is it a file with pressure levels?
-        pl  = 'level' in ncf_in.dimensions.keys()
+        pl = 'level' in ncf_in.dimensions.keys()
         ens = 'number' in ncf_in.dimensions.keys()
 
         # get spatial dimensions
-        if pl: # only for pressure level files
-            lev  = ncf_in.variables['level'][:]
+        if pl:  # only for pressure level files
+            lev = ncf_in.variables['level'][:]
             nlev = len(lev)
         if ens:
             num = ncf_in.variables['number'][:]
@@ -192,7 +190,7 @@ class GenericInterpolate:
 
         # get variables
         varlist = [str_encode(x) for x in ncf_in.variables.keys()]
-        self.remove_select_variables(varlist, pl, ens = False)
+        self.remove_select_variables(varlist, pl, ens=False)
 
         # list variables that should be interpolated
         if variables is None:
@@ -212,23 +210,23 @@ class GenericInterpolate:
                         ESMF.Field(sgrid, name='sgrid',
                                    staggerloc=ESMF.StaggerLoc.CENTER,
                                    ndbounds=[len(variables), nt, nlev]))
-                else: # 2D files
+                else:  # 2D files
                     sfield.append(
                         ESMF.Field(sgrid, name='sgrid',
                                    staggerloc=ESMF.StaggerLoc.CENTER,
                                    ndbounds=[len(variables), nt]))
-            
-        else:    
+
+        else:
             if pl:  # only for pressure level files
                 sfield = ESMF.Field(sgrid, name='sgrid',
                                     staggerloc=ESMF.StaggerLoc.CENTER,
                                     ndbounds=[len(variables), nt, nlev])
-            else: # 2D files
+            else:  # 2D files
                 sfield = ESMF.Field(sgrid, name='sgrid',
                                     staggerloc=ESMF.StaggerLoc.CENTER,
                                     ndbounds=[len(variables), nt])
 
-        self.nc_data_to_source_field(variables, sfield, ncf_in, 
+        self.nc_data_to_source_field(variables, sfield, ncf_in,
                                      tmask_chunk, pl, ens)
 
         locstream = self.create_loc_stream()
@@ -237,7 +235,7 @@ class GenericInterpolate:
         if ens:
             dfield = []
             for ni in num:
-                if pl: # only for pressure level files
+                if pl:  # only for pressure level files
                     di = ESMF.Field(locstream, name='dfield',
                                     ndbounds=[len(variables), nt, nlev])
                 else:
@@ -245,13 +243,13 @@ class GenericInterpolate:
                                     ndbounds=[len(variables), nt])
                 dfield.append(self.regrid(sfield[ni], di))
         else:
-            if pl: # only for pressure level files
+            if pl:  # only for pressure level files
                 dfield = ESMF.Field(locstream, name='dfield',
                                     ndbounds=[len(variables), nt, nlev])
             else:
                 dfield = ESMF.Field(locstream, name='dfield',
                                     ndbounds=[len(variables), nt])
-    
+
             dfield = self.regrid(sfield, dfield)
 
         return dfield, variables
@@ -269,7 +267,7 @@ class GenericInterpolate:
     def create_source_grid(self, ncfile_in):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(fnmatch_filter(listdir(self.dir_raw), 
+        flist = np.sort(fnmatch_filter(listdir(self.dir_raw),
                                        path.basename(ncfile_in)))
         ncsingle = path.join(self.dir_raw, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
@@ -287,7 +285,7 @@ class GenericInterpolate:
 
     @staticmethod
     def regrid(sfield, dfield):
-    # regridding function, consider ESMF.UnmappedAction.ERROR
+        # regridding function, consider ESMF.UnmappedAction.ERROR
         regrid2D = ESMF.Regrid(sfield, dfield,
                                regrid_method=ESMF.RegridMethod.BILINEAR,
                                unmapped_action=ESMF.UnmappedAction.IGNORE,
@@ -295,20 +293,20 @@ class GenericInterpolate:
 
         # regrid operation, create destination field (variables, times, points)
         dfield = regrid2D(sfield, dfield)
-        sfield.destroy() # free memory
+        sfield.destroy()  # free memory
 
         return dfield
 
     @staticmethod
-    def nc_data_to_source_field(variables, sfield, ncf_in, 
+    def nc_data_to_source_field(variables, sfield, ncf_in,
                                 tmask_chunk, pl, ens):
         # assign data from ncdf: (variable, time, latitude, longitude)
-        
+
         print(variables)
         for n, var in enumerate(variables):
             if ens:
                 for ni in ncf_in['number'][:]:
-                    if pl: 
+                    if pl:
                         # sfield.data [lon, lat, var, time, number, level]
                         # vi [time, number, level, lat, lon]
                         vi = ncf_in[var][tmask_chunk,ni,:,:,:]
@@ -317,49 +315,48 @@ class GenericInterpolate:
                         vi = ncf_in[var][tmask_chunk,ni,:,:]
                         sfield[ni].data[:,:,n,:] = vi.transpose((2,1,0))
             else:
-                if pl: 
+                if pl:
                     vi = ncf_in[var][tmask_chunk,:,:,:]
                     sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
-    
+
                 else:
                     vi = ncf_in[var][tmask_chunk,:,:]
                     sfield.data[:,:,n,:] = vi.transpose((2,1,0))
 
     @staticmethod
-    def remove_select_variables(varlist, pl, ens = False):
+    def remove_select_variables(varlist, pl, ens=False):
         varlist.remove('time')
         varlist.remove('latitude')
         varlist.remove('longitude')
-        if pl: # only for pressure level files
+        if pl:  # only for pressure level files
             varlist.remove('level')
         if ens:
             varlist.remove('number')
-   
-    @staticmethod      
+
+    @staticmethod
     def ele_interpolate(elevation, h, nl):
         # difference in elevation, level directly above will be >= 0
         elev_diff = elevation - h
-        # vector of level indices that fall directly above station. 
+        # vector of level indices that fall directly above station.
         # Apply after ravel() of data.
-        va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1) 
+        va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1)
         # mask for situations where station is below lowest level
         mask = va < (nl-1)
         va += np.arange(elevation.shape[0]) * elevation.shape[1]
-        
+
         # Vector level indices that fall directly below station.
         # Apply after ravel() of data.
-        vb = va + mask # +1 when OK, +0 when below lowest level
-        
-        return elev_diff, va, vb
+        vb = va + mask  # +1 when OK, +0 when below lowest level
 
+        return elev_diff, va, vb
 
     @staticmethod
     def calculate_weights(elev_diff, va, vb):
         wa = np.absolute(elev_diff.ravel()[vb])
         wb = np.absolute(elev_diff.ravel()[va])
         wt = wa + wb
-        wa /= wt # Apply after ravel() of data.
-        wb /= wt # Apply after ravel() of data.
+        wa /= wt  # Apply after ravel() of data.
+        wb /= wt  # Apply after ravel() of data.
 
         return wa, wb
 
@@ -392,7 +389,7 @@ class GenericScale:
 
         timestep = str(par['time_step']) + 'h'
         src = '_'.join(['scaled', src, timestep])
-        
+
         src = src + '.nc'
         fname = path.join(self.scdir, src)
 
@@ -414,11 +411,12 @@ def variables_skip(variable_name):
     Which variable names to use? Drop the ones that are dimensions.
     """
     skip = 0
-    dims = ('time', 'number', 'level', 
+    dims = ('time', 'number', 'level',
             'latitude', 'longitude', 'station', 'height')
     if variable_name in dims:
         skip = 1
     return skip
+
 
 def StationListRead(sfile):
     """
@@ -432,6 +430,7 @@ def StationListRead(sfile):
     raw = pd.read_csv(sfile)
     raw = raw.rename(columns=lambda x: x.strip())
     return(raw)
+
 
 def convert_cummulative(data):
     """
@@ -451,6 +450,7 @@ def convert_cummulative(data):
 
     # get full cummulative sum
     return np.cumsum(diff, dtype=np.float64)
+
 
 def cummulative2total(data, time):
     """
@@ -474,9 +474,10 @@ def cummulative2total(data, time):
 
     return diff
 
+
 def get_begin_date(par, data_folder, match_strings):
     """ Get the date to begin downloading when some files already exist
-    
+
     Parameters
     ----------
     par : dict
@@ -491,26 +492,27 @@ def get_begin_date(par, data_folder, match_strings):
         datetime object corresponding to the desired begin date (replaces par['beg'])
     This makes an inventory of all the files that have been downloaded so far and
     returns the next date to begin downloading.  If all match_strings are downloaded up to the same
-    day, then the following day is returned. Otherwise, the 
+    day, then the following day is returned. Otherwise, the
     """
     directory = par['project_directory']
     print("Searching for existing files in directory")
-    
+
     if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
         print("No existing files found. Starting download from {}".format(par['beg'].strftime("%Y-%m-%d")))
         begin_date = datetime.strptime(par['beg'], '%Y/%m/%d')
     else:
         datasets = [nc.MFDataset(path.join(directory, data_folder, s)) for s in match_strings]
         dates = [nc.num2date(x['time'][:], x['time'].units, x['time'].calendar) for x in datasets]
-    
+
         latest = [max(d) for d in dates]
         latest = [dt.replace(hour=0, minute=0, second=0, microsecond=0) for dt in latest]
         latest_complete = min(latest)
         begin_date = latest_complete + timedelta(days=1)
-    
+
         print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d")))
-        
+
     return(begin_date)
+
 
 def series_interpolate(time_out, time_in, value_in, cum=False):
     """
@@ -537,7 +539,8 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
 
     return vi
 
-def str_encode(value, encoding = "UTF8"):
+
+def str_encode(value, encoding="UTF8"):
     """
     handles encoding to allow compatibility between python 2 and 3
     specifically with regards to netCDF variables. Python 2 imports
@@ -547,6 +550,7 @@ def str_encode(value, encoding = "UTF8"):
         return(value)
     else:
         return(value.encode(encoding))
+
 
 def create_globsim_directory(target_dir, name):
     """
@@ -571,7 +575,7 @@ def create_globsim_directory(target_dir, name):
 
 def get_begin_date(par, data_folder, match_strings):
     """ Get the date to begin downloading when some files already exist
-    
+
     Parameters
     ----------
     par : dict
@@ -580,7 +584,7 @@ def get_begin_date(par, data_folder, match_strings):
         name of subdirectory containing data files. Examples: merra2, era5
     match_strings : list
         list of glob-style strings to check. Examples ["merra_pl*", "merra_sa*","merra_sf*"]
-    
+
     Returns
     -------
     datetime
@@ -592,14 +596,14 @@ def get_begin_date(par, data_folder, match_strings):
     """
     directory = par['project_directory']
     print("Searching for existing files in directory")
-    
+
     if not all([len(glob.glob(path.join(directory, data_folder, s))) > 0 for s in match_strings]):
         print("No existing files found. Starting download from {}".format(par['beg']))
         return par['beg']
-        
+
     datasets = [nc.MFDataset(path.join(directory, data_folder, s)) for s in match_strings]
     dates = [nc.num2date(x['time'][:], x['time'].units, x['time'].calendar) for x in datasets]
-    
+
     latest = [max(d) for d in dates]
     latest = [dt.replace(hour=0, minute=0, second=0, microsecond=0) for dt in latest]
     latest_complete = min(latest)
