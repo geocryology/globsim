@@ -7,7 +7,7 @@ import pandas as pd
 import netCDF4 as nc
 import numpy as np
 
-from .common_utils import variables_skip
+from globsim.common_utils import variables_skip
 
 
 def globsimScaled2Pandas(ncdf_in, station_nr):

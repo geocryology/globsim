@@ -51,11 +51,11 @@ from os import path, listdir, remove
 from scipy.interpolate import interp1d
 from fnmatch import filter
 
-from .common_utils import (series_interpolate, variables_skip, str_encode,
-                           cummulative2total, GenericDownload, GenericScale,
-                           GenericInterpolate)
-from .nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from .meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
+from globsim.common_utils import (series_interpolate, variables_skip, str_encode,
+                                  cummulative2total, GenericDownload, GenericScale,
+                                  GenericInterpolate)
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
+from globsim.meteorology import spec_hum_kgkg, LW_downward, pressure_from_elevation
 
 try:
     from nco import Nco

@@ -22,10 +22,27 @@
 #===============================================================================
 import argparse
 
-from globsim_main import GlobsimInterpolateStation
+from globsim.globsim_main import GlobsimInterpolateStation
 
 
-#===interpolate the variables from multiple re-analysis data to individual stations===
+def main(args):
+    pfile = args.f
+
+    ERAI 	=  True if args.d is None or "ERAI"  in args.d else False
+    ERA5 	=  True if args.d is None or "ERA5"  in args.d else False
+    ERA5ENS =  True if args.d is None or "ERA5ENS"  in args.d else False
+    JRA 	=  True if args.d is None or "JRA"   in args.d else False
+    MERRA 	= True if args.d is None or "MERRA" in args.d else False
+
+    if sum([ERAI, ERA5, ERA5ENS, JRA, MERRA]) > 0:
+
+        GlobsimInterpolateStation(pfile, ERAI = ERAI, ERA5 = ERA5, ERA5ENS = ERA5ENS,
+                                         JRA = JRA, MERRA = MERRA)
+
+    else: print("Failed! Reanalysis source should be ERAI, ERA5, MERRA, JRA, please check")
+
+
+# ===interpolate the variables from multiple re-analysis data to individual stations===
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interpolate reanalysis data",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -33,21 +50,7 @@ if __name__ == "__main__":
                         help="file path to download parameter file")
     parser.add_argument('-d',    default=None, nargs="*", type=str, 
                         help="What data sources should run? ERAI, ERA5, MERRA, JRA")
-    
+
     args = parser.parse_args()
 
-    pfile = args.f
-    
-    ERAI 	=  True if args.d is None or "ERAI"  in args.d else False
-    ERA5 	=  True if args.d is None or "ERA5"  in args.d else False
-    ERA5ENS =  True if args.d is None or "ERA5ENS"  in args.d else False
-    JRA 	=  True if args.d is None or "JRA"   in args.d else False
-    MERRA 	= True if args.d is None or "MERRA" in args.d else False
-    
-    if sum([ERAI, ERA5, ERA5ENS, JRA, MERRA]) > 0:
-        
-        GlobsimInterpolateStation(pfile, ERAI = ERAI, ERA5 = ERA5, ERA5ENS = ERA5ENS,
-                                         JRA = JRA, MERRA = MERRA)
-        
-    else: print("Failed! Reanalysis source should be ERAI, ERA5, MERRA, JRA, please check")
-        
+    main(args)

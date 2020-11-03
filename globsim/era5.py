@@ -51,9 +51,9 @@ from fnmatch import filter
 
 import urllib3
 
-from common_utils import series_interpolate, variables_skip, str_encode, GenericDownload, GenericScale, GenericInterpolate
-from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from meteorology import spec_hum_kgkg, pressure_from_elevation
+from globsim.common_utils import series_interpolate, variables_skip, str_encode, GenericDownload, GenericScale, GenericInterpolate
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
+from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
 
 urllib3.disable_warnings()
 

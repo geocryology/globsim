@@ -2,7 +2,7 @@
 functions for creating netcdf files
 """
 import netCDF4 as nc
-from common_utils import variables_skip, str_encode
+from globsim.common_utils import variables_skip, str_encode
 from os import path
 import numpy as np
 

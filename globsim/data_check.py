@@ -19,7 +19,7 @@ import netCDF4 as nc
 
 from os import path
 
-from .common_utils import StationListRead
+from globsim.common_utils import StationListRead
 
 
 class DataCheck(object):

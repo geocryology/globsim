@@ -112,9 +112,9 @@ from math              import floor, atan2, pi
 from scipy.interpolate import interp1d, griddata
 from time              import sleep
 
-from common_utils import str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
-from meteorology import LW_downward, pressure_from_elevation
-from nc_elements import netcdf_base, new_scaled_netcdf
+from globsim.common_utils import str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
+from globsim.meteorology import LW_downward, pressure_from_elevation
+from globsim.nc_elements import netcdf_base, new_scaled_netcdf
 
 
 class MERRAgeneric():

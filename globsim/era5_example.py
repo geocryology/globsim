@@ -8,7 +8,7 @@ from math import floor
 from os import path
 from ecmwfapi.api import ECMWFDataServer
 
-from .era5 import ERA5download, ERA5scale, ERA5interpolate
+from globsim.era5 import ERA5download, ERA5scale, ERA5interpolate
 
 pfile = "/path/to/examples.globsim_download"
 ifile = "/path/to/examples.globsim_interpolate"

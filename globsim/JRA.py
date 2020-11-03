@@ -19,9 +19,9 @@ from os import path, remove, makedirs
 from math import floor, atan2, pi
 from scipy.interpolate import interp1d
 
-from common_utils import str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
-from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from meteorology import LW_downward, pressure_from_elevation
+from globsim.common_utils import str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
+from globsim.meteorology import LW_downward, pressure_from_elevation
 
 
 def get_userinfo():
