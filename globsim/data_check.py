@@ -12,19 +12,14 @@
 #
 # Referenced from data_checker.py (Dr.Stephan Gruber): Class MERRA2DataCheck()
 # ===============================================================================
-from __future__        import print_function
-from datetime          import datetime, timedelta, date
-from os                import path
-#from netCDF4           import Dataset, MFDataset
-from common_utils           import StationListRead
+from __future__ import print_function
 
 import tomlkit
-import numpy as np
-import csv
 import netCDF4 as nc
-import math
-import time as tc
-import sys
+
+from os import path
+
+from .common_utils import StationListRead
 
 
 class DataCheck(object):
@@ -122,7 +117,7 @@ class DataCheck(object):
 
             print('Missing Time List:', list(missingTime))
 
-    def process(self,varF):
+    def process(self, varF):
         """
         combine the specific type of single or mutiple netCDF files
         """

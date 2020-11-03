@@ -23,7 +23,6 @@
 from globsim_main import GlobsimDownload
 
 import argparse
-import configparser
 import time
 
 #=====download the wanted varialbe from multiple re-analysis date sources======
