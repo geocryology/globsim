@@ -33,7 +33,7 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     time = ncf.variables['time'][:]
     t_unit = ncf.variables['time'].units
     t_cal = ncf.variables['time'].calendar
-    time = nc.num2date(time, units = t_unit, calendar = t_cal)
+    time = nc.num2date(time, units=t_unit, calendar=t_cal)
 
     # make data frame with time
     df = pd.DataFrame(data=time, columns=['time'])
@@ -79,14 +79,14 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
                'AIRT_pl']
 
     # output ASCII formatting
-    formatters={"time": "  {:%H %M  %j  %Y}".format,
-                "SW_ERA_Wm2_sur": "{:8.2f}".format,
-                "LW_ERA_Wm2_sur": "{:8.2f}".format,
-                "PREC_ERA_mmsec_sur": "{:13.4E}".format,
-                "AIRT_ERA_C_sur": "{:8.2f}".format,
-                "SH_ERA_kgkg_sur": "{:11.3E}".format,
-                "WSPD_ERA_ms_sur": "{:7.2f}".format,
-                "AIRT_PRESS_Pa_pl": "{:11.2f}".format}
+    formatters = {"time": "  {:%H %M  %j  %Y}".format,
+                  "SW_ERA_Wm2_sur": "{:8.2f}".format,
+                  "LW_ERA_Wm2_sur": "{:8.2f}".format,
+                  "PREC_ERA_mmsec_sur": "{:13.4E}".format,
+                  "AIRT_ERA_C_sur": "{:8.2f}".format,
+                  "SH_ERA_kgkg_sur": "{:11.3E}".format,
+                  "WSPD_ERA_ms_sur": "{:7.2f}".format,
+                  "AIRT_PRESS_Pa_pl": "{:11.2f}".format}
 
     # get data
     df = globsimScaled2Pandas(ncdf_globsim, station_nr)
@@ -97,7 +97,7 @@ def globsim2CLASS(ncdf_globsim, met_class, station_nr):
     # write FORTRAN formatted ASCII file
     with open(met_class, 'w') as f:
         f.write(' ')
-        f.write(df.to_string(columns = columns,
+        f.write(df.to_string(columns=columns,
                 formatters=formatters,
                 header=False, index=False))
     f.close()
@@ -128,12 +128,11 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     time = nc.num2date(n['time'][:],
                        units=n['time'].units,
                        calendar=n['time'].calendar)
-    time_step = (time[1] - time[0]).seconds # in second
+    time_step = (time[1] - time[0]).seconds  # in second
 
-
-    HH =   [x.timetuple().tm_hour for x in time]
-    MM =   [x.timetuple().tm_min  for x in time]
-    DDD =  [x.timetuple().tm_yday for x in time]
+    HH = [x.timetuple().tm_hour for x in time]
+    MM = [x.timetuple().tm_min for x in time]
+    DDD = [x.timetuple().tm_yday for x in time]
     YYYY = [x.timetuple().tm_year for x in time]
 
     TIME = np.stack((HH, MM, DDD, YYYY))
@@ -149,7 +148,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     # get precip
     PREC = "PREC_sur"
     PREC = n[PREC][:]
-    PREC /= time_step # [mm] to [mm/s]
+    PREC /= time_step  # [mm] to [mm/s]
 
     # get temp
     AIRT = "AIRT_sur"
@@ -189,11 +188,11 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
             files.append(savepath)
             # create file
             np.savetxt(savepath, out_array,
-                    newline='\n', # windows line endings breaks the converter
-                    fmt = [" %02u", "%02u", " %03u",
+                       newline='\n',  # windows line endings breaks the converter
+                       fmt=[" %02u", "%02u", " %03u",
                             " %2u", "%8.2f", "%8.2f",
                             "%13.4E", "%8.2f", "%11.3E",
-                            "%7.2f", "%11.2f" ])
+                            "%7.2f", "%11.2f"])
     return files
 
 
@@ -269,7 +268,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
             out_df = pd.DataFrame(np.transpose(data[:, :, i]))
             out_df = pd.concat([time, out_df], axis=1)
             out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
-                                "AirTemp", "AirPress", "SWglobal", "LWin"]
+                              "AirTemp", "AirPress", "SWglobal", "LWin"]
 
             # get station name
             st_name = NAMES[i]

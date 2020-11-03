@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def satvapp_kPa_fT(T):
     '''
     Saturation water vapour pressure [kPa] following the Tetens formula, Eq 4.2
@@ -8,11 +9,12 @@ def satvapp_kPa_fT(T):
     T: Temperature [C]
     '''
     e0 = 0.6113  # [kPa]
-    b  = 17.2694 # fitting constant
+    b = 17.2694  # fitting constant
     T1 = 273.15  # [K]
     T2 = 35.86   # [K]
     T += T1
-    return e0 * np.exp((b*(T-T1))/(T-T2))
+    return e0 * np.exp((b * (T - T1)) / (T - T2))
+
 
 def vapp_kPa_fTd(Td):
     '''
@@ -24,12 +26,13 @@ def vapp_kPa_fTd(Td):
     Td: Dew point temperature [C]
 
     '''
-    #(Bolton 1980)
-    #https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
-    return 6.112 * np.exp((17.67 * Td)/(Td + 243.5))
+    # (Bolton 1980)
+    # https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
+    return 6.112 * np.exp((17.67 * Td) / (Td + 243.5))
 
-    #https://www.weather.gov/media/epz/wxcalc/vaporPressure.pdf
-    #return 6.112 * np.power(10,(7.5 * Td)/(237.3 + Td))
+    # https://www.weather.gov/media/epz/wxcalc/vaporPressure.pdf
+    # return 6.112 * np.power(10,(7.5 * Td)/(237.3 + Td))
+
 
 def spec_hum_kgkg(Td, Pr):
     '''
@@ -37,11 +40,12 @@ def spec_hum_kgkg(Td, Pr):
     Td: Dewpoint temperature [C]
     Pr:  Air pressure [Pa]
     '''
-    E = 0.622 # density of vater vapour / density of dry air
-    e  = vapp_kPa_fTd(Td) / 10
-    P = Pr/1000. # from Pa to kPa
+    E = 0.622  # density of vater vapour / density of dry air
+    e = vapp_kPa_fTd(Td) / 10
+    P = Pr / 1000.  # from Pa to kPa
     spec_hum = E * e / (P - e * (1 - E))
     return spec_hum
+
 
 def water_vap_pressure(RH,T):
     '''
@@ -49,13 +53,14 @@ def water_vap_pressure(RH,T):
     RH: relative humidity (%)
     Tair: air temperature (kelvin)
     '''
-    es0 = 6.11 # reference saturation vapour pressure at 0ºC
-    T0 = 273.15 # Kelvin
-    lv = 2.5 * 1000000 #latent heat of vaporization of water
-    Rv = 461.5 # gas constant for water vapour
-    es = es0 * np.exp((lv)/Rv * (1/T0 - 1/T))
-    pv = (RH * es)/100
+    es0 = 6.11  # reference saturation vapour pressure at 0ºC
+    T0 = 273.15  # Kelvin
+    lv = 2.5 * 1000000  # latent heat of vaporization of water
+    Rv = 461.5  # gas constant for water vapour
+    es = es0 * np.exp((lv) / Rv * (1 / T0 - 1 / T))
+    pv = (RH * es) / 100
     return pv
+
 
 def emissivity_clear_sky(RH,T):
     '''
@@ -66,18 +71,20 @@ def emissivity_clear_sky(RH,T):
     pv = water_vap_pressure(RH, T)
     x1 = 0.43
     x2 = 5.7
-    e_clear = 0.23 + x1*(pv/T)**(1/x2)
+    e_clear = 0.23 + x1 * (pv / T)**(1 / x2)
     return e_clear
 
+
 def pressure_from_elevation(elevation):
-        """Convert elevation into air pressure using barometric formula"""
-        g  = 9.80665   #Gravitational acceleration [m/s2]
-        R  = 8.31432   #Universal gas constant for air [N·m /(mol·K)]
-        M  = 0.0289644 #Molar mass of Earth's air [kg/mol]
-        P0 = 101325    #Pressure at sea level [Pa]
-        T0 = 288.15    #Temperature at sea level [K]
-        #http://en.wikipedia.org/wiki/Barometric_formula
-        return P0 * np.exp((-g * M * elevation) / (R * T0)) / 100 #[hPa] or [bar]
+    """Convert elevation into air pressure using barometric formula"""
+    g = 9.80665    # Gravitational acceleration [m/s2]
+    R = 8.31432    # Universal gas constant for air [N·m /(mol·K)]
+    M = 0.0289644  # Molar mass of Earth's air [kg/mol]
+    P0 = 101325    # Pressure at sea level [Pa]
+    T0 = 288.15    # Temperature at sea level [K]
+    # http://en.wikipedia.org/wiki/Barometric_formula
+    return P0 * np.exp((-g * M * elevation) / (R * T0)) / 100  # [hPa] or [bar]
+
 
 def LW_downward(RH,T,N):
     '''
@@ -90,6 +97,6 @@ def LW_downward(RH,T,N):
     p1 = 6
     p2 = 4
     e_as = 0.979
-    con = 5.67 * 10**(-8) # J/s/m/K4 Stefan-Boltzmann constant
-    lw = e_clear*(1-N**p1)+(e_as*(N**p2))*con*T**4
+    con = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
+    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * con * T**4
     return lw

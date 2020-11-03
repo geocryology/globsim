@@ -341,7 +341,7 @@ class GenericInterpolate:
         # Apply after ravel() of data.
         va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1)
         # mask for situations where station is below lowest level
-        mask = va < (nl-1)
+        mask = va < (nl - 1)
         va += np.arange(elevation.shape[0]) * elevation.shape[1]
 
         # Vector level indices that fall directly below station.
@@ -523,7 +523,7 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
     value_in: Value time series. Must have same length as time_in.
     cum:      Is valiable serially cummulative like LWin? Default: False.
     """
-    time_step_sec = time_out[1]-time_out[0]
+    time_step_sec = time_out[1] - time_out[0]
 
     # convert to continuous cummulative, if values are serially cummulative
     if cum:
@@ -592,7 +592,7 @@ def get_begin_date(par, data_folder, match_strings):
 
     This makes an inventory of all the files that have been downloaded so far and
     returns the next date to begin downloading.  If all match_strings are downloaded up to the same
-    day, then the following day is returned. Otherwise, the 
+    day, then the following day is returned. Otherwise, the
     """
     directory = par['project_directory']
     print("Searching for existing files in directory")
@@ -609,6 +609,6 @@ def get_begin_date(par, data_folder, match_strings):
     latest_complete = min(latest)
 
     begin_date = latest_complete + timedelta(days=1)
-    
+
     print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d")))
     return(begin_date)

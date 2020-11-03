@@ -1,4 +1,4 @@
-from .JRA import JRAdownload, JRAinterpolate, JRAscale
+from JRA import JRAdownload, JRAinterpolate, JRAscale
 from os   import path
 
 # ==== SETTING-UP =============================================================
