@@ -1,12 +1,18 @@
+import re
 import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version = re.search(
+    '^__version__\\s*=\\s*"(.*)"',
+    open('globsim/globsim.py').read(),
+    re.M
+    ).group(1)
 
 setuptools.setup(
     name="globsim",
-    version="0.0.1",
+    version=version,
     author="Stephan Gruber",
     author_email="stephan.gruber@carleton.ca",
     description="Using global reanalysis data for local permafrost simulation",
@@ -21,8 +27,11 @@ setuptools.setup(
         "Operating System :: POSIX :: Linux",
         "Topic :: Scientific/Engineering :: GIS",
         "Topic :: Scientific/Engineering :: Atmospheric Science"
-        
-    ],
+        ],
+    entry_points={
+        'console_scripts': [
+            'globsim = globsim.globsim:main',
+        ]},
     install_requires=[
                     'numpy',
                     'tomlkit'
