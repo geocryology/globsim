@@ -55,7 +55,7 @@ from fnmatch import filter
 import urllib3
 urllib3.disable_warnings()
 
-from generic import StationListRead, series_interpolate, variables_skip, str_encode, GenericDownload, GenericScale, GenericInterpolate
+from common_utils import StationListRead, series_interpolate, variables_skip, str_encode, GenericDownload, GenericScale, GenericInterpolate
 from nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from meteorology import spec_hum_kgkg, pressure_from_elevation
 
@@ -682,7 +682,7 @@ class ERA5interpolate(GenericInterpolate):
         ncfile_out: Full path to the output netCDF file to write.     
         
         points: A dictionary of locations. See method StationListRead in
-                generic.py for more details.
+                common_utils.py for more details.
     
         variables:  List of variable(s) to interpolate such as 
                     ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
