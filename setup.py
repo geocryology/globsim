@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 version = re.search(
     '^__version__\\s*=\\s*"(.*)"',
-    open('globsim/globsim.py').read(),
+    open('globsim/globsim_cli.py').read(),
     re.M
     ).group(1)
 
@@ -19,7 +19,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/geocryology/globsim",
-    packages=setuptools.find_packages(),
+    packages=['globsim'],
     classifiers=[
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
@@ -30,7 +30,7 @@ setuptools.setup(
         ],
     entry_points={
         'console_scripts': [
-            'globsim = globsim.globsim:main',
+            'globsim = globsim.globsim_cli:main',
         ]},
     install_requires=[
                     'numpy',
