@@ -1,5 +1,6 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
+
 # Copyright Xiaojing Quan & Stephan Gruber
 # =============================================================================
 # REVISION HISTORY
@@ -90,6 +91,7 @@
 # downwelling_longwave_flux_in_air_assuming_clear_sky = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux Assuming Clear Sky
 
 # ==============================================================================
+
 from __future__        import print_function
 
 import numpy as np
@@ -690,17 +692,17 @@ class MERRAgeneric():
                                     print('Higher Value of "ele_max" is needed to reset: > 2500')
                                     sys.exit(0)
 
-                         else:
+                        else:
                             t_lev[z] = t_lev[z]
-                         h_lev[z] = h_lev[z]
+                        h_lev[z] = h_lev[z]
 
-                     #assign back
-                     t_time[k][:] = t_lev
-                     h_time[k][:] = h_lev
+                    #assign back
+                    t_time[k][:] = t_lev
+                    h_time[k][:] = h_lev
 
-                 #replace the extrapolated value [time * level] to each individual cell
-                 t_total[i][j][:] = t_time
-                 h_total[i][j][:] = h_time
+                #replace the extrapolated value [time * level] to each individual cell
+                t_total[i][j][:] = t_time
+                h_total[i][j][:] = h_time
 
         #restructure back
         t_total = t_total[:,:,:,:].transpose((2,3,0,1))
