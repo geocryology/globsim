@@ -27,6 +27,7 @@ import time
 
 
 def main(args):
+    pfile = args.f
     ERAI    = True if args.d is None or "ERAI"  in args.d else False
     ERA5    = True if args.d is None or "ERA5"  in args.d else False
     ERA5ENS = True if args.d is None or "ERA5ENS"  in args.d else False
@@ -60,7 +61,5 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--multi', action='store_true',    help="Download all data sources simultaneously")
 
     args = parser.parse_args()
-
-    pfile = args.f
 
     main(args)
