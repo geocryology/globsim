@@ -14,6 +14,7 @@ from .merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale
 from .JRA import JRAdownload, JRAinterpolate, JRAscale
 """
 
+from .globsim_download import main as globsim_download
 
 def main():
     parser = argparse.ArgumentParser(description="GlobSim: meteorological reanalysis for point-scale simulation. Find out more at https://globsim.readthedocs.io/en/latest",
@@ -27,6 +28,9 @@ def main():
 
     parser.add_argument("-d", default=None, nargs="*", type=str, choices=["ERAI", "ERA5", "ERA5ENS", "MERRA", "JRA"],
                         dest='data', help="What data sources should run?")
+
+    parser.add_argument('-r', '--retry',  default=1,    type=int, help="Number of times to re-launch download if it crashes (globsim_download only) ")
+    parser.add_argument('-m', '--multi', action='store_true',    help="Download all data sources simultaneously (globsim_download only) ")
 
     parser.add_argument("-v", "--version", action='version', version=f"GlobSim version {__version__}")
 
