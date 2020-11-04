@@ -33,7 +33,13 @@ setuptools.setup(
             'globsim = globsim.globsim_cli:main',
         ]},
     install_requires=[
+                    'pandas',
+                    'netCDF4',
+                    'scipy',
+                    'pydap', 
                     'numpy',
-                    'tomlkit'
+                    'tomlkit',
+                    'ecmwf-api-client',
+                    'cdsapi'
     ]
 )
