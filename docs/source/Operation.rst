@@ -4,7 +4,7 @@ Operation
 
 Parameter files
 ---------------
-Three parameter files are used to control GLOBSIM. There is one for each step in the procedure (download, interpolate, scale). The parameter files should all be in the /par subdirectory of the project directory. 
+Parameter files are used to control GLOBSIM. The parameter files follow the TOML standard (https://toml.io/en/). Each step in the procedure (download, interpolate, scale) can be split into its own file, or combined. The important thing is that they always have the appropriate headings (e.g. [download], [interpolate], or [scale]). The parameter files should be in the /par subdirectory of the project directory. 
 
 
 Downloading
@@ -55,10 +55,79 @@ Rescaling
 **project_directory**             This is the full path to the project directory which stores the downloaded files and the control files. It should include a subdirectory called /par which contains parameter files (control files) as well as a csv describing the sites to which data are scaled.
 **station_list**                  The filename (without path) of csv containing site information such as *sitelist.csv* (note that this must match the interpolation parameter file)
 **output_file**                   Path to output netCDF to be created. 
-**overwrite**                     Either *True* or *False*. Whether or not to overwrite the `output_file` if it exists.
+**overwrite**                     Either *true* or *false*. Whether or not to overwrite the `output_file` if it exists.
 **time_step**                     The desired output time step in hours
 **kernels**                       Which processing kernels should be used. Missing or misspelled kernels will be ignored by globsim.
 =========================         ===============
+
+Example Parameter File
+^^^^^^^^^^^^^^^^^^^^^^
+Here is an example of a TOML parameter file with all three sections (download, interpolate, scale) combined into one section.
+
+::
+
+    title = "Globsim Control File"
+
+    [download]
+    # logistics
+    project_directory = "/opt/globsim/examples/Example1"
+    credentials_directory = "/root"
+
+    # chunk size for splitting files and download [days]
+    chunk_size = 2
+
+    # area bounding box [decimal degrees]
+    bbN = 66
+    bbS = 62
+    bbW = -112
+    bbE = -108
+
+    # ground elevation range within area [m]
+    ele_min = 0
+    ele_max = 2500
+
+    # time slice [YYYY/MM/DD]
+    beg = "2017/07/01"
+    end = "2017/07/05"
+
+    # variables to download [CF Standard Name Table]
+    variables = ["air_temperature", "relative_humidity", "wind_speed", "wind_from_direction", "precipitation_amount", "downwelling_shortwave_flux_in_air", "downwelling_longwave_flux_in_air", "downwelling_shortwave_flux_in_air_assuming_clear_sky", "downwelling_longwave_flux_in_air_assuming_clear_sky"]
+
+    [interpolate]
+    # Path to the parent directory of /par - It should match the download and scale files
+    project_directory = "/opt/globsim/examples/Example1"
+
+    # Filename (without path) of csv containing site information (must match scaling control file)
+    station_list = "siteslist.csv"
+
+    # How many time steps to interpolate at once? This helps memory management.
+    # Keep small for large area files and small memory computer, make larger to get 
+    # speed on big machines and when working with small area files.
+    # for a small area, we suggest values up to 2000, but consider the memory limit of your computer
+    chunk_size = 2000
+
+    # time slice [YYYY/MM/DD] assuming 00:00 hours
+    beg = "2017/07/01"
+    end = "2017/07/05"
+
+    # variables to interpolate [CF Standard Name Table]
+    variables = ["air_temperature", "relative_humidity", "wind_speed", "wind_from_direction", "precipitation_amount", "downwelling_shortwave_flux_in_air", "downwelling_longwave_flux_in_air", "downwelling_shortwave_flux_in_air_assuming_clear_sky", "downwelling_longwave_flux_in_air_assuming_clear_sky"]
+
+    [scale]
+    # Path to the parent directory of /par - It should match the download and interpolate files
+    project_directory = "/opt/globsim/examples/Example1"
+
+    # Filename (without path) of csv containing site information (must match interpolation control file)
+    station_list = "siteslist.csv"
+
+    # processing kernels to be used.  Unavailable kernels will be ignored
+    kernels = ["PRESS_Pa_pl", "AIRT_C_pl", "AIRT_C_sur", "PREC_mm_sur", "RH_per_sur", "WIND_sur", "SW_Wm2_sur", "LW_Wm2_sur", "SH_kgkg_sur"]
+
+    # desired time step for output data [hours]
+    time_step = 1
+
+    # Should the output file be overwritten if it exists?
+    overwrite = true
 
 Station list for interpolation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -77,7 +146,7 @@ The **project directory** is the location to which data is downloaded and where 
      project_a/par/          (parameter files for data download and interpolation)
      project_a/jra-55/       (JRA-55 data)
      project_a/eraint/       (ERA-Interim data)
-     project_a/era5/         (ERA-5 data)
+     project_a/era5/         (ERA5 data)
      project_a/merra2/       (MERRA 2 data)
      project_a/station/      (data interpolated to stations)
      project_a/scale/        (final scaled files)
