@@ -479,9 +479,12 @@ class ERA5download(GenericDownload, ERA5generic):
 
         if self.era5type == 'reanalysis':
             self._set_data_directory("era5")
+            self.topo_file = 'era5_rea_to.nc'
+            
         elif self.era5type == 'ensemble_members':
             self._set_data_directory("era5ens")
-
+            self.topo_file = 'era5_ens_to.nc'
+            
         # time bounds
         self.date = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
                      'end': datetime.strptime(par['end'], '%Y/%m/%d')}
@@ -503,8 +506,8 @@ class ERA5download(GenericDownload, ERA5generic):
                        self.chunk_size) + 1
 
         # topography
-        if path.isfile(path.join(self.directory,'era5_to.nc')):
-            print("WARNING: File 'era5_to.nc' already exists. Skipping.")
+        if path.isfile(path.join(self.directory, self.topo_file)):
+            print(f"WARNING: File {self.topo_file} already exists. Skipping.")
         else:
             top = ERA5to(self.era5type, self.area, self.directory)
             top.download(self.storage)
