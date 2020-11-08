@@ -37,8 +37,17 @@ RUN apt-get install -y libnetcdff-dev
 RUN apt-get install -y nano
 RUN apt-get install -y git-lfs
 
+# Install GlobSim
 RUN git lfs clone https://github.com/geocryology/globsim --depth 1 /opt/globsim
+
+RUN cd /opt/globsim && python3 setup.py install
+
+# Copy pre-built ESMF package with python bidings
 RUN tar xvfz /opt/globsim/lib/esmf-python.tar.gz -C /opt
 
+# Add to python path so ESMF can be found
 RUN echo /opt >/usr/lib/python3/dist-packages/globsim.pth
 RUN ln -s /opt/esmf-install/ /opt/esmf
+
+# Add metadata
+LABEL description="A container for globsim"
