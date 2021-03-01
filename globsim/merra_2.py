@@ -1843,7 +1843,7 @@ class MERRAinterpolate(GenericInterpolate):
 
         ncfile_out: Full path to the output netCDF file to write.
 
-        points: A dictionary of locations. See method StationListRead in
+        points: A dataframe of locations. See method StationListRead in
                 common_utils.py for more details.
 
         variables:  List of variable(s) to interpolate such as
