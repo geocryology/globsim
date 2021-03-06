@@ -59,7 +59,7 @@
 # url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4')
 
 # 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields
-# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4/2016/01/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')
+# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4/2016/01/MERRA2_400.inst3_3d_asm_Np.20160101.nc4')
 
 # 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
 # url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')
@@ -109,6 +109,9 @@ from globsim.common_utils import str_encode, series_interpolate, variables_skip,
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from globsim.nc_elements import netcdf_base, new_scaled_netcdf
 
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning, module='urllib2')
 
 class MERRAgeneric():
     """
@@ -552,7 +555,7 @@ class MERRAgeneric():
 
         return date_ind, time_ind1, time_ind2, time_ind3
 
-    def restruDatastuff(self, data_area):
+    def restruDatastuff(self, data_area):  # Given a list of arrays for one (or more?) variable, stack them into one array per variable
         """ Restructuring the dimension of abstracted data stuff for preparing
         to save netCDF output results.
         return:
@@ -677,12 +680,6 @@ class MERRAgeneric():
 
         return data_total
 
-    def MERRA_skip(self, merralist):
-        ''' To remove the extra variables from downloaded MERRA2 data'''
-        for var in ['LWGEM', 'LWGNT', 'LWGNTCLR']:
-            if var in merralist :
-                merralist.remove(var)
-
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         # TODO: change date type from f4 to f8 for lat and lon
         '''
@@ -784,9 +781,9 @@ class SaveNCDF_pl_3dm():
 
         var_list = []
         # get RH
-        for i in range(0, len(get_variables_3dmasm[0:-4])):
+        for i in range(0, len(get_variables_3dmasm[0:-4])): # all variables excluding coordinate variables
             for x in var_out.keys():
-                if x == get_variables_3dmasm[i]:
+                if x == get_variables_3dmasm[i]:  #
                     print("------Get Subset of Variable at Pressure Levels------", get_variables_3dmasm[i])
                     var = MERRAgeneric().dataStuff_3d(i, id_lat, id_lon, id_lev, out_variable_3dmasm)
                     # restructuring the shape
@@ -921,34 +918,40 @@ class SaveNCDF_pl_3dm():
             # close the root group
             rootgrp.close()
 
+    def safety_checks(self, data_3dmasm, data_3dmana):
+        assert(np.array_equal(data_3dmasm[0].lat.data, data_3dmana[0].lat.data))
+        assert(np.array_equal(data_3dmasm[0].lev.data, data_3dmana[0].lev.data))
+        assert(np.array_equal(data_3dmasm[0].lon.data, data_3dmana[0].lon.data))
+
     def saveData2(self, data_3dmasm, data_3dmana, chunk_size, dir_data, elevation):
         """
         build NetCDF file for saving output variables (T, U, V, H, RH, lat, lon, levels, time)
         """
-        import pdb; pdb.set_trace()
+        self.safety_checks(data_3dmasm, data_3dmana)
+
         # set up File
-        file_ncdf  = path.join(dir_data, f"merra_pl_{data_3dmasm[0].time.begin_date}_to_{data_3dmasm[-1].time.begin_date}.nc")
+        file_ncdf  = path.join(dir_data, f"merra_pl_{data_3dmana[0].time.begin_date}_to_{data_3dmana[-1].time.begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
         rootgrp.source      = 'MERRA-2, meteorological variables from metadata at pressure levels'
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('level', len(data_2dm[0].lev))
-        _  = rootgrp.createDimension('lats', len(data_2dm[0].lat))
-        _  = rootgrp.createDimension('lons', len(data_2dm[0].lon))
+        _  = rootgrp.createDimension('level', len(data_3dmana[0].lev))
+        _  = rootgrp.createDimension('lats', len(data_3dmana[0].lat))
+        _  = rootgrp.createDimension('lons', len(data_3dmana[0].lon))
 
         # Create coordinate variables
         Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
-        Latitudes[:]  = data_3dmasm[0].lat.data    # pass the values of latitude
+        Latitudes[:]  = data_3dmana[0].lat.data    # pass the values of latitude
 
         Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
-        Longitudes[:] = data_3dmasm[0].lon.data
+        Longitudes[:] = data_3dmana[0].lon.data
 
         Level = rootgrp.createVariable('level','i4', ('level'))
         Level.standard_name = "air_pressure"
@@ -956,81 +959,61 @@ class SaveNCDF_pl_3dm():
         Level.units = "hPa"
         Level.positive = "down"
         Level.axis = "Z"
-        Level[:] = data_3dmasm[0].lev.data
+        Level[:] = data_3dmana[0].lev.data
 
-        data_variables = [v for v in list(data_2dm[0]) if v not in ['time', 'lat', 'lon']]
+        Time  = rootgrp.createVariable('time', 'i4', ('time'))
+        Time.standard_name = "time"
+        Time.units  = "hours since 1980-1-1 00:00:00"
+        Time.calendar      = "gregorian"
 
-        # get var_list, time indices
-        var_list, time_ind1, date_ind, size_type = self.varList(
-                date, get_variables_3dmasm, get_variables_3dmana, id_lat,
-                id_lon, id_lev, out_variable_3dmasm, out_variable_3dmana,
-                chunk_size, time, lev, lat, lon, dir_data, elevation)
+        netCDFTime = []
+        for x in data_3dmana:
+            time_datetime = nc.num2date(x.time.data, units=x.time.units, calendar=Time.calendar)  # Convert units
+            time_nc = nc.date2num(time_datetime, units=Time.units, calendar=Time.calendar)
+            netCDFTime.extend(time_nc)
 
+        Time[:] = netCDFTime
 
-        # save nc file
-        var_low = 0
-        var_up = 0
-        for i in range(0, 1):
-        # for i in range(0, len(size_type)):
-            var = size_type[i]
-            var_low = var_up
-            var_up = var_low + var
+        data_variables_3dmasm = [v for v in list(data_3dmasm[0]) if v not in ['time', 'lat', 'lon', 'lev']]
+        data_variables_3dmana = [v for v in list(data_3dmana[0]) if v not in ['time', 'lat', 'lon', 'lev']]
 
-            # set up file path and names
-            file_ncdf  = path.join(dir_data,("merra_pl" + "_" + (date_ind[var_low // len(time[0])]) + "_" + "to" + "_" +(date_ind[var_up // len(time[0]) - 1]) + ".nc"))
-            rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
-            print("Saved File Type:", rootgrp.file_format)
-            rootgrp.source      = 'Merra, abstrated meteorological variables from metadata at pressure levels'
-            rootgrp.featureType = "3_Dimension"
+        # Treat 6-hourly data
+        for x in data_variables_3dmana:
+            out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
+            out_var.long_name = data_3dmana[0][x].long_name
+            out_var.units         = data_3dmana[0][x].units
+            out_var.missing_value = data_3dmana[0][x].missing_value
 
+            # stack data arrays
+            all_data = np.concatenate([dataset[x].data[0] for dataset in data_3dmana], axis=0)
+           
+            # TODO: [NB] What's going on with the extrapolation here? Is this necessary?
+            if x in ["U", "V"]:
+                all_data = MERRAgeneric().wind_rh_Extrapolate(all_data)
 
-            # Output the results of output variables
-            for x in range(0, len(var_list)):
-                out_var = rootgrp.createVariable(var_list[x][0], 'f4', ('time', 'level', 'lats', 'lons'),fill_value=9.9999999E14)
-                out_var.standard_name = var_list[x][1]
-                out_var.long_name = var_list[x][2]
-                out_var.units         = var_list[x][3]
-                out_var.missing_value = 9.9999999E14
+            elif x in ["T"]:
+                h_data = np.concatenate([dataset["H"].data[0] for dataset in data_3dmana], axis=0)  # could also get from rootgrp["H"]
+                all_data = MERRAgeneric().tempExtrapolate(t_total=all_data, h_total=h_data, elevation=elevation)
 
-                # out_var.fmissing_value = (9.9999999E14, 'f')
-                # out_var.vmin = (-9.9999999E14, 'f')
-                # out_var.vmax = (9.9999999E14, 'f')
+            out_var[:] = all_data
 
-                out_var[:,:,:,:] = var_list[x][4][var_low:var_up,:,:,:]    # data generic name with data stored in it
+        # Treat 3-hourly data
+        for x in data_variables_3dmasm:
+            out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
+            out_var.long_name = data_3dmasm[0][x].long_name
+            out_var.units         = data_3dmasm[0][x].units
+            out_var.missing_value = data_3dmasm[0][x].missing_value
 
-            Time = rootgrp.createVariable('time', 'i4', ('time'))
-            Time.standard_name = "time"
-            Time.units  = "hours since 1980-1-1 00:00:00"
-            Time.calendar = "gregorian"
+            # stack data arrays
+            all_data = np.concatenate([dataset[x].data[0] for dataset in data_3dmasm], axis=0)
 
-            # pass the values
-            netCDFTime = []
-            for x in range(0, len(time_ind1)):
-                netCDFTime.append(nc.date2num(time_ind1[x], units=Time.units, calendar=Time.calendar))
-            Time[:] = netCDFTime[var_low:var_up]
+            # TODO: [NB] What's going on with the extrapolation here? Is this necessary?
+            if x in ["RH"]:
+                all_data = MERRAgeneric().wind_rh_Extrapolate(all_data)
 
-            Level = rootgrp.createVariable('level','i4', ('level'))
-            Level.standard_name = "air_pressure"
-            Level.long_name = "vertical level"
-            Level.units = "hPa"
-            Level.positive = "down"
-            Level.axis = "Z"
-            Level[:] = [L for L in lev[0]]
+            out_var[:] = all_data[::2,:,:,:]  # downsample to 6-hourly
 
-            Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
-            Latitudes.standard_name = "latitude"
-            Latitudes.units         = "degrees_north"
-            Latitudes.axis          = "Y"
-            Latitudes[:]  = [L for L in lat[0]]
-
-            Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
-            Longitudes.standard_name = "longitude"
-            Longitudes.units         = "degrees_east"
-            Longitudes.axis          = "X"
-            Longitudes[:] = [L for L in lon[0]]
-
-            # close the root group
-            rootgrp.close()
+        rootgrp.close()
 
 class SaveNCDF_sa():
     """ write output netCDF file for abstracted variables from original 2D
@@ -1108,7 +1091,7 @@ class SaveNCDF_sf():
     """ write output netCDF file for abstracted variables from original 2D
         radiation Diagnostics datasets  datasets
     """
-    def saveData2(self, data_2dr, data_2ds, data_2dv, dir_data):
+    def saveData(self, data_2dr, data_2ds, data_2dv, dir_data):
         """Build a NetCDF file for saving output variables (SWGDN, SWGDNCLR,
            LWRNT, LWGEM, LWGNTCLR, LWGAB, LWGABCLR, lat, lon, time)
            """
@@ -1316,57 +1299,70 @@ class MERRAdownload(GenericDownload):
     full_variables_dic = {
             'air_temperature': ['air_temperature',
                                 '2-meter_air_temperature'],
+            
             'relative_humidity' : ['relative_humidity',
                                     '2-metre_dewpoint_temperature',
                                     '2-metre_specific_humidity'],
+            
             'precipitation_amount': ['total_precipitation',
                                         'total_precipitation_corrected'],
+            
             'wind_from_direction': ['eastward_wind',
                                     'northward_wind',
                                     '2-meter_eastward_wind',
                                     '2-meter_northward_wind',
                                     '10-meter_eastward_wind',
                                     '10-meter_northward_wind'],
+            
             'wind_speed':['eastward_wind',
                             'northward_wind',
                             '2-meter_eastward_wind',
                             '2-meter_northward_wind',
                             '10-meter_eastward_wind',
                             '10-meter_northward_wind'],
+            
             'downwelling_shortwave_flux_in_air': ['surface_incoming_shortwave_flux'],
+            
             'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['surface_incoming_shortwave_flux_assuming_clear_sky'],
+            
             'downwelling_longwave_flux_in_air': ['surface_net_downward_longwave_flux',
-                                                    'longwave_flux_emitted_from_surface'],
+                                                 'longwave_flux_emitted_from_surface'],
+            
             'downwelling_longwave_flux_in_air_assuming_clear_sky':['surface_net_downward_longwave_flux_assuming_clear_sky',
-                                                                    'longwave_flux_emitted_from_surface']}
+                                                                   'longwave_flux_emitted_from_surface']}
 
     # build variables Standards Names and referenced Names for downloading
     # from orginal MERRA-2 datasets
+    
     # 3D Analyzed Meteorological fields data
     full_variables_pl_ana = {'geopotential_height':'H',
-                                    'air_temperature':'T',
-                                    'eastward_wind':'U',
-                                    'northward_wind': 'V'}
+                             'air_temperature':'T',
+                             'eastward_wind':'U',
+                             'northward_wind': 'V'}
     # 3D Assimilated Meteorological fields data
     full_variables_pl_asm = {'relative_humidity': 'RH'}
+    
     # 2D Single-Level Diagnostics data (instantaneous)
     full_variables_sm = {'2-meter_air_temperature': 'T2M',
-                                '2-meter_eastward_wind': 'U2M',
-                                '2-meter_northward_wind':'V2M',
-                                '10-meter_eastward_wind':'U10M',
-                                '10-meter_northward_wind':'V10M',
-                                '2-metre_specific_humidity':'QV2M'}
+                         '2-meter_eastward_wind': 'U2M',
+                         '2-meter_northward_wind':'V2M',
+                         '10-meter_eastward_wind':'U10M',
+                         '10-meter_northward_wind':'V10M',
+                         '2-metre_specific_humidity':'QV2M'}
+    
     # 2D surface flux diagnostics data
     full_variables_sf = {'total_precipitation': 'PRECTOT',
-                            'total_precipitation_corrected': 'PRECTOTCORR'}
+                         'total_precipitation_corrected': 'PRECTOTCORR'}
+    
     # 2D single-level diagnostics (time-averageed)
     full_variables_sv = {'2-metre_dewpoint_temperature': 'T2MDEW'}
+    
     # 2D radiation diagnostics data
     full_variables_sr = {'surface_incoming_shortwave_flux': 'SWGDN',
-                                'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
-                                'surface_net_downward_longwave_flux':'LWGNT',
-                                'longwave_flux_emitted_from_surface': 'LWGEM',
-                                'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR'}
+                         'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
+                         'surface_net_downward_longwave_flux':'LWGNT',
+                         'longwave_flux_emitted_from_surface': 'LWGEM',
+                         'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR'}
 
     """
     Class for MERRA-2 data that has methods for querying NASA GES DISC server,
@@ -1416,8 +1412,8 @@ class MERRAdownload(GenericDownload):
             s.set_elev_range(self.elevation['min'], self.elevation['max'])
 
         # set target variables for subsetter objects
-        self.subsetters['3dmasm'].set_variables(self.getVariables(self.full_variables_dic, self.full_variables_pl_asm))
-        self.subsetters['3dmana'].set_variables(self.getVariables(self.full_variables_dic, self.full_variables_pl_ana))
+        self.subsetters['3dmasm'].set_variables(self.getVariables(self.full_variables_dic, self.full_variables_pl_asm))  # Add H manually to match old code
+        self.subsetters['3dmana'].set_variables(["H"] + self.getVariables(self.full_variables_dic, self.full_variables_pl_ana))
 
         self.subsetters['2dm'].set_variables(self.getVariables(self.full_variables_dic, self.full_variables_sm))
         self.subsetters['2ds'].set_variables(self.getVariables(self.full_variables_dic, self.full_variables_sf))
@@ -1510,10 +1506,10 @@ class MERRAdownload(GenericDownload):
             data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
 
             print("Writing to NC file", end="\r")
-            
+
             SaveNCDF_sa().saveData(data_2dm, self.directory)
-            SaveNCDF_sf().saveData2(data_2dr, data_2ds, data_2dv, self.directory)
-            SaveNCDF_pl_3dm().saveData2(data_3dmana, data_3dmasm, chunk_size, self.directory, self.elevation)
+            SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
+            SaveNCDF_pl_3dm().saveData2(data_3dmasm, data_3dmana, chunk_size, self.directory, self.elevation)
 
     def download_merra_to(self):
         # check if it already exists
