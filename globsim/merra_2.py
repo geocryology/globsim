@@ -260,14 +260,14 @@ class SaveNCDF_pl_3dm():
             out_var.missing_value = data_3dmana[0][x].missing_value
 
             # stack data arrays
-            all_data = np.concatenate([dataset[x].data[0] for dataset in data_3dmana], axis=0)
+            all_data = np.concatenate([dataset[x].data for dataset in data_3dmana], axis=0)
 
             # TODO: [NB] What's going on with the extrapolation here? Is this necessary?
             if x in ["U", "V"]:
                 all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
 
             elif x in ["T"]:
-                h_data = np.concatenate([dataset["H"].data[0] for dataset in data_3dmana], axis=0)  # could also get from rootgrp["H"]
+                h_data = np.concatenate([dataset["H"].data for dataset in data_3dmana], axis=0)  # could also get from rootgrp["H"]
                 all_data = MERRAdownload.tempExtrapolate(t_total=all_data, h_total=h_data, elevation=elevation)
 
             out_var[:] = all_data
@@ -280,7 +280,7 @@ class SaveNCDF_pl_3dm():
             out_var.missing_value = data_3dmasm[0][x].missing_value
 
             # stack data arrays
-            all_data = np.concatenate([dataset[x].data[0] for dataset in data_3dmasm], axis=0)
+            all_data = np.concatenate([dataset[x].data for dataset in data_3dmasm], axis=0)
 
             # TODO: [NB] What's going on with the extrapolation here? Is this necessary?
             if x in ["RH"]:
@@ -343,7 +343,7 @@ class SaveNCDF_sa():
             out_var.missing_value = data_2dm[0][x].missing_value
 
             # stack data arrays
-            all_data = np.concatenate([dataset[x].data[0] for dataset in data_2dm], axis=0)
+            all_data = np.concatenate([dataset[x].data for dataset in data_2dm], axis=0)
             out_var[:] = all_data
 
         # Fill in the time
@@ -411,7 +411,7 @@ class SaveNCDF_sf():
                 out_var.missing_value = source[0][x].missing_value
 
                 # stack data arrays
-                all_data = np.concatenate([dataset[x].data[0] for dataset in source], axis=0)
+                all_data = np.concatenate([dataset[x].data for dataset in source], axis=0)
                 out_var[:] = all_data
 
         # Fill in the time
