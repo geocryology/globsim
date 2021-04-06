@@ -262,7 +262,6 @@ class SaveNCDF_pl_3dm():
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmana], axis=0)
 
-            # TODO: [NB] What's going on with the extrapolation here? Is this necessary?
             if x in ["U", "V"]:
                 all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
 
@@ -282,7 +281,6 @@ class SaveNCDF_pl_3dm():
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmasm], axis=0)
 
-            # TODO: [NB] What's going on with the extrapolation here? Is this necessary?
             if x in ["RH"]:
                 all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
 
@@ -517,8 +515,77 @@ class SaveNCDF_sc():
 class MERRAdownload(GenericDownload):
     """
     Class for MERRA-2 data that has methods for querying NASA GES DISC server,
-    and returning all variables usually wanted.
+    and returning data and coordinate variables.
     """
+    # Translate between config file variable names (CF standard_names) and MERRA-2 
+
+    full_variables_dic = {
+            'air_temperature': ['air_temperature',
+                                '2-meter_air_temperature'],
+
+            'relative_humidity' : ['relative_humidity',
+                                   '2-metre_dewpoint_temperature',
+                                   '2-metre_specific_humidity'],
+
+            'precipitation_amount': ['total_precipitation',
+                                     'total_precipitation_corrected'],
+
+            'wind_from_direction': ['eastward_wind',
+                                    'northward_wind',
+                                    '2-meter_eastward_wind',
+                                    '2-meter_northward_wind',
+                                    '10-meter_eastward_wind',
+                                    '10-meter_northward_wind'],
+
+            'wind_speed':['eastward_wind',
+                          'northward_wind',
+                          '2-meter_eastward_wind',
+                          '2-meter_northward_wind',
+                          '10-meter_eastward_wind',
+                          '10-meter_northward_wind'],
+
+            'downwelling_shortwave_flux_in_air': ['surface_incoming_shortwave_flux'],
+
+            'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['surface_incoming_shortwave_flux_assuming_clear_sky'],
+
+            'downwelling_longwave_flux_in_air': ['surface_net_downward_longwave_flux',
+                                                 'longwave_flux_emitted_from_surface'],
+
+            'downwelling_longwave_flux_in_air_assuming_clear_sky':['surface_net_downward_longwave_flux_assuming_clear_sky',
+                                                                   'longwave_flux_emitted_from_surface']}
+
+    # build variables Standards Names and referenced Names for downloading
+    # from orginal MERRA-2 datasets
+
+    # 3D Analyzed Meteorological fields data
+    full_variables_pl_ana = {'geopotential_height':'H',
+                             'air_temperature':'T',
+                             'eastward_wind':'U',
+                             'northward_wind': 'V'}
+    # 3D Assimilated Meteorological fields data
+    full_variables_pl_asm = {'relative_humidity': 'RH'}
+
+    # 2D Single-Level Diagnostics data (instantaneous)
+    full_variables_sm = {'2-meter_air_temperature': 'T2M',
+                         '2-meter_eastward_wind': 'U2M',
+                         '2-meter_northward_wind':'V2M',
+                         '10-meter_eastward_wind':'U10M',
+                         '10-meter_northward_wind':'V10M',
+                         '2-metre_specific_humidity':'QV2M'}
+
+    # 2D surface flux diagnostics data
+    full_variables_sf = {'total_precipitation': 'PRECTOT',
+                         'total_precipitation_corrected': 'PRECTOTCORR'}
+
+    # 2D single-level diagnostics (time-averageed)
+    full_variables_sv = {'2-metre_dewpoint_temperature': 'T2MDEW'}
+
+    # 2D radiation diagnostics data
+    full_variables_sr = {'surface_incoming_shortwave_flux': 'SWGDN',
+                         'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
+                         'surface_net_downward_longwave_flux':'LWGNT',
+                         'longwave_flux_emitted_from_surface': 'LWGEM',
+                         'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR'}
     
     def __init__(self, pfile):
         super().__init__(pfile)
@@ -656,13 +723,18 @@ class MERRAdownload(GenericDownload):
 
     @staticmethod
     def tempExtrapolate(t_total, h_total, elevation):
-        """ Processing 1D vertical extrapolation for Air Temperature, at where
-            the values are lacking  (marked by 9.9999999E14) from merra-2 3D
-            Analyzed Meteorological Fields datasets.
-            IMPORTANT TIP:
-            To set up 'ele_max = 2500' (meter) or higher
-            Reason: to make sure. get enough levels of geopotential height for
-            conducting 1dinterp (linear) (2 points of values needed at least)
+        """ Extrapolate data beyond mask limits.
+
+        MERRA2 applies a mask to data lower than the land surface. This is different
+        from the other reanalyses and will introduce errors during interpolation without
+        This extra extrapolation step. 
+
+        We conduct 1D vertical extrapolation for missing values (9.9999999E14).
+
+        IMPORTANT TIP:
+        ! Set 'ele_max' to 2500 m or higher in the configuration file !
+        Reason: to make sure to get enough levels of geopotential height for
+        conducting linear interpolation (1dinterp). At least 2 data points are required
         """
 
         # restructure t_total [time*lev*lat*lon] to [lat*lon*time*lev]
@@ -728,13 +800,15 @@ class MERRAdownload(GenericDownload):
 
     @staticmethod
     def wind_rh_Extrapolate(data_total):
-        """Processing 1D vertical extrapolation for UV and RH, at where the
-           values are lacking (marked by 9.9999999E14) from merra-2 3d Analyzed
-           Meteorological Fields datasets.
-           Wind (U,V) and Relative Humidity (RH) are utilized the value of at
-           lowest pressure levels to the ones with value gaps
+        """ Extrapolate data beyond mask limits
+
+        MERRA2 applies a mask to data lower than the land surface. This is different
+        from the other reanalyses and will introduce errors during interpolation without
+        This extra extrapolation step. 
+
+        We conduct 1D vertical extrapolation for missing values (9.9999999E14). 
         """
-        # restructure u_total,v_total [time*lev*lat*lon] to [lat*lon*time*lev]
+        # restructure u_total,v_total from [time, lev, lat, lon] to [lat, lon, time, lev]
         data_total = data_total[:,:,:,:].transpose((2,3,0,1))
 
         # find and fill the value gap
@@ -763,76 +837,6 @@ class MERRAdownload(GenericDownload):
         data_total = data_total[:,:,:,:].transpose((2,3,0,1))
 
         return data_total
-
-    # build full dictionary between variable names from input parameter
-    # file and original merra2 data products
-    full_variables_dic = {
-            'air_temperature': ['air_temperature',
-                                '2-meter_air_temperature'],
-
-            'relative_humidity' : ['relative_humidity',
-                                   '2-metre_dewpoint_temperature',
-                                   '2-metre_specific_humidity'],
-
-            'precipitation_amount': ['total_precipitation',
-                                     'total_precipitation_corrected'],
-
-            'wind_from_direction': ['eastward_wind',
-                                    'northward_wind',
-                                    '2-meter_eastward_wind',
-                                    '2-meter_northward_wind',
-                                    '10-meter_eastward_wind',
-                                    '10-meter_northward_wind'],
-
-            'wind_speed':['eastward_wind',
-                          'northward_wind',
-                          '2-meter_eastward_wind',
-                          '2-meter_northward_wind',
-                          '10-meter_eastward_wind',
-                          '10-meter_northward_wind'],
-
-            'downwelling_shortwave_flux_in_air': ['surface_incoming_shortwave_flux'],
-
-            'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['surface_incoming_shortwave_flux_assuming_clear_sky'],
-
-            'downwelling_longwave_flux_in_air': ['surface_net_downward_longwave_flux',
-                                                 'longwave_flux_emitted_from_surface'],
-
-            'downwelling_longwave_flux_in_air_assuming_clear_sky':['surface_net_downward_longwave_flux_assuming_clear_sky',
-                                                                   'longwave_flux_emitted_from_surface']}
-
-    # build variables Standards Names and referenced Names for downloading
-    # from orginal MERRA-2 datasets
-
-    # 3D Analyzed Meteorological fields data
-    full_variables_pl_ana = {'geopotential_height':'H',
-                             'air_temperature':'T',
-                             'eastward_wind':'U',
-                             'northward_wind': 'V'}
-    # 3D Assimilated Meteorological fields data
-    full_variables_pl_asm = {'relative_humidity': 'RH'}
-
-    # 2D Single-Level Diagnostics data (instantaneous)
-    full_variables_sm = {'2-meter_air_temperature': 'T2M',
-                         '2-meter_eastward_wind': 'U2M',
-                         '2-meter_northward_wind':'V2M',
-                         '10-meter_eastward_wind':'U10M',
-                         '10-meter_northward_wind':'V10M',
-                         '2-metre_specific_humidity':'QV2M'}
-
-    # 2D surface flux diagnostics data
-    full_variables_sf = {'total_precipitation': 'PRECTOT',
-                         'total_precipitation_corrected': 'PRECTOTCORR'}
-
-    # 2D single-level diagnostics (time-averageed)
-    full_variables_sv = {'2-metre_dewpoint_temperature': 'T2MDEW'}
-
-    # 2D radiation diagnostics data
-    full_variables_sr = {'surface_incoming_shortwave_flux': 'SWGDN',
-                         'surface_incoming_shortwave_flux_assuming_clear_sky': 'SWGDNCLR',
-                         'surface_net_downward_longwave_flux':'LWGNT',
-                         'longwave_flux_emitted_from_surface': 'LWGEM',
-                         'surface_net_downward_longwave_flux_assuming_clear_sky': 'LWGNTCLR'}
 
     def start_session(self):
         self.session = setup_session(self.username, self.password, 
