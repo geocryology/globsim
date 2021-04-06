@@ -108,7 +108,11 @@ from math              import floor, atan2, pi
 
 from scipy.interpolate import interp1d
 
-from globsim.common_utils import str_encode, series_interpolate, variables_skip, GenericDownload, GenericScale, GenericInterpolate
+from globsim.GenericDownload import GenericDownload
+from globsim.GenericInterpolate import GenericInterpolate
+from globsim.GenericScale import GenericScale
+
+from globsim.common_utils import str_encode, series_interpolate, variables_skip
 from globsim.meteorology import LW_downward, pressure_from_elevation
 from globsim.nc_elements import netcdf_base, new_scaled_netcdf
 

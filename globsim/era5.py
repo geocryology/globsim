@@ -51,7 +51,11 @@ from fnmatch import filter
 
 import urllib3
 
-from globsim.common_utils import series_interpolate, variables_skip, str_encode, GenericDownload, GenericScale, GenericInterpolate
+from globsim.GenericDownload import GenericDownload
+from globsim.GenericInterpolate import GenericInterpolate
+from globsim.GenericScale import GenericScale
+
+from globsim.common_utils import series_interpolate, variables_skip, str_encode
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
 from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
 
