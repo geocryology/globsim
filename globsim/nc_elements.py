@@ -1,11 +1,13 @@
 """
 functions for creating netcdf files
 """
+from datetime import datetime
 import netCDF4 as nc
-from globsim.common_utils import variables_skip, str_encode
-from os import path
 import numpy as np
 
+from globsim.common_utils import variables_skip, str_encode
+from globsim._version import __version__
+from os import path
 
 def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):
     rootgrp = nc.Dataset(ncfile_out, 'w', format=fmt)
@@ -230,3 +232,13 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None):
         pass
 
     return rootgrp
+
+def add_history(rootgrp, globsim_command):
+    # Add ACDD history metadata line
+    if not hasattr(rootgrp, 'history'):
+        rootgrp.history = ""
+
+    if globsim_command.lower() in ['download', 'interpolate', 'scale']
+    new_history = f"{rootgrp.history}\n{datetime.now().isoformat()} globsim{__version__} {globsim_command}"
+    
+    rootgrp.history = new_history
