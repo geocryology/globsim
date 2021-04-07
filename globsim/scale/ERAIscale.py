@@ -39,21 +39,19 @@
 # ===============================================================================
 from __future__ import print_function
 
-import numpy as np
+
 import netCDF4 as nc
+import numpy as np
 
 from datetime import timedelta
 from math import floor, atan2, pi
 from os import path
 from scipy.interpolate import interp1d
 
-
-from globsim.scale.GenericScale import GenericScale
-
-from globsim.common_utils import (series_interpolate, cummulative2total)
-from globsim.nc_elements import new_scaled_netcdf
+from globsim.common_utils import series_interpolate, cummulative2total
 from globsim.meteorology import spec_hum_kgkg, LW_downward
-
+from globsim.nc_elements import new_scaled_netcdf
+from globsim.scale.GenericScale import GenericScale
 
 class ERAIscale(GenericScale):
     NAME = "ERA-I"

@@ -1,19 +1,19 @@
 from __future__        import print_function
 
-import numpy as np
 import netCDF4 as nc
+import numpy as np
 import sys
 
 from datetime          import datetime
 from os                import path, makedirs
 
-from globsim.interpolate.GenericInterpolate import GenericInterpolate
-
 from globsim.common_utils import str_encode, variables_skip
+from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
+
 
 class MERRAinterpolate(GenericInterpolate):
     """

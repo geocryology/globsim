@@ -2,25 +2,23 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import urllib.request
-import urllib.error
+import glob
 import http.cookiejar
 import json
-import glob
-import tarfile
-import time
-import sys
-
 import netCDF4 as nc
 import numpy as np
+import sys
+import tarfile
+import time
+import urllib.error
+import urllib.request
 
 from datetime import datetime, timedelta
-from os import path, remove, makedirs
 from math import floor
-
-from globsim.download.GenericDownload import GenericDownload
+from os import path, remove, makedirs
 
 from globsim.common_utils import variables_skip
+from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
 

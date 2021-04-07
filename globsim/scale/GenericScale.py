@@ -1,17 +1,16 @@
 from __future__ import print_function
 
+import tomlkit
+
 from os import path, makedirs
 
-import tomlkit
-import re
-
 from globsim.common_utils import StationListRead
+
 # handle python 3 string types
 try:
     basestring
 except NameError:
     basestring = str
-
 
 
 class GenericScale:

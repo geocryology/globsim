@@ -1,15 +1,15 @@
 from __future__ import print_function
 
+import numpy as np
+import re
+import tomlkit
+
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from fnmatch import filter as fnmatch_filter
 
-import tomlkit
-import numpy as np
-
-import re
-
 from globsim.common_utils import StationListRead, str_encode
+
 # handle python 3 string types
 try:
     basestring
@@ -22,6 +22,7 @@ try:
     # Check ESMF version.  7.0.1 behaves differently than 7.1.0r
     ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
     ESMFnew = ESMFv > 701
+
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass

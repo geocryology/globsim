@@ -3,22 +3,6 @@
 # Methods for downloading ERA5 data from the ECMWF server for limited
 # areas and limited times.
 #
-#
-# (C) Copyright Stephan Gruber (2013–2017)
-#
-#     This program is free software: you can redistribute it and/or modify
-#     it under the terms of the GNU General Public License as published by
-#     the Free Software Foundation, either version 3 of the License, or
-#     (at your option) any later version.
-#
-#     This program is distributed in the hope that it will be useful,
-#     but WITHOUT ANY WARRANTY; without even the implied warranty of
-#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#     GNU General Public License for more details.
-#
-#     You should have received a copy of the GNU General Public License
-#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
 #  OVERALL WORKFLOW
 #
 #  See: https://github.com/geocryology/globsim/wiki/Globsim
@@ -39,26 +23,21 @@
 
 from __future__ import print_function
 
-import numpy as np
 import netCDF4 as nc
+import numpy as np
+import urllib3
 
 from datetime import timedelta
 from math import floor, atan2, pi
 from os import path
 from scipy.interpolate import interp1d
 
-import urllib3
-
+from globsim.common_utils import series_interpolate
+from globsim.meteorology import spec_hum_kgkg
+from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
-from globsim.common_utils import series_interpolate
-from globsim.nc_elements import new_scaled_netcdf
-from globsim.meteorology import spec_hum_kgkg
-
 urllib3.disable_warnings()
-
-
-
 
 
 class ERA5scale(GenericScale):

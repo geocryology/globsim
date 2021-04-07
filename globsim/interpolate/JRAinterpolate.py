@@ -8,9 +8,8 @@ import numpy as np
 from datetime import datetime
 from os import path
 
-from globsim.interpolate.GenericInterpolate import GenericInterpolate
-
 from globsim.common_utils import str_encode, variables_skip
+from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
 

@@ -1,20 +1,18 @@
 
 from __future__ import print_function
 
+import cdsapi
 import numpy as np
 import netCDF4 as nc
-import cdsapi
-
-from datetime import datetime, timedelta
-from math import floor
-from os import path, listdir
-from fnmatch import filter
-
 import urllib3
 
-from globsim.download.GenericDownload import GenericDownload
+from datetime import datetime, timedelta
+from fnmatch import filter
+from math import floor
+from os import path, listdir
 
 from globsim.common_utils import str_encode
+from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
 urllib3.disable_warnings()

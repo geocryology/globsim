@@ -1,18 +1,17 @@
 from __future__ import print_function
 
 import glob
-import numpy as np
 import netCDF4 as nc
+import numpy as np
 
 from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
+from fnmatch import filter
 from math import floor
 from os import path, listdir, remove
-from fnmatch import filter
-
-from globsim.download.GenericDownload import GenericDownload
 
 from globsim.common_utils import str_encode
+from globsim.download.GenericDownload import GenericDownload
 
 try:
     from nco import Nco
