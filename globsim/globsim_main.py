@@ -36,7 +36,7 @@ from globsim.LazyLoader import LazyLoader
 
 download = LazyLoader('globsim.download')
 interpolate = LazyLoader('globsim.interpolate')
-scale = LazyLoader('globsim.interpolate')
+scale = LazyLoader('globsim.scale')
 
 # from globsim.download import *
 # from globsim.scale import *

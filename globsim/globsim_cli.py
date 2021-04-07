@@ -6,11 +6,8 @@ __version__ = "2.0.1"
 
 import sys
 import argparse
-from globsim.LazyLoader import LazyLoader
 
-globsim_download = LazyLoader("globsim.globsim_download")
-globsim_interpolate = LazyLoader("globsim.globsim_interpolate")
-globsim_scale = LazyLoader("globsim.globsim_scale")
+from globsim import globsim_download, globsim_scale, globsim_interpolate
 
 action_dict = {'download': globsim_download,
                'interpolate': globsim_interpolate,
