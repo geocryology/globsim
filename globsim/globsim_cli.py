@@ -1,13 +1,11 @@
 """globsim.globsim: provides entry point main()."""
 
 
-__version__ = "2.0.1"
-
-
 import sys
 import argparse
 
 from globsim import globsim_download, globsim_scale, globsim_interpolate
+from globsim._version import __version__
 
 action_dict = {'download': globsim_download,
                'interpolate': globsim_interpolate,
