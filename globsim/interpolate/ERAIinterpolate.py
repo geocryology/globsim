@@ -80,7 +80,7 @@ class ERAIinterpolate(GenericInterpolate):
 
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                      time_units= 'hours since 1900-01-01 00:00:0.0')
+                                          time_units= 'hours since 1900-01-01 00:00:0.0')
         rootgrp.source = 'ERA_Interim, interpolated bilinearly to stations'
         rootgrp.close()
 
@@ -196,7 +196,7 @@ class ERAIinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncfile_out, len(height), nt, 'hours since 1900-01-01 00:00:0.0')
+        rootgrp = netcdf_base(ncfile_out=ncfile_out, n_stations=len(height), n_time=nt, time_units='hours since 1900-01-01 00:00:0.0')
         rootgrp.source = 'ERA-Interim, interpolated (bi)linearly to stations'
 
         time = rootgrp['time']

@@ -860,14 +860,14 @@ class MERRASubsetter:
         return "[{}:{}]".format(np.min(indices), np.max(indices))
 
     def subset_2d_variable(self, variable_name, lat_min, lat_max, lon_min, lon_max):
-        var_string = "".join(variable_name, self.subset_time(), 
-                             self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max))
+        var_string = "".join([variable_name, self.subset_time(), 
+                              self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max)])
 
         return var_string
 
     def subset_3d_variable(self, variable_name, elev_min, elev_max, lat_min, lat_max, lon_min, lon_max):
-        var_string = "".join(variable_name, self.subset_time(), self.subset_lev(elev_min, elev_max),
-                             self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max))
+        var_string = "".join([variable_name, self.subset_time(), self.subset_lev(elev_min, elev_max),
+                              self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max)])
 
         return var_string
 

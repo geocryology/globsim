@@ -226,8 +226,8 @@ class ERA5interpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncf, ncfile_out, len(height), nt,
-                              'hours since 1900-01-01 00:00:0.0')
+        rootgrp = netcdf_base(ncfile_out, len(height), nt,
+                              'hours since 1900-01-01 00:00:0.0', ncf)
         if self.ens:
             rootgrp.source = 'ERA5 10-member ensemble, interpolated (bi)linearly to stations'
         else:

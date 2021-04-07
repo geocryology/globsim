@@ -146,7 +146,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
-    rootgrp = netcdf_base(nc_in, ncfile_out, len(stations), None, time_units)
+    rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units, nc_in)
 
     station = rootgrp['station']
     latitude = rootgrp['latitude']
@@ -203,7 +203,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     return rootgrp
 
 
-def netcdf_base(nc_in, ncfile_out, n_stations, n_time, time_units):
+def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None):
     # Build the netCDF file
     rootgrp = nc_new_file(ncfile_out)
 
@@ -219,7 +219,7 @@ def netcdf_base(nc_in, ncfile_out, n_stations, n_time, time_units):
     _ = ncvar_add_longitude(rootgrp)
     _ = ncvar_add_ellipsoid_height(rootgrp)
 
-    # for ERA5 enmsemble member only
+    # for ERA5 ensemble member only
     try:
         num    = nc_in.variables['number'][:]
         number = rootgrp.createDimension('number', len(num))

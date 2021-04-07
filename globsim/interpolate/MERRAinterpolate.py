@@ -41,7 +41,7 @@ class MERRAinterpolate(GenericInterpolate):
         variables:  variables read from netCDF handle
         lev:        list of pressure levels, empty is [] (default)
         '''
-        rootgrp = netcdf_base(nc_in, ncfile_out, len(stations), None,
+        rootgrp = netcdf_base(ncfile_out, len(stations), None,
                               'hours since 1980-01-01 00:00:00')
 
         station = rootgrp["station"]
@@ -70,7 +70,6 @@ class MERRAinterpolate(GenericInterpolate):
 
         # remove extra variables
         varlist_merra = [str_encode(x) for x in nc_in.variables.keys()]
-        self.MERRA_skip(varlist_merra)
 
         # create and assign variables based on input file
         for n, var in enumerate(varlist_merra):
@@ -125,7 +124,7 @@ class MERRAinterpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        self().netCDF_empty(ncfile_out, self.stations, ncf_in)
+        self.netCDF_empty(ncfile_out, self.stations, ncf_in)
 
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
@@ -233,7 +232,7 @@ class MERRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncf, ncfile_out, len(height), nt,
+        rootgrp = netcdf_base(ncfile_out, len(height), nt,
                               'hours since 1980-01-01 00:00:00')
         rootgrp.source  = 'MERRA-2, interpolated (bi)linearly to stations'
 

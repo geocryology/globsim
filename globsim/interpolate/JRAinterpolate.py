@@ -196,7 +196,7 @@ class JRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncf, ncfile_out, len(height), nt,
+        rootgrp = netcdf_base(ncfile_out, len(height), nt,
                               'hours since 1800-01-01 00:00:0.0')
         rootgrp.source = 'JRA-55, interpolated (bi)linearly to stations'
 
