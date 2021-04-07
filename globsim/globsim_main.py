@@ -31,15 +31,21 @@
 # wrote the CF conventions part, and tested globsim.
 #===============================================================================
 
-
-from globsim.era_interim import ERAIdownload, ERAIinterpolate, ERAIscale
-from globsim.era5 import ERA5download, ERA5interpolate, ERA5scale
-from globsim.merra_2 import MERRAdownload, MERRAinterpolate, MERRAscale
-from globsim.JRA import JRAdownload, JRAinterpolate, JRAscale
 from multiprocessing.dummy import Pool as ThreadPool
+from globsim.LazyLoader import LazyLoader
+
+download = LazyLoader('globsim.download')
+interpolate = LazyLoader('globsim.interpolate')
+scale = LazyLoader('globsim.interpolate')
+
+# from globsim.download import *
+# from globsim.scale import *
+# from globsim.interpolate import *
+
+# from globsim.JRA import JRAdownload, JRAinterpolate, JRAscale
 
 
-def GlobsimDownload(pfile, multithread = True, 
+def GlobsimDownload(pfile, multithread=True, 
                     ERAI=True, ERA5=True, 
                     ERA5ENS=True, MERRA=True, JRA=True):
     """
@@ -52,37 +58,37 @@ def GlobsimDownload(pfile, multithread = True,
     
     # === ERA-Interim ===
     if ERAI:
-        ERAIdownl = ERAIdownload(pfile)
+        ERAIdownl = download.ERAIdownload(pfile)
         objects.append(ERAIdownl)
     
     # === ERA5 ===
     if ERA5:
-        ERA5REAdownl = ERA5download(pfile, 'reanalysis')
+        ERA5REAdownl = download.ERA5download(pfile, 'reanalysis')
         objects.append(ERA5REAdownl)
     
     # === ERA5 10-member ensemble ===
     if ERA5ENS:
-        ERA5ENSdownl = ERA5download(pfile, 'ensemble_members')
+        ERA5ENSdownl = download.ERA5download(pfile, 'ensemble_members')
         objects.append(ERA5ENSdownl)
     
     # === MERRA-2 ===
     if MERRA:
-        MERRAdownl = MERRAdownload(pfile)
+        MERRAdownl = download.MERRAdownload(pfile)
         objects.append(MERRAdownl)
 
     # === JRA-55 ===
     if JRA:
-        JRAdownl = JRAdownload(pfile)
+        JRAdownl = download.JRAdownload(pfile)
         objects.append(JRAdownl)
 
     # serial of parallel execution
-    if multithread == True:
+    if multithread:
         # Make the Pool of workers and run as lambda functions
         pool = ThreadPool(len(objects)) 
         results = pool.map(lambda ob: ob.retrieve(), objects)
-        #close the pool and wait for the work to finish 
-        pool.close() 
-        pool.join() 
+        # close the pool and wait for the work to finish 
+        pool.close()
+        pool.join()
         print('Multithreaded download finished')
     else:
         for result in (ob.retrieve() for ob in objects):
@@ -100,27 +106,27 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
     
     # === ERA-Interim ===
     if ERAI:
-        ERAIinterp = ERAIinterpolate(ifile)
+        ERAIinterp = interpolate.ERAIinterpolate(ifile)
         ERAIinterp.process()
     
     # === ERA5 ===
     if ERA5:
-        ERA5interp = ERA5interpolate(ifile)
+        ERA5interp = interpolate.ERA5interpolate(ifile)
         ERA5interp.process()
         
     # === ERA5ENS ===
     if ERA5ENS:
-        ERA5interp = ERA5interpolate(ifile, 'ensemble_members')
+        ERA5interp = interpolate.ERA5interpolate(ifile, 'ensemble_members')
         ERA5interp.process()
     
     # === MERRA-2 ===
     if MERRA:
-        MERRAinterp = MERRAinterpolate(ifile)
+        MERRAinterp = interpolate.MERRAinterpolate(ifile)
         MERRAinterp.process()
 
     # === JRA-55 ===
     if JRA:
-        JRAinterp = JRAinterpolate(ifile)
+        JRAinterp = interpolate.JRAinterpolate(ifile)
         JRAinterp.process()
   
             
@@ -133,26 +139,26 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True
     """
     # === ERA-Interim ===
     if ERAI:
-        ERAIsc = ERAIscale(sfile)
+        ERAIsc = scale.ERAIscale(sfile)
         ERAIsc.process()
     
     # === ERA5 ===
     if ERA5:
-        ERA5sc = ERA5scale(sfile)
+        ERA5sc = scale.ERA5scale(sfile)
         ERA5sc.process()
         
     # === ERA5ENS ===
     if ERA5ENS:
-        ERA5sc = ERA5scale(sfile, 'ensemble_members')
+        ERA5sc = scale.ERA5scale(sfile, 'ensemble_members')
         ERA5sc.process()
     
     # # === MERRA-2 ===
     if MERRA:
-        MERRAsc = MERRAscale(sfile)
+        MERRAsc = scale.MERRAscale(sfile)
         MERRAsc.process()
     #     
     # # === JRA-55 ===
     if JRA:
-        JRAsc = JRAscale(sfile)
+        JRAsc = scale.JRAscale(sfile)
         JRAsc.process()
                   
