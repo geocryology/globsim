@@ -12,6 +12,7 @@ from os import path, listdir, remove
 
 from globsim.common_utils import str_encode
 from globsim.download.GenericDownload import GenericDownload
+from globsim.meteorology import pressure_from_elevation
 
 try:
     from nco import Nco
