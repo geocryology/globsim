@@ -9,10 +9,16 @@ from globsim.common_utils import variables_skip, str_encode
 from globsim._version import __version__
 from os import path
 
+GLOBAL_METADATA = {
+    'standard_name_vocabulary': 'CF Standard Name Table v27',
+}
+
 def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):
     rootgrp = nc.Dataset(ncfile_out, 'w', format=fmt)
     rootgrp.Conventions = 'CF-1.6'
     rootgrp.featureType = featureType
+    rootgrp.date_created = datetime.now().isoformat()[:19]  # ACDD attribute
+    rootgrp.globsim_version = __version__
 
     return rootgrp
 
@@ -133,6 +139,7 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
 
         # add data
         st[:] = names_out
+    add_history(rootgrp, 'scale', nc_interpol)
 
     return rootgrp
 
@@ -202,6 +209,9 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
         tmp.long_name = nc_in.variables[var].long_name.encode('UTF8')
         tmp.units     = nc_in.variables[var].units.encode('UTF8')
 
+    # add history
+    add_history(rootgrp, "interpolate", nc_in)
+
     return rootgrp
 
 
@@ -233,12 +243,18 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None):
 
     return rootgrp
 
-def add_history(rootgrp, globsim_command):
-    # Add ACDD history metadata line
+def add_history(rootgrp, globsim_command, nc_in=None):
+    if nc_in and hasattr(nc_in, 'history'):
+        print("adding history from nc_in")
+        rootgrp.history = nc_in.history
+    
     if not hasattr(rootgrp, 'history'):
+        print("no history found")
         rootgrp.history = ""
 
-    if globsim_command.lower() in ['download', 'interpolate', 'scale']
-    new_history = f"{rootgrp.history}\n{datetime.now().isoformat()} globsim{__version__} {globsim_command}"
-    
-    rootgrp.history = new_history
+    add_newline = (rootgrp.history != "") and (rootgrp.history[-1] != "\n")
+    newline = "\n" if add_newline else ""
+
+    if globsim_command.lower() in ['download', 'interpolate', 'scale']:
+        new_history = f"{rootgrp.history}{newline}{datetime.now().isoformat()[:19]} globsim-{__version__} {globsim_command}"
+        rootgrp.history = new_history

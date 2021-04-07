@@ -9,7 +9,7 @@ from os import path
 
 from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, add_history
 
 try:
     import ESMF
@@ -81,7 +81,7 @@ class ERAIinterpolate(GenericInterpolate):
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units= 'hours since 1900-01-01 00:00:0.0')
-        rootgrp.source = 'ERA_Interim, interpolated bilinearly to stations'
+        rootgrp.source = 'ERA Interim  Reanalysis'
         rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
@@ -197,7 +197,7 @@ class ERAIinterpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         rootgrp = netcdf_base(ncfile_out=ncfile_out, n_stations=len(height), n_time=nt, time_units='hours since 1900-01-01 00:00:0.0')
-        rootgrp.source = 'ERA-Interim, interpolated (bi)linearly to stations'
+        rootgrp.source = 'ERA-Interim Reanalysis'
 
         time = rootgrp['time']
         station = rootgrp['station']
@@ -258,6 +258,12 @@ class ERAIinterpolate(GenericInterpolate):
                     data = ncf.variables[var][:,:,n].ravel()
                 ipol = data[va]*wa + data[vb]*wb   # interpolated value
                 rootgrp.variables[var][:,n] = ipol # assign to file
+
+        for attr in list(ncf.ncattrs()):   # copy metadata
+            try:  # getncattr doesn't work for MFDataset. We might get a problem with getattr
+                rootgrp.setncattr(attr, getattr(ncf, attr))
+            except Exception:  
+                pass
 
         rootgrp.close()
         ncf.close()
