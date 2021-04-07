@@ -12,7 +12,7 @@ from fnmatch import filter
 
 from globsim.download.GenericDownload import GenericDownload
 
-from globsim.common_utils import  str_encode
+from globsim.common_utils import str_encode
 
 try:
     from nco import Nco

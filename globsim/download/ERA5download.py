@@ -6,18 +6,16 @@ import netCDF4 as nc
 import cdsapi
 
 from datetime import datetime, timedelta
-from math import floor, atan2, pi
+from math import floor
 from os import path, listdir
-from scipy.interpolate import interp1d
 from fnmatch import filter
 
 import urllib3
 
 from globsim.download.GenericDownload import GenericDownload
 
-from globsim.common_utils import series_interpolate, variables_skip, str_encode
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
+from globsim.common_utils import str_encode
+from globsim.meteorology import pressure_from_elevation
 
 urllib3.disable_warnings()
 

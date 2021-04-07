@@ -2,28 +2,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import urllib.request
-import urllib.error
-import http.cookiejar
-import json
-import glob
-import tarfile
-import time
-import sys
-
 import netCDF4 as nc
 import numpy as np
 
-from datetime import datetime, timedelta
-from os import path, remove, makedirs
-from math import floor, atan2, pi
-from scipy.interpolate import interp1d
+from datetime import datetime
+from os import path
 
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 
-from globsim.common_utils import str_encode, series_interpolate, variables_skip
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from globsim.meteorology import LW_downward, pressure_from_elevation
+from globsim.common_utils import str_encode, variables_skip
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
 
 class JRAinterpolate(GenericInterpolate):

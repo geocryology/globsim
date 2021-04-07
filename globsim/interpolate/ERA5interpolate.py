@@ -3,25 +3,19 @@ from __future__ import print_function
 
 import numpy as np
 import netCDF4 as nc
-import cdsapi
 
-from datetime import datetime, timedelta
-from math import floor, atan2, pi
-from os import path, listdir
-from scipy.interpolate import interp1d
-from fnmatch import filter
+from datetime import datetime
+from os import path
 
 import urllib3
 
 
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 
-from globsim.common_utils import series_interpolate, variables_skip, str_encode
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf, new_scaled_netcdf
-from globsim.meteorology import spec_hum_kgkg, pressure_from_elevation
+from globsim.common_utils import variables_skip, str_encode
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
 urllib3.disable_warnings()
-
 
 
 class ERA5interpolate(GenericInterpolate):
