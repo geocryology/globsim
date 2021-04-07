@@ -1,19 +1,16 @@
 """globsim.globsim: provides entry point main()."""
 
 
-__version__ = "2.0.1"
-
-
 import sys
 import argparse
 
-from globsim.globsim_download import main as globsim_download
-from globsim.globsim_interpolate import main as globsim_interpolate
-from globsim.globsim_scale import main as globsim_scale
+from globsim import globsim_download, globsim_scale, globsim_interpolate
+from globsim._version import __version__
 
 action_dict = {'download': globsim_download,
                'interpolate': globsim_interpolate,
                'scale': globsim_scale}
+
 
 def main():
     parser = argparse.ArgumentParser(description="GlobSim: meteorological reanalysis for point-scale simulation. Find out more at https://globsim.readthedocs.io/en/latest",
@@ -41,5 +38,5 @@ def main():
         args = parser.parse_args()
         print(f"Running globsim_{args.action}")
         task = action_dict[args.action]
-        task(args)
+        task.main(args)
 

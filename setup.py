@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 version = re.search(
     '^__version__\\s*=\\s*"(.*)"',
-    open('globsim/globsim_cli.py').read(),
+    open('globsim/_version.py').read(),
     re.M
     ).group(1)
 

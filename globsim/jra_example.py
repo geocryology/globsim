@@ -1,4 +1,7 @@
-from globsim.JRA import JRAdownload, JRAinterpolate, JRAscale
+from globsim.download import JRAdownload
+from globsim.scale import JRAscale
+from globsim.interpolate import JRAinterpolate
+
 from os   import path
 
 # ==== SETTING-UP =============================================================
