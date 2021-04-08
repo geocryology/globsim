@@ -1,5 +1,6 @@
 from __future__        import print_function
 
+import logging
 import netCDF4 as nc
 import numpy as np
 import sys
@@ -13,7 +14,7 @@ from globsim.nc_elements import netcdf_base
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
-
+logger = logging.getLogger()
 
 class MERRAinterpolate(GenericInterpolate):
     """
@@ -58,14 +59,14 @@ class MERRAinterpolate(GenericInterpolate):
         # extra treatment for pressure level files
         try:
             lev = nc_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
+            logger.info("== 3D: file has pressure levels")
             level           = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'
             level[:] = lev
         except Exception:
-            print("== 2D: file without pressure levels")
+            logger.info("== 2D: file without pressure levels")
             lev = []
 
         # remove extra variables
@@ -75,7 +76,7 @@ class MERRAinterpolate(GenericInterpolate):
         for n, var in enumerate(varlist_merra):
             if variables_skip(var):
                 continue
-            print("VAR: ", str_encode(var))
+
             # extra treatment for pressure level files
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4', ('time', 'level', 'station'))
@@ -203,12 +204,12 @@ class MERRAinterpolate(GenericInterpolate):
                 else:
                     ncf_out.variables[var][beg:end + 1, :] = dfield.data[:, i, :]
 
-        for attr in list(ncf.ncattrs()):   # copy metadata
+        for attr in list(ncf_in.ncattrs()):   # copy metadata
             try:  # getncattr doesn't work for MFDataset. We might get a problem with getattr
                 rootgrp.setncattr(attr, getattr(ncf, attr))
             except Exception:  
                 pass
-                
+
         ncf_in.close()
         ncf_out.close()
 

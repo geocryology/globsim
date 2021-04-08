@@ -1,6 +1,7 @@
 
 from __future__ import print_function
 
+import logging
 import netCDF4 as nc
 import numpy as np
 import urllib3
@@ -14,6 +15,7 @@ from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
 urllib3.disable_warnings()
 
+logger = logging.getLogger('globsim.interpolate')
 
 class ERA5interpolate(GenericInterpolate):
     """
@@ -101,6 +103,7 @@ class ERA5interpolate(GenericInterpolate):
         ens = 'number' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
+        logger.info(f"Creating file {ncfile_out}")
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units='hours since 1900-01-01 00:00:0.0')
         if self.ens:
@@ -117,10 +120,12 @@ class ERA5interpolate(GenericInterpolate):
         nctime = ncf_in.variables['time'][:]
         # "hours since 1900-01-01 00:00:0.0"
         t_unit = ncf_in.variables['time'].units
+        
         try:
             t_cal = ncf_in.variables['time'].calendar
         except AttributeError:  # attribute doesn't exist
             t_cal = u"gregorian"  # standard
+            
         time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
 
         # detect invariant files (topography etc.)
@@ -309,7 +314,7 @@ class ERA5interpolate(GenericInterpolate):
                 rootgrp.setncattr(attr, getattr(ncf, attr))
             except Exception:  
                 pass
-                
+
         rootgrp.close()
         ncf.close()
         # closed file ==========================================================

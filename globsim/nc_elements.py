@@ -190,7 +190,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     for n, var in enumerate(nc_in.variables):
         if variables_skip(var):
             continue
-        print("VAR: ", str_encode(var))
+
         # extra treatment for pressure level files
         if len(num):
             if len(lev):
@@ -245,11 +245,9 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None):
 
 def add_history(rootgrp, globsim_command, nc_in=None):
     if nc_in and hasattr(nc_in, 'history'):
-        print("adding history from nc_in")
         rootgrp.history = nc_in.history
     
     if not hasattr(rootgrp, 'history'):
-        print("no history found")
         rootgrp.history = ""
 
     add_newline = (rootgrp.history != "") and (rootgrp.history[-1] != "\n")

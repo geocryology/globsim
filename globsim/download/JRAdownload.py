@@ -5,6 +5,7 @@ from __future__ import print_function
 import glob
 import http.cookiejar
 import json
+import logging
 import netCDF4 as nc
 import numpy as np
 import sys
@@ -21,6 +22,7 @@ from globsim.common_utils import variables_skip
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
+logger = logging.getLogger('globsim.download')
 
 def get_userinfo():
     return None, None
@@ -72,17 +74,15 @@ class RDA(object):
             url = opener.open(request)
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print('RDA username and password invalid. Please try again\n')
+                logger.error('401: RDA username and password invalid. Please try again')
                 opener = self.makeOpener(theurl)
                 try:
                     url = opener.open(request)
                 except urllib.error.HTTPError as e:
                     if e.code == 401:
-                        print(
-                            'RDA username and password invalid, or you are'
-                            'not authorized to access this dataset.\n')
-                        print('Please verify your login information at'
-                              'http://rda.ucar.edu\n.')
+                        logger.exception(("401: RDA username and password invalid, or you are"
+                                          "not authorized to access this dataset.  Please"
+                                          "verify your login information at https://rda.ucar.edu."))
                         sys.exit()
 
         return url
@@ -112,8 +112,7 @@ class RDA(object):
     def getSummary(self, dsID=None):
         '''get the summary of given dataset'''
 
-        print('\nGetting summary information. Please wait as this may take'
-              'a while.\n')
+        logger.info('Getting dataset summary information. Please wait as this may take some time')
 
         theurl = theurl = self.base + 'summary/' + dsID
         url = self.urlOpen(theurl)
@@ -133,8 +132,8 @@ class RDA(object):
            Subset request control files are built from the parameters dumped
            out by the '-get_metadata <dsnnn.n>' option.'''
 
-        print('\nGetting parameter summary. Please wait as this may take'
-              'awhile.\n')
+        logger.info(('Getting parameter summary. Please wait as this may take'
+                     'a while.\n'))
 
         theurl = self.base + 'paramsummary/' + dsID
         url = self.urlOpen(theurl)
@@ -160,7 +159,8 @@ class RDA(object):
             jsondata += '"' + k + '"' + ":" + '"' + controlparms[k] + '",'
         jsondata = jsondata[:-1]
         jsondata += '}'
-        print('\n ====== Submitting Request ====\n')
+        logger.info('====== Submitting Request ====')
+        logger.debug(f'Request parameters: {controlparms}')
 
         if len(jsondata) > 1:
             request = urllib.request.Request(
@@ -173,17 +173,17 @@ class RDA(object):
             url = opener.open(request)
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print('RDA username and password invalid.  Please try again\n')
+                logger.error('RDA username and password invalid.  Please try again\n')
                 (username, password) = get_userinfo()
                 opener = self.makeOpener(theurl)
                 try:
                     url = opener.open(request)
                 except urllib.error.HTTPError as e:
                     if e.code == 401:
-                        print(
+                        logger.error(
                             'RDA username and password invalid, or you are'
                             'not authorized to access this dataset.\n')
-                        print('Please verify your login information at'
+                        logger.error('Please verify your login information at'
                               'http://rda.ucar.edu\n.')
                         sys.exit()
 
@@ -289,7 +289,7 @@ class RDA(object):
             # get cookie required to download data files
             self.add_http_cookie(self.loginurl, authdata)
 
-            print("\n\nStarting Download.\n\n")
+            logger.info("Starting Download")
 
             self.downloadFile(filelist, directory)
 
@@ -309,15 +309,15 @@ class RDA(object):
                 url = opener.open(request)
             except urllib.error.HTTPError as e:
                 if e.code == 401:
-                    print('RDA username and password invalid. Please try again\n')
+                    logger.error('RDA username and password invalid. Please try again\n')
                     opener = self.makeOpener(theurl)
                     try:
                         url = opener.open(request)
                     except urllib.error.HTTPError as e:
                         if e.code == 401:
-                            print(
+                            logger.error(
                                 'RDA username and password invalid, or you are not authorized to access this dataset.\n')
-                            print('Please verify your login information at http://rda.ucar.edu\n.')
+                            logger.error('Please verify your login information at http://rda.ucar.edu\n.')
                             sys.exit()
 
             print(url.read().decode())
@@ -713,7 +713,7 @@ class JRAdownload(GenericDownload):
             for n, var in enumerate(ncf.variables.keys()):
                 if variables_skip(self.ncfVar[var]):
                     continue
-                print("VAR: ", var)
+                logger.info(f"Writing variable '{var}' to file")
                 if dataLev == 'pl':
                     vari = ncn.createVariable(self.ncfVar[var], 'f4',
                                               ('time', 'level',
@@ -737,15 +737,15 @@ class JRAdownload(GenericDownload):
     def requestClear(self, rda):
         '''clear online datasets before downloading'''
 
-        print('\n======== Clear Online Datasets From NCAR Server ========\n')
+        logger.info('======== Clearing Online Datasets From NCAR Server ========')
         dsIndex = rda.getDSindex()
         if len(dsIndex) > 1:
             rda.purge(dsIndex)
-        print('\n======== Online Dateset Cleared ========\n')
+        logger.info('======== Online Dateset Cleared ========')
 
     def requestSubmit(self, rda):
 
-        print('\n======== Submit Request ========\n')
+        logger.info('======== Submitting data request to server ========')
 
         slices = floor(float((self.date['end'] - self.date['beg']).days) /
                        self.chunk_size) + 1
@@ -775,37 +775,46 @@ class JRAdownload(GenericDownload):
             for jrai in JRAli:
                 rda.submit(jrai.getDictionary())
                 dsN += 1
-        print('\n======== Submit Completed ========\n')
+        logger.info('Data request submitted')
 
         return dsN
 
     def requestDownload(self, rda, dsN):
         '''download all the request'''
-
+        tsleep = 60 * 10  # check available data every 10 mins
         doneI = []
+        
         while len(doneI) < dsN:
 
-            print('\n======== Geting Available Dataset ========\n')
+            logger.info((f'Checking server for completed requests.'
+                         f'Next check at'
+                         f'{(datetime.now() + timedelta(seconds=tsleep)).isoformat(" ", "seconds")}'))
+
             dsIndex = rda.getDSindex()
             dsIndex = [item for item in dsIndex if item not in doneI]
+            
             if len(dsIndex) > 0:
+                logger.info(f"Found {len(dsIndex)} new datasets.")
+                
                 for ds in dsIndex:
+                    logger.debug(f"downloading {ds}")
                     rda.download(self.directory, ds)
                     self.makeNCF(ds)
+                
                 doneI += dsIndex
-            time.sleep(60 * 10)  # check available data every 10 mins
+            time.sleep(tsleep)  
 
-        print('''\n======== Download Completed ========\n''')
+        logger.info('''======== Completed all downloads ========''')
 
     def retrieve(self):
         '''submit and download all the dataset'''
 
-        print('''\n======== JRA55: STRAT ========\n''')
+        logger.info('''======== JRA55: Begin globsim download ========''')
 
         rda = RDA(self.username, self.password)  # initialize RDA server
         self.requestClear(rda)  # clear online request
         dsN = self.requestSubmit(rda)  # submit request
         self.requestDownload(rda, dsN)  # download dataset
 
-        print('''\n======== JRA55: STOP ========\n''')
+        logger.info('''======== JRA55: Finished globsim download ========''')
 

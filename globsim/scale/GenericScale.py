@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import logging
 import tomlkit
 
 from os import path, makedirs
@@ -12,6 +13,7 @@ try:
 except NameError:
     basestring = str
 
+logger = logging.getLogger("globsim.scale")
 
 class GenericScale:
 
@@ -21,6 +23,8 @@ class GenericScale:
         with open(self.sfile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config['scale']
+            logger.debug(f"Read configuration from {sfile}")
+        
         self.intpdir = path.join(par['project_directory'], 'interpolated')
         self.scdir = self.makeOutDir(par)
         self.list_name = par['station_list'].split(path.extsep)[0]

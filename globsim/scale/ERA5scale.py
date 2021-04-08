@@ -23,6 +23,7 @@
 
 from __future__ import print_function
 
+import logging
 import netCDF4 as nc
 import numpy as np
 import urllib3
@@ -38,7 +39,7 @@ from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
 urllib3.disable_warnings()
-
+logger = logging.getLogger('globsim.scale')
 
 class ERA5scale(GenericScale):
     """
@@ -120,7 +121,7 @@ class ERA5scale(GenericScale):
     def indProcess(self, ni=10):
         for kernel_name in self.kernels:
             if hasattr(self, kernel_name):
-                print(kernel_name)
+                logger.info(f"Running kernel: {kernel_name}")
                 getattr(self, kernel_name)(ni)
 
     def process(self, ni=10):
@@ -216,7 +217,7 @@ class ERA5scale(GenericScale):
         Air temperature derived from surface data and pressure level data as
         shown by the method REDCAPP.
         """
-        print("AIRT_redcapp")
+        raise NotImplementedError
 
     def PREC_mm_sur(self, ni=10):
         """

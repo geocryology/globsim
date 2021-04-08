@@ -1,7 +1,10 @@
+import logging
 import numpy as np
 import tomlkit
 
 from os import path, makedirs
+
+logger = logging.getLogger("globsim.download")
 
 
 class GenericDownload(object):
@@ -24,6 +27,7 @@ class GenericDownload(object):
 
     def _check_area(self, par):
         if (par['bbN'] < par['bbS']) or (par['bbE'] < par['bbW']):
+            error_msg
             raise ValueError("Bounding box is invalid: {}".format(self.area))
 
         if (np.abs(par['bbN'] - par['bbS']) < 1.5) or (np.abs(par['bbE'] - par['bbW']) < 1.5):
@@ -42,4 +46,5 @@ class GenericDownload(object):
     def _set_data_directory(self, name):
         self.directory = path.join(self.par['project_directory'], name)
         if not path.isdir(self.directory):
+            logger.debug(f"Created missing project directory {self.directory}")
             makedirs(self.directory)

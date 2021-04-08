@@ -1,14 +1,20 @@
 from __future__ import print_function
 
+import logging
 import numpy as np
 import re
 import tomlkit
+import warnings
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
+
+warnings.simplefilter("ignore", category=UserWarning)
+
+logger = logging.getLogger("globsim.interpolate")
 
 # handle python 3 string types
 try:
@@ -24,7 +30,7 @@ try:
     ESMFnew = ESMFv > 701
 
 except ImportError:
-    print("*** ESMF not imported, interpolation not possible. ***")
+    logger.warn("ESMF not imported, interpolation not possible.")
     pass
 
 
@@ -33,9 +39,12 @@ class GenericInterpolate:
     def __init__(self, ifile):
         # read parameter file
         self.ifile = ifile
+        
         with open(self.ifile) as FILE:
+            logger.debug(f"Reading configuration from {self.ifile}")
             config = tomlkit.parse(FILE.read())
             self.par = par = config['interpolate']
+        
         self.dir_inp = self.make_output_directory(par)
         self.variables = par['variables']
         self.list_name = par['station_list'].split(path.extsep)[0]
@@ -61,12 +70,15 @@ class GenericInterpolate:
         Map CF Standard Names into short codes used in netCDF files.
         """
         varlist = []
+        
         for var in self.variables:
             varlist.append(dpar.get(var))
+        
         # drop none
         varlist = [item for item in varlist if item is not None]
         # flatten
         varlist = [item for sublist in varlist for item in sublist]
+        
         return(varlist)
 
     def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
@@ -105,7 +117,6 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
         ens = 'number' in ncf_in.dimensions.keys()
@@ -236,7 +247,7 @@ class GenericInterpolate:
                                 tmask_chunk, pl, ens):
         # assign data from ncdf: (variable, time, latitude, longitude)
 
-        print(variables)
+        logger.debug(f"Variables: {variables}")
         for n, var in enumerate(variables):
             if ens:
                 for ni in ncf_in['number'][:]:

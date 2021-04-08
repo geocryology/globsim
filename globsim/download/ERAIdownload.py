@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import glob
+import logging
 import netCDF4 as nc
 import numpy as np
 
@@ -14,10 +15,12 @@ from globsim.common_utils import str_encode
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
+logger = logging.getLogger('globsim.download')
+
 try:
     from nco import Nco
 except ImportError:
-    print("*** NCO not imported, netCDF appending not possible. ***")
+    logger.info("*** NCO not imported, netCDF appending not possible. ***")
     pass
 
 
@@ -73,12 +76,12 @@ class ERAIgeneric(object):
         target = query.pop('target')
 
         if path.isfile(target):
-            print("WARNING: File '{}' already exists and was skipped".format(target))
+            logger.warn("File '{}' already exists and was skipped".format(target))
         else:
             server = ECMWFDataServer()
-            print(server.trace('=== ERA Interim: START ===='))
+            logger.info(server.trace('=== ERA Interim: START ===='))
             server.retrieve(self.getDictionary())
-            print(server.trace('=== ERA Interim: STOP ====='))
+            logger.info(server.trace('=== ERA Interim: STOP ====='))
 
     def TranslateCF2ERA(self, variables, dpar):
         """
@@ -139,13 +142,12 @@ class ERAIgeneric(object):
             elif ncfile_in[-7:-5] == 'pl':
                 merged_file = path.join(ncfile_in[:-11],'erai_pl_all_'+ files_list[0][-23:-15] + '_' + files_list[num-1][-11:-3] +'.nc')
             else:
-                print('There is not such type of file')
+                logger.warn('There is not such type of file')
 
             # combined files into merged files
             nco.ncrcat(input=files_list,output=merged_file, append=True)
 
-            print('The Merged File below is saved:')
-            print(merged_file)
+            logger.info(f'The Merged File below is saved: {merged_file}')
 
             # clear up the data
             for fl in files_list:
@@ -191,7 +193,7 @@ class ERAIgeneric(object):
         elif ncfile_in[-7:-5] == 'pl':
             ncfile_out = path.join(ncfile_in[:-11],'erai_pl_all' + '.nc')
         else:
-            print('There is not such type of file'    )
+            logger.warn(f'There is not such type of file: {ncfile_in}')
 
         # get variables
         varlist = [str_encode(x) for x in ncf_in.variables.keys()]
@@ -232,19 +234,18 @@ class ERAIgeneric(object):
         # extra treatment for pressure level files
         try:
             lev = ncf_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
+            logger.info("== 3D: file has pressure levels")
             level = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'
             level[:] = lev
         except:
-            print("== 2D: file without pressure levels")
+            logger.info("== 2D: file without pressure levels")
             lev = []
 
         # create and assign variables based on input file
         for n, var in enumerate(varlist):
-            print("VAR: ", var)
             # extra treatment for pressure level files
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'level', 'latitude', 'longitude'))
@@ -387,7 +388,7 @@ class ERAIsa(ERAIgeneric):
 
         # translate variables into those present in ERA pl data
         self.TranslateCF2ERA(variables, dpar)
-        print(self.param)
+        logger.info(self.param)
 
 
     def getDictionary(self):
@@ -452,7 +453,7 @@ class ERAIsf(ERAIgeneric):
 
         # translate variables into those present in ERA pl data
         self.TranslateCF2ERA(variables, dpar)
-        print(self.param)
+        logger.info(self.param)
 
 
     def getDictionary(self):
@@ -579,15 +580,14 @@ class ERAIdownload(GenericDownload):
         """
         Report on data avaialbe in directory: time slice, variables, area
         """
-        print("\n\n\n")
-        print("=== INVENTORY FOR GLOBSIM ERA-INTERIM DATA === \n")
-        print("Download parameter file: \n" + self.pfile + "\n")
+        logger.info("CREATE INVENTORY FOR GLOBSIM ERA-INTERIM DATA")
+        logger.info(f"Using download parameter file: {self.pfile}")
         # loop over filetypes, read, report
         file_type = ['erai_pl_*.nc', 'erai_sa_*.nc', 'erai_sf_*.nc', 'erai_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
-            print(str(nf) + " FILE(S): " + infile)
+            logger.info(f"{nf} FILE(S): {infile}")
 
             if nf > 0:
                 # open dataset
@@ -596,9 +596,7 @@ class ERAIdownload(GenericDownload):
                 # list variables
                 keylist = [str_encode(x) for x in ncf.variables.keys()]
 
-                print("    VARIABLES:")
-                print("        " + str(len(keylist)) +
-                      " variables, inclusing dimensions")
+                logger.info(f"    VARIABLES:{' '*10}{str(len(keylist))} variables, including dimensions")
                 for key in keylist:
                     print("        " + ncf.variables[key].long_name)
 
@@ -608,9 +606,7 @@ class ERAIdownload(GenericDownload):
                                    calendar=time.calendar).strftime('%Y/%m/%d')
                 tmax = nc.num2date(max(time[:]), time.units,
                                    calendar=time.calendar).strftime('%Y/%m/%d')
-                print("    TIME SLICE")
-                print("        " + str(len(time[:])) + " time steps")
-                print("        " + tmin + " to " + tmax)
+                logger.info(f"TIME SLICE: {str(len(time[:]))} time steps from {tmin} to  {tmax}")
 
                 # area
                 lon = ncf.variables['longitude']
@@ -618,13 +614,8 @@ class ERAIdownload(GenericDownload):
                 nlat = str(len(lat))
                 nlon = str(len(lon))
                 ncel = str(len(lat) * len(lon))
-                print("    BOUNDING BOX / AREA")
-                print("        " + ncel + " cells, " + nlon +
-                      " W-E and " + nlat + " S-N")
-                print("        N: " + str(max(lat)))
-                print("        S: " + str(min(lat)))
-                print("        W: " + str(min(lon)))
-                print("        E: " + str(max(lon)))
+                logger.info(f"Bounding box dimensions: {{{nlon} (W-E) {nlat} (S-N)}}.  {ncel} total cells")
+                logger.info(f"Bounding box extent {{N: {max(lat)} S: {min(lat)} W: {min(lon)} E:{max(lon)}}}")
 
                 ncf.close()
 

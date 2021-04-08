@@ -39,7 +39,7 @@
 # ===============================================================================
 from __future__ import print_function
 
-
+import logging
 import netCDF4 as nc
 import numpy as np
 
@@ -52,6 +52,9 @@ from globsim.common_utils import series_interpolate, cummulative2total
 from globsim.meteorology import spec_hum_kgkg, LW_downward
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
+
+logger = logging.getLogger()
+
 
 class ERAIscale(GenericScale):
     NAME = "ERA-I"

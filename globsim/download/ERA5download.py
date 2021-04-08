@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import cdsapi
+import logging
 import numpy as np
 import netCDF4 as nc
 import urllib3
@@ -17,6 +18,7 @@ from globsim.meteorology import pressure_from_elevation
 
 urllib3.disable_warnings()
 
+logger = logging.getLogger("globsim.download")
 
 class ERA5generic(object):
     """
@@ -38,6 +40,9 @@ class ERA5generic(object):
                 '175.128': 'surface_thermal_radiation_downwards',
                 '172.128': 'land_sea_mask'}
 
+    def __init__(self):
+        self.server = cdsapi.Client()
+        
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
         res = str(round(area['north'],2)) + "/"
@@ -107,7 +112,6 @@ class ERA5generic(object):
 
     def download(self, storage='cds'):
         ''' 'patched' download function to allow download using cdsapi from CDS servers'''
-        server = cdsapi.Client()
 
         query = self.getDictionary()
         target = query.pop('target')
@@ -120,12 +124,12 @@ class ERA5generic(object):
         query = self.ECM2CDS(query)
 
         # launch download request
-        print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
+        logger.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper()))
         if path.isfile(target):
-            print("WARNING: File '{}' already exists and was skipped".format(target))
+            logger.warn("File '{}' already exists and was skipped".format(target))
         else:
-            server.retrieve(dataset, query, target)
-        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
+            self.server.retrieve(dataset, query, target)
+        logger.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper()))
 
     def ECM2CDS(self, query):
         ''' convert ECMWF query to CDS format '''
@@ -467,7 +471,7 @@ class ERA5download(GenericDownload, ERA5generic):
 
         # topography
         if path.isfile(path.join(self.directory, self.topo_file)):
-            print(f"WARNING: File {self.topo_file} already exists. Skipping.")
+            logger.warn(f"File {self.topo_file} already exists. Skipping.")
         else:
             top = ERA5to(self.era5type, self.area, self.directory)
             top.download(self.storage)
@@ -500,9 +504,8 @@ class ERA5download(GenericDownload, ERA5generic):
         """
         Report on data avaialbe in directory: time slice, variables, area
         """
-        print("\n\n\n")
-        print("=== INVENTORY FOR GLOBSIM ERA5 DATA ===\n")
-        print("Download parameter file: \n" + self.pfile + "\n")
+        logger.info("=== INVENTORY FOR GLOBSIM ERA5 DATA ===\n")
+        logger.info("Download parameter file: \n" + self.pfile + "\n")
         # loop over filetypes, read, report
         file_type = [self.typeString(self.era5type) + '_pl_*.nc',
                      self.typeString(self.era5type) + '_sa_*.nc',
@@ -511,7 +514,7 @@ class ERA5download(GenericDownload, ERA5generic):
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
-            print(str(nf) + " FILE(S): " + infile)
+            logger.info(str(nf) + " FILE(S): " + infile)
 
             if nf > 0:
                 # open dataset
@@ -519,11 +522,9 @@ class ERA5download(GenericDownload, ERA5generic):
 
                 # list variables
                 keylist = [str_encode(x) for x in ncf.variables.keys()]
-                print("    VARIABLES:")
-                print("        " + str(len(keylist)) +
-                      " variables, including dimensions")
+                logger.info(f"    VARIABLES:{' '*10}{str(len(keylist))} variables, including dimensions")
                 for key in keylist:
-                    print("        " + ncf.variables[key].long_name)
+                    logger.info("        " + ncf.variables[key].long_name)
 
                 # time slice
                 time = ncf.variables['time']
@@ -533,9 +534,7 @@ class ERA5download(GenericDownload, ERA5generic):
                 tmax = nc.num2date(max(time[:]), time.units,
                                    calendar=time.calendar).strftime('%Y/%m/%d')
 
-                print("    TIME SLICE")
-                print("        " + str(len(time[:])) + " time steps")
-                print("        " + tmin + " to " + tmax)
+                logger.info(f"TIME SLICE: {str(len(time[:]))} time steps from {tmin} to  {tmax}")
 
                 # area
                 lon = ncf.variables['longitude']
@@ -543,13 +542,8 @@ class ERA5download(GenericDownload, ERA5generic):
                 nlat = str(len(lat))
                 nlon = str(len(lon))
                 ncel = str(len(lat) * len(lon))
-                print("    BOUNDING BOX / AREA")
-                print("        " + ncel + " cells, " + nlon +
-                      " W-E and " + nlat + " S-N")
-                print("        N: " + str(max(lat)))
-                print("        S: " + str(min(lat)))
-                print("        W: " + str(min(lon)))
-                print("        E: " + str(max(lon)))
+                logger.info(f"Bounding box dimensions: {nlon} (W-E) {nlat} (S-N).  {ncel} total cells")
+                logger.info(f"Bounding box extent N: {max(lat)} S: {min(lat)} W: {min(lon)} E:{max(lon)}")
 
                 ncf.close()
 
