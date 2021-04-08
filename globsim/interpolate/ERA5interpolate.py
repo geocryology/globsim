@@ -104,9 +104,9 @@ class ERA5interpolate(GenericInterpolate):
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units='hours since 1900-01-01 00:00:0.0')
         if self.ens:
-            rootgrp.source = 'ERA5 10-member ensemble, interpolated bilinearly to stations'
+            rootgrp.source = 'ERA5 10-member ensemble'
         else:
-            rootgrp.source = 'ERA5, interpolated bilinearly to stations'
+            rootgrp.source = 'ERA5 Reanalysis'
 
         rootgrp.close()
 
@@ -206,7 +206,7 @@ class ERA5interpolate(GenericInterpolate):
 
         """
         # open file
-        # TODO: check the aggdim does not work
+
         ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
@@ -214,8 +214,7 @@ class ERA5interpolate(GenericInterpolate):
 
         # list variables
         varlist = [str_encode(x) for x in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude',
-                  'level','height','z']:
+        for V in ['time', 'station', 'latitude', 'longitude', 'level','height','z']:
             varlist.remove(V)
         if self.ens:
             varlist.remove('number')
@@ -305,6 +304,12 @@ class ERA5interpolate(GenericInterpolate):
                     ipol = data[va] * wa + data[vb] * wb   # interpolated value
                     rootgrp.variables[var][:,n] = ipol  # assign to file
 
+        for attr in list(ncf.ncattrs()):   # copy metadata
+            try:  # getncattr doesn't work for MFDataset. We might get a problem with getattr
+                rootgrp.setncattr(attr, getattr(ncf, attr))
+            except Exception:  
+                pass
+                
         rootgrp.close()
         ncf.close()
         # closed file ==========================================================

@@ -90,7 +90,7 @@ class JRAinterpolate(GenericInterpolate):
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units='hours since 1800-01-01 00:00:0.0')
-        rootgrp.source = 'JRA55, interpolated bilinearly to stations'
+        rootgrp.source = 'JRA-55 Reanalysis'
         rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
@@ -266,6 +266,12 @@ class JRAinterpolate(GenericInterpolate):
                 ipol = multvawa + multvbwb
                 rootgrp.variables[var][:,n] = ipol  # assign to file
 
+        for attr in list(ncf.ncattrs()):   # copy metadata
+            try:  # getncattr doesn't work for MFDataset. We might get a problem with getattr
+                rootgrp.setncattr(attr, getattr(ncf, attr))
+            except Exception:  
+                pass
+                
         rootgrp.close()
         ncf.close()
         # closed file =========================================================

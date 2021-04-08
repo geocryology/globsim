@@ -203,6 +203,12 @@ class MERRAinterpolate(GenericInterpolate):
                 else:
                     ncf_out.variables[var][beg:end + 1, :] = dfield.data[:, i, :]
 
+        for attr in list(ncf.ncattrs()):   # copy metadata
+            try:  # getncattr doesn't work for MFDataset. We might get a problem with getattr
+                rootgrp.setncattr(attr, getattr(ncf, attr))
+            except Exception:  
+                pass
+                
         ncf_in.close()
         ncf_out.close()
 
