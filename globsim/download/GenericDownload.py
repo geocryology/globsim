@@ -27,7 +27,6 @@ class GenericDownload(object):
 
     def _check_area(self, par):
         if (par['bbN'] < par['bbS']) or (par['bbE'] < par['bbW']):
-            error_msg
             raise ValueError("Bounding box is invalid: {}".format(self.area))
 
         if (np.abs(par['bbN'] - par['bbS']) < 1.5) or (np.abs(par['bbE'] - par['bbW']) < 1.5):

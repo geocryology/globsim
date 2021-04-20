@@ -206,7 +206,7 @@ class MERRAinterpolate(GenericInterpolate):
 
         for attr in list(ncf_in.ncattrs()):   # copy metadata
             try:  # getncattr doesn't work for MFDataset. We might get a problem with getattr
-                rootgrp.setncattr(attr, getattr(ncf, attr))
+                ncf_out.setncattr(attr, getattr(ncf_in, attr))
             except Exception:  
                 pass
 
