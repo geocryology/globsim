@@ -19,7 +19,7 @@ def configure_logging(args):
     #logging.basicConfig(format='%(asctime)s  %(asctime)s ')
     logger.setLevel(args.level)
 
-    console_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt="%H:%M:%S")
+    console_formatter = logging.Formatter('%(message)s', datefmt="%H:%M:%S")
     
     ch = logging.StreamHandler()
     ch.setLevel(args.level)
