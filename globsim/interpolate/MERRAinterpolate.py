@@ -199,9 +199,9 @@ class MERRAinterpolate(GenericInterpolate):
                 # extra treatment for pressure level files
                 if pl:
                     lev = ncf_in.variables['level'][:]
-                    ncf_out.variables[var][beg:end + 1, :, :] = dfield.data[:, i, :, :]
+                    ncf_out.variables[var][beg:end + 1, :, :] = dfield.data[:, i, :, :].transpose(1,2,0)
                 else:
-                    ncf_out.variables[var][beg:end + 1, :] = dfield.data[:, i, :]
+                    ncf_out.variables[var][beg:end + 1, :] = dfield.data[:, i, :].transpose(1,0)
 
         ncf_in.close()
         ncf_out.close()
