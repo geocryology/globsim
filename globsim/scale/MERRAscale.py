@@ -336,7 +336,7 @@ class MERRAscale(GenericScale):
         var.standard_name = 'wind_from_direction'
 
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            WS = np.sqrt(np.power(V,2) + np.power(U,2))
+            WS = np.sqrt(np.power(V[:, n], 2) + np.power(U[:, n], 2))
             WD = [atan2(V[i, n], U[i, n]) * (180 / pi) + 180 for i in np.arange(V.shape[0])]
 
             self.rg.variables['WSPD_sur'][:, n] = WS
