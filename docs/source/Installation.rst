@@ -3,54 +3,40 @@ Installation
 
 This describes the steps required to get GlobSim up and running.  You can either install all the packages and dependencies yourself, or you can learn about :ref:`docker`. 
 
-Requirements
-------------
+GlobSim
+-------
 
-GlobSim source files can be obtained in one of two ways
-
-Using pip (does not work yet!!)::
-
-    pip3 install globsim 
-
-From the github source repository::
+GlobSim is most easily used by creating a conda environment::
 
     git clone https://github.com/geocryology/globsim
-    checkout working
+    cd globsim
+    conda env create -f globsim.py36.yml
+    conda activate globsim
+    python setup.py install
+
+Required libraries
+------------------
 
 NetCDF
-------
+^^^^^^
 NetCDF files are used to store data in a standard format. The NCO libraries must be installed and built on your computer for GlobSim to work.  Instructions can be found on the `Unidata website <https://www.unidata.ucar.edu/software/netcdf/docs/getting_and_building_netcdf.html>`_. 
 
 ECMWF Client libraries
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 ECMWF is used to access ERA files. Python libraries (supporting python 2.7 and 3) to access the API are available from the `ECMWF website <https://confluence.ecmwf.int/display/WEBAPI/Accessing+ECMWF+data+servers+in+batch>`_
 
 Grib API and pygrib
---------------------
+^^^^^^^^^^^^^^^^^^^
 GlobSim uses the `GRIB API <https://confluence.ecmwf.int/display/GRIB/What+is+GRIB-API>`_. 
 Python bindings to the GRIB API are also necessary `(pygrib) <https://jswhit.github.io/pygrib/docs/>`_. The code was tested using pygrib version 2.0.1. 
 
-ESMF
-----
-GLOBSIM uses ESMF libraries to do efficient regridding. These libraries must be built on your machine and have additional dependencies.  ESMP versions 7.0.1 and 7.1.0r are supported. To download ESMF, consult the `ESMF Users Guide <http://www.earthsystemmodeling.org/esmf_releases/public/ESMF_7_1_0r/ESMF_usrdoc/>`_, particularly sections 5 and 8.
+ESMF and ESMPy
+^^^^^^^^^^^^^^
+GLOBSIM uses ESMF libraries to do efficient regridding. These libraries must be built on your machine and have additional dependencies.  ESMP version 7.1.0r is supported. To download ESMF, consult the `ESMF Users Guide <http://www.earthsystemmodeling.org/esmf_releases/public/ESMF_7_1_0r/ESMF_usrdoc/>`_, particularly sections 5 and 8.
 
-During installation, several environment variables are set::
-
-    ESMF_NETCDF
-    ESMF_NETCDF_LIBPATH
-    ESMF_NETCDF_LIBS
-    ESMF_NETCDF_INCLUDE
-    ESMF_COMPILER
-    ESMF_COMM
-
-ESMPy
-^^^^^^
 ESMPy provides python bindings for the ESMF libraries.  If you have successfully installed the ESMF libraries, you can follow the instructions `here <http://www.earthsystemmodeling.org/esmf_releases/public/ESMF_7_1_0r/esmpy_doc/html/install.html#installing-esmpy>`_ to extract the python bindings.  More info is available at the `ESMPy main page <https://www.earthsystemcog.org/projects/esmpy/>`_.
 
-Example
--------
-
-The following setup was used to install on Ubuntu 16.04::
+The following example script was used to install on Ubuntu 16.04::
 
 
     # GRIB API
