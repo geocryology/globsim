@@ -3,6 +3,7 @@ from __future__ import print_function
 import numpy as np
 import re
 import tomlkit
+import warnings
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
@@ -41,7 +42,6 @@ class GenericInterpolate:
         self.variables = par['variables']
         self.list_name = par['station_list'].split(path.extsep)[0]
         
-
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
@@ -201,14 +201,23 @@ class GenericInterpolate:
 
     def make_output_directory(self, par):
         """make directory to hold outputs"""
+        output_root = None
         
-        if par.get('output_directory') and Path(par.get('output_directory')).is_dir():
-            output_root = Path(par.get('output_directory'))
+        if par.get('output_directory'):
+            try:
+                test_path = Path(par.get('output_directory'))
+            except TypeError:
+                warnings.warn("You provided an output_directory for interpolation that was not understood. Saving files to project directory.")
+            
+            if test_path.is_dir():
+                output_root = Path(par.get('output_directory'))
+            else:
+                warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
         
-        else:
+        if not output_root:
             output_root = path.join(par['project_directory'], 'interpolated')
 
-        if not (path.isdir(output_root)):
+        if not Path(output_root).is_dir():
             makedirs(output_root)
 
         return output_root

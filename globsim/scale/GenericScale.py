@@ -1,8 +1,10 @@
 from __future__ import print_function
 
 import tomlkit
+import warnings
 
 from os import path, makedirs
+from pathlib import Path
 
 from globsim.common_utils import StationListRead
 
@@ -49,13 +51,23 @@ class GenericScale:
 
     def make_output_directory(self, par):
         """make directory to hold outputs"""
-        if par.get('output_directory') and Path(par.get('output_directory')).is_dir():
-            output_root = Path(par.get('output_directory'))
+        output_dir = None
         
-        else:
-            output_root = path.join(par['project_directory'], 'scaled')
+        if par.get('output_directory'):
+            try:
+                test_path = Path(par.get('output_directory'))
+            except TypeError:
+                warnings.warn("You provided an output_directory for scaled files that does not exist. Saving files to project directory")
+            
+            if test_path.is_dir():
+                output_dir = Path(par.get('output_directory'))
+            else:
+                warnings.warn("You provided an output_directory for scaled files that was not understood. Saving files to project directory.")
+                
+        if not output_dir:
+            output_dir = path.join(par['project_directory'], 'scaled')
 
-        if not (path.isdir(output_root)):
-            makedirs(output_root)
+        if not Path(output_dir).is_dir():
+            makedirs(output_dir)
 
-        return output_root
+        return output_dir
