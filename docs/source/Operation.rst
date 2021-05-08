@@ -38,7 +38,7 @@ Interpolating
    **Keyword**                    **Description** 
 -------------------------         ---------------
 **project_directory**             This is the full path to the project directory which stores the downloaded files and the control files. It should include a subdirectory called /par which contains parameter files (control files) as well as a csv describing the sites to which data are scaled. 
-**station_list**                  The filename (without path) of csv containing site information such as *sitelist.csv* (note that this must match the scaling parameter file)
+**station_list**                  The filename of a csv containing site names and coordinates. If just the filename is specified without a path, globsim will look in the ``par`` folder within the project directory. If a full filepath is used, globsim will use that file instead. Typically the same ``station_list`` file will also be used in the scaling step.
 **chunk_size**                    How many time-steps to interpolate at once. This helps memory management. Keep small for large area files and/or computers with little memory. Make larger to get performance improvements on computers with lots of memory.
 **beg**                           Beginning of date range for which data will be interpolated in YYYY/MM/DD format.  Note that this date range must include dates that are represented in the downloaded data.
 **end**                           End of date range for which data will be interpolated in YYYY/MM/DD format.  Note that this date range must include dates that are represented in the downloaded data.

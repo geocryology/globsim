@@ -6,6 +6,7 @@ import tomlkit
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
+from pathlib import Path
 from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
@@ -39,10 +40,10 @@ class GenericInterpolate:
         self.dir_inp = self.make_output_directory(par)
         self.variables = par['variables']
         self.list_name = par['station_list'].split(path.extsep)[0]
-        self.stations_csv = path.join(par['project_directory'],
-                                      'par', par['station_list'])
+        
 
         # read station points
+        self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
 
         # time bounds, add one day to par['end'] to include entire last day
@@ -52,6 +53,16 @@ class GenericInterpolate:
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs = int(par['chunk_size'])
+
+    def find_stations_csv(self, par):
+        if Path(par['station_list']).is_file():
+            return Path(par['station_list'])
+        
+        elif Path(par['project_directory'], 'par', par['station_list']).is_file():
+            return Path(par['project_directory'], 'par', par['station_list'])
+        
+        else:
+            raise FileNotFoundError(f"Siteslist file {par['station_list']} not found.")
 
     def _set_data_directory(self, name):
         self.dir_raw = path.join(self.par['project_directory'], name)
