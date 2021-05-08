@@ -38,7 +38,7 @@ Interpolating
    **Keyword**                    **Description** 
 -------------------------         ---------------
 ``project_directory``             This is the full path to the project directory which stores the downloaded files and the control files. It should include a subdirectory called /par which contains parameter files (control files) as well as a csv describing the sites to which data are scaled. 
-``output_directory``              The directory to which interpolated files will be saved. If not provided, globsim will write to the ``project_directory`` by default. 
+``output_directory``              The directory to which interpolated files will be saved. If not provided, or if the directory does not exist, globsim will write to the ``project_directory`` by default. 
 ``station_list``                  The filename of a csv containing site names and coordinates. If just the filename is specified without a path, globsim will look in the ``par`` folder within the project directory. If a full filepath is used, globsim will use that file instead. Typically the same ``station_list`` file will also be used in the scaling step.
 ``chunk_size``                    How many time-steps to interpolate at once. This helps memory management. Keep small for large area files and/or computers with little memory. Make larger to get performance improvements on computers with lots of memory.
 ``beg``                           Beginning of date range for which data will be interpolated in ``YYYY/MM/DD`` format.  Note that this date range must include dates that are represented in the downloaded data.
@@ -53,7 +53,8 @@ Rescaling
 =========================         ===============
    **Keyword**                    **Description** 
 -------------------------         ---------------
-``project_directory``             This is the full path to the project directory which stores the downloaded files and the control files. It should include a subdirectory called /par which contains parameter files (control files) as well as a csv describing the sites to which data are scaled.
+``project_directory``             This is the full path to the project directory that contains the interpolated files. By default, it contains a subdirectory called /par where site list csv files are kept.
+``output_directory``              The directory to which scaled files will be saved. If not provided, or if the directory does not exist, globsim will write to the ``project_directory`` by default. 
 ``station_list``                  The filename (without path) of csv containing site information such as *sitelist.csv* (note that this must match the interpolation parameter file)
 ``output_file``                   Path to output netCDF to be created. 
 ``overwrite``                     Either ``true`` or ``false``. Whether or not to overwrite the ``output_file`` if it exists.

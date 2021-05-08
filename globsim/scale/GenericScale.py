@@ -22,7 +22,7 @@ class GenericScale:
             config = tomlkit.parse(FILE.read())
             self.par = par = config['scale']
         self.intpdir = path.join(par['project_directory'], 'interpolated')
-        self.scdir = self.makeOutDir(par)
+        self.output_dir = self.make_output_directory(par)
         self.list_name = par['station_list'].split(path.extsep)[0]
 
         # get the station file
@@ -36,23 +36,26 @@ class GenericScale:
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
 
-    def getOutNCF(self, par, src, scaleDir='scale'):
+    def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
         timestep = str(par['time_step']) + 'h'
-        src = '_'.join(['scaled', src, timestep])
+        src = '_'.join(['scaled', data_source_name, timestep])
 
         src = src + '.nc'
-        fname = path.join(self.scdir, src)
+        fname = path.join(self.output_dir, src)
 
         return fname
 
-    def makeOutDir(self, par):
+    def make_output_directory(self, par):
         """make directory to hold outputs"""
+        if par.get('output_directory') and Path(par.get('output_directory')).is_dir():
+            output_root = Path(par.get('output_directory'))
+        
+        else:
+            output_root = path.join(par['project_directory'], 'scaled')
 
-        dirSC = path.join(par['project_directory'], 'scaled')
+        if not (path.isdir(output_root)):
+            makedirs(output_root)
 
-        if not (path.isdir(dirSC)):
-            makedirs(dirSC)
-
-        return dirSC
+        return output_root

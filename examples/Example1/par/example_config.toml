@@ -54,6 +54,9 @@ variables = ["air_temperature", "relative_humidity", "wind_speed", "wind_from_di
 # Path to the parent directory of /par - It should match the download and interpolate files
 project_directory = "/opt/globsim/examples/Example1"
 
+# (optional) output directory. If an output directory is provided and exists, scaled files will be saved in that location instead of the project_directory.
+output_directory = "/opt/globsim/examples/Example1"
+
 # Filename (without path) of csv containing site information (must match interpolation control file)
 station_list = "siteslist.csv"
 
