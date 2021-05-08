@@ -37,7 +37,7 @@ class GenericInterpolate:
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config['interpolate']
-        self.dir_inp = self.make_output_directory(par)
+        self.output_dir = self.make_output_directory(par)
         self.variables = par['variables']
         self.list_name = par['station_list'].split(path.extsep)[0]
         
@@ -64,8 +64,8 @@ class GenericInterpolate:
         else:
             raise FileNotFoundError(f"Siteslist file {par['station_list']} not found.")
 
-    def _set_data_directory(self, name):
-        self.dir_raw = path.join(self.par['project_directory'], name)
+    def __set_input_directory(self, name):
+        self.input_dir = path.join(self.par['project_directory'], name)
 
     def TranslateCF2short(self, dpar):
         """
@@ -201,20 +201,24 @@ class GenericInterpolate:
 
     def make_output_directory(self, par):
         """make directory to hold outputs"""
+        
+        if par.get('output_directory') and Path(par.get('output_directory')).is_dir():
+            output_root = Path(par.get('output_directory'))
+        
+        else:
+            output_root = path.join(par['project_directory'], 'interpolated')
 
-        dirIntp = path.join(par['project_directory'], 'interpolated')
+        if not (path.isdir(output_root)):
+            makedirs(output_root)
 
-        if not (path.isdir(dirIntp)):
-            makedirs(dirIntp)
-
-        return dirIntp
+        return output_root
 
     def create_source_grid(self, ncfile_in):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(fnmatch_filter(listdir(self.dir_raw),
+        flist = np.sort(fnmatch_filter(listdir(self.input_dir),
                                        path.basename(ncfile_in)))
-        ncsingle = path.join(self.dir_raw, flist[0])
+        ncsingle = path.join(self.input_dir, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
         return sgrid

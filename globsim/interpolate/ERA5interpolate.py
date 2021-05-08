@@ -26,10 +26,10 @@ class ERA5interpolate(GenericInterpolate):
         self.era5type = era5type
 
         if self.era5type == 'reanalysis':
-            self._set_data_directory("era5")
+            self.__set_input_directory("era5")
             self.ens = False
         elif self.era5type == 'ensemble_members':
-            self._set_data_directory("era5ens")
+            self.__set_input_directory("era5ens")
             self.ens = True
 
         # convert longitude to ERA notation if using negative numbers
@@ -45,9 +45,9 @@ class ERA5interpolate(GenericInterpolate):
         nome = 'era5_{}_{}_*.nc'
 
         if levStr == 'to':
-            infile = path.join(self.dir_raw, 'era5_{}_to.nc'.format(typeStr))
+            infile = path.join(self.input_dir, 'era5_{}_to.nc'.format(typeStr))
         else:
-            infile = path.join(self.dir_raw, nome.format(typeStr, levStr))
+            infile = path.join(self.input_dir, nome.format(typeStr, levStr))
 
         return infile
 
@@ -57,7 +57,7 @@ class ERA5interpolate(GenericInterpolate):
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         else:
             nome = 'era5_rea_{}_'.format(levStr) + self.list_name + '.nc'
-        outfile = path.join(self.dir_inp, nome)
+        outfile = path.join(self.output_dir, nome)
 
         return outfile
 
@@ -364,5 +364,5 @@ class ERA5interpolate(GenericInterpolate):
             outf = 'era5_ens_pl_'
         else:
             outf = 'era5_rea_pl_'
-        outf = path.join(self.dir_inp, outf + self.list_name + '_surface.nc')
+        outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
         self.levels2elevation(self.getOutFile('pl'), outf)
