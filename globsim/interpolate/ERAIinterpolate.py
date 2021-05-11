@@ -31,7 +31,7 @@ class ERAIinterpolate(GenericInterpolate):
     def __init__(self, ifile):
         super().__init__(ifile)
         par = self.par
-        self.dir_raw = path.join(par['project_directory'], 'erai')
+        self.input_dir = path.join(par['project_directory'], 'erai')
 
         #convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
@@ -275,8 +275,8 @@ class ERAIinterpolate(GenericInterpolate):
         # pressure level variable keys.
         dummy_date  = {'beg' : datetime(1979, 1, 1, 12, 0),
                        'end' : datetime(1979, 1, 1, 12, 0)}
-        self.ERA2station(path.join(self.dir_raw,'erai_to.nc'),
-                         path.join(self.dir_inp,'erai_to_' +
+        self.ERA2station(path.join(self.input_dir,'erai_to.nc'),
+                         path.join(self.output_dir,'erai_to_' +
                                    self.list_name + '.nc'), self.stations,
                                    ['z', 'lsm'], date = dummy_date)
 
@@ -290,8 +290,8 @@ class ERAIinterpolate(GenericInterpolate):
                                         # [kg m-2] Total column W vapor
                 'wind_speed' : ['u10', 'v10']}   # [m s-1] 10m values
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(path.join(self.dir_raw,'erai_sa_*.nc'),
-                         path.join(self.dir_inp,'erai_sa_' +
+        self.ERA2station(path.join(self.input_dir,'erai_sa_*.nc'),
+                         path.join(self.output_dir,'erai_sa_' +
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)
 
@@ -305,8 +305,8 @@ class ERAIinterpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(path.join(self.dir_raw,'erai_sf_*.nc'),
-                         path.join(self.dir_inp,'erai_sf_' +
+        self.ERA2station(path.join(self.input_dir,'erai_sf_*.nc'),
+                         path.join(self.output_dir,'erai_sf_' +
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)
 
@@ -318,14 +318,14 @@ class ERAIinterpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(path.join(self.dir_raw,'erai_pl_*.nc'),
-                         path.join(self.dir_inp,'erai_pl_' +
+        self.ERA2station(path.join(self.input_dir,'erai_pl_*.nc'),
+                         path.join(self.output_dir,'erai_pl_' +
                                    self.list_name + '.nc'), self.stations,
                                    varlist, date = self.date)
 
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.dir_inp,'erai_pl_' +
+        self.levels2elevation(path.join(self.output_dir,'erai_pl_' +
                                         self.list_name + '.nc'),
-                              path.join(self.dir_inp,'erai_pl_' +
+                              path.join(self.output_dir,'erai_pl_' +
                                         self.list_name + '_surface.nc'))
 

@@ -538,7 +538,7 @@ class JRAdownload(GenericDownload):
     def __init__(self, pfile):
         super().__init__(pfile)
         par = self.par
-        self._set_data_directory("jra55")
+        self.__set_input_directory("jra55")
 
         self.dsID = 'ds628.0'
 

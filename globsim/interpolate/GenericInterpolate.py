@@ -3,9 +3,11 @@ from __future__ import print_function
 import numpy as np
 import re
 import tomlkit
+import warnings
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
+from pathlib import Path
 from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
@@ -36,13 +38,12 @@ class GenericInterpolate:
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config['interpolate']
-        self.dir_inp = self.make_output_directory(par)
+        self.output_dir = self.make_output_directory(par)
         self.variables = par['variables']
         self.list_name = par['station_list'].split(path.extsep)[0]
-        self.stations_csv = path.join(par['project_directory'],
-                                      'par', par['station_list'])
-
+        
         # read station points
+        self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
 
         # time bounds, add one day to par['end'] to include entire last day
@@ -53,8 +54,18 @@ class GenericInterpolate:
         # A small chunk size keeps memory usage down but is slow.
         self.cs = int(par['chunk_size'])
 
-    def _set_data_directory(self, name):
-        self.dir_raw = path.join(self.par['project_directory'], name)
+    def find_stations_csv(self, par):
+        if Path(par['station_list']).is_file():
+            return Path(par['station_list'])
+        
+        elif Path(par['project_directory'], 'par', par['station_list']).is_file():
+            return Path(par['project_directory'], 'par', par['station_list'])
+        
+        else:
+            raise FileNotFoundError(f"Siteslist file {par['station_list']} not found.")
+
+    def __set_input_directory(self, name):
+        self.input_dir = path.join(self.par['project_directory'], name)
 
     def TranslateCF2short(self, dpar):
         """
@@ -190,20 +201,33 @@ class GenericInterpolate:
 
     def make_output_directory(self, par):
         """make directory to hold outputs"""
+        output_root = None
+        
+        if par.get('output_directory'):
+            try:
+                test_path = Path(par.get('output_directory'))
+            except TypeError:
+                warnings.warn("You provided an output_directory for interpolation that was not understood. Saving files to project directory.")
+            
+            if test_path.is_dir():
+                output_root = Path(par.get('output_directory'))
+            else:
+                warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
+        
+        if not output_root:
+            output_root = path.join(par['project_directory'], 'interpolated')
 
-        dirIntp = path.join(par['project_directory'], 'interpolated')
+        if not Path(output_root).is_dir():
+            makedirs(output_root)
 
-        if not (path.isdir(dirIntp)):
-            makedirs(dirIntp)
-
-        return dirIntp
+        return output_root
 
     def create_source_grid(self, ncfile_in):
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(fnmatch_filter(listdir(self.dir_raw),
+        flist = np.sort(fnmatch_filter(listdir(self.input_dir),
                                        path.basename(ncfile_in)))
-        ncsingle = path.join(self.dir_raw, flist[0])
+        ncsingle = path.join(self.input_dir, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
 
         return sgrid

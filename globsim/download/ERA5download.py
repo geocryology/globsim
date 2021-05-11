@@ -438,11 +438,11 @@ class ERA5download(GenericDownload, ERA5generic):
         self.era5type = era5type
 
         if self.era5type == 'reanalysis':
-            self._set_data_directory("era5")
+            self.__set_input_directory("era5")
             self.topo_file = 'era5_rea_to.nc'
             
         elif self.era5type == 'ensemble_members':
-            self._set_data_directory("era5ens")
+            self.__set_input_directory("era5ens")
             self.topo_file = 'era5_ens_to.nc'
             
         # time bounds

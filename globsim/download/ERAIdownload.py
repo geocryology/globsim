@@ -529,7 +529,7 @@ class ERAIdownload(GenericDownload):
     def __init__(self, pfile):
         super().__init__(pfile)
         par = self.par
-        self._set_data_directory("erai")
+        self.__set_input_directory("erai")
 
         # time bounds
         self.date  = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
