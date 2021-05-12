@@ -60,7 +60,7 @@ class GenericScale:
                 warnings.warn("You provided an output_directory for scaled files that does not exist. Saving files to project directory")
             
             if test_path.is_dir():
-                output_dir = Path(par.get('output_directory'))
+                output_dir = Path(test_path, "scaled")
             else:
                 warnings.warn("You provided an output_directory for scaled files that was not understood. Saving files to project directory.")
                 

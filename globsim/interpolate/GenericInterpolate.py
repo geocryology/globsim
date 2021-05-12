@@ -210,7 +210,7 @@ class GenericInterpolate:
                 warnings.warn("You provided an output_directory for interpolation that was not understood. Saving files to project directory.")
             
             if test_path.is_dir():
-                output_root = Path(par.get('output_directory'))
+                output_root = Path(test_path, "interpolated")
             else:
                 warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
         
