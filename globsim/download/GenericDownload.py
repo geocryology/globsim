@@ -39,7 +39,7 @@ class GenericDownload(object):
         self.elevation = {'min': par['ele_min'],
                           'max': par['ele_max']}
 
-    def __set_input_directory(self, name):
+    def _set_input_directory(self, name):
         self.directory = path.join(self.par['project_directory'], name)
         if not path.isdir(self.directory):
             makedirs(self.directory)

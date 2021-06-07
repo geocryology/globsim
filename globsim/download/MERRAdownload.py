@@ -424,7 +424,7 @@ class MERRAdownload(GenericDownload):
         super().__init__(pfile)
         par = self.par
 
-        self.__set_input_directory("merra2")
+        self._set_input_directory("merra2")
 
         # chunk size for downloading and storing data [days]
         self.chunk_size = par['chunk_size']

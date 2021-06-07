@@ -26,10 +26,10 @@ class ERA5interpolate(GenericInterpolate):
         self.era5type = era5type
 
         if self.era5type == 'reanalysis':
-            self.__set_input_directory("era5")
+            self._set_input_directory("era5")
             self.ens = False
         elif self.era5type == 'ensemble_members':
-            self.__set_input_directory("era5ens")
+            self._set_input_directory("era5ens")
             self.ens = True
 
         # convert longitude to ERA notation if using negative numbers

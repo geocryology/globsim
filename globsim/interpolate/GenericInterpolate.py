@@ -64,7 +64,7 @@ class GenericInterpolate:
         else:
             raise FileNotFoundError(f"Siteslist file {par['station_list']} not found.")
 
-    def __set_input_directory(self, name):
+    def _set_input_directory(self, name):
         self.input_dir = path.join(self.par['project_directory'], name)
 
     def TranslateCF2short(self, dpar):
