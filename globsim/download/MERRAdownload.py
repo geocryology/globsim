@@ -478,6 +478,11 @@ class MERRAdownload(GenericDownload):
             if min(last_completed) != max(last_completed):  # Partially finished chunk
                 date['beg'] = min(last_completed) - timedelta(days=self.chunk_size - 1)
 
+            if max(last_completed) < date['beg']:
+                # e.g. Download begins at 2000, but there are 1980 downloads in directory.
+                # This line ensures the download starts at date['beg'], not in the 80s.
+                print("WARMING: There are other download files in this directory, beyond the scope of this project.")
+
             else:  # Completely finished chunk
                 date['beg'] = max(last_completed) + timedelta(days=1)
 
