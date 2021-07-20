@@ -56,7 +56,7 @@ class ERA5interpolate(GenericInterpolate):
         if self.ens:
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         else:
-            nome = 'era5_rea_{}_'.format(levStr) + self.list_name + '.nc'
+            nome = 'era5_{}_'.format(levStr) + self.list_name + '.nc'
         outfile = path.join(self.output_dir, nome)
 
         return outfile
@@ -363,6 +363,6 @@ class ERA5interpolate(GenericInterpolate):
         if self.ens:
             outf = 'era5_ens_pl_'
         else:
-            outf = 'era5_rea_pl_'
+            outf = 'era5_pl_'
         outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
         self.levels2elevation(self.getOutFile('pl'), outf)

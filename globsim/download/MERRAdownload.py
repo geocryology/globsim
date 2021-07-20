@@ -481,7 +481,7 @@ class MERRAdownload(GenericDownload):
             if max(last_completed) < date['beg']:
                 # e.g. Download begins at 2000, but there are 1980 downloads in directory.
                 # This line ensures the download starts at date['beg'], not in the 80s.
-                print("WARMING: There are other download files in this directory, beyond the scope of this project.")
+                print("WARNING: There are other download files in this directory, beyond the scope of this project.")
 
             else:  # Completely finished chunk
                 date['beg'] = max(last_completed) + timedelta(days=1)

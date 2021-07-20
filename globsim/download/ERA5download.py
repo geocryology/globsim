@@ -69,7 +69,7 @@ class ERA5generic(object):
         if era5type == 'ensemble_members':
             return 'era5_ens'
         elif era5type == 'reanalysis':
-            return 'era5_rea'
+            return 'era5'
 
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
@@ -439,7 +439,7 @@ class ERA5download(GenericDownload, ERA5generic):
 
         if self.era5type == 'reanalysis':
             self._set_input_directory("era5")
-            self.topo_file = 'era5_rea_to.nc'
+            self.topo_file = 'era5_to.nc'
             
         elif self.era5type == 'ensemble_members':
             self._set_input_directory("era5ens")
