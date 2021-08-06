@@ -234,6 +234,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
     # get RH
     RH = "RH_sur"
     RH = n[RH][:]
+    RH *= 0.01  # Convert RH to dimensionless fraction for geotop
 
     # get air temp
     AIRT = "AIRT_sur"
