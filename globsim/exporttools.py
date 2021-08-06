@@ -233,7 +233,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
 
     # get RH
     RH = "RH_sur"
-    RH = n[RH][:]
+    RH = n[RH][:]*100
 
     # get air temp
     AIRT = "AIRT_sur"
