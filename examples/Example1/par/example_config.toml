@@ -66,5 +66,8 @@ kernels = ["PRESS_Pa_pl", "AIRT_C_pl", "AIRT_C_sur", "PREC_mm_sur", "RH_per_sur"
 # desired time step for output data [hours]
 time_step = 1
 
+# desired snow correction factor for output data [-]
+scf = 1.5
+
 # Should the output file be overwritten if it exists?
 overwrite = true

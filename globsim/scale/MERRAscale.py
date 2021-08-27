@@ -159,6 +159,9 @@ class MERRAscale(GenericScale):
         self.nt = int(floor((max(time) - min(time)).total_seconds()
                       / 3600 / par['time_step'])) + 1  # +1 : include last value
         self.time_step = par['time_step'] * 3600    # [s] scaled file
+        
+        # snow correction factor
+        self.scf = par['scf']
 
         # vector of output time steps as datetime object
         # 'seconds since 1980-01-01 00:00:00'
@@ -401,7 +404,7 @@ class MERRAscale(GenericScale):
         values  = self.nc_sf.variables['PRECTOT'][:]  # mm in 1 second
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
 
     def PRECCORR_mm_sur(self):
         """

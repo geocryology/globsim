@@ -57,6 +57,10 @@ class JRAscale(GenericScale):
         # number of time steps
         self.nt = floor((max(time) - min(time)).total_seconds() / 3600 / par['time_step']) + 1
         self.time_step = par['time_step']
+        
+        
+        # snow correction factor
+        self.scf = par['scf']
 
         # vector of output time steps as datetime object
         self.times_out    = [min(time) + timedelta(hours=x * par['time_step'])
@@ -170,7 +174,7 @@ class JRAscale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Relative humidity'][:]
+        values  = self.nc_sa.variables['Relative humidity'][:]/100
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -290,7 +294,7 @@ class JRAscale(GenericScale):
         values  = self.nc_sf.variables['Total precipitation'][:] / 24 / 3600  # [mm/h]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * 3600
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * 3600 * self.scf
 
     def LW_Wm2_topo(self):
         """

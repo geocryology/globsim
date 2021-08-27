@@ -99,6 +99,9 @@ class ERAIscale(GenericScale):
         self.time_step = par['time_step'] * 3600    # [s] scaled file
         interval_in = (time[1]-time[0]).seconds #interval in seconds
         self.interpN = floor(interval_in/self.time_step)
+        
+        # snow correction factor
+        self.scf = par['scf']
 
         #number of time steps for output, include last value
         self.nt = int(floor((max(time) - min(time)).total_seconds()
@@ -229,7 +232,7 @@ class ERAIscale(GenericScale):
             f = interp1d(time_in*3600,
                          cummulative2total(values[:, n], time)/interval_in,
                          kind = 'linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
 
     def RH_per_sur(self):
         """
@@ -408,4 +411,3 @@ class ERAIscale(GenericScale):
                 LW = LW_downward(self.rg.variables['RH_sur'][i, n],
                      self.rg.variables['AIRT_sur'][i, n]+273.15, N[n])
                 self.rg.variables[vn][i, n] = LW
-

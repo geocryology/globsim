@@ -42,7 +42,8 @@ class GenericScale:
         """make out file name"""
 
         timestep = str(par['time_step']) + 'h'
-        src = '_'.join(['scaled', data_source_name, timestep])
+        snowCor  = 'scf' + str(par['scf'])
+        src = '_'.join(['scaled', data_source_name, timestep, snowCor])
 
         src = src + '.nc'
         fname = path.join(self.output_dir, src)

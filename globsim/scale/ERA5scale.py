@@ -96,6 +96,10 @@ class ERA5scale(GenericScale):
         # number of time steps for output, include last value
         self.nt = int(floor((max(time) - min(time)).total_seconds()
                             / 3600 / par['time_step'])) + 1
+        
+        
+        # snow correction factor
+        self.scf = par['scf']
 
         # vector of output time steps as datetime object
         # 'seconds since 1900-01-01 00:00:0.0'
@@ -239,7 +243,7 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
 
     def RH_per_sur(self, ni=10):
         """
@@ -374,4 +378,3 @@ class ERA5scale(GenericScale):
         var.units     = '1'
         var.standard_name = 'specific_humidity'
         self.rg.variables[vn][:, :] = SH
-
