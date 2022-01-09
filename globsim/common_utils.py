@@ -58,9 +58,14 @@ def StationListRead(sfile):
     stations = StationListRead('examples/par/examples_list1.globsim_interpolate')
     print(stations['station_number'])
     """
-    # read file
+    # read file; allow for comma or semicolon as delimiter
     raw = pd.read_csv(sfile)
     raw = raw.rename(columns=lambda x: x.strip())
+    print('Keys: '+ raw.keys())
+    if len(raw.keys()) < 2:
+        raw = pd.read_csv(sfile, sep=';')
+        raw = raw.rename(columns=lambda x: x.strip())
+    print('Keys: '+ raw.keys())
     return(raw)
 
 
