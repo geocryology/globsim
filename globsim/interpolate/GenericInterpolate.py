@@ -41,8 +41,6 @@ class GenericInterpolate:
         self.output_dir = self.make_output_directory(par)
         self.variables = par['variables']
         self.list_name = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
-        print('list_name: '+self.list_name)
-        print('base: '+path.basename(path.normpath(par['station_list'])))
         
         # read station points
         self.stations_csv = self.find_stations_csv(par)
