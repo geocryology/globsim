@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 RUN apt-get update
 
-ENV PYTHONPATH=/opt/python/lib/python3.6/site-packages
+# ENV PYTHONPATH=/opt/python/lib/python3.6/site-packages
 
 RUN apt-get install -y dialog
 RUN apt-get install -y apt-utils
@@ -13,7 +13,7 @@ RUN apt-get install -y libgrib-api-dev
 RUN apt-get install -y libopenmpi-dev
 RUN apt-get install -y git
 
-RUN pip3 install numpy
+RUN pip3 install 'numpy>=1.18.4'
 RUN pip3 install nco
 RUN pip3 install netCDF4
 RUN pip3 install scipy
@@ -51,3 +51,5 @@ RUN ln -s /opt/esmf-install/ /opt/esmf
 
 # Add metadata
 LABEL description="A container for globsim"
+
+ENTRYPOINT [ "globsim" ]
