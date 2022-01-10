@@ -2,7 +2,7 @@
 Export functions to convert globsim output to other file types
 """
 from os import path
-
+from datetime import datetime
 import pandas as pd
 import netCDF4 as nc
 import numpy as np
@@ -282,3 +282,103 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
             out_df.to_csv(savepath, index=False, float_format="%10.5f")
 
     return files
+
+
+def globsim_to_oms(ncd, out_dir, site=None, start=None, end=None):
+    """
+    convert globsim to OMS-style csv
+    @args
+    ncd: netcdf dataset
+    site: site name or index
+    """
+    # open netcdf if string provided
+    if type(ncd) is str:
+        n = nc.Dataset(ncd)
+
+    # find number of stations
+    nstn = len(n['station'][:])
+
+    # get date / time column
+    time = nc.num2date(n['time'][:],
+                       units=n['time'].units,
+                       calendar=n['time'].calendar)
+
+    time = [x.strftime('%Y-%m-%d %H:%M') for x in time]
+    time = pd.DataFrame(time)
+
+    # get precip
+    PREC = "PREC_sur"
+    PREC = n[PREC][:]
+
+    # get wind velocity
+    WSPD = "WSPD_sur"
+    WSPD = n[WSPD][:]
+
+    # get wind direction
+    WDIR = "WDIR_sur"
+    WDIR = n[WDIR][:]
+
+    # get windx and windy
+
+    # get RH
+    RH = "RH_sur"
+    RH = n[RH][:]
+
+    # get air temp
+    AIRT = "AIRT_sur"
+    AIRT = n[AIRT][:]
+
+    # get dew temp (missing?)
+
+    # get air pressure
+    PRESS = "PRESS_pl"
+    PRESS = n[PRESS][:]
+    PRESS *= 1e-5      # convert to bar for geotop
+
+    # get shortwave solar global (direct / diffuse missing?)
+    SW = "SW_sur"
+    SW = n[SW][:]
+
+    # get longwave incoming
+    LW = "LW_sur"
+    LW = n[LW][:]
+
+    # get site names
+    NAMES = nc.chartostring(n['station_name'][:])
+
+    # combine data variables into array
+    data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
+
+    # write output files
+    files = []
+    for i in range(nstn):
+        if (site is None) or (site == i) or (site == NAMES[i]):
+            # massage data into the right shape
+            out_df = pd.DataFrame(np.transpose(data[:, :, i]))
+            out_df = pd.concat([time, out_df], axis=1)
+            out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
+                              "AirTemp", "AirPress", "SWglobal", "LWin"]
+
+            # get station name
+            st_name = NAMES[i]
+
+            # prepare paths
+            filename = "{}-{}_Forcing_0001.txt".format(i, st_name)
+            savepath = path.join(out_dir, filename)
+            files.append(savepath)
+
+            # create file
+            out_df.to_csv(savepath, index=False, float_format="%10.5f")
+
+    return files
+
+file = "C:/Users/Nick/OMScsv.csv"
+headers = ["@T,table",
+           f"Created,{datetime.now().isoformat()}",
+           "Author,GlobSim",
+           "@H,timestamp,value_0",
+           "ID,,0",
+           "Type,Date,double",
+           "Format,yyyy-MM-dd HH:mm,"]
+with open(file, 'w') as f:
+    f.writelines([line + '\n' for line in headers])
