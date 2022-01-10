@@ -60,11 +60,7 @@ class ERA5interpolate(GenericInterpolate):
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         else:
             nome = 'era5_{}_'.format(levStr) + self.list_name + '.nc'
-        print('----line 66---')
-        print('list_name: '+self.list_name)
-        print('nome: '+nome)
         outfile = path.join(self.output_dir, nome)
-
         return outfile
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
@@ -107,7 +103,6 @@ class ERA5interpolate(GenericInterpolate):
         ens = 'number' in ncf_in.dimensions.keys()
 
         # build the output of empty netCDF file
-        print('ncfile_out: '+ ncfile_out)
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units='hours since 1900-01-01 00:00:0.0')
         if self.ens:
@@ -371,8 +366,5 @@ class ERA5interpolate(GenericInterpolate):
             outf = 'era5_ens_pl_'
         else:
             outf = 'era5_pl_'
-        print('output_dir: '+output_dir)
-        print('outf '+outf)
-        print('list_name: '+self.list_name)
         outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
         self.levels2elevation(self.getOutFile('pl'), outf)
