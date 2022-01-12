@@ -28,11 +28,11 @@ from globsim.globsim_main import GlobsimInterpolateStation
 def main(args):
     pfile = args.f
 
-    ERAI 	=  True if args.d is None or "ERAI"  in args.d else False
-    ERA5 	=  True if args.d is None or "ERA5"  in args.d else False
-    ERA5ENS =  True if args.d is None or "ERA5ENS"  in args.d else False
-    JRA 	=  True if args.d is None or "JRA"   in args.d else False
-    MERRA 	= True if args.d is None or "MERRA" in args.d else False
+    ERAI     = bool(args.d is None or "ERAI"  in args.d)
+    ERA5     =  bool(args.d is None or "ERA5"  in args.d)
+    ERA5ENS =  bool(args.d is None or "ERA5ENS"  in args.d)
+    JRA     =  bool(args.d is None or "JRA"   in args.d)
+    MERRA     = bool(args.d is None or "MERRA" in args.d)
 
     if sum([ERAI, ERA5, ERA5ENS, JRA, MERRA]) > 0:
 
