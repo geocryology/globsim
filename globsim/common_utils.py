@@ -30,7 +30,7 @@ import netCDF4 as nc
 import numpy as np
 
 import glob
-import logging
+#import logging
 
 # handle python 3 string types
 try:
@@ -57,16 +57,15 @@ def StationListRead(sfile):
 
     # read station list
     stations = StationListRead('examples/par/examples_list1.globsim_interpolate')
-    logging.debug(stations['station_number'])
     """
     # read file; allow for comma or semicolon as delimiter
     raw = pd.read_csv(sfile)
     raw = raw.rename(columns=lambda x: x.strip())
-    logging.debug('Keys: '+ raw.keys())
+    #logging.debug('Keys: '+ raw.keys())
     if len(raw.keys()) < 2:
         raw = pd.read_csv(sfile, sep=';')
         raw = raw.rename(columns=lambda x: x.strip())
-    logging.debug('Keys: '+ raw.keys())
+    #logging.debug('Keys: '+ raw.keys())
     return(raw)
 
 
