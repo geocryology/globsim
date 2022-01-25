@@ -3,6 +3,7 @@ from __future__ import print_function
 import glob
 import netCDF4 as nc
 import numpy as np
+import logging
 
 from datetime import datetime, timedelta
 from ecmwfapi.api import ECMWFDataServer
@@ -13,6 +14,8 @@ from os import path, listdir, remove
 from globsim.common_utils import str_encode
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
+
+logger = logging.getLogger('globsim.download')
 
 try:
     from nco import Nco

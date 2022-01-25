@@ -26,6 +26,7 @@ from __future__ import print_function
 import netCDF4 as nc
 import numpy as np
 import urllib3
+import logging
 
 from datetime import timedelta
 from math import floor, atan2, pi
@@ -38,7 +39,7 @@ from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
 urllib3.disable_warnings()
-
+logger = logging.getLogger('globsim.scale')
 
 class ERA5scale(GenericScale):
     """

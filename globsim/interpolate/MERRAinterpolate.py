@@ -3,6 +3,7 @@ from __future__        import print_function
 import netCDF4 as nc
 import numpy as np
 import sys
+import logging
 
 from datetime          import datetime
 from os                import path, makedirs
@@ -14,6 +15,7 @@ from globsim.nc_elements import netcdf_base
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
+logger = logging.getLogger('globsim.interpolate')
 
 class MERRAinterpolate(GenericInterpolate):
     """

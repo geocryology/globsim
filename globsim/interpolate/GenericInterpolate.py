@@ -4,6 +4,7 @@ import numpy as np
 import re
 import tomlkit
 import warnings
+import logging
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
@@ -11,6 +12,8 @@ from pathlib import Path
 from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
+
+logger = logging.getLogger('globsim.interpolate')
 
 # handle python 3 string types
 try:

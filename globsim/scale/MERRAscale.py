@@ -97,6 +97,7 @@ from __future__        import print_function
 import netCDF4 as nc
 import numpy as np
 import warnings
+import logging 
 
 from datetime  import timedelta
 from os import path, makedirs
@@ -109,6 +110,8 @@ from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
+
+logger = logging.getLogger('globsim.scale')
 
 
 class MERRAscale(GenericScale):

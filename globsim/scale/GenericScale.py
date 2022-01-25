@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import tomlkit
 import warnings
+import logging
 
 from os import path, makedirs
 from pathlib import Path
@@ -14,7 +15,7 @@ try:
 except NameError:
     basestring = str
 
-
+logger = logging.getLogger('globsim.scale')
 class GenericScale:
 
     def __init__(self, sfile):

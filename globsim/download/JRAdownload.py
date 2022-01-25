@@ -12,6 +12,7 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
+import logging
 
 from datetime import datetime, timedelta
 from math import floor
@@ -21,6 +22,7 @@ from globsim.common_utils import variables_skip
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
+logger = logging.getLogger('globsim.download')
 
 def get_userinfo():
     return None, None
