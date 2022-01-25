@@ -6,6 +6,7 @@ import netCDF4 as nc
 import pandas as pd
 import sys
 import warnings
+import logging
 
 from datetime          import datetime, timedelta
 from netCDF4           import Dataset
@@ -16,6 +17,8 @@ from scipy.interpolate import interp1d
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
+
+logger = logging.getLogger("globsim.download")
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 

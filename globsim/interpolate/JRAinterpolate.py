@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import netCDF4 as nc
 import numpy as np
-
+import logging
 from datetime import datetime
 from os import path
 
@@ -12,6 +12,7 @@ from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
+logger = logging.getLogger('globsim.interpolate')
 
 class JRAinterpolate(GenericInterpolate):
     """
