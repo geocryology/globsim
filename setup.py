@@ -37,7 +37,7 @@ setuptools.setup(
             'globsim = globsim.globsim_cli:main',
         ]},
     install_requires=['lxml',
-                      'numpy',
+                      'numpy==1.18',
                       'pandas',
                       'netCDF4',
                       'scipy',
