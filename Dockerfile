@@ -50,9 +50,9 @@ RUN cd /opt/globsim && python3.6 setup.py install
 RUN tar xvfz /opt/globsim/lib/esmf-python.tar.gz -C /opt
 
 # Add to python path so ESMF can be found
-#ENV PYTHONPATH=/opt/python/lib/python3.6/site-packages
-#RUN echo /opt > /usr/lib/python3.6/dist-packages/esmf.pth
-#RUN ln -s /opt/esmf-install/ /opt/esmf
+ENV PYTHONPATH=/opt/python/lib/python3.6/site-packages
+RUN echo /opt > /usr/lib/python3.6/dist-packages/esmf.pth
+RUN ln -s /opt/esmf-install/ /opt/esmf
 
 # Add metadata
 LABEL description="GlobSim"
