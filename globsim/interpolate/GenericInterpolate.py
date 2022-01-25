@@ -284,8 +284,18 @@ class GenericInterpolate:
     @staticmethod
     def remove_select_variables(varlist, pl, ens=False):
         varlist.remove('time')
-        varlist.remove('latitude')
-        varlist.remove('longitude')
+        try:
+            varlist.remove('latitude')
+        except ValueError as e:
+            print(e)
+            print('continue')
+            pass
+        try:
+            varlist.remove('longitude')
+        except ValueError as e:
+            print(e)
+            print('continue')
+            pass
         if pl:  # only for pressure level files
             varlist.remove('level')
         if ens:
