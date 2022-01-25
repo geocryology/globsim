@@ -25,7 +25,7 @@ class GenericScale:
             self.par = par = config['scale']
         self.intpdir = path.join(par['project_directory'], 'interpolated')
         self.output_dir = self.make_output_directory(par)
-        self.list_name = par['station_list'].split(path.extsep)[0]
+        self.list_name  = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
 
         # get the station file
         self.stations_csv = path.join(par['project_directory'],
