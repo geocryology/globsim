@@ -96,7 +96,7 @@ class JRAscale(GenericScale):
         # iterate through kernels and start process
         for kernel_name in self.kernels:
             if hasattr(self, kernel_name):
-                print(kernel_name)
+                logger.info(f"running scaling kernel: '{kernel_name}'")
                 getattr(self, kernel_name)()
 
         # self.conv_geotop()

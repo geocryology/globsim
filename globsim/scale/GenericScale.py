@@ -16,6 +16,8 @@ except NameError:
     basestring = str
 
 logger = logging.getLogger('globsim.scale')
+
+
 class GenericScale:
 
     def __init__(self, sfile):
@@ -55,16 +57,20 @@ class GenericScale:
         """make directory to hold outputs"""
         output_dir = None
         
+        logger.debug(f"Attempting to create directory: {output_dir}")
+        
         if par.get('output_directory'):
             try:
                 test_path = Path(par.get('output_directory'))
             except TypeError:
-                warnings.warn("You provided an output_directory for scaled files that does not exist. Saving files to project directory")
+                msg = "You provided an output_directory for scaled files that does not exist. Saving files to project directory"
+                logger.error(msg)
+                warnings.warn(msg)
             
             if test_path.is_dir():
                 output_dir = Path(test_path, "scaled")
             else:
-                warnings.warn("You provided an output_directory for scaled files that was not understood. Saving files to project directory.")
+                logger.warning("You provided an output_directory for scaled files that was not understood. Saving files to project directory.")
                 
         if not output_dir:
             output_dir = path.join(par['project_directory'], 'scaled')

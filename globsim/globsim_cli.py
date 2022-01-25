@@ -65,7 +65,6 @@ def main():
         args = parser.parse_args()
         configure_logging(args)
         logger.info(f"Running globsim {args.action}")
-        print(f"Running globsim_{args.action}")
         task = action_dict[args.action]
         task.main(args)
 
