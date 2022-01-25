@@ -17,7 +17,6 @@ except NameError:
 
 logger = logging.getLogger('globsim.scale')
 
-
 class GenericScale:
 
     def __init__(self, sfile):
