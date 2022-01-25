@@ -36,6 +36,7 @@ setuptools.setup(
         'console_scripts': [
             'globsim = globsim.globsim_cli:main',
         ]},
+    setup_requires=['numpy'],
     install_requires=['lxml',
                       'numpy==1.18',
                       'pandas',
