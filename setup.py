@@ -36,15 +36,14 @@ setuptools.setup(
         'console_scripts': [
             'globsim = globsim.globsim_cli:main',
         ]},
-    install_requires=[
-                    'lxml',
-                    'pandas',
-                    'netCDF4',
-                    'scipy',
-                    'pydap', 
-                    'numpy',
-                    'tomlkit',
-                    'ecmwf-api-client',
-                    'cdsapi'
+    install_requires=['lxml',
+                      'numpy',
+                      'pandas',
+                      'netCDF4',
+                      'scipy',
+                      'pydap', 
+                      'tomlkit',
+                      'ecmwf-api-client',
+                      'cdsapi'
     ]
 )
