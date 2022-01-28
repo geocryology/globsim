@@ -1,8 +1,10 @@
 import numpy as np
 import tomlkit
+import logging
 
 from os import path, makedirs
 
+logger = logging.getLogger("globsim.download")
 
 class GenericDownload(object):
     """

@@ -1,11 +1,14 @@
 """
 functions for creating netcdf files
 """
+import logging
 import netCDF4 as nc
 from globsim.common_utils import variables_skip, str_encode
 from os import path
 import numpy as np
+from pathlib import Path
 
+logger = logging.getLogger('globsim.nc_elements')
 
 def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):
     rootgrp = nc.Dataset(ncfile_out, 'w', format=fmt)
@@ -146,6 +149,8 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
+    logger.info(f"Creating new file {ncfile_out} from ")
+
     rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units, nc_in)
 
     station = rootgrp['station']
@@ -162,14 +167,14 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     # extra treatment for pressure level files
     try:
         lev = nc_in.variables['level'][:]
-        print("== 3D: file has pressure levels")
+        logger.info(f"Source dataset is 3D (has pressure levels)")
         level           = rootgrp.createDimension('level', len(lev))
         level           = rootgrp.createVariable('level', 'i4', ('level'))
         level.long_name = 'pressure_level'
         level.units     = 'hPa'
         level[:] = lev
     except Exception:
-        print("== 2D: file without pressure levels")
+        logger.info(f"Source dataset is 2D (without pressure levels)")
         lev = []
 
     try:
@@ -181,7 +186,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     for n, var in enumerate(nc_in.variables):
         if variables_skip(var):
             continue
-        print("VAR: ", str_encode(var))
+        
         # extra treatment for pressure level files
         if len(num):
             if len(lev):
@@ -199,7 +204,9 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
 
         tmp.long_name = nc_in.variables[var].long_name.encode('UTF8')
         tmp.units     = nc_in.variables[var].units.encode('UTF8')
-
+        
+        logger.info(f"Created new empty variable: {str_encode(var)} [{tmp.units}]")
+    
     return rootgrp
 
 

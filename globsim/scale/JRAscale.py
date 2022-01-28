@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import netCDF4 as nc
 import numpy as np
+import logging
 
 from datetime import timedelta
 from os import path
@@ -15,6 +16,7 @@ from globsim.meteorology import LW_downward
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
+logger = logging.getLogger('globsim.scale')
 
 class JRAscale(GenericScale):
     """
@@ -94,7 +96,7 @@ class JRAscale(GenericScale):
         # iterate through kernels and start process
         for kernel_name in self.kernels:
             if hasattr(self, kernel_name):
-                print(kernel_name)
+                logger.info(f"running scaling kernel: '{kernel_name}'")
                 getattr(self, kernel_name)()
 
         # self.conv_geotop()

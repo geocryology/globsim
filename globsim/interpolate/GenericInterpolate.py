@@ -4,6 +4,7 @@ import numpy as np
 import re
 import tomlkit
 import warnings
+import logging
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
@@ -11,6 +12,8 @@ from pathlib import Path
 from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
+
+logger = logging.getLogger('globsim.interpolate')
 
 # handle python 3 string types
 try:
@@ -196,6 +199,8 @@ class GenericInterpolate:
                                     ndbounds=[len(variables), nt])
 
             dfield = self.regrid(sfield, dfield)
+        
+        logger.debug("Created destination field")
 
         return dfield, variables
 
@@ -229,7 +234,6 @@ class GenericInterpolate:
                                        path.basename(ncfile_in)))
         ncsingle = path.join(self.input_dir, flist[0])
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
-
         return sgrid
 
     def create_loc_stream(self):
@@ -244,13 +248,17 @@ class GenericInterpolate:
     @staticmethod
     def regrid(sfield, dfield):
         # regridding function, consider ESMF.UnmappedAction.ERROR
+        
         regrid2D = ESMF.Regrid(sfield, dfield,
                                regrid_method=ESMF.RegridMethod.BILINEAR,
                                unmapped_action=ESMF.UnmappedAction.IGNORE,
                                dst_mask_values=None)
-
+        
         # regrid operation, create destination field (variables, times, points)
+        logger.debug("Attempting to regrid")
         dfield = regrid2D(sfield, dfield)
+        logger.info("Regridding complete")
+
         sfield.destroy()  # free memory
 
         return dfield
@@ -260,7 +268,6 @@ class GenericInterpolate:
                                 tmask_chunk, pl, ens):
         # assign data from ncdf: (variable, time, latitude, longitude)
 
-        print(variables)
         for n, var in enumerate(variables):
             if ens:
                 for ni in ncf_in['number'][:]:
@@ -269,17 +276,20 @@ class GenericInterpolate:
                         # vi [time, number, level, lat, lon]
                         vi = ncf_in[var][tmask_chunk,ni,:,:,:]
                         sfield[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+                        logger.debug(f"Wrote {var} data to source field for regridding")
                     else:
                         vi = ncf_in[var][tmask_chunk,ni,:,:]
                         sfield[ni].data[:,:,n,:] = vi.transpose((2,1,0))
+                        logger.debug(f"Wrote {var} data to source field for regridding")
             else:
                 if pl:
                     vi = ncf_in[var][tmask_chunk,:,:,:]
                     sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
-
+                    logger.debug(f"Wrote {var} data to source field for regridding")
                 else:
                     vi = ncf_in[var][tmask_chunk,:,:]
                     sfield.data[:,:,n,:] = vi.transpose((2,1,0))
+                    logger.debug(f"Wrote {var} data to source field for regridding")
 
     @staticmethod
     def remove_select_variables(varlist, pl, ens=False):

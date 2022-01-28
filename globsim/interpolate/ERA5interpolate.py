@@ -4,6 +4,7 @@ from __future__ import print_function
 import netCDF4 as nc
 import numpy as np
 import urllib3
+import logging
 
 from datetime import datetime
 from os import path
@@ -11,6 +12,8 @@ from os import path
 from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
+
+logger = logging.getLogger('globsim.interpolate')
 
 urllib3.disable_warnings()
 
