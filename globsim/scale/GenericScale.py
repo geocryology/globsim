@@ -2,9 +2,13 @@ from __future__ import print_function
 
 import tomlkit
 import logging
+import numpy as np
+import  netCDF4 as nc
 
+from datetime import datetime
 from os import path, makedirs
 from pathlib import Path
+from math import floor
 
 from globsim.common_utils import StationListRead
 
@@ -105,3 +109,37 @@ class GenericScale:
             makedirs(output_dir)
 
         return output_dir
+
+    def set_time_scale(self, time_variable, time_step):
+        nctime = time_variable[:]
+        self.t_unit = time_variable.units
+        self.t_cal  = time_variable.calendar
+        self.time_step = time_step
+        min_time = nc.num2date(min(nctime), units=self.t_unit, calendar=self.t_cal)
+        max_time = nc.num2date(max(nctime), units=self.t_unit, calendar=self.t_cal)
+
+        # number of time steps
+        self.nt = floor((max_time - min_time).total_seconds() / (3600 * time_step)) + 1
+
+        self.times_out_nc = self.build_datetime_array(start_time=min_time,
+                                                      timestep_in_hours=self.time_step,
+                                                      num_times=self.nt,
+                                                      output_units=self.t_unit,
+                                                      output_calendar=self.t_cal)
+        logger.debug(f"Using output time array with {self.nt} elements between {min_time.strftime('%Y-%m-%d %H:%M:%S')} and {max_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    @staticmethod
+    def build_datetime_array(start_time: datetime, timestep_in_hours: int, num_times: int, output_units:str, output_calendar:str):
+        print(start_time)
+        time_array = np.arange(num_times, dtype='float64') * timestep_in_hours * 3600
+
+        datetime_array = nc.num2date(time_array,
+                                     units=f"seconds since {start_time.strftime('%Y-%m-%d %H:%M:%S.%f')}",
+                                     calendar="gregorian")
+        
+        result = nc.date2num(datetime_array,
+                             units=output_units,
+                             calendar=output_calendar)
+
+        return result
+
