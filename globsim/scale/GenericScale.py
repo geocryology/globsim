@@ -24,7 +24,10 @@ class GenericScale:
         self.sfile = sfile
         with open(self.sfile) as FILE:
             config = tomlkit.parse(FILE.read())
-            self.par = par = config['scale']
+            self.par = config['scale']
+        self.set_parameters(self.par)
+
+    def set_parameters(self, par):
         self.intpdir = path.join(par['project_directory'], 'interpolated')
         self.output_dir = self.make_output_directory(par)
         self.list_name  = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
