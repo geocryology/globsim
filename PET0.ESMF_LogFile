@@ -1,7 +1,0 @@
-20220119 162257.185 ERROR            PET0 ESMF_IOGridspec.F90:294 ESMF_GridspecInq netCDF Error: longitude variable in /fs/yedoma/data/globsim/canada/merra2/merra_sa_19800101_to_19891230.nc: NetCDF: Variable not found
-20220119 162257.185 ERROR            PET0 ESMF_Grid.F90:7406 ESMF_GridCreateFrmGridspec Failure  - Internal subroutine call returned Error
-20220119 162257.185 ERROR            PET0 ESMF_Grid.F90:6528 ESMF_GridCreateFrmNCFile Failure  - Internal subroutine call returned Error
-20220119 162257.185 ERROR            PET0 ESMF_Grid_C.F90:305 f_esmf_gridcreatefromfile Failure  - Internal subroutine call returned Error
-20220119 162257.185 ERROR            PET0 ESMCI_Grid.C:658 ESMCI::Grid::createfromfile() Failure  - Internal subroutine call returned Error
-20220119 162257.185 ERROR            PET0 ESMC_Grid.C:180 ESMC_GridCreateFromFile() Failure  - Internal subroutine call returned Error
-20220119 162257.186 INFO             PET0 Finalizing ESMF
