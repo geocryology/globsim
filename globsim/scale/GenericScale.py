@@ -47,18 +47,19 @@ class GenericScale:
         try:
             self._overwrite_output = par['overwrite']
         except KeyError as e:
+            logger.warning("Missing overwrite parameter in control file. Reverting to default (ovewrite = true).")
             self._overwrite_output = False
         finally:
-            logger.debug("Scale configured to overwrite output files")
+            logger.debug(f"Overwriting of output files set to '{self._overwrite_output}'")
 
         # read snow correction info
         try:
             self.scf = par['scf']
         except KeyError as e:
-            logger.warning("Missing snow correction factor in control file. Reverting to default (1).")
+            logger.warning("Missing snow correction factor parameter in control file. Reverting to default (scf = 1).")
             self.scf = 1
         finally:
-            logger.info(f"Snow correction factor for scaling set to {self.scf}")
+            logger.debug(f"Snow correction factor for scaling set to {self.scf}")
 
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
