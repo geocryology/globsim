@@ -98,9 +98,6 @@ class ERA5scale(GenericScale):
         self.nt = int(floor((max(time) - min(time)).total_seconds()
                             / 3600 / par['time_step'])) + 1
         
-        
-        # snow correction factor
-        self.scf = par['scf']
 
         # vector of output time steps as datetime object
         # 'seconds since 1900-01-01 00:00:0.0'
