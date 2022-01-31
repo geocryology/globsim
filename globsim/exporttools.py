@@ -6,8 +6,11 @@ from os import path
 import pandas as pd
 import netCDF4 as nc
 import numpy as np
+import logging
 
 from globsim.common_utils import variables_skip
+
+logger = logging.getLogger("globsim.convert")
 
 
 def globsimScaled2Pandas(ncdf_in, station_nr):
@@ -205,7 +208,9 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
     # open netcdf if string provided
     if type(ncd) is str:
         n = nc.Dataset(ncd)
-
+    
+    logger.debug(f"Reading file {n.filepath}")
+    
     # find number of stations
     nstn = len(n['station'][:])
 
@@ -280,6 +285,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
             files.append(savepath)
 
             # create file
+            logger.info(f"writing file '{savepath}'")
             out_df.to_csv(savepath, index=False, float_format="%10.5f")
 
     return files
