@@ -118,14 +118,14 @@ class GenericScale:
         self.min_time = nc.num2date(min(nctime), units=self.t_unit, calendar=self.t_cal)
 
         self.max_time = nc.num2date(max(nctime), units=self.t_unit, calendar=self.t_cal)
-        t1 = nc.num2date(min(nctime[1]), units=self.t_unit, calendar=self.t_cal)
-        t0 = nc.num2date(min(nctime[0]), units=self.t_unit, calendar=self.t_cal)
+        t1 = nc.num2date(nctime[1], units=self.t_unit, calendar=self.t_cal)
+        t0 = nc.num2date(nctime[0], units=self.t_unit, calendar=self.t_cal)
         self.interval_in = (t1 - t0).seconds
 
         # number of time steps
         self.nt = floor((self.max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
-        logger.debug(f"Output time array has {self.nt} elements between"
-                     f"{self.min_time.strftime('%Y-%m-%d %H:%M:%S')} and"
+        logger.debug(f"Output time array has {self.nt} elements between "
+                     f"{self.min_time.strftime('%Y-%m-%d %H:%M:%S')} and "
                      f"{self.max_time.strftime('%Y-%m-%d %H:%M:%S')}"
                      f" (time step of {self.time_step} hours)")
 
