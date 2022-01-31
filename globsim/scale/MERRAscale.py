@@ -162,9 +162,6 @@ class MERRAscale(GenericScale):
         self.nt = int(floor((max(time) - min(time)).total_seconds()
                       / 3600 / par['time_step'])) + 1  # +1 : include last value
         self.time_step = par['time_step'] * 3600    # [s] scaled file
-        
-        # snow correction factor
-        self.scf = par['scf']
 
         # vector of output time steps as datetime object
         # 'seconds since 1980-01-01 00:00:00'

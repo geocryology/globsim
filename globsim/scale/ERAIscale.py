@@ -102,9 +102,6 @@ class ERAIscale(GenericScale):
         self.time_step = par['time_step'] * 3600    # [s] scaled file
         interval_in = (time[1]-time[0]).seconds #interval in seconds
         self.interpN = floor(interval_in/self.time_step)
-        
-        # snow correction factor
-        self.scf = par['scf']
 
         #number of time steps for output, include last value
         self.nt = int(floor((max(time) - min(time)).total_seconds()

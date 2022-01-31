@@ -24,7 +24,10 @@ class GenericScale:
         self.sfile = sfile
         with open(self.sfile) as FILE:
             config = tomlkit.parse(FILE.read())
-            self.par = par = config['scale']
+            self.par = config['scale']
+        self.set_parameters(self.par)
+
+    def set_parameters(self, par):
         self.intpdir = path.join(par['project_directory'], 'interpolated')
         self.output_dir = self.make_output_directory(par)
         self.list_name  = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
@@ -44,15 +47,25 @@ class GenericScale:
         try:
             self._overwrite_output = par['overwrite']
         except KeyError as e:
+            logger.warning("Missing overwrite parameter in control file. Reverting to default (ovewrite = true).")
             self._overwrite_output = False
         finally:
-            logger.debug("Scale configured to overwrite output files")
+            logger.debug(f"Overwriting of output files set to '{self._overwrite_output}'")
+
+        # read snow correction info
+        try:
+            self.scf = par['scf']
+        except KeyError as e:
+            logger.warning("Missing snow correction factor parameter in control file. Reverting to default (scf = 1).")
+            self.scf = 1
+        finally:
+            logger.debug(f"Snow correction factor for scaling set to {self.scf}")
 
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
         timestep = str(par['time_step']) + 'h'
-        snowCor  = 'scf' + str(par['scf'])
+        snowCor  = 'scf' + str(self.scf)
         src = '_'.join(['scaled', data_source_name, timestep, snowCor])
 
         src = src + '.nc'

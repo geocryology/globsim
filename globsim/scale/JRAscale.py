@@ -59,10 +59,6 @@ class JRAscale(GenericScale):
         # number of time steps
         self.nt = floor((max(time) - min(time)).total_seconds() / 3600 / par['time_step']) + 1
         self.time_step = par['time_step']
-        
-        
-        # snow correction factor
-        self.scf = par['scf']
 
         # vector of output time steps as datetime object
         self.times_out    = [min(time) + timedelta(hours=x * par['time_step'])
