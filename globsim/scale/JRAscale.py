@@ -51,21 +51,7 @@ class JRAscale(GenericScale):
 
         # time vector for output data
         # get time and convert to datetime object
-        nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units
-        self.t_cal  = self.nc_pl.variables['time'].calendar
-        time = nc.num2date(nctime, units=self.t_unit, calendar=self.t_cal)
-
-        # number of time steps
-        self.nt = floor((max(time) - min(time)).total_seconds() / 3600 / par['time_step']) + 1
-        self.time_step = par['time_step']
-
-        # vector of output time steps as datetime object
-        self.times_out    = [min(time) + timedelta(hours=x * par['time_step'])
-                             for x in range(0, self.nt)]
-        # vector of output time steps as written in ncdf file
-        self.times_out_nc = nc.date2num(self.times_out, units=self.t_unit,
-                                        calendar=self.t_cal)
+        self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
 
     def process(self):
         """
