@@ -6,9 +6,8 @@ import netCDF4 as nc
 import numpy as np
 import logging
 
-from datetime import timedelta
-from os import path
-from math import floor, atan2, pi
+from pathlib import Path
+from math import atan2, pi
 from scipy.interpolate import interp1d
 
 from globsim.common_utils import str_encode, series_interpolate
@@ -17,6 +16,7 @@ from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
 logger = logging.getLogger('globsim.scale')
+
 
 class JRAscale(GenericScale):
     """
@@ -39,12 +39,12 @@ class JRAscale(GenericScale):
         par = self.par
 
         # input file names
-        self.nc_pl = nc.Dataset(path.join(self.intpdir,'jra_pl_' +
-                                self.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(self.intpdir,'jra_sa_' +
-                                self.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(self.intpdir,'jra_sf_' +
-                                self.list_name + '.nc'), 'r')
+        self.nc_pl = nc.Dataset(Path(self.intpdir, f'jra_pl_{self.list_name}_surface.nc'),
+                                'r')
+        self.nc_sa = nc.Dataset(Path(self.intpdir, f'jra_sa_{self.list_name}.nc'),
+                                'r')
+        self.nc_sf = nc.Dataset(Path(self.intpdir, f'jra_sf_{self.list_name}.nc'),
+                                'r')
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')
@@ -164,7 +164,7 @@ class JRAscale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Relative humidity'][:]/100
+        values  = self.nc_sa.variables['Relative humidity'][:] / 100
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])

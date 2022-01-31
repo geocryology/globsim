@@ -44,8 +44,7 @@ import netCDF4 as nc
 import numpy as np
 import logging
 
-from datetime import timedelta
-from math import floor, atan2, pi
+from math import atan2, pi
 from os import path
 from scipy.interpolate import interp1d
 
@@ -55,6 +54,7 @@ from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
 logger = logging.getLogger('globsim.scale')
+
 
 class ERAIscale(GenericScale):
     NAME = "ERA-I"

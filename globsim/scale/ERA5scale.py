@@ -28,10 +28,9 @@ import numpy as np
 import urllib3
 import logging
 
-from datetime import timedelta
-from math import floor, atan2, pi
-from os import path
+from math import atan2, pi
 from scipy.interpolate import interp1d
+from pathlib import Path
 
 from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg
@@ -40,6 +39,7 @@ from globsim.scale.GenericScale import GenericScale
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
+
 
 class ERA5scale(GenericScale):
     """
@@ -68,18 +68,14 @@ class ERA5scale(GenericScale):
             self.src = 'era5_ens'
 
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(self.intpdir,
-                                          '{}_pl_'.format(self.src) +
-                                          self.list_name + '_surface.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(self.intpdir,
-                                          '{}_sa_'.format(self.src) +
-                                self.list_name + '.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(self.intpdir,
-                                          '{}_sf_'.format(self.src) +
-                                self.list_name + '.nc'), 'r')
-        self.nc_to = nc.Dataset(path.join(self.intpdir,
-                                          '{}_to_'.format(self.src) +
-                                self.list_name + '.nc'), 'r')
+        self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}_surface.nc"),
+                                'r')
+        self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.src}_sa_{self.list_name}.nc'),
+                                'r')
+        self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.src}_sf_{self.list_name}.nc'),
+                                'r')
+        self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.src}_to_{self.list_name}.nc'),
+                                'r')
         self.nstation = len(self.nc_to.variables['station'][:])
 
         # time vector for output data
@@ -157,7 +153,8 @@ class ERA5scale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                          time_in * 3600, values[:, n]) * 100
+                                                             time_in * 3600,
+                                                             values[:, n]) * 100
 
     def AIRT_C_pl(self, ni=10):
         """

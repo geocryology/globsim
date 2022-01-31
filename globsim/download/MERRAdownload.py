@@ -753,7 +753,6 @@ class MERRAdownload(GenericDownload):
         logger.info("Download variables From MERRA2 2d Time-Invariant (Single-level, Constant Model Parameters)")
         self.download_merra_to()
         logger.debug("MERRA2 2d Time-Invariant Complete")
-        
 
         # build chunks
         all_dates = pd.date_range(self.date['beg'], self.date['end'])
@@ -867,7 +866,7 @@ class MERRASubsetter:
         return "[{}:{}]".format(np.min(indices), np.max(indices))
 
     def subset_2d_variable(self, variable_name, lat_min, lat_max, lon_min, lon_max):
-        var_string = "".join([variable_name, self.subset_time(), 
+        var_string = "".join([variable_name, self.subset_time(),
                               self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max)])
 
         return var_string

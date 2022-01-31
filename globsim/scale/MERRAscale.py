@@ -97,11 +97,10 @@ from __future__        import print_function
 import netCDF4 as nc
 import numpy as np
 import warnings
-import logging 
+import logging
 
-from datetime  import timedelta
 from os import path, makedirs
-from math import floor, atan2, pi
+from math import atan2, pi
 from scipy.interpolate import interp1d
 
 from globsim.common_utils import str_encode, series_interpolate
@@ -150,7 +149,7 @@ class MERRAscale(GenericScale):
         # get time and convert to datetime object
         self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
         self.scaled_t_units = 'seconds since 1980-01-01 00:00:00'
-        
+
         self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
                                                       timestep_in_hours=self.time_step,
                                                       num_times=self.nt,
