@@ -74,17 +74,15 @@ class RDA(object):
             url = opener.open(request)
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print('RDA username and password invalid. Please try again\n')
+                logger.error('RDA username and password invalid. Please try again\n')
                 opener = self.makeOpener(theurl)
                 try:
                     url = opener.open(request)
                 except urllib.error.HTTPError as e:
                     if e.code == 401:
-                        print(
+                        logger.error(
                             'RDA username and password invalid, or you are'
-                            'not authorized to access this dataset.\n')
-                        print('Please verify your login information at'
-                              'http://rda.ucar.edu\n.')
+                            'not authorized to access this dataset. Please verify your login information at http://rda.ucar.edu')
                         sys.exit()
 
         return url
@@ -109,18 +107,17 @@ class RDA(object):
         theurl = self.base + 'help'
         url = self.urlOpen(theurl)
 
-        print(url.read().decode())
+        logger.debug(url.read().decode())
 
     def getSummary(self, dsID=None):
         '''get the summary of given dataset'''
 
-        print('\nGetting summary information. Please wait as this may take'
-              'a while.\n')
+        logger.info('Getting summary information. Please wait as this may take a while.')
 
         theurl = theurl = self.base + 'summary/' + dsID
         url = self.urlOpen(theurl)
 
-        print(url.read().decode())
+        logger.info(url.read().decode())
 
     def getMeta(self, dsID):
         '''get the metadata of gieven dataset'''
@@ -128,20 +125,19 @@ class RDA(object):
         theurl = self.base + 'metadata/' + dsID
         url = self.urlOpen(theurl)
 
-        print(url.read().decode())
+        logger.info(url.read().decode())
 
     def getParaSummary(self, dsID):
         '''submit a subset request control file.
            Subset request control files are built from the parameters dumped
            out by the '-get_metadata <dsnnn.n>' option.'''
 
-        print('\nGetting parameter summary. Please wait as this may take'
-              'awhile.\n')
+        logger.info('Getting parameter summary. Please wait as this may take a while.')
 
         theurl = self.base + 'paramsummary/' + dsID
         url = self.urlOpen(theurl)
 
-        print(url.read().decode())
+        logger.info(url.read().decode())
 
     def getStatus(self):
         '''get the status of requests'''
@@ -149,7 +145,7 @@ class RDA(object):
         theurl = self.base + 'request'
         url = self.urlOpen(theurl)
 
-        print(url.read().decode())
+        logger.info(url.read().decode())
 
     def submit(self, controlparms):
         '''submit JRA55 dataset request based on predescribed control
@@ -162,7 +158,7 @@ class RDA(object):
             jsondata += '"' + k + '"' + ":" + '"' + controlparms[k] + '",'
         jsondata = jsondata[:-1]
         jsondata += '}'
-        print('\n ====== Submitting Request ====\n')
+        logger.info('Submitting request')
 
         if len(jsondata) > 1:
             request = urllib.request.Request(
@@ -175,21 +171,18 @@ class RDA(object):
             url = opener.open(request)
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                print('RDA username and password invalid.  Please try again\n')
+                logger.error('RDA username and password invalid.  Please try again\n')
                 (username, password) = get_userinfo()
                 opener = self.makeOpener(theurl)
                 try:
                     url = opener.open(request)
                 except urllib.error.HTTPError as e:
                     if e.code == 401:
-                        print(
-                            'RDA username and password invalid, or you are'
-                            'not authorized to access this dataset.\n')
-                        print('Please verify your login information at'
-                              'http://rda.ucar.edu\n.')
+                        logger.error('RDA username and password invalid, or you are not authorized to access this dataset.')
+                        logger.error('Please verify your login information at http://rda.ucar.edu.')
                         sys.exit()
 
-        print(url.read().decode())
+        logger.info(url.read().decode())
 
     def downloadSinglefile(self, remfile, outfile):
         '''download_file(remfile,outfile) : download a file from a remote
@@ -291,7 +284,7 @@ class RDA(object):
             # get cookie required to download data files
             self.add_http_cookie(self.loginurl, authdata)
 
-            print("\n\nStarting Download.\n\n")
+            logger.info("Starting Download.")
 
             self.downloadFile(filelist, directory)
 
@@ -311,18 +304,17 @@ class RDA(object):
                 url = opener.open(request)
             except urllib.error.HTTPError as e:
                 if e.code == 401:
-                    print('RDA username and password invalid. Please try again\n')
+                    logger.error('RDA username and password invalid. Please try again')
                     opener = self.makeOpener(theurl)
                     try:
                         url = opener.open(request)
                     except urllib.error.HTTPError as e:
                         if e.code == 401:
-                            print(
-                                'RDA username and password invalid, or you are not authorized to access this dataset.\n')
-                            print('Please verify your login information at http://rda.ucar.edu\n.')
+                            logger.error('RDA username and password invalid, or you are not authorized to access this dataset.')
+                            logger.error('Please verify your login information at http://rda.ucar.edu.')
                             sys.exit()
 
-            print(url.read().decode())
+            logger.info(url.read().decode())
 
 
 class JRApl(object):
@@ -715,7 +707,7 @@ class JRAdownload(GenericDownload):
             for n, var in enumerate(ncf.variables.keys()):
                 if variables_skip(self.ncfVar[var]):
                     continue
-                print("VAR: ", var)
+                logger.info("Creating variable: ", var)
                 if dataLev == 'pl':
                     vari = ncn.createVariable(self.ncfVar[var], 'f4',
                                               ('time', 'level',
@@ -739,15 +731,15 @@ class JRAdownload(GenericDownload):
     def requestClear(self, rda):
         '''clear online datasets before downloading'''
 
-        print('\n======== Clear Online Datasets From NCAR Server ========\n')
+        logger.info('Clear Online Datasets From NCAR Server')
         dsIndex = rda.getDSindex()
         if len(dsIndex) > 1:
             rda.purge(dsIndex)
-        print('\n======== Online Dateset Cleared ========\n')
+        logger.info('Online Dateset Cleared')
 
     def requestSubmit(self, rda):
 
-        print('\n======== Submit Request ========\n')
+        logger.info('Submit Request')
 
         slices = floor(float((self.date['end'] - self.date['beg']).days) /
                        self.chunk_size) + 1
@@ -777,7 +769,7 @@ class JRAdownload(GenericDownload):
             for jrai in JRAli:
                 rda.submit(jrai.getDictionary())
                 dsN += 1
-        print('\n======== Submit Completed ========\n')
+        logger.info('Request submitted')
 
         return dsN
 
@@ -787,7 +779,7 @@ class JRAdownload(GenericDownload):
         doneI = []
         while len(doneI) < dsN:
 
-            print('\n======== Geting Available Dataset ========\n')
+            logger.info('Geting Available Dataset')
             dsIndex = rda.getDSindex()
             dsIndex = [item for item in dsIndex if item not in doneI]
             if len(dsIndex) > 0:
@@ -797,17 +789,17 @@ class JRAdownload(GenericDownload):
                 doneI += dsIndex
             time.sleep(60 * 10)  # check available data every 10 mins
 
-        print('''\n======== Download Completed ========\n''')
+        logger.info('''Download Completed''')
 
     def retrieve(self):
         '''submit and download all the dataset'''
 
-        print('''\n======== JRA55: STRAT ========\n''')
+        logger.info('''Starting JRA-55''')
 
         rda = RDA(self.username, self.password)  # initialize RDA server
         self.requestClear(rda)  # clear online request
         dsN = self.requestSubmit(rda)  # submit request
         self.requestDownload(rda, dsN)  # download dataset
 
-        print('''\n======== JRA55: STOP ========\n''')
+        logger.info('''JRA-55 Complete''')
 
