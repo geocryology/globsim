@@ -116,7 +116,10 @@ class GenericScale:
         self.t_cal  = time_variable.calendar
         self.time_step = time_step
         self.min_time = nc.num2date(min(nctime), units=self.t_unit, calendar=self.t_cal)
+
         self.max_time = nc.num2date(max(nctime), units=self.t_unit, calendar=self.t_cal)
+        self.interval_in = (nc.num2date(min(nctime[1]), units=self.t_unit, calendar=self.t_cal) - 
+                            nc.num2date(min(nctime[0]), units=self.t_unit, calendar=self.t_cal)).seconds
 
         # number of time steps
         self.nt = floor((self.max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
