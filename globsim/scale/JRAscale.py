@@ -53,6 +53,12 @@ class JRAscale(GenericScale):
         # get time and convert to datetime object
         self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
 
+        self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
+                                                      timestep_in_hours=self.time_step,
+                                                      num_times=self.nt,
+                                                      output_units=self.t_unit,
+                                                      output_calendar=self.t_cal)
+
     def process(self):
         """
         Run all relevant processes and save data. Each kernel processes one

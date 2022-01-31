@@ -115,22 +115,18 @@ class GenericScale:
         self.t_unit = time_variable.units
         self.t_cal  = time_variable.calendar
         self.time_step = time_step
-        min_time = nc.num2date(min(nctime), units=self.t_unit, calendar=self.t_cal)
-        max_time = nc.num2date(max(nctime), units=self.t_unit, calendar=self.t_cal)
+        self.min_time = nc.num2date(min(nctime), units=self.t_unit, calendar=self.t_cal)
+        self.max_time = nc.num2date(max(nctime), units=self.t_unit, calendar=self.t_cal)
 
         # number of time steps
-        self.nt = floor((max_time - min_time).total_seconds() / (3600 * time_step)) + 1
-
-        self.times_out_nc = self.build_datetime_array(start_time=min_time,
-                                                      timestep_in_hours=self.time_step,
-                                                      num_times=self.nt,
-                                                      output_units=self.t_unit,
-                                                      output_calendar=self.t_cal)
-        logger.debug(f"Using output time array with {self.nt} elements between {min_time.strftime('%Y-%m-%d %H:%M:%S')} and {max_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.nt = floor((self.max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
+        logger.debug(f"Output time array has {self.nt} elements between"
+                     f"{self.min_time.strftime('%Y-%m-%d %H:%M:%S')} and"
+                     f"{self.max_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                     f" (time step of {self.time_step} hours)")
 
     @staticmethod
     def build_datetime_array(start_time: datetime, timestep_in_hours: int, num_times: int, output_units:str, output_calendar:str):
-        print(start_time)
         time_array = np.arange(num_times, dtype='float64') * timestep_in_hours * 3600
 
         datetime_array = nc.num2date(time_array,
