@@ -302,7 +302,7 @@ class SaveNCDF_sc():
         # set up file path and names
         file_ncdf  = path.join(dir_data,("merra_sc" + ".nc"))
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
-        print("Saved File Type:", rootgrp.file_format)
+        logger.info("Saved File Type:", rootgrp.file_format)
         rootgrp.source      = 'MERRA2 constant model parameters'
 
         # Create dimensions
@@ -475,7 +475,7 @@ class MERRAdownload(GenericDownload):
             last_completed = [datetime.strptime(max(D), "%Y%m%d") for D in last_dates]
 
             if min(last_completed) == date['end']:
-                print("All data files have already been downloaded. Exiting.")
+                logger.error("All data files have already been downloaded. Exiting.")
                 sys.exit(0)
 
             if min(last_completed) != max(last_completed):  # Partially finished chunk
@@ -484,12 +484,12 @@ class MERRAdownload(GenericDownload):
             if max(last_completed) < date['beg']:
                 # e.g. Download begins at 2000, but there are 1980 downloads in directory.
                 # This line ensures the download starts at date['beg'], not in the 80s.
-                print("WARNING: There are other download files in this directory, beyond the scope of this project.")
+                logger.warning("There are other download files in this directory, beyond the scope of this project.")
 
             else:  # Completely finished chunk
                 date['beg'] = max(last_completed) + timedelta(days=1)
 
-            print(f"Previously downloaded files detected. Beginning download at {date['beg']}")
+            logger.info(f"Previously downloaded files detected. Beginning download at {date['beg']}")
 
         return date
 
@@ -615,10 +615,10 @@ class MERRAdownload(GenericDownload):
                                     # fill the calculated values into missing-values levels
                                     t_lev[id_interp] = t_interp
                                 else:
-                                    print('Numbers of points for extrapolation are too low (less then 2):', len(lev_3p))
-                                    print('Failed to conduct extrapolation at some points in the output')
-                                    print('Current ele_max =', elevation['max'])
-                                    print('Higher Value of "ele_max" is needed to reset: > 2500')
+                                    logger.error('Numbers of points for extrapolation are too low (less then 2):', len(lev_3p))
+                                    logger.error('Failed to conduct extrapolation at some points in the output')
+                                    logger.error('Current ele_max =', elevation['max'])
+                                    logger.error('Higher Value of "ele_max" is needed to reset: > 2500')
                                     sys.exit(0)
 
                         else:
@@ -750,12 +750,10 @@ class MERRAdownload(GenericDownload):
         chunk_size = int(self.chunk_size)
 
         # Get merra-2 2d Constant Model Parameters (outside of time & date looping!)
-        print('''========== Get Variables From MERRA2 2d Time-Invariant ==========''')
-        print('''========== Single-level, Constant Model Parameters ==========''')
-
+        logger.info("Download variables From MERRA2 2d Time-Invariant (Single-level, Constant Model Parameters)")
         self.download_merra_to()
-
-        print("----------- Result set NO.0: completed -----------")
+        logger.debug("MERRA2 2d Time-Invariant Complete")
+        
 
         # build chunks
         all_dates = pd.date_range(self.date['beg'], self.date['end'])
@@ -766,31 +764,31 @@ class MERRAdownload(GenericDownload):
                            'end': self.date['end']})
 
         for date_range in chunks:
-            print(f"=== Downloading chunk {date_range['beg']} to {date_range['end']}===")
+            logger.info(f"=== Downloading chunk {date_range['beg']} to {date_range['end']}===")
 
             # Build the urls for the chunk range
             urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
 
             # Access, subset (server-side) and download the data (in memory)
-            print("M2I6NPANA", end="\r")
+            logger.debug("M2I6NPANA")
             data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
 
-            print("M2I3NPASM", end="\r")
+            logger.debug("M2I3NPASM")
             data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
 
-            print("M2I1NXASM", end="\r")
+            logger.debug("M2I1NXASM")
             data_2dm = [self.subsetters['2dm'].subset_dataset(url, metadata=True) for url in urls_2dm]
 
-            print("M2T1NXFLX", end="\r")
+            logger.debug("M2T1NXFLX")
             data_2ds = [self.subsetters['2ds'].subset_dataset(url, metadata=True) for url in urls_2ds]
 
-            print("M2T1NXRAD", end="\r")
+            logger.debug("M2T1NXRAD")
             data_2dr = [self.subsetters['2dr'].subset_dataset(url, metadata=True) for url in urls_2dr]
 
-            print("M2T1NXSLV", end="\r")
+            logger.debug("M2T1NXSLV")
             data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
 
-            print("Writing to NC file", end="\r")
+            logger.info("Writing to NC file")
 
             SaveNCDF_sa().saveData(data_2dm, self.directory)
             SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
@@ -800,7 +798,7 @@ class MERRAdownload(GenericDownload):
         """ Download time-invariant data for the specified lat-lon boundaries """
         # check if it already exists
         if path.isfile(path.join(self.directory, ("merra_sc" + ".nc"))):
-            print("WARNING:  file 'merra_to.nc' already exists and is being skipped")
+            logger.warning("file 'merra_to.nc' already exists and is being skipped")
             return()
 
         urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(self.date)
@@ -839,6 +837,7 @@ class MERRASubsetter:
 
         2d VAR[lat:lat][lon:lon][time:time] """
         self.session = session
+        logger.info(f"Requesting dataset information from {url}")
         self.dataset = open_url(url, session=session)
         self.set_time_step(self.dataset)
 
