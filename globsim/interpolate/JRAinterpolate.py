@@ -82,7 +82,6 @@ class JRAinterpolate(GenericInterpolate):
         """
 
         # read in one type of mutiple netcdf files
-        print(ncfile_in)
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim='time')
 
         # is it a file with pressure levels?
