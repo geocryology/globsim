@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import tomlkit
-import warnings
 import logging
 
 from os import path, makedirs
@@ -16,6 +15,7 @@ except NameError:
     basestring = str
 
 logger = logging.getLogger('globsim.scale')
+
 
 class GenericScale:
 
@@ -56,23 +56,28 @@ class GenericScale:
         src = '_'.join(['scaled', data_source_name, timestep, snowCor])
 
         src = src + '.nc'
-        fname = path.join(self.output_dir, src)
+        output_file = Path(self.output_dir, src)
 
-        return fname
+        if output_file.is_file():
+            if self._overwrite_output:
+                output_file.unlink()
+                logger.info(f"Removed existing output file {output_file}")
+            else:
+                logger.error("Scaled file output already exists")
+                raise FileExistsError(f"Output file {output_file} exists. Remove file or set 'overwite=true' in control file.")
+
+        return output_file.resolve()
 
     def make_output_directory(self, par):
         """make directory to hold outputs"""
         output_dir = None
-        
-        logger.debug(f"Attempting to create directory: {output_dir}")
         
         if par.get('output_directory'):
             try:
                 test_path = Path(par.get('output_directory'))
             except TypeError:
                 msg = "You provided an output_directory for scaled files that does not exist. Saving files to project directory"
-                logger.error(msg)
-                warnings.warn(msg)
+                logger.warning(msg)
             
             if test_path.is_dir():
                 output_dir = Path(test_path, "scaled")
@@ -80,6 +85,7 @@ class GenericScale:
                 logger.warning("You provided an output_directory for scaled files that was not understood. Saving files to project directory.")
                 
         if not output_dir:
+            logger.debug(f"Attempting to create directory: {output_dir}")
             output_dir = path.join(par['project_directory'], 'scaled')
 
         if not Path(output_dir).is_dir():
