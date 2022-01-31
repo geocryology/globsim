@@ -148,32 +148,14 @@ class MERRAscale(GenericScale):
 
         # time vector for output data
         # get time and convert to datetime object
-        nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units  # "hours since 1980-01-01 00:00:00"
-        self.t_cal  = self.nc_pl.variables['time'].calendar
-        time = nc.num2date(nctime, units=self.t_unit, calendar=self.t_cal)
-
-        # interpolation scale factor
-        self.time_step = par['time_step'] * 3600    # [s] scaled file
-        interval_in = (time[1] - time[0]).seconds  # interval in seconds
-        self.interpN = floor(interval_in / self.time_step)
-
-        # number of time steps for output
-        self.nt = int(floor((max(time) - min(time)).total_seconds()
-                      / 3600 / par['time_step'])) + 1  # +1 : include last value
-        self.time_step = par['time_step'] * 3600    # [s] scaled file
-
-        # vector of output time steps as datetime object
-        # 'seconds since 1980-01-01 00:00:00'
-        mt = min(time)
-        self.times_out = [mt + timedelta(seconds=(x * self.time_step))
-                          for x in range(0, self.nt)]
-
-        # vector of output time steps as written in ncdf file
+        self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
         self.scaled_t_units = 'seconds since 1980-01-01 00:00:00'
-        self.times_out_nc = nc.date2num(self.times_out,
-                                        units=self.scaled_t_units,
-                                        calendar=self.t_cal)
+        
+        self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
+                                                      timestep_in_hours=self.time_step,
+                                                      num_times=self.nt,
+                                                      output_units=self.scaled_t_units,
+                                                      output_calendar=self.t_cal)
 
     def process(self):
         """
