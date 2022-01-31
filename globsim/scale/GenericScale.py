@@ -48,11 +48,20 @@ class GenericScale:
         finally:
             logger.debug("Scale configured to overwrite output files")
 
+        # read snow correction info
+        try:
+            self.scf = par['scf']
+        except KeyError as e:
+            logger.warning("Missing snow correction factor in control file. Reverting to default (1).")
+            self.scf = 1
+        finally:
+            logger.info(f"Snow correction factor for scaling set to {self.scf}")
+
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
         timestep = str(par['time_step']) + 'h'
-        snowCor  = 'scf' + str(par['scf'])
+        snowCor  = 'scf' + str(self.scf)
         src = '_'.join(['scaled', data_source_name, timestep, snowCor])
 
         src = src + '.nc'
