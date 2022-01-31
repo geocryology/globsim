@@ -34,21 +34,23 @@ class ERA5interpolate(GenericInterpolate):
         elif self.era5type == 'ensemble_members':
             self._set_input_directory("era5ens")
             self.ens = True
-
+            
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
+
+            
     def getInFile(self, levStr):
-
+        # edited naming conventions for simplicity and to avoid errors
         if self.ens:
-            typeStr = 'ens'
+            typeStr = '_ens'
         else:
-            typeStr = 'rea'
+            typeStr = ''
 
-        nome = 'era5_{}_{}_*.nc'
+        nome = 'era5{}_{}_*.nc'
 
         if levStr == 'to':
-            infile = path.join(self.input_dir, 'era5_{}_to.nc'.format(typeStr))
+            infile = path.join(self.input_dir, 'era5{}_to.nc'.format(typeStr))
         else:
             infile = path.join(self.input_dir, nome.format(typeStr, levStr))
 
@@ -56,12 +58,12 @@ class ERA5interpolate(GenericInterpolate):
 
     def getOutFile(self, levStr):
 
+
         if self.ens:
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         else:
             nome = 'era5_{}_'.format(levStr) + self.list_name + '.nc'
         outfile = path.join(self.output_dir, nome)
-
         return outfile
 
     def ERA2station(self, ncfile_in, ncfile_out, points,
