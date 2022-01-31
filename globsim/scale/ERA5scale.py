@@ -84,32 +84,14 @@ class ERA5scale(GenericScale):
 
         # time vector for output data
         # get time and convert to datetime object
-        nctime = self.nc_pl.variables['time'][:]
-        self.t_unit = self.nc_pl.variables['time'].units  # "hours since 1900-01-01 00:00:0.0"
-        self.t_cal  = self.nc_pl.variables['time'].calendar
-        time = nc.num2date(nctime, units=self.t_unit, calendar=self.t_cal)
-
-        # interpolation scale factor
-        self.time_step = par['time_step'] * 3600    # [s] scaled file
-        self.interval_in = (time[1] - time[0]).seconds  # interval in seconds
-        self.interpN = floor(self.interval_in / self.time_step)
-
-        # number of time steps for output, include last value
-        self.nt = int(floor((max(time) - min(time)).total_seconds()
-                            / 3600 / par['time_step'])) + 1
-        
-
-        # vector of output time steps as datetime object
-        # 'seconds since 1900-01-01 00:00:0.0'
-        mt = min(time)
-        self.times_out = [mt + timedelta(seconds=(x * self.time_step))
-                          for x in range(0, self.nt)]
-
-        # vector of output time steps as written in ncdf file [s]
+        self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
         self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
-        self.times_out_nc = nc.date2num(self.times_out,
-                                        units=self.scaled_t_units,
-                                        calendar=self.t_cal)
+
+        self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
+                                                      timestep_in_hours=self.time_step,
+                                                      num_times=self.nt,
+                                                      output_units=self.scaled_t_units,
+                                                      output_calendar=self.t_cal)
 
     def getValues(self, ncf, varStr, ni=10):
         if self.ens:
