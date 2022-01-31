@@ -39,6 +39,14 @@ class GenericScale:
         self.kernels = par['kernels']
         if not isinstance(self.kernels, list):
             self.kernels = [self.kernels]
+        
+        # should file be overwritten - default to false
+        try:
+            self._overwrite_output = par['overwrite']
+        except KeyError as e:
+            self._overwrite_output = False
+        finally:
+            logger.debug("Scale configured to overwrite output files")
 
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
