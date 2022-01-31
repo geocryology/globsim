@@ -121,12 +121,12 @@ class ERA5generic(object):
         query = self.ECM2CDS(query)
 
         # launch download request
-        print(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
+        logger.info(server.info('=== ERA5 ({}API): START ACCESS ON {} ===='.format("CDS", storage.upper())))
         if path.isfile(target):
-            print("WARNING: File '{}' already exists and was skipped".format(target))
+            logger.warning("File '{}' already exists and was skipped".format(target))
         else:
             server.retrieve(dataset, query, target)
-        print(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
+        logger.info(server.info('=== ERA5 ({}API): END ACCESS ON {} ===='.format("CDS", storage.upper())))
 
     def ECM2CDS(self, query):
         ''' convert ECMWF query to CDS format '''
@@ -468,7 +468,7 @@ class ERA5download(GenericDownload, ERA5generic):
 
         # topography
         if path.isfile(path.join(self.directory, self.topo_file)):
-            print(f"WARNING: File {self.topo_file} already exists. Skipping.")
+            logger.warning(f"File {self.topo_file} already exists. Skipping.")
         else:
             top = ERA5to(self.era5type, self.area, self.directory)
             top.download(self.storage)
@@ -501,9 +501,8 @@ class ERA5download(GenericDownload, ERA5generic):
         """
         Report on data avaialbe in directory: time slice, variables, area
         """
-        print("\n\n\n")
-        print("=== INVENTORY FOR GLOBSIM ERA5 DATA ===\n")
-        print("Download parameter file: \n" + self.pfile + "\n")
+        logger.info("START INVENTORY FOR GLOBSIM ERA5 DATA")
+        logger.debug(f"Download parameter file: {self.pfile}")
         # loop over filetypes, read, report
         file_type = [self.typeString(self.era5type) + '_pl_*.nc',
                      self.typeString(self.era5type) + '_sa_*.nc',
@@ -512,7 +511,7 @@ class ERA5download(GenericDownload, ERA5generic):
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
-            print(str(nf) + " FILE(S): " + infile)
+            logger.debug(str(nf) + " FILE(S): " + infile)
 
             if nf > 0:
                 # open dataset
@@ -520,11 +519,10 @@ class ERA5download(GenericDownload, ERA5generic):
 
                 # list variables
                 keylist = [str_encode(x) for x in ncf.variables.keys()]
-                print("    VARIABLES:")
-                print("        " + str(len(keylist)) +
-                      " variables, including dimensions")
+                logger.info("VARIABLES:")
+                logger.info(f"Found {str(len(keylist))} variables, including dimensions")
                 for key in keylist:
-                    print("        " + ncf.variables[key].long_name)
+                    logger.debug("Found variable :{ncf.variables[key].long_name}")
 
                 # time slice
                 time = ncf.variables['time']
@@ -534,9 +532,8 @@ class ERA5download(GenericDownload, ERA5generic):
                 tmax = nc.num2date(max(time[:]), time.units,
                                    calendar=time.calendar).strftime('%Y/%m/%d')
 
-                print("    TIME SLICE")
-                print("        " + str(len(time[:])) + " time steps")
-                print("        " + tmin + " to " + tmax)
+                logger.info("TIME SLICE")
+                logger.info(f"Found {str(len(time[:]))} time steps from {tmin} to  {tmax}")
 
                 # area
                 lon = ncf.variables['longitude']
@@ -544,13 +541,12 @@ class ERA5download(GenericDownload, ERA5generic):
                 nlat = str(len(lat))
                 nlon = str(len(lon))
                 ncel = str(len(lat) * len(lon))
-                print("    BOUNDING BOX / AREA")
-                print("        " + ncel + " cells, " + nlon +
-                      " W-E and " + nlat + " S-N")
-                print("        N: " + str(max(lat)))
-                print("        S: " + str(min(lat)))
-                print("        W: " + str(min(lon)))
-                print("        E: " + str(max(lon)))
+                logger.info("BOUNDING BOX / AREA")
+                logger.info(f"Found {ncel} cells: {nlon} along W-E and {nlat} along S-N")
+                logger.debug("        N: " + str(max(lat)))
+                logger.debug("        S: " + str(min(lat)))
+                logger.debug("        W: " + str(min(lon)))
+                logger.debug("        E: " + str(max(lon)))
 
                 ncf.close()
 
