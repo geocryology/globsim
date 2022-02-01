@@ -12,8 +12,6 @@
 #
 # Referenced from data_checker.py (Dr.Stephan Gruber): Class MERRA2DataCheck()
 # ===============================================================================
-from __future__ import print_function
-
 import tomlkit
 import netCDF4 as nc
 

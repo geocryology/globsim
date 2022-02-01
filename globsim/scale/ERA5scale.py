@@ -20,9 +20,6 @@
 #  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl
 #
 # ===============================================================================
-
-from __future__ import print_function
-
 import netCDF4 as nc
 import numpy as np
 import urllib3

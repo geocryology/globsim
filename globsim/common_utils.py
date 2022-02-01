@@ -20,9 +20,7 @@
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ===============================================================================
-from __future__ import print_function
-
-from datetime import datetime, timedelta
+from datetime import timedelta
 from os import mkdir, path
 
 import pandas as pd
@@ -30,13 +28,6 @@ import netCDF4 as nc
 import numpy as np
 
 import glob
-#import logging
-
-# handle python 3 string types
-try:
-    basestring
-except NameError:
-    basestring = str
 
 
 def variables_skip(variable_name):

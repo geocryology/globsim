@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import tomlkit
 import logging
 import numpy as np
@@ -11,12 +9,6 @@ from pathlib import Path
 from math import floor
 
 from globsim.common_utils import StationListRead
-
-# handle python 3 string types
-try:
-    basestring
-except NameError:
-    basestring = str
 
 logger = logging.getLogger('globsim.scale')
 
