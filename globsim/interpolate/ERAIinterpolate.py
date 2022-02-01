@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import re
 import netCDF4 as nc
 import numpy as np

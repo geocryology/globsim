@@ -1,6 +1,3 @@
-
-from __future__ import print_function
-
 import cdsapi
 import logging
 import numpy as np
@@ -18,6 +15,7 @@ from globsim.meteorology import pressure_from_elevation
 
 urllib3.disable_warnings()
 logger = logging.getLogger("globsim.download")
+
 
 class ERA5generic(object):
     """
