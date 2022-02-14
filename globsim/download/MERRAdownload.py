@@ -146,6 +146,7 @@ class SaveNCDF_sa():
         # set up File
         file_ncdf  = path.join(dir_data, f"merra_sa_{data_2dm[0].time.begin_date}_to_{data_2dm[-1].time.begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
+        logger.debug(f"Writing data to {file_ncdf}")
         rootgrp.source      = 'MERRA-2, meteorological variables from metadata at surface level'
 
         # Create dimensions
@@ -209,6 +210,7 @@ class SaveNCDF_sf():
         # set up File
         file_ncdf  = path.join(dir_data, f"merra_sf_{data_2dr[0].time.begin_date}_to_{data_2dr[-1].time.begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
+        logger.debug(f"Writing data to {file_ncdf}")
         rootgrp.source      = 'MERRA-2, radiation variables from metadata at surface level'
 
         # Create dimensions
@@ -302,6 +304,7 @@ class SaveNCDF_sc():
         # set up file path and names
         file_ncdf  = path.join(dir_data,("merra_sc" + ".nc"))
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
+        logger.debug(f"Writing data to {file_ncdf}")
         logger.info(f"Created netcdf file of type: {rootgrp.file_format}")
         rootgrp.source      = 'MERRA2 constant model parameters'
 
@@ -765,18 +768,21 @@ class MERRAdownload(GenericDownload):
         for date_range in chunks:
             logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
 
+
             # Build the urls for the chunk range
             urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
 
             # Access, subset (server-side) and download the data (in memory)
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
-            data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
-
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
-            data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
-
             logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I1NXASM")
+            download_start = datetime.now()
+
+            # Download 2d surface analysis
+
             data_2dm = [self.subsetters['2dm'].subset_dataset(url, metadata=True) for url in urls_2dm]
+
+            SaveNCDF_sa().saveData(data_2dm, self.directory)
+
+            # Download 2d surface forecast
 
             logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXFLX")
             data_2ds = [self.subsetters['2ds'].subset_dataset(url, metadata=True) for url in urls_2ds]
@@ -787,10 +793,16 @@ class MERRAdownload(GenericDownload):
             logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXSLV")
             data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
 
-            logger.info("Writing to NC file")
-
-            SaveNCDF_sa().saveData(data_2dm, self.directory)
             SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
+
+            # Download 3d pressure-level data
+
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
+            data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
+
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
+            data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
+
             SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, chunk_size, self.directory, self.elevation)
 
     def download_merra_to(self):
@@ -946,6 +958,8 @@ class MERRASubsetter:
         """
 
         dods_url = self.create_dods_url(url)
+        logger.debug(f"Downloading data from {dods_url}")
+
         ds = open_dods(dods_url, session=self.session, metadata=metadata)
 
         return ds
