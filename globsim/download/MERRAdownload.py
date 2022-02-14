@@ -302,7 +302,7 @@ class SaveNCDF_sc():
         # set up file path and names
         file_ncdf  = path.join(dir_data,("merra_sc" + ".nc"))
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
-        logger.info("Saved File Type:", rootgrp.file_format)
+        logger.info(f"Created netcdf file of type: {rootgrp.file_format}")
         rootgrp.source      = 'MERRA2 constant model parameters'
 
         # Create dimensions
@@ -489,7 +489,7 @@ class MERRAdownload(GenericDownload):
             else:  # Completely finished chunk
                 date['beg'] = max(last_completed) + timedelta(days=1)
 
-            logger.info(f"Previously downloaded files detected. Beginning download at {date['beg']}")
+            logger.info(f"Previously downloaded files detected in {self.directory}. Beginning download at {date['beg']}")
 
         return date
 
@@ -763,28 +763,28 @@ class MERRAdownload(GenericDownload):
                            'end': self.date['end']})
 
         for date_range in chunks:
-            logger.info(f"=== Downloading chunk {date_range['beg']} to {date_range['end']}===")
+            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
 
             # Build the urls for the chunk range
             urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
 
             # Access, subset (server-side) and download the data (in memory)
-            logger.debug("M2I6NPANA")
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
             data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
 
-            logger.debug("M2I3NPASM")
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
             data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
 
-            logger.debug("M2I1NXASM")
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I1NXASM")
             data_2dm = [self.subsetters['2dm'].subset_dataset(url, metadata=True) for url in urls_2dm]
 
-            logger.debug("M2T1NXFLX")
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXFLX")
             data_2ds = [self.subsetters['2ds'].subset_dataset(url, metadata=True) for url in urls_2ds]
 
-            logger.debug("M2T1NXRAD")
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXRAD")
             data_2dr = [self.subsetters['2dr'].subset_dataset(url, metadata=True) for url in urls_2dr]
 
-            logger.debug("M2T1NXSLV")
+            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXSLV")
             data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
 
             logger.info("Writing to NC file")

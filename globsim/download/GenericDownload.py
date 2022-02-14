@@ -6,6 +6,7 @@ from os import path, makedirs
 
 logger = logging.getLogger("globsim.download")
 
+
 class GenericDownload(object):
     """
     Generic functionality for download classes
@@ -32,6 +33,7 @@ class GenericDownload(object):
             raise ValueError("Download area is too small to conduct interpolation.")
 
     def _set_area(self, par):
+        logger.info(f"Bounding box: {par['bbS']} (S) to {par['bbN']} (N) and {par['bbW']} (W) to {par['bbE']} (E)")
         self.area = {'north': par['bbN'],
                      'south': par['bbS'],
                      'west': par['bbW'],
