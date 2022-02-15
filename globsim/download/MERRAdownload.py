@@ -460,6 +460,22 @@ class MERRAdownload(GenericDownload):
         # Create Subsetter objects
         self.build_subsetters()
 
+    @staticmethod
+    def constant_extrapolation(all_data):
+        """ arr:  array with dimensions [time, lev, lat, lon] """
+        
+        if np.any(all_data[:, -1, :, :] > 99999):
+            raise ValueError(("Missing data for an entire atmospheric column (masked at the highest level for one or more (lat,lon,time) coordinates)."
+                            "This might mean the terrain mask includes all the data. Try increasing the max elevation"))
+
+        n_lev = all_data.shape[1]
+        
+        for lev in range(n_lev - 2, 0):  # start from the second-highest pressure level
+            missing_index = np.where(all_data[:, lev, :, :] > 99999)
+            all_data[:, lev, :, :][missing_index] = all_data[:, lev + 1, :, :][missing_index]  # replace from previous
+        
+        return(all_data)
+
     def update_time_bounds(self, date):
         """ Update time bounds for downloading so that files aren't re-downloaded
         date : dict
