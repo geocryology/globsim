@@ -33,7 +33,7 @@ class SaveNCDF_pl_3dm():
         assert(np.array_equal(data_3dmasm[0].lev.data, data_3dmana[0].lev.data))
         assert(np.array_equal(data_3dmasm[0].lon.data, data_3dmana[0].lon.data))
 
-    def saveData(self, data_3dmasm, data_3dmana, chunk_size, dir_data, elevation):
+    def saveData(self, data_3dmasm, data_3dmana, dir_data, elevation):
         """
         build NetCDF file for saving output variables (T, U, V, H, RH, lat, lon, levels, time)
         """
@@ -808,7 +808,7 @@ class MERRAdownload(GenericDownload):
 
             logger.info(f"Downloaded pressure level data in {datetime.now() - download_pl_start}")
 
-            SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, chunk_size, self.directory, self.elevation)
+            SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, self.elevation)
 
             logger.info(f"Downloaded chunk in {datetime.now() - download_sa_start}")
 
