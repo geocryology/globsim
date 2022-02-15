@@ -1040,7 +1040,8 @@ class VirtualDataset:
             self.dataset = dataset
         else: 
             raise TypeError("dataset wrong type")
-
+        
+        self.dataset.set_auto_mask(False)
         self.variables = dict()
 
         for variable in self.dataset.variables:
