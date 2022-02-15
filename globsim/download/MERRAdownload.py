@@ -5,12 +5,14 @@ import numpy as np
 import netCDF4 as nc
 import pandas as pd
 import sys
+import re
 import warnings
 import logging
 
 from datetime          import datetime, timedelta
 from netCDF4           import Dataset
 from os                import path
+from pathlib           import Path
 from pydap.client      import open_url, open_dods
 from pydap.cas.urs     import setup_session
 from scipy.interpolate import interp1d
@@ -766,51 +768,54 @@ class MERRAdownload(GenericDownload):
                            'end': self.date['end']})
 
         for date_range in chunks:
-            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
+            self.download(date_range)
 
-            # Build the urls for the chunk range
-            urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
+    def download(self, date_range):
+        logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
 
-            # Access, subset (server-side) and download the data (in memory)
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I1NXASM")
-            download_sa_start = datetime.now()
+        # Build the urls for the chunk range
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
 
-            # Download 2d surface analysis
+        # Access, subset (server-side) and download the data (in memory)
+        logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I1NXASM")
+        download_sa_start = datetime.now()
 
-            data_2dm = [self.subsetters['2dm'].subset_dataset(url, metadata=True) for url in urls_2dm]
+        # Download 2d surface analysis
 
-            logger.info(f"Downloaded surface analysis data in {datetime.now() - download_sa_start}")
+        data_2dm = [self.subsetters['2dm'].subset_dataset(url, metadata=True) for url in urls_2dm]
 
-            SaveNCDF_sa().saveData(data_2dm, self.directory)
+        logger.info(f"Downloaded surface analysis data in {datetime.now() - download_sa_start}")
 
-            # Download 2d surface forecast
-            download_sf_start = datetime.now()
-            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXFLX")
-            data_2ds = [self.subsetters['2ds'].subset_dataset(url, metadata=True) for url in urls_2ds]
+        SaveNCDF_sa().saveData(data_2dm, self.directory)
 
-            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXRAD")
-            data_2dr = [self.subsetters['2dr'].subset_dataset(url, metadata=True) for url in urls_2dr]
+        # Download 2d surface forecast
+        download_sf_start = datetime.now()
+        logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXFLX")
+        data_2ds = [self.subsetters['2ds'].subset_dataset(url, metadata=True) for url in urls_2ds]
 
-            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXSLV")
-            data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
+        logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXRAD")
+        data_2dr = [self.subsetters['2dr'].subset_dataset(url, metadata=True) for url in urls_2dr]
 
-            logger.info(f"Downloaded surface forecast data in {datetime.now() - download_sf_start}")
+        logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXSLV")
+        data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
 
-            SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
+        logger.info(f"Downloaded surface forecast data in {datetime.now() - download_sf_start}")
 
-            # Download 3d pressure-level data
-            download_pl_start = datetime.now()
-            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
-            data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
+        SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
 
-            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
-            data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
+        # Download 3d pressure-level data
+        download_pl_start = datetime.now()
+        logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
+        data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
 
-            logger.info(f"Downloaded pressure level data in {datetime.now() - download_pl_start}")
+        logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
+        data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
 
-            SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, self.elevation)
+        logger.info(f"Downloaded pressure level data in {datetime.now() - download_pl_start}")
 
-            logger.info(f"Downloaded chunk in {datetime.now() - download_sa_start}")
+        SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, self.elevation)
+
+        logger.info(f"Downloaded chunk in {datetime.now() - download_sa_start}")
 
     def download_merra_to(self):
         """ Download time-invariant data for the specified lat-lon boundaries """
@@ -982,3 +987,38 @@ class MERRASubsetter:
             return ds
 
 
+class MerraAggregator():
+    """ Turn downloaded Merra files into *_pl, *_sf, and *_sa files """
+    def __init__(self, directory: str):
+        self.directory = directory
+        self.inst6_3d_ana_Np = map_dates(directory,"MERRA2_*00.inst6_3d_ana_Np*")
+        self.inst3_3d_asm_Np = map_dates(directory,"MERRA2_*00.inst3_3d_asm_Np*")
+        self.inst1_2d_asm_Nx = map_dates(directory,"MERRA2_*00.inst1_2d_asm_Nx*")
+        self.tavg1_2d_flx_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_flx_Nx*")
+        self.tavg1_2d_rad_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_rad_Nx*")
+        self.tavg1_2d_slv_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_slv_Nx*")
+
+    def combine(self, elevation):
+
+        data_2dm = [nc.Dataset(x) for (d,x) in self.inst1_2d_asm_Nx]
+        SaveNCDF_sa().saveData(data_2dm, self.directory)
+
+        data_2dr = [nc.Dataset(x) for (d,x) in self.tavg1_2d_rad_Nx]
+        data_2ds = [nc.Dataset(x) for (d,x) in self.tavg1_2d_flx_Nx]
+        data_2dv = [nc.Dataset(x) for (d,x) in self.tavg1_2d_slv_Nx]
+        
+        SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
+        
+        data_3dmasm = [nc.Dataset(x) for (d,x) in self.inst3_3d_asm_Np]
+        data_3dmana = [nc.Dataset(x) for (d,x) in self.inst6_3d_ana_Np]
+        
+        SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, elevation)
+        
+
+def map_dates(directory: str, globtext: str):
+    files = Path(directory).glob(globtext)
+    files_sorted = sorted(files)
+    merra_date = re.compile(r"(\d{8})\.nc4")
+    dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
+    return zip(dates, files_sorted)
+    
