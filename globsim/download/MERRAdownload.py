@@ -31,9 +31,9 @@ class SaveNCDF_pl_3dm():
     """
 
     def safety_checks(self, data_3dmasm, data_3dmana):
-        assert(np.array_equal(data_3dmasm[0].lat.data, data_3dmana[0].lat.data))
-        assert(np.array_equal(data_3dmasm[0].lev.data, data_3dmana[0].lev.data))
-        assert(np.array_equal(data_3dmasm[0].lon.data, data_3dmana[0].lon.data))
+        assert(np.array_equal(data_3dmasm[0]['lat'].data, data_3dmana[0]['lat'].data))
+        assert(np.array_equal(data_3dmasm[0]['lev'].data, data_3dmana[0]['lev'].data))
+        assert(np.array_equal(data_3dmasm[0]['lon'].data, data_3dmana[0]['lon'].data))
 
     def saveData(self, data_3dmasm, data_3dmana, dir_data, elevation):
         """
@@ -42,28 +42,28 @@ class SaveNCDF_pl_3dm():
         self.safety_checks(data_3dmasm, data_3dmana)
 
         # set up File
-        file_ncdf  = path.join(dir_data, f"merra_pl_{data_3dmana[0].time.begin_date}_to_{data_3dmana[-1].time.begin_date}.nc")
+        file_ncdf  = path.join(dir_data, f"merra_pl_{data_3dmana[0]['time'].begin_date}_to_{data_3dmana[-1]['time'].begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
         rootgrp.source      = 'MERRA-2, meteorological variables from metadata at pressure levels'
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('level', len(data_3dmana[0].lev))
-        _  = rootgrp.createDimension('lats', len(data_3dmana[0].lat))
-        _  = rootgrp.createDimension('lons', len(data_3dmana[0].lon))
+        _  = rootgrp.createDimension('level', len(data_3dmana[0]['lev']))
+        _  = rootgrp.createDimension('lats', len(data_3dmana[0]['lat']))
+        _  = rootgrp.createDimension('lons', len(data_3dmana[0]['lon']))
 
         # Create coordinate variables
         Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
-        Latitudes[:]  = data_3dmana[0].lat.data    # pass the values of latitude
+        Latitudes[:]  = data_3dmana[0]['lat'].data    # pass the values of latitude
 
         Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
-        Longitudes[:] = data_3dmana[0].lon.data
+        Longitudes[:] = data_3dmana[0]['lon'].data
 
         Level = rootgrp.createVariable('level','i4', ('level'))
         Level.standard_name = "air_pressure"
@@ -71,7 +71,7 @@ class SaveNCDF_pl_3dm():
         Level.units = "hPa"
         Level.positive = "down"
         Level.axis = "Z"
-        Level[:] = data_3dmana[0].lev.data
+        Level[:] = data_3dmana[0]['lev'].data
 
         Time  = rootgrp.createVariable('time', 'i4', ('time'))
         Time.standard_name = "time"
@@ -80,7 +80,7 @@ class SaveNCDF_pl_3dm():
 
         netCDFTime = []
         for x in data_3dmana:
-            time_datetime = nc.num2date(x.time.data, units=x.time.units, calendar=Time.calendar)  # Convert units
+            time_datetime = nc.num2date(x['time'].data, units=x['time'].units, calendar=Time.calendar)  # Convert units
             time_nc = nc.date2num(time_datetime, units=Time.units, calendar=Time.calendar)
             netCDFTime.extend(time_nc)
 
@@ -146,28 +146,28 @@ class SaveNCDF_sa():
         # get the varable list and time indices
 
         # set up File
-        file_ncdf  = path.join(dir_data, f"merra_sa_{data_2dm[0].time.begin_date}_to_{data_2dm[-1].time.begin_date}.nc")
+        file_ncdf  = path.join(dir_data, f"merra_sa_{data_2dm[0]['time'].begin_date}_to_{data_2dm[-1]['time'].begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
         logger.debug(f"Writing data to {file_ncdf}")
         rootgrp.source      = 'MERRA-2, meteorological variables from metadata at surface level'
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('lats', len(data_2dm[0].lat))
-        _  = rootgrp.createDimension('lons', len(data_2dm[0].lon))
+        _  = rootgrp.createDimension('lats', len(data_2dm[0]['lat']))
+        _  = rootgrp.createDimension('lons', len(data_2dm[0]['lon']))
 
         # Create coordinate variables
         Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
-        Latitudes[:]  = data_2dm[0].lat.data    # pass the values of latitude
+        Latitudes[:]  = data_2dm[0]['lat'].data    # pass the values of latitude
 
         Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
-        Longitudes[:] = data_2dm[0].lon.data
+        Longitudes[:] = data_2dm[0]['lon'].data
 
         data_variables = [v for v in list(data_2dm[0]) if v not in ['time', 'lat', 'lon']]
 
@@ -190,7 +190,7 @@ class SaveNCDF_sa():
 
         netCDFTime = []
         for x in data_2dm:
-            time_datetime = nc.num2date(x.time.data, units=x.time.units, calendar=Time.calendar)  # Convert units
+            time_datetime = nc.num2date(x['time'].data, units=x['time'].units, calendar=Time.calendar)  # Convert units
             time_nc = nc.date2num(time_datetime, units=Time.units, calendar=Time.calendar)
             netCDFTime.extend(time_nc)
 
@@ -210,28 +210,28 @@ class SaveNCDF_sf():
         self.safety_checks(data_2dr, data_2ds, data_2dv)
 
         # set up File
-        file_ncdf  = path.join(dir_data, f"merra_sf_{data_2dr[0].time.begin_date}_to_{data_2dr[-1].time.begin_date}.nc")
+        file_ncdf  = path.join(dir_data, f"merra_sf_{data_2dr[0]['time'].begin_date}_to_{data_2dr[-1]['time'].begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
         logger.debug(f"Writing data to {file_ncdf}")
         rootgrp.source      = 'MERRA-2, radiation variables from metadata at surface level'
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('lats', len(data_2dr[0].lat))
-        _  = rootgrp.createDimension('lons', len(data_2dr[0].lon))
+        _  = rootgrp.createDimension('lats', len(data_2dr[0]['lat']))
+        _  = rootgrp.createDimension('lons', len(data_2dr[0]['lon']))
 
         # Create coordinate variables
         Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
-        Latitudes[:]  = data_2dr[0].lat.data    # pass the values of latitude
+        Latitudes[:]  = data_2dr[0]['lat'].data    # pass the values of latitude
 
         Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
-        Longitudes[:] = data_2dr[0].lon.data
+        Longitudes[:] = data_2dr[0]['lon'].data
 
         data_variables_2dr = [v for v in list(data_2dr[0]) if v not in ['time', 'lat', 'lon']]
         data_variables_2ds = [v for v in list(data_2ds[0]) if v not in ['time', 'lat', 'lon']]
@@ -259,7 +259,7 @@ class SaveNCDF_sf():
 
         netCDFTime = []
         for x in data_2dr:
-            time_datetime = nc.num2date(x.time.data, units=x.time.units, calendar=Time.calendar)  # Convert units
+            time_datetime = nc.num2date(x['time'].data, units=x['time'].units, calendar=Time.calendar)  # Convert units
             time_nc = nc.date2num(time_datetime, units=Time.units, calendar=Time.calendar)
             netCDFTime.extend(time_nc)
 
@@ -290,9 +290,9 @@ class SaveNCDF_sf():
 
     def safety_checks(self, data_2dr, data_2ds, data_2dv):
         """ ensure assumptions are true of datasets """
-        assert(np.array_equal(data_2dr[0].time.data, data_2ds[0].time.data))
-        assert(np.array_equal(data_2dr[0].time.data, data_2dv[0].time.data))
-        assert(data_2dr[0].time.units == data_2dv[0].time.units)
+        assert(np.array_equal(data_2dr[0]['time'].data, data_2ds[0]['time'].data))
+        assert(np.array_equal(data_2dr[0]['time'].data, data_2dv[0]['time'].data))
+        assert(data_2dr[0]['time'].units == data_2dv[0]['time'].units)
 
 
 class SaveNCDF_sc():
@@ -312,8 +312,8 @@ class SaveNCDF_sc():
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('lats', len(just_the_data.lat))
-        _  = rootgrp.createDimension('lons', len(just_the_data.lon))
+        _  = rootgrp.createDimension('lats', len(just_the_data['lat']))
+        _  = rootgrp.createDimension('lons', len(just_the_data['lon']))
 
         # Output the results of extracted variables
         data_variables = [v for v in list(just_the_data) if v not in ['time', 'lat', 'lon']]
@@ -335,19 +335,19 @@ class SaveNCDF_sc():
         Time.standard_name = "time"
         Time.units  = "hours since 1992-01-02 03:00:00"
         Time.calendar      = "gregorian"
-        Time[:] = just_the_data.time.data
+        Time[:] = just_the_data['time'].data
 
         Latitudes  = rootgrp.createVariable('latitude', 'f4', ('lats'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
-        Latitudes[:]  = just_the_data.lat.data
+        Latitudes[:]  = just_the_data['lat'].data
 
         Longitudes  = rootgrp.createVariable('longitude', 'f4', ('lons'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
-        Longitudes[:] = just_the_data.lon.data
+        Longitudes[:] = just_the_data['lon'].data
 
         rootgrp.close()
 
