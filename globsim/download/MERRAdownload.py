@@ -54,13 +54,13 @@ class SaveNCDF_pl_3dm():
         _  = rootgrp.createDimension('lon', len(data_3dmana[0]['lon']))
 
         # Create coordinate variables
-        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lat'))
+        Latitudes               = rootgrp.createVariable('latitude', "f8",('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = data_3dmana[0]['lat'].data    # pass the values of latitude
 
-        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lon'))
+        Longitudes               = rootgrp.createVariable('longitude', "f8",('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
@@ -163,13 +163,13 @@ class SaveNCDF_sa():
         _  = rootgrp.createDimension('lon', len(data_2dm[0]['lon']))
 
         # Create coordinate variables
-        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lat'))
+        Latitudes               = rootgrp.createVariable('latitude', "f8",('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = data_2dm[0]['lat'].data    # pass the values of latitude
 
-        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lon'))
+        Longitudes               = rootgrp.createVariable('longitude', "f8",('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
@@ -227,13 +227,13 @@ class SaveNCDF_sf():
         _  = rootgrp.createDimension('lon', len(data_2dr[0]['lon']))
 
         # Create coordinate variables
-        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lat'))
+        Latitudes               = rootgrp.createVariable('latitude', "f8",('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = data_2dr[0]['lat'].data    # pass the values of latitude
 
-        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lon'))
+        Longitudes               = rootgrp.createVariable('longitude', "f8",('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
@@ -343,13 +343,13 @@ class SaveNCDF_sc():
         Time.calendar      = "gregorian"
         Time[:] = just_the_data['time'].data
 
-        Latitudes  = rootgrp.createVariable('latitude', 'f4', ('lat'))
+        Latitudes  = rootgrp.createVariable('latitude', "f8", ('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = just_the_data['lat'].data
 
-        Longitudes  = rootgrp.createVariable('longitude', 'f4', ('lon'))
+        Longitudes  = rootgrp.createVariable('longitude', "f8", ('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
