@@ -92,7 +92,7 @@ class SaveNCDF_pl_3dm():
             out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmana[0][x].long_name
             out_var.units         = data_3dmana[0][x].units
-            out_var.missing_value = data_3dmana[0][x].missing_value
+            out_var.missing_value = np.array(data_3dmana[0][x].missing_value, dtype=out_var.dtype)
 
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmana], axis=0)
@@ -111,7 +111,7 @@ class SaveNCDF_pl_3dm():
             out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmasm[0][x].long_name
             out_var.units         = data_3dmasm[0][x].units
-            out_var.missing_value = data_3dmasm[0][x].missing_value
+            out_var.missing_value = np.array(data_3dmasm[0][x].missing_value, dtype=out_var.dtype)
 
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmasm], axis=0)
@@ -174,7 +174,7 @@ class SaveNCDF_sa():
             out_var = rootgrp.createVariable(x, 'f4', ('time','lats','lons'), fill_value=9.9999999E14)
             out_var.long_name = data_2dm[0][x].long_name
             out_var.units         = data_2dm[0][x].units
-            out_var.missing_value = data_2dm[0][x].missing_value
+            out_var.missing_value = np.array(data_2dm[0][x].missing_value, dtype=out_var.dtype)
 
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_2dm], axis=0)
@@ -243,7 +243,7 @@ class SaveNCDF_sf():
                 out_var = rootgrp.createVariable(x, 'f4', ('time','lats','lons'), fill_value=9.9999999E14)
                 out_var.long_name = source[0][x].long_name
                 out_var.units         = source[0][x].units
-                out_var.missing_value = source[0][x].missing_value
+                out_var.missing_value = np.array(source[0][x].missing_value, dtype=out_var.dtype)
 
                 # stack data arrays
                 all_data = np.concatenate([dataset[x].data for dataset in source], axis=0)
@@ -305,7 +305,7 @@ class SaveNCDF_sc():
         file_ncdf  = path.join(dir_data,("merra_sc" + ".nc"))
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
         logger.debug(f"Writing data to {file_ncdf}")
-        logger.info(f"Created netcdf file of type: {rootgrp.file_format}")
+        logger.debug(f"Created netcdf file of type: {rootgrp.file_format}")
         rootgrp.source      = 'MERRA2 constant model parameters'
 
         # Create dimensions
@@ -323,7 +323,7 @@ class SaveNCDF_sc():
 
             out_var.long_name = just_the_data[x].long_name
             out_var.units = just_the_data[x].units
-            out_var.missing_value = just_the_data[x].missing_value
+            out_var.missing_value = np.array(just_the_data[x].missing_value, dtype=out_var.dtype)
 
             out_var[:] = just_the_data[x].data[0]
 
@@ -508,8 +508,8 @@ class MERRAdownload(GenericDownload):
         list
         """
         # Setup the based url strings
-        baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/')
-        baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/')
+        baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/')
+        baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov/opendap/MERRA2/')
 
         baseurl_3dn = (baseurl_3d + 'M2I6NPANA.5.12.4/{YM}/MERRA2_{FN}.inst6_3d_ana_Np.{YMD}.nc4')
         baseurl_3da = (baseurl_3d + 'M2I3NPASM.5.12.4/{YM}/MERRA2_{FN}.inst3_3d_asm_Np.{YMD}.nc4')
@@ -539,7 +539,7 @@ class MERRAdownload(GenericDownload):
             urls_2dv.append(baseurl_2dv.format(YM=ym, FN=fn, YMD=ymd))
 
         # Setup URL for getting constant model parameters (2D, single-level, full horizontal resolution)
-        url_2dc = ['https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4']
+        url_2dc = ['https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4']
 
         return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv
 
@@ -684,15 +684,15 @@ class MERRAdownload(GenericDownload):
 
     def start_session(self):
         self.session = setup_session(self.username, self.password,
-                                     check_url="https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4")
+                                     check_url="https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4")
 
     def build_subsetters(self):
-        self.subsetters = {"3dmana": MERRASubsetter('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4', self.session),
-                           "3dmasm": MERRASubsetter('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4/2016/01/MERRA2_400.inst3_3d_asm_Np.20160101.nc4', self.session),
+        self.subsetters = {"3dmana": MERRASubsetter('https://goldsmr5.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2I6NPANA.5.12.4/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4', self.session),
+                           "3dmasm": MERRASubsetter('https://goldsmr5.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2I3NPASM.5.12.4/2016/01/MERRA2_400.inst3_3d_asm_Np.20160101.nc4', self.session),
                            "2dm": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2I1NXASM.5.12.4/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4', self.session),
-                           "2ds": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXFLX.5.12.4/2016/01/MERRA2_400.tavg1_2d_flx_Nx.20160101.nc4', self.session),
+                           "2ds": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXFLX.5.12.4/2016/01/MERRA2_400.tavg1_2d_flx_Nx.20160101.nc4', self.session),
                            "2dr": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXRAD.5.12.4/1981/01/MERRA2_100.tavg1_2d_rad_Nx.19810101.nc4', self.session),
-                           "2dv": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXSLV.5.12.4/2016/01/MERRA2_400.tavg1_2d_slv_Nx.20160101.nc4', self.session)}
+                           "2dv": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXSLV.5.12.4/2016/01/MERRA2_400.tavg1_2d_slv_Nx.20160101.nc4', self.session)}
 
         for s in self.subsetters.values():
             s.set_lon_range(self.area['west'], self.area['east'])
@@ -755,7 +755,7 @@ class MERRAdownload(GenericDownload):
         # Get merra-2 2d Constant Model Parameters (outside of time & date looping!)
         logger.info("Download variables From MERRA2 2d Time-Invariant (Single-level, Constant Model Parameters)")
         self.download_merra_to()
-        logger.debug("MERRA2 2d Time-Invariant Complete")
+        logger.info("MERRA2 2d Time-Invariant Complete")
 
         # build chunks
         all_dates = pd.date_range(self.date['beg'], self.date['end'])
@@ -768,42 +768,49 @@ class MERRAdownload(GenericDownload):
         for date_range in chunks:
             logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
 
-
             # Build the urls for the chunk range
             urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
 
             # Access, subset (server-side) and download the data (in memory)
             logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I1NXASM")
-            download_start = datetime.now()
+            download_sa_start = datetime.now()
 
             # Download 2d surface analysis
 
             data_2dm = [self.subsetters['2dm'].subset_dataset(url, metadata=True) for url in urls_2dm]
 
+            logger.info(f"Downloaded surface analysis data in {datetime.now() - download_sa_start}")
+
             SaveNCDF_sa().saveData(data_2dm, self.directory)
 
             # Download 2d surface forecast
-
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXFLX")
+            download_sf_start = datetime.now()
+            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXFLX")
             data_2ds = [self.subsetters['2ds'].subset_dataset(url, metadata=True) for url in urls_2ds]
 
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXRAD")
+            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXRAD")
             data_2dr = [self.subsetters['2dr'].subset_dataset(url, metadata=True) for url in urls_2dr]
 
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXSLV")
+            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2T1NXSLV")
             data_2dv = [self.subsetters['2dv'].subset_dataset(url, metadata=True) for url in urls_2dv]
+
+            logger.info(f"Downloaded surface forecast data in {datetime.now() - download_sf_start}")
 
             SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
 
             # Download 3d pressure-level data
-
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
+            download_pl_start = datetime.now()
+            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I6NPANA")
             data_3dmana = [self.subsetters['3dmana'].subset_dataset(url, metadata=True) for url in urls_3dmana]
 
-            logger.debug(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
+            logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']} from dataset M2I3NPASM")
             data_3dmasm = [self.subsetters['3dmasm'].subset_dataset(url, metadata=True) for url in urls_3dmasm]
 
+            logger.info(f"Downloaded pressure level data in {datetime.now() - download_pl_start}")
+
             SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, chunk_size, self.directory, self.elevation)
+
+            logger.info(f"Downloaded chunk in {datetime.now() - download_sa_start}")
 
     def download_merra_to(self):
         """ Download time-invariant data for the specified lat-lon boundaries """
@@ -823,7 +830,7 @@ class MERRAdownload(GenericDownload):
         S.set_lon_range(self.area['west'], self.area['east'])
         S.set_variables(get_variables_2dc[:-3])
 
-        data = S.subset_dataset(url_2dc[0], metadata=True)
+        data = S.subset_dataset(url_2dc[0], wget_file="fds", metadata=True)
 
         SaveNCDF_sc().saveData(data, self.directory)
 
@@ -926,6 +933,11 @@ class MERRASubsetter:
 
     def create_dods_url(self, dataset_url):
         """ Create a DODS uri link to access a subset of the data by adding variables and slices """
+        url = self.create_request_url(dataset_url, 'dods')
+        return url
+
+    def create_request_url(self, dataset_url, type='nc4'):
+        """ Create a uri link to access a subset of the data by adding variables and slices """
         uri_parameters = []
 
         for var in self.variables:
@@ -938,11 +950,11 @@ class MERRASubsetter:
         if 'lev' in self.dataset:
             uri_parameters.append('lev' + self.subset_lev(self.elev_min, self.elev_max))
 
-        dods_url = dataset_url + ".dods?" + ",".join(uri_parameters)
+        dods_url = dataset_url + f".{type}?" + ",".join(uri_parameters)
 
         return dods_url
 
-    def subset_dataset(self, url, metadata=False):
+    def subset_dataset(self, url, wget_file="/home/nbr512/globsim_party/merra2/merra-wishlist.txt", metadata=False):
         """ Return a subset dataset as
 
         Parameters
@@ -956,10 +968,17 @@ class MERRASubsetter:
         -------
         DatasetType : pydap DatasetType
         """
+        if wget_file == "/home/nbr512/globsim_party/merra2/merra-wishlist.txt":
+            ncurl = self.create_request_url(url)
+            with open(wget_file, 'a') as f:
+                f.write(ncurl+"\n")
+            return
+        else:
+            dods_url = self.create_dods_url(url)
 
-        dods_url = self.create_dods_url(url)
-        logger.debug(f"Downloading data from {dods_url}")
+            logger.debug(f"Downloading subset from {dods_url}")
+            ds = open_dods(dods_url, session=self.session, metadata=metadata)
 
-        ds = open_dods(dods_url, session=self.session, metadata=metadata)
+            return ds
 
-        return ds
+
