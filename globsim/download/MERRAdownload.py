@@ -31,6 +31,7 @@ class SaveNCDF_pl_3dm():
     """
 
     def safety_checks(self, data_3dmasm, data_3dmana):
+        print('checking')
         assert(np.array_equal(data_3dmasm[0]['lat'].data, data_3dmana[0]['lat'].data))
         assert(np.array_equal(data_3dmasm[0]['lev'].data, data_3dmana[0]['lev'].data))
         assert(np.array_equal(data_3dmasm[0]['lon'].data, data_3dmana[0]['lon'].data))
@@ -90,6 +91,7 @@ class SaveNCDF_pl_3dm():
         data_variables_3dmana = [v for v in list(data_3dmana[0]) if v not in ['time', 'lat', 'lon', 'lev']]
 
         # Treat 6-hourly data
+        print('write 6 hour')
         for x in data_variables_3dmana:
             out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmana[0][x].long_name
@@ -98,17 +100,20 @@ class SaveNCDF_pl_3dm():
 
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmana], axis=0)
-
+            np.save("/fs/extraspace/merratest/all_data_extrapolate_input.dat", all_data)
             if x in ["U", "V"]:
+                print('extrapolate U or V')
                 all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
 
             elif x in ["T"]:
+                print('extrapolate U or V')
                 h_data = np.concatenate([dataset["H"].data for dataset in data_3dmana], axis=0)  # could also get from rootgrp["H"]
                 all_data = MERRAdownload.tempExtrapolate(t_total=all_data, h_total=h_data, elevation=elevation)
 
             out_var[:] = all_data
 
         # Treat 3-hourly data
+        print('write 3 hour')
         for x in data_variables_3dmasm:
             out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmasm[0][x].long_name
@@ -119,6 +124,7 @@ class SaveNCDF_pl_3dm():
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmasm], axis=0)
 
             if x in ["RH"]:
+                print('extrapolate  RH')
                 all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
 
             out_var[:] = all_data[::2,:,:,:]  # downsample to 6-hourly
@@ -473,7 +479,7 @@ class MERRAdownload(GenericDownload):
 
         last_dates = [[F.search(x).group(2) for x in files if F.search(x)] for F in [pl, sa, sf]]
 
-        if last_dates == [[],[],[]]:  # No matching files
+        if not all(last_dates):  # No matching files
             return date
 
         else:
@@ -999,19 +1005,20 @@ class MerraAggregator():
         self.tavg1_2d_slv_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_slv_Nx*")
 
     def combine(self, elevation):
-
-        data_2dm = [nc.Dataset(x) for (d,x) in self.inst1_2d_asm_Nx]
+        print('2dm')
+        data_2dm = [VirtualDataset(x) for (d,x) in self.inst1_2d_asm_Nx]
+        print('saving data')
         SaveNCDF_sa().saveData(data_2dm, self.directory)
-
-        data_2dr = [nc.Dataset(x) for (d,x) in self.tavg1_2d_rad_Nx]
-        data_2ds = [nc.Dataset(x) for (d,x) in self.tavg1_2d_flx_Nx]
-        data_2dv = [nc.Dataset(x) for (d,x) in self.tavg1_2d_slv_Nx]
-        
+        print('2dr')
+        data_2dr = [VirtualDataset(x) for (d,x) in self.tavg1_2d_rad_Nx]
+        data_2ds = [VirtualDataset(x) for (d,x) in self.tavg1_2d_flx_Nx]
+        data_2dv = [VirtualDataset(x) for (d,x) in self.tavg1_2d_slv_Nx]
+        print('saving data')
         SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
-        
-        data_3dmasm = [nc.Dataset(x) for (d,x) in self.inst3_3d_asm_Np]
-        data_3dmana = [nc.Dataset(x) for (d,x) in self.inst6_3d_ana_Np]
-        
+        print('3dr')
+        data_3dmasm = [VirtualDataset(x) for (d,x) in self.inst3_3d_asm_Np]
+        data_3dmana = [VirtualDataset(x) for (d,x) in self.inst6_3d_ana_Np]
+        print('saving data')
         SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, elevation)
         
 
@@ -1019,6 +1026,53 @@ def map_dates(directory: str, globtext: str):
     files = Path(directory).glob(globtext)
     files_sorted = sorted(files)
     merra_date = re.compile(r"(\d{8})\.nc4")
-    dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
+    # dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
+    dates = [x for x in files_sorted]
     return zip(dates, files_sorted)
     
+
+class VirtualDataset:
+    """" treat netcdf4 files as pydap DODS dataset """
+    def __init__(self, dataset):
+        if isinstance(dataset, str) or isinstance(dataset, Path):
+            self.dataset = nc.Dataset(str(dataset))
+        elif isinstance(dataset, nc.Dataset):
+            self.dataset = dataset
+        else: 
+            raise TypeError("dataset wrong type")
+
+        self.variables = dict()
+
+        for variable in self.dataset.variables:
+            self.variables[variable] = VirtualVariable(self.dataset[variable])
+    
+    def __getitem__(self, value):
+        return self.variables[value]
+
+    def __getattr__(self, value):
+        return self.dataset.getnccattr(value)
+
+    def __iter__(self):
+        varnames = [v for v in self.dataset.variables]
+        return iter(varnames)
+
+
+class VirtualVariable:
+    """ treat netcdf4 variables as pydap DODS dataset """ 
+    def __init__(self, variable:"nc.Variable"):
+        self.variable = variable
+
+    def __len__(self):
+        return len(self.variable)
+
+    def __getattr__(self, value):
+        if value == 'data':
+            return self.variable[:]
+        else: 
+            try:
+                return self.variable.getncattr(value)
+            except AttributeError:
+                return getattr(self.variable, value)
+
+
+
