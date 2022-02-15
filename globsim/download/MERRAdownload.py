@@ -50,17 +50,17 @@ class SaveNCDF_pl_3dm():
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
         _  = rootgrp.createDimension('level', len(data_3dmana[0]['lev']))
-        _  = rootgrp.createDimension('lats', len(data_3dmana[0]['lat']))
-        _  = rootgrp.createDimension('lons', len(data_3dmana[0]['lon']))
+        _  = rootgrp.createDimension('lat', len(data_3dmana[0]['lat']))
+        _  = rootgrp.createDimension('lon', len(data_3dmana[0]['lon']))
 
         # Create coordinate variables
-        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
+        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = data_3dmana[0]['lat'].data    # pass the values of latitude
 
-        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
+        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
@@ -93,7 +93,7 @@ class SaveNCDF_pl_3dm():
         # Treat 6-hourly data
         print('write 6 hour')
         for x in data_variables_3dmana:
-            out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
+            out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lat','lon'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmana[0][x].long_name
             out_var.units         = data_3dmana[0][x].units
             out_var.missing_value = np.array(data_3dmana[0][x].missing_value, dtype=out_var.dtype)
@@ -103,19 +103,19 @@ class SaveNCDF_pl_3dm():
             np.save("/fs/extraspace/merratest/all_data_extrapolate_input.dat", all_data)
             if x in ["U", "V"]:
                 print('extrapolate U or V')
-                all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
+                all_data = MERRAdownload.constant_extrapolation(all_data)
 
             elif x in ["T"]:
                 print('extrapolate U or V')
                 h_data = np.concatenate([dataset["H"].data for dataset in data_3dmana], axis=0)  # could also get from rootgrp["H"]
-                all_data = MERRAdownload.tempExtrapolate(t_total=all_data, h_total=h_data, elevation=elevation)
+                all_data = MERRAdownload.constant_extrapolation(all_data)
 
             out_var[:] = all_data
 
         # Treat 3-hourly data
         print('write 3 hour')
         for x in data_variables_3dmasm:
-            out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lats','lons'), fill_value=9.9999999E14)
+            out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lat','lon'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmasm[0][x].long_name
             out_var.units         = data_3dmasm[0][x].units
             out_var.missing_value = np.array(data_3dmasm[0][x].missing_value, dtype=out_var.dtype)
@@ -125,7 +125,7 @@ class SaveNCDF_pl_3dm():
 
             if x in ["RH"]:
                 print('extrapolate  RH')
-                all_data = MERRAdownload.wind_rh_Extrapolate(all_data)
+                all_data = MERRAdownload.constant_extrapolation(all_data)
 
             out_var[:] = all_data[::2,:,:,:]  # downsample to 6-hourly
 
@@ -159,17 +159,17 @@ class SaveNCDF_sa():
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('lats', len(data_2dm[0]['lat']))
-        _  = rootgrp.createDimension('lons', len(data_2dm[0]['lon']))
+        _  = rootgrp.createDimension('lat', len(data_2dm[0]['lat']))
+        _  = rootgrp.createDimension('lon', len(data_2dm[0]['lon']))
 
         # Create coordinate variables
-        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
+        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = data_2dm[0]['lat'].data    # pass the values of latitude
 
-        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
+        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
@@ -179,7 +179,7 @@ class SaveNCDF_sa():
 
         # Fill in data variables
         for x in data_variables:
-            out_var = rootgrp.createVariable(x, 'f4', ('time','lats','lons'), fill_value=9.9999999E14)
+            out_var = rootgrp.createVariable(x, 'f4', ('time','lat','lon'), fill_value=9.9999999E14)
             out_var.long_name = data_2dm[0][x].long_name
             out_var.units         = data_2dm[0][x].units
             out_var.missing_value = np.array(data_2dm[0][x].missing_value, dtype=out_var.dtype)
@@ -223,17 +223,17 @@ class SaveNCDF_sf():
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('lats', len(data_2dr[0]['lat']))
-        _  = rootgrp.createDimension('lons', len(data_2dr[0]['lon']))
+        _  = rootgrp.createDimension('lat', len(data_2dr[0]['lat']))
+        _  = rootgrp.createDimension('lon', len(data_2dr[0]['lon']))
 
         # Create coordinate variables
-        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lats'))
+        Latitudes               = rootgrp.createVariable('latitude', 'f4',('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = data_2dr[0]['lat'].data    # pass the values of latitude
 
-        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lons'))
+        Longitudes               = rootgrp.createVariable('longitude', 'f4',('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
@@ -248,7 +248,7 @@ class SaveNCDF_sf():
                                     [data_variables_2dr, data_variables_2ds, data_variables_2dv]):
 
             for x in namelist:
-                out_var = rootgrp.createVariable(x, 'f4', ('time','lats','lons'), fill_value=9.9999999E14)
+                out_var = rootgrp.createVariable(x, 'f4', ('time','lat','lon'), fill_value=9.9999999E14)
                 out_var.long_name = source[0][x].long_name
                 out_var.units         = source[0][x].units
                 out_var.missing_value = np.array(source[0][x].missing_value, dtype=out_var.dtype)
@@ -283,13 +283,13 @@ class SaveNCDF_sf():
         rootgrp.close()
 
     def derive_lwgdn(self, rootgrp):
-        out_var = rootgrp.createVariable("LWGDN", 'f4', ('time','lats','lons'), fill_value=9.9999999E14)
+        out_var = rootgrp.createVariable("LWGDN", 'f4', ('time','lat','lon'), fill_value=9.9999999E14)
         out_var.long_name = "downwelling_longwave_flux_in_air"
         out_var.units = 'W/m2'
         out_var[:] = rootgrp['LWGEM'][:].data + rootgrp['LWGNT'][:].data
 
     def derive_lwgdnclr(self, rootgrp):
-        out_var = rootgrp.createVariable("LWGDNCLR", 'f4', ('time','lats','lons'), fill_value=9.9999999E14)
+        out_var = rootgrp.createVariable("LWGDNCLR", 'f4', ('time','lat','lon'), fill_value=9.9999999E14)
         out_var.long_name = "downwelling_longwave_flux_in_air_assuming_clear_sky"
         out_var.units = 'W/m2'
         out_var[:] = rootgrp['LWGEM'][:].data + rootgrp['LWGNTCLR'][:].data
@@ -318,15 +318,15 @@ class SaveNCDF_sc():
 
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
-        _  = rootgrp.createDimension('lats', len(just_the_data['lat']))
-        _  = rootgrp.createDimension('lons', len(just_the_data['lon']))
+        _  = rootgrp.createDimension('lat', len(just_the_data['lat']))
+        _  = rootgrp.createDimension('lon', len(just_the_data['lon']))
 
         # Output the results of extracted variables
         data_variables = [v for v in list(just_the_data) if v not in ['time', 'lat', 'lon']]
 
         for x in list(data_variables):
             out_var = rootgrp.createVariable(x, 'f4',
-                                                ('time','lats','lons'),
+                                                ('time','lat','lon'),
                                                 fill_value=9.9999999E14)
 
             out_var.long_name = just_the_data[x].long_name
@@ -343,13 +343,13 @@ class SaveNCDF_sc():
         Time.calendar      = "gregorian"
         Time[:] = just_the_data['time'].data
 
-        Latitudes  = rootgrp.createVariable('latitude', 'f4', ('lats'))
+        Latitudes  = rootgrp.createVariable('latitude', 'f4', ('lat'))
         Latitudes.standard_name = "latitude"
         Latitudes.units         = "degrees_north"
         Latitudes.axis          = "Y"
         Latitudes[:]  = just_the_data['lat'].data
 
-        Longitudes  = rootgrp.createVariable('longitude', 'f4', ('lons'))
+        Longitudes  = rootgrp.createVariable('longitude', 'f4', ('lon'))
         Longitudes.standard_name = "longitude"
         Longitudes.units         = "degrees_east"
         Longitudes.axis          = "X"
