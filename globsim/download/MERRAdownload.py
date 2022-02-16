@@ -16,6 +16,7 @@ from pathlib           import Path
 from pydap.client      import open_url, open_dods
 from pydap.cas.urs     import setup_session
 from scipy.interpolate import interp1d
+from typing            import Optional
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
@@ -46,7 +47,8 @@ class SaveNCDF_pl_3dm():
         file_ncdf  = path.join(dir_data, f"merra_pl_{data_3dmana[0]['time'].begin_date}_to_{data_3dmana[-1]['time'].begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
         rootgrp.source      = 'MERRA-2, meteorological variables from metadata at pressure levels'
-
+        logger.debug(f"Creating netcdf file {file_ncdf} for pl_3dm data")
+        
         # Create dimensions
         _  = rootgrp.createDimension('time', None)
         _  = rootgrp.createDimension('level', len(data_3dmana[0]['lev']))
@@ -154,7 +156,7 @@ class SaveNCDF_sa():
         # set up File
         file_ncdf  = path.join(dir_data, f"merra_sa_{data_2dm[0]['time'].begin_date}_to_{data_2dm[-1]['time'].begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
-        logger.debug(f"Writing data to {file_ncdf}")
+        logger.debug(f"Creating netcdf file {file_ncdf} for sa data")
         rootgrp.source      = 'MERRA-2, meteorological variables from metadata at surface level'
 
         # Create dimensions
@@ -218,7 +220,7 @@ class SaveNCDF_sf():
         # set up File
         file_ncdf  = path.join(dir_data, f"merra_sf_{data_2dr[0]['time'].begin_date}_to_{data_2dr[-1]['time'].begin_date}.nc")
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
-        logger.debug(f"Writing data to {file_ncdf}")
+        logger.debug(f"Creating netcdf file {file_ncdf} for sf data")
         rootgrp.source      = 'MERRA-2, radiation variables from metadata at surface level'
 
         # Create dimensions
@@ -312,8 +314,7 @@ class SaveNCDF_sc():
         # set up file path and names
         file_ncdf  = path.join(dir_data,("merra_sc" + ".nc"))
         rootgrp = Dataset(file_ncdf, 'w', format='NETCDF4_CLASSIC')
-        logger.debug(f"Writing data to {file_ncdf}")
-        logger.debug(f"Created netcdf file of type: {rootgrp.file_format}")
+        logger.debug(f"Creating netcdf file {file_ncdf} for sc data")
         rootgrp.source      = 'MERRA2 constant model parameters'
 
         # Create dimensions
@@ -448,6 +449,7 @@ class MERRAdownload(GenericDownload):
                       'end': datetime.strptime(par['end'], '%Y/%m/%d')}
 
         self.date = self.update_time_bounds(init_date)
+        self.mode = "download"  # (download, links, combine)
 
         # start connection session
         self.credential = path.join(par['credentials_directory'], ".merrarc")
@@ -524,7 +526,7 @@ class MERRAdownload(GenericDownload):
 
         return date
 
-    def getURLs(self, date):
+    def getURLs(self, date: "dict[str, datetime]"):
         """ Set up urls by given range of date and type of data to get objected
         url address
 
@@ -677,7 +679,26 @@ class MERRAdownload(GenericDownload):
                            'end': self.date['end']})
 
         for date_range in chunks:
-            self.download(date_range)
+            if self.mode == "download":
+                self.download(date_range)
+            elif self.mode == "links":
+                url_file = Path(self.directory, "merra-wishlist.txt")
+                self.download_links(date_range, str(url_file))
+            elif self.mode == "combine":
+                M = MerraAggregator(self.directory)
+                M.combine(self.elevation, date_range)
+
+    def download_links(self, date_range: "dict[str, datetime]", url_file: str):
+        """ Save the links to the datasets (which can be downloaded in paralell with wget + xargs)"""
+
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
+
+        _ = [self.subsetters['2dm'].get_download_link(url, url_file=url_file) for url in urls_2dm]
+        _ = [self.subsetters['2ds'].get_download_link(url, url_file=url_file) for url in urls_2ds]
+        _ = [self.subsetters['2dr'].get_download_link(url, url_file=url_file) for url in urls_2dr]
+        _ = [self.subsetters['2dv'].get_download_link(url, url_file=url_file) for url in urls_2dv]
+        _ = [self.subsetters['3dmana'].get_download_link(url, url_file=url_file) for url in urls_3dmana]
+        _ = [self.subsetters['3dmasm'].get_download_link(url, url_file=url_file) for url in urls_3dmasm]
 
     def download(self, date_range):
         logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
@@ -744,7 +765,7 @@ class MERRAdownload(GenericDownload):
         S.set_lon_range(self.area['west'], self.area['east'])
         S.set_variables(get_variables_2dc[:-3])
 
-        data = S.subset_dataset(url_2dc[0], wget_file="fds", metadata=True)
+        data = S.subset_dataset(url_2dc[0], metadata=True)
 
         SaveNCDF_sc().saveData(data, self.directory)
 
@@ -867,33 +888,40 @@ class MERRASubsetter:
         dods_url = dataset_url + f".{type}?" + ",".join(uri_parameters)
 
         return dods_url
+    
+    def get_download_link(self, url, url_file):
+        """ download a link to the dataset that can be downloaded with wget
+        
+        Parameters
+        ----------
+        url : [type]
+            base URL for a dataset that can be opened with pydap.open_url
+        
+        """
+        ncurl = self.create_request_url(url)
+        with open(url_file, 'a') as f:
+            f.write(ncurl + "\n")
+        
+        return None
 
-    def subset_dataset(self, url, wget_file="/home/nbr512/globsim_party/merra2/merra-wishlist.txt", metadata=False):
+    def subset_dataset(self, url, metadata=False):
         """ Return a subset dataset as
 
         Parameters
         ----------
         url : [type]
             base URL for a dataset that can be opened with pydap.open_url
-        variables : list
-            List of MERRA variable names to be downloaded
 
         Returns
         -------
         DatasetType : pydap DatasetType
         """
-        if wget_file == "/home/nbr512/globsim_party/merra2/merra-wishlist.txt":
-            ncurl = self.create_request_url(url)
-            with open(wget_file, 'a') as f:
-                f.write(ncurl+"\n")
-            return
-        else:
-            dods_url = self.create_dods_url(url)
+        dods_url = self.create_dods_url(url)
 
-            logger.debug(f"Downloading subset from {dods_url}")
-            ds = open_dods(dods_url, session=self.session, metadata=metadata)
+        logger.debug(f"Downloading subset from {dods_url}")
+        ds = open_dods(dods_url, session=self.session, metadata=metadata)
 
-            return ds
+        return ds
 
 
 class MerraAggregator():
@@ -907,30 +935,42 @@ class MerraAggregator():
         self.tavg1_2d_rad_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_rad_Nx*")
         self.tavg1_2d_slv_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_slv_Nx*")
 
-    def combine(self, elevation):
-        print('2dm')
-        data_2dm = [VirtualDataset(x) for (d,x) in self.inst1_2d_asm_Nx]
-        print('saving data')
+    def combine(self, elevation: dict, date_range: "Optional[dict[str, datetime]]"):
+        if date_range is None:
+            date_range = {'beg': datetime(year=1900, month=1, day=1),
+                          'end': datetime(year=2100, month=1, day=1)}
+
+        logger.info('Combining 2dm')
+        
+        data_2dm = [VirtualDataset(x) for (d, x) in self.inst1_2d_asm_Nx if self.in_date_range(d, date_range)]
+
         SaveNCDF_sa().saveData(data_2dm, self.directory)
-        print('2dr')
-        data_2dr = [VirtualDataset(x) for (d,x) in self.tavg1_2d_rad_Nx]
-        data_2ds = [VirtualDataset(x) for (d,x) in self.tavg1_2d_flx_Nx]
-        data_2dv = [VirtualDataset(x) for (d,x) in self.tavg1_2d_slv_Nx]
-        print('saving data')
+        
+        logger.info('Combining 2dr')
+
+        data_2dr = [VirtualDataset(x) for (d, x) in self.tavg1_2d_rad_Nx if self.in_date_range(d, date_range)]
+        data_2ds = [VirtualDataset(x) for (d, x) in self.tavg1_2d_flx_Nx if self.in_date_range(d, date_range)]
+        data_2dv = [VirtualDataset(x) for (d, x) in self.tavg1_2d_slv_Nx if self.in_date_range(d, date_range)]
+
         SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
-        print('3dr')
-        data_3dmasm = [VirtualDataset(x) for (d,x) in self.inst3_3d_asm_Np]
-        data_3dmana = [VirtualDataset(x) for (d,x) in self.inst6_3d_ana_Np]
-        print('saving data')
+        
+        logger.info('Combining 3dr')
+
+        data_3dmasm = [VirtualDataset(x) for (d, x) in self.inst3_3d_asm_Np if self.in_date_range(d, date_range)]
+        data_3dmana = [VirtualDataset(x) for (d, x) in self.inst6_3d_ana_Np if self.in_date_range(d, date_range)]
+
         SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, elevation)
+    
+    def in_date_range(self, test_date: datetime, date_range: "dict[str, datetime]") -> bool:
+        return ((test_date >= date_range['beg']) & (test_date < date_range['end']))
         
 
-def map_dates(directory: str, globtext: str):
+def map_dates(directory: str, globtext: str) -> "zip[tuple[datetime, Path]]":
     files = Path(directory).glob(globtext)
     files_sorted = sorted(files)
     merra_date = re.compile(r"(\d{8})\.nc4")
-    # dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
-    dates = [x for x in files_sorted]
+    dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
+    # dates = [x for x in files_sorted]
     return zip(dates, files_sorted)
     
 
@@ -977,6 +1017,5 @@ class VirtualVariable:
                 return self.variable.getncattr(value)
             except AttributeError:
                 return getattr(self.variable, value)
-
 
 
