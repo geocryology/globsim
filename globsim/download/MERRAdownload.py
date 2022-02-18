@@ -32,7 +32,6 @@ class SaveNCDF_pl_3dm():
     """
 
     def safety_checks(self, data_3dmasm, data_3dmana):
-        print('checking')
         assert(np.array_equal(data_3dmasm[0]['lat'].data, data_3dmana[0]['lat'].data))
         assert(np.array_equal(data_3dmasm[0]['lev'].data, data_3dmana[0]['lev'].data))
         assert(np.array_equal(data_3dmasm[0]['lon'].data, data_3dmana[0]['lon'].data))
@@ -93,7 +92,6 @@ class SaveNCDF_pl_3dm():
         data_variables_3dmana = [v for v in list(data_3dmana[0]) if v not in ['time', 'lat', 'lon', 'lev']]
 
         # Treat 6-hourly data
-        print('write 6 hour')
         for x in data_variables_3dmana:
             out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lat','lon'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmana[0][x].long_name
@@ -104,18 +102,15 @@ class SaveNCDF_pl_3dm():
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmana], axis=0)
             np.save("/fs/extraspace/merratest/all_data_extrapolate_input.dat", all_data)
             if x in ["U", "V"]:
-                print('extrapolate U or V')
                 all_data = MERRAdownload.constant_extrapolation(all_data)
 
             elif x in ["T"]:
-                print('extrapolate U or V')
                 h_data = np.concatenate([dataset["H"].data for dataset in data_3dmana], axis=0)  # could also get from rootgrp["H"]
                 all_data = MERRAdownload.constant_extrapolation(all_data)
 
             out_var[:] = all_data
 
         # Treat 3-hourly data
-        print('write 3 hour')
         for x in data_variables_3dmasm:
             out_var = rootgrp.createVariable(x, 'f4', ('time', 'level','lat','lon'), fill_value=9.9999999E14)
             out_var.long_name = data_3dmasm[0][x].long_name
@@ -126,7 +121,6 @@ class SaveNCDF_pl_3dm():
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmasm], axis=0)
 
             if x in ["RH"]:
-                print('extrapolate  RH')
                 all_data = MERRAdownload.constant_extrapolation(all_data)
 
             out_var[:] = all_data[::2,:,:,:]  # downsample to 6-hourly
@@ -444,12 +438,18 @@ class MERRAdownload(GenericDownload):
         # chunk size for downloading and storing data [days]
         self.chunk_size = par['chunk_size']
 
+        try:
+            self.mode = par['merramode'].lower()
+            if self.mode not in ("download", "links", "combine"):
+                raise KeyError
+        except KeyError:
+            self.mode = 'download'
+
         # time bounds
         init_date  = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
                       'end': datetime.strptime(par['end'], '%Y/%m/%d')}
 
         self.date = self.update_time_bounds(init_date)
-        self.mode = "download"  # (download, links, combine)
 
         # start connection session
         self.credential = path.join(par['credentials_directory'], ".merrarc")
@@ -940,29 +940,34 @@ class MerraAggregator():
             date_range = {'beg': datetime(year=1900, month=1, day=1),
                           'end': datetime(year=2100, month=1, day=1)}
 
-        logger.info('Combining 2dm')
-        
+        logger.info(f"Creating surface analysis (sa) file for {date_range['beg']} to {date_range['end']}")
+
         data_2dm = [VirtualDataset(x) for (d, x) in self.inst1_2d_asm_Nx if self.in_date_range(d, date_range)]
 
         SaveNCDF_sa().saveData(data_2dm, self.directory)
-        
-        logger.info('Combining 2dr')
+        del data_2dm  # close datasets to avoid "too many files open error"
+
+        logger.info(f"Creating surface forecast (sf) file for {date_range['beg']} to {date_range['end']}")
 
         data_2dr = [VirtualDataset(x) for (d, x) in self.tavg1_2d_rad_Nx if self.in_date_range(d, date_range)]
         data_2ds = [VirtualDataset(x) for (d, x) in self.tavg1_2d_flx_Nx if self.in_date_range(d, date_range)]
         data_2dv = [VirtualDataset(x) for (d, x) in self.tavg1_2d_slv_Nx if self.in_date_range(d, date_range)]
 
         SaveNCDF_sf().saveData(data_2dr, data_2ds, data_2dv, self.directory)
-        
-        logger.info('Combining 3dr')
+
+        del data_2dr, data_2ds, data_2dv  # close datasets to avoid "too many files open error"
+
+        logger.info(f"Creating pressure level (pl) file for {date_range['beg']} to {date_range['end']}")
 
         data_3dmasm = [VirtualDataset(x) for (d, x) in self.inst3_3d_asm_Np if self.in_date_range(d, date_range)]
         data_3dmana = [VirtualDataset(x) for (d, x) in self.inst6_3d_ana_Np if self.in_date_range(d, date_range)]
 
         SaveNCDF_pl_3dm().saveData(data_3dmasm, data_3dmana, self.directory, elevation)
-    
+
+        del data_3dmana, data_3dmasm  # close datasets to avoid "too many files open error"
+
     def in_date_range(self, test_date: datetime, date_range: "dict[str, datetime]") -> bool:
-        return ((test_date >= date_range['beg']) & (test_date < date_range['end']))
+        return ((test_date >= date_range['beg']) & (test_date <= date_range['end']))
         
 
 def map_dates(directory: str, globtext: str) -> "zip[tuple[datetime, Path]]":
@@ -999,6 +1004,13 @@ class VirtualDataset:
     def __iter__(self):
         varnames = [v for v in self.dataset.variables]
         return iter(varnames)
+
+    def __del__(self):
+        self.close()
+        del self.dataset
+
+    def close(self):
+        self.dataset.close()
 
 
 class VirtualVariable:
