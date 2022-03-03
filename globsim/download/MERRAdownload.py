@@ -501,6 +501,9 @@ class MERRAdownload(GenericDownload):
 
         last_dates = [[F.search(x).group(2) for x in files if F.search(x)] for F in [pl, sa, sf]]
 
+        if self.mode != "download":
+            return date
+
         if not all(last_dates):  # No matching files
             return date
 
@@ -559,7 +562,8 @@ class MERRAdownload(GenericDownload):
         for d in pd.date_range(date['beg'], date['end']):
             ym = d.strftime("%Y/%m")
             ymd = d.strftime("%Y%m%d")
-            fn = self.get_file_number(d.year)
+
+            fn = self.get_file_number(d.year, d.month)
 
             urls_3dmana.append(baseurl_3dn.format(YM=ym, FN=fn, YMD=ymd))
             urls_3dmasm.append(baseurl_3da.format(YM=ym, FN=fn, YMD=ymd))
@@ -574,12 +578,15 @@ class MERRAdownload(GenericDownload):
         return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv
 
     @staticmethod
-    def get_file_number(year):
+    def get_file_number(year, month=-1):
         """
         The file names consist of a number and a meta data string.
         The number changes over the years. 1980 until 1991 it is 100,
         1992 until 2000 it is 200, 2001 until 2010 it is  300
         and from 2011 until now it is 400.
+
+        401 - reprocessed files
+        https://disc.gsfc.nasa.gov/information/documents?title=Records%20of%20MERRA-2%20Data%20Reprocessing%20and%20Service%20Changes
         """
         file_number = ''
 
@@ -590,7 +597,12 @@ class MERRAdownload(GenericDownload):
         elif year >= 2001 and year < 2011:
             file_number = '300'
         elif year >= 2011:
-            file_number = '400'
+            if (year == 2020 and month == 9):
+                file_number = '401'
+            elif (year == 2021 and (6 <= month <= 9)):
+                file_number = '401'
+            else:
+                file_number = '400'
         else:
             raise Exception('The specified year is out of range.')
         return file_number
@@ -681,9 +693,15 @@ class MERRAdownload(GenericDownload):
         for date_range in chunks:
             if self.mode == "download":
                 self.download(date_range)
+            
             elif self.mode == "links":
                 url_file = Path(self.directory, "merra-wishlist.txt")
                 self.download_links(date_range, str(url_file))
+                
+                logger.info(f"Created OPeNDAP links file: {url_file}")
+                logger.info(f"To download the files, use the command 'cat {url_file} | xargs -n 1 -P 16 wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --auth-no-challenge=on --keep-session-cookies --content-disposition'")
+                logger.info("For more information, visit https://disc.gsfc.nasa.gov/data-access#mac_linux_wget")
+            
             elif self.mode == "combine":
                 M = MerraAggregator(self.directory)
                 M.combine(self.elevation, date_range)
@@ -967,7 +985,7 @@ class MerraAggregator():
         del data_3dmana, data_3dmasm  # close datasets to avoid "too many files open error"
 
     def in_date_range(self, test_date: datetime, date_range: "dict[str, datetime]") -> bool:
-        return ((test_date >= date_range['beg']) & (test_date <= date_range['end']))
+        return ((test_date >= date_range['beg']) and (test_date <= date_range['end']))
         
 
 def map_dates(directory: str, globtext: str) -> "zip[tuple[datetime, Path]]":
