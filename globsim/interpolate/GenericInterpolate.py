@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from pathlib import Path
 from fnmatch import filter as fnmatch_filter
+from collections import namedtuple
 
 from globsim.common_utils import StationListRead, str_encode
 
@@ -23,6 +24,8 @@ try:
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass
+
+BoundingBox = namedtuple('BoundingBox', ['xmin', 'xmax', 'ymin', 'ymax'])
 
 
 class GenericInterpolate:
@@ -40,6 +43,7 @@ class GenericInterpolate:
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
+        self.stations_bbox = create_stations_bbox(self.stations)
 
         # time bounds, add one day to par['end'] to include entire last day
         self.date = {'beg': datetime.strptime(par.get('beg'), '%Y/%m/%d'),
@@ -172,8 +176,8 @@ class GenericInterpolate:
                 sfield = ESMF.Field(sgrid, name='sgrid',
                                     staggerloc=ESMF.StaggerLoc.CENTER,
                                     ndbounds=[len(variables), nt])
-
-            self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            #self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
         locstream = self.create_loc_stream(points)
 
@@ -282,7 +286,8 @@ class GenericInterpolate:
     @staticmethod
     def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
                                 tmask_chunk, pl: bool):
-        # assign data from ncdf: (variable, time, latitude, longitude)
+        # assign data from ncdf: (time, [level], latitude, longitude)
+        # to sfield (longitude, latitude, variable, time, [level])
         tmin = np.min(np.where(tmask_chunk))
         tmax = np.max(np.where(tmask_chunk))
         for n, var in enumerate(variables):
@@ -292,7 +297,37 @@ class GenericInterpolate:
             else:
                 vi = ncf_in[var][tmin:tmax + 1,:,:]
                 sfield.data[:,:,n,:] = vi.transpose((2,1,0))
-            
+
+            logger.debug(f"Wrote {var} data to source field for regridding")
+
+    def nc_data_subset_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
+                                       tmask_chunk, pl: bool):
+        """ assign data from ncdf: (time, [level], latitude, longitude)
+                         to sfield (longitude, latitude, variable, time, [level])
+        """
+
+        # get indices of lat/lon
+        lat = ncf_in.get_variables_by_attributes(standard_name='latitude', axis='Y')[0][:]
+        lon = ncf_in.get_variables_by_attributes(standard_name='longitude', axis='X')[0][:]
+
+        lat_ix = np.where((lat >= self.stations_bbox.ymin) & (lat <= self.stations_bbox.ymax))[0]
+        lon_ix = np.where((lon >= self.stations_bbox.xmin) & (lon <= self.stations_bbox.xmax))[0]
+
+        lat_slice = slice(min(lat_ix), max(lat_ix) + 1)
+        lon_slice = slice(min(lon_ix), max(lon_ix) + 1)
+
+        tmin = np.min(np.where(tmask_chunk))
+        tmax = np.max(np.where(tmask_chunk))
+        time_slice = slice(tmin, tmax + 1)
+
+        for n, var in enumerate(variables):
+            if pl:
+                vi = ncf_in[var][time_slice, :, lat_slice, lon_slice]
+                sfield.data[lon_slice, lat_slice, n, :, :] = vi.transpose((3,2,0,1))
+            else:
+                vi = ncf_in[var][time_slice, lat_slice, lon_slice]
+                sfield.data[lon_slice, lat_slice, n, :] = vi.transpose((2,1,0))
+
             logger.debug(f"Wrote {var} data to source field for regridding")
 
     @staticmethod
@@ -341,3 +376,18 @@ class GenericInterpolate:
         wb /= wt  # Apply after ravel() of data.
 
         return wa, wb
+
+
+def create_stations_bbox(stations) -> BoundingBox:
+    # get max/min of points lat/lon from self.stations
+
+    stations_bbox = BoundingBox(xmin=stations['longitude_dd'].describe()["min"],
+                                xmax=stations['longitude_dd'].describe()["max"],
+                                ymin=stations['latitude_dd'].describe()["min"],
+                                ymax=stations['latitude_dd'].describe()["max"])
+    # add generous buffer
+    buffer = 2.0  # assume degrees here
+    return BoundingBox(stations_bbox.xmin - buffer, 
+                       stations_bbox.xmax + buffer,
+                       stations_bbox.ymin - buffer,
+                       stations_bbox.ymax + buffer)
