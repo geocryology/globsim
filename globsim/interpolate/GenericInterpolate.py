@@ -75,7 +75,7 @@ class GenericInterpolate:
         varlist = [item for sublist in varlist for item in sublist]
         return(varlist)
 
-    def interp2D(self, ncfile_in: str, ncf_in, points, tmask_chunk,
+    def interp2D(self, ncfile_in: str, ncf_in, points, tmask_chunk: "np.ndarray",
                  variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
@@ -111,7 +111,7 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-        logger.debug("Starting 2d interpolation")
+        logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
@@ -125,7 +125,7 @@ class GenericInterpolate:
             num = ncf_in.variables['number'][:]
 
         # test if time steps to interpolate remain
-        nt = sum(tmask_chunk)
+        nt = tmask_chunk.sum()  # TODO: could this just be length? what is being tested here?
         if nt == 0:
             raise ValueError('No time steps from netCDF file selected.')
 
@@ -170,7 +170,7 @@ class GenericInterpolate:
         self.nc_data_to_source_field(variables, sfield, ncf_in,
                                      tmask_chunk, pl, ens)
 
-        locstream = self.create_loc_stream()
+        locstream = self.create_loc_stream(points)
 
         # create destination field
         if ens:
@@ -200,18 +200,19 @@ class GenericInterpolate:
     def make_output_directory(self, par) -> str:
         """make directory to hold outputs"""
         output_root = None
-        
+
         if par.get('output_directory'):
             try:
                 test_path = Path(par.get('output_directory'))
+
+                if test_path.is_dir():
+                    output_root = Path(test_path, "interpolated")
+                else:
+                    warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
+
             except TypeError:
                 warnings.warn("You provided an output_directory for interpolation that was not understood. Saving files to project directory.")
-            
-            if test_path.is_dir():
-                output_root = Path(test_path, "interpolated")
-            else:
-                warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
-        
+
         if not output_root:
             output_root = path.join(par.get('project_directory'), 'interpolated')
 
@@ -229,12 +230,12 @@ class GenericInterpolate:
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         return sgrid
 
-    def create_loc_stream(self) -> "ESMF.LocStream":
+    def create_loc_stream(self, points) -> "ESMF.LocStream":
         # CANNOT have third dimension!!!
-        locstream = ESMF.LocStream(len(self.stations),
+        locstream = ESMF.LocStream(len(points),
                                    coord_sys=ESMF.CoordSys.SPH_DEG)
-        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
-        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+        locstream["ESMF:Lon"] = list(points['longitude_dd'])
+        locstream["ESMF:Lat"] = list(points['latitude_dd'])
 
         return locstream
 
