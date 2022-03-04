@@ -27,40 +27,40 @@ except ImportError:
 
 class GenericInterpolate:
 
-    def __init__(self, ifile):
+    def __init__(self, ifile: str):
         # read parameter file
         self.ifile = ifile
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
-            self.par = par = config['interpolate']
+            self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
-        self.variables = par['variables']
-        self.list_name = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
+        self.variables = par.get('variables')
+        self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
 
         # time bounds, add one day to par['end'] to include entire last day
-        self.date = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
-                     'end': datetime.strptime(par['end'], '%Y/%m/%d') + timedelta(days=1)}
+        self.date = {'beg': datetime.strptime(par.get('beg'), '%Y/%m/%d'),
+                     'end': datetime.strptime(par.get('end'), '%Y/%m/%d') + timedelta(days=1)}
 
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
-        self.cs = int(par['chunk_size'])
+        self.cs = int(par.get('chunk_size'))
 
     def find_stations_csv(self, par):
-        if Path(par['station_list']).is_file():
-            return Path(par['station_list'])
-        
-        elif Path(par['project_directory'], 'par', par['station_list']).is_file():
-            return Path(par['project_directory'], 'par', par['station_list'])
-        
+        if Path(par.get('station_list')).is_file():
+            return Path(par.get('station_list'))
+
+        elif Path(par.get('project_directory'), 'par', par.get('station_list')).is_file():
+            return Path(par.get('project_directory'), 'par', par.get('station_list'))
+
         else:
-            raise FileNotFoundError(f"Siteslist file {par['station_list']} not found.")
+            raise FileNotFoundError(f"Siteslist file {par.get('station_list')} not found.")
 
     def _set_input_directory(self, name):
-        self.input_dir = path.join(self.par['project_directory'], name)
+        self.input_dir = path.join(self.par.get('project_directory'), name)
 
     def TranslateCF2short(self, dpar):
         """
@@ -75,7 +75,7 @@ class GenericInterpolate:
         varlist = [item for sublist in varlist for item in sublist]
         return(varlist)
 
-    def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
+    def interp2D(self, ncfile_in: str, ncf_in, points, tmask_chunk,
                  variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
@@ -112,7 +112,7 @@ class GenericInterpolate:
                         variables=variables, date=date)
         """
         logger.debug("Starting 2d interpolation")
-        
+
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
         ens = 'number' in ncf_in.dimensions.keys()
@@ -197,7 +197,7 @@ class GenericInterpolate:
 
         return dfield, variables
 
-    def make_output_directory(self, par):
+    def make_output_directory(self, par) -> str:
         """make directory to hold outputs"""
         output_root = None
         
@@ -213,14 +213,14 @@ class GenericInterpolate:
                 warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
         
         if not output_root:
-            output_root = path.join(par['project_directory'], 'interpolated')
+            output_root = path.join(par.get('project_directory'), 'interpolated')
 
         if not Path(output_root).is_dir():
             makedirs(output_root)
 
-        return output_root
+        return str(output_root)
 
-    def create_source_grid(self, ncfile_in):
+    def create_source_grid(self, ncfile_in: str) -> "ESMF.Grid":
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         flist = np.sort(fnmatch_filter(listdir(self.input_dir),
@@ -229,7 +229,7 @@ class GenericInterpolate:
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         return sgrid
 
-    def create_loc_stream(self):
+    def create_loc_stream(self) -> "ESMF.LocStream":
         # CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(self.stations),
                                    coord_sys=ESMF.CoordSys.SPH_DEG)
@@ -239,7 +239,7 @@ class GenericInterpolate:
         return locstream
 
     @staticmethod
-    def regrid(sfield, dfield):
+    def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
         # regridding function, consider ESMF.UnmappedAction.ERROR
         
         regrid2D = ESMF.Regrid(sfield, dfield,
@@ -257,8 +257,8 @@ class GenericInterpolate:
         return dfield
 
     @staticmethod
-    def nc_data_to_source_field(variables, sfield, ncf_in,
-                                tmask_chunk, pl, ens):
+    def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+                                tmask_chunk, pl: bool, ens: bool):
         # assign data from ncdf: (variable, time, latitude, longitude)
 
         for n, var in enumerate(variables):
@@ -285,7 +285,7 @@ class GenericInterpolate:
                     logger.debug(f"Wrote {var} data to source field for regridding")
 
     @staticmethod
-    def remove_select_variables(varlist, pl, ens=False):
+    def remove_select_variables(varlist: list, pl: bool, ens: bool=False):
         varlist.remove('time')
         try:
             varlist.remove('latitude')
