@@ -111,7 +111,8 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-
+        logger.debug("Starting 2d interpolation")
+        
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
         ens = 'number' in ncf_in.dimensions.keys()
@@ -249,7 +250,7 @@ class GenericInterpolate:
         # regrid operation, create destination field (variables, times, points)
         logger.debug("Attempting to regrid")
         dfield = regrid2D(sfield, dfield)
-        logger.info("Regridding complete")
+        logger.debug("Regridding complete")
 
         sfield.destroy()  # free memory
 
