@@ -119,10 +119,14 @@ class GenericInterpolate:
 
         # get spatial dimensions
         if pl:  # only for pressure level files
-            lev = ncf_in.variables['level'][:]
-            nlev = len(lev)
+            nlev = len(ncf_in.variables['level'][:])
+        else:
+            nlev = 1
+        
         if ens:
             num = ncf_in.variables['number'][:]
+        else:
+            num = []
 
         # test if time steps to interpolate remain
         nt = tmask_chunk.sum()  # TODO: could this just be length? what is being tested here?
@@ -142,7 +146,7 @@ class GenericInterpolate:
 
         sgrid = self.create_source_grid(ncfile_in)
 
-        # create source field on source grid
+        # create source field(s) on source grid
         if ens:
             sfield = []
             for ni in num:
@@ -157,6 +161,8 @@ class GenericInterpolate:
                                    staggerloc=ESMF.StaggerLoc.CENTER,
                                    ndbounds=[len(variables), nt]))
 
+            self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+
         else:
             if pl:  # only for pressure level files
                 sfield = ESMF.Field(sgrid, name='sgrid',
@@ -167,8 +173,7 @@ class GenericInterpolate:
                                     staggerloc=ESMF.StaggerLoc.CENTER,
                                     ndbounds=[len(variables), nt])
 
-        self.nc_data_to_source_field(variables, sfield, ncf_in,
-                                     tmask_chunk, pl, ens)
+            self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
         locstream = self.create_loc_stream(points)
 
@@ -258,35 +263,40 @@ class GenericInterpolate:
         return dfield
 
     @staticmethod
-    def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
-                                tmask_chunk, pl: bool, ens: bool):
-        # assign data from ncdf: (variable, time, latitude, longitude)
-
+    def nc_ensemble_data_to_source_field(variables, sfield_list: "list[ESMF.Field]", ncf_in,
+                                         tmask_chunk, pl: bool):
         for n, var in enumerate(variables):
-            if ens:
-                for ni in ncf_in['number'][:]:
-                    if pl:
-                        # sfield.data [lon, lat, var, time, number, level]
-                        # vi [time, number, level, lat, lon]
-                        vi = ncf_in[var][tmask_chunk,ni,:,:,:]
-                        sfield[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
-                        logger.debug(f"Wrote {var} data to source field for regridding")
-                    else:
-                        vi = ncf_in[var][tmask_chunk,ni,:,:]
-                        sfield[ni].data[:,:,n,:] = vi.transpose((2,1,0))
-                        logger.debug(f"Wrote {var} data to source field for regridding")
-            else:
+            for ni in ncf_in['number'][:]:
                 if pl:
-                    vi = ncf_in[var][tmask_chunk,:,:,:]
-                    sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
-                    logger.debug(f"Wrote {var} data to source field for regridding")
+                    # sfield.data [lon, lat, var, time, number, level]
+                    # vi [time, number, level, lat, lon]
+                    vi = ncf_in[var][tmask_chunk,ni,:,:,:]
+                    sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+
                 else:
-                    vi = ncf_in[var][tmask_chunk,:,:]
-                    sfield.data[:,:,n,:] = vi.transpose((2,1,0))
-                    logger.debug(f"Wrote {var} data to source field for regridding")
+                    vi = ncf_in[var][tmask_chunk,ni,:,:]
+                    sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
+
+            logger.debug(f"Wrote {var} data to source field for regridding")
 
     @staticmethod
-    def remove_select_variables(varlist: list, pl: bool, ens: bool=False):
+    def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+                                tmask_chunk, pl: bool):
+        # assign data from ncdf: (variable, time, latitude, longitude)
+        tmin = np.min(np.where(tmask_chunk))
+        tmax = np.max(np.where(tmask_chunk))
+        for n, var in enumerate(variables):
+            if pl:
+                vi = ncf_in[var][tmin:tmax + 1,:,:,:]
+                sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+            else:
+                vi = ncf_in[var][tmin:tmax + 1,:,:]
+                sfield.data[:,:,n,:] = vi.transpose((2,1,0))
+            
+            logger.debug(f"Wrote {var} data to source field for regridding")
+
+    @staticmethod
+    def remove_select_variables(varlist: list, pl: bool, ens: bool = False):
         varlist.remove('time')
         try:
             varlist.remove('latitude')
