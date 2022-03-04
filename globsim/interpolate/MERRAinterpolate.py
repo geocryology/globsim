@@ -189,7 +189,7 @@ class MERRAinterpolate(GenericInterpolate):
             tmask_chunk = (nctime <= end_time) * (nctime >= beg_time)
             if invariant:
                 # allow topography to work in same code
-                tmask_chunk = [True]
+                tmask_chunk = np.array([True])
 
             # get the interpolated variables
             dfield, variables = self.interp2D(ncfile_in, ncf_in,
