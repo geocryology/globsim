@@ -176,8 +176,8 @@ class GenericInterpolate:
                 sfield = ESMF.Field(sgrid, name='sgrid',
                                     staggerloc=ESMF.StaggerLoc.CENTER,
                                     ndbounds=[len(variables), nt])
-            self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
-            #self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
         locstream = self.create_loc_stream(points)
 
@@ -387,7 +387,21 @@ def create_stations_bbox(stations) -> BoundingBox:
                                 ymax=stations['latitude_dd'].describe()["max"])
     # add generous buffer
     buffer = 2.0  # assume degrees here
-    return BoundingBox(stations_bbox.xmin - buffer, 
+    return BoundingBox(stations_bbox.xmin - buffer,
                        stations_bbox.xmax + buffer,
                        stations_bbox.ymin - buffer,
                        stations_bbox.ymax + buffer)
+
+
+def grid_from_bbox(latitudes: np.ndarray,
+                   longitudes: np.ndarray,
+                   bbox: BoundingBox) -> ESMF.Grid:
+
+    valid_lat = latitudes[np.where((latitudes >= bbox.ymin) & (latitudes <= bbox.ymax))[0]]
+    valid_lon = longitudes[np.where((longitudes >= bbox.xmin) & (longitudes <= bbox.xmax))[0]]
+
+    grid = ESMF.Grid(max_index=np.array([len(valid_lon), len(valid_lat)]))
+    grid.coords[0][0] = np.repeat(valid_lon[np.newaxis, :], len(valid_lat), axis=1).ravel().reshape(len(valid_lon),len(valid_lat))
+    grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
+    
+    return grid
