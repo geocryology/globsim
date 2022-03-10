@@ -204,20 +204,22 @@ class ERA5scale(GenericScale):
         vn  = 'PREC_sur'  # variable name
         var = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Total precipitation ERA-5 surface only'
-        var.units     = 'kg m-2 s-1'
-        var.standard_name = 'precipitation_amount'
+        var.units     = 'mm s-1'
+        var.standard_name = 'precipitation_flux'
 
         # interpolation scale factor
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
 
         # total prec [mm] in 1 second
         values  = self.getValues(self.nc_sf, 'tp', ni)  # self.nc_sf.variables['tp'][:]*1000/self.interval_in
-        values  = values * 1000 / self.interval_in
+        # https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
+        # We assume interval_in is in hours (1 for regular, 3 for ensemble)
+        values  = values * 1000 / (self.interval_in * 3600) 
 
         # interpolate station by station
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
     def RH_per_sur(self, ni=10):
         """
