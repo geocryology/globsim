@@ -22,6 +22,7 @@
 # ===============================================================================
 from datetime import timedelta
 from os import mkdir, path
+from pathlib import Path
 
 import pandas as pd
 import netCDF4 as nc
@@ -42,7 +43,7 @@ def variables_skip(variable_name):
     return skip
 
 
-def StationListRead(sfile):
+def StationListRead(sfile: "str | Path") -> "pd.DataFrame":
     """
     Reads ASCII station list and returns a pandas dataframe.
 
@@ -57,6 +58,7 @@ def StationListRead(sfile):
         raw = pd.read_csv(sfile, sep=';')
         raw = raw.rename(columns=lambda x: x.strip())
     #logging.debug('Keys: '+ raw.keys())
+    
     return(raw)
 
 

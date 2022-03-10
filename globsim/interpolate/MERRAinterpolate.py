@@ -1,5 +1,3 @@
-from __future__        import print_function
-
 import netCDF4 as nc
 import numpy as np
 import sys
@@ -16,6 +14,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
 logger = logging.getLogger('globsim.interpolate')
+
 
 class MERRAinterpolate(GenericInterpolate):
     """
@@ -60,14 +59,14 @@ class MERRAinterpolate(GenericInterpolate):
         # extra treatment for pressure level files
         try:
             lev = nc_in.variables['level'][:]
-            print("== 3D: file has pressure levels")
+            logger.info("Creating empty 3D file (has pressure levels)")
             level           = rootgrp.createDimension('level', len(lev))
             level           = rootgrp.createVariable('level','i4',('level'))
             level.long_name = 'pressure_level'
             level.units     = 'hPa'
             level[:] = lev
         except Exception:
-            print("== 2D: file without pressure levels")
+            logger.info("Creating empty 2D file (without pressure levels)")
             lev = []
 
         # remove extra variables
@@ -77,7 +76,7 @@ class MERRAinterpolate(GenericInterpolate):
         for n, var in enumerate(varlist_merra):
             if variables_skip(var):
                 continue
-            print("VAR: ", str_encode(var))
+            logger.debug(f"Add empty variable: {var}")
             # extra treatment for pressure level files
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4', ('time', 'level', 'station'))
@@ -88,6 +87,7 @@ class MERRAinterpolate(GenericInterpolate):
 
         # close the file
         rootgrp.close()
+        logger.debug(f"Created empty netcdf file {ncfile_out}")
 
     def MERRA2station(self, ncfile_in, ncfile_out, points,
                       variables=None, date=None):
@@ -120,6 +120,7 @@ class MERRAinterpolate(GenericInterpolate):
         """
 
         # read in one type of mutiple netcdf files
+        logger.info("Loading reanalysis data into memory")
         ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim='time')
 
         # is it a file with pressure levels?
@@ -139,17 +140,19 @@ class MERRAinterpolate(GenericInterpolate):
             t_cal = ncf_in.variables['time'].calendar
         except AttributeError :  # Attribute doesn't exist
             t_cal = u"gregorian"  # or standard
-        time = [nc.num2date(timei, units=t_unit, calendar=t_cal) for timei in nctime]
-        time = np.asarray(time)
+        # TODO: rm time = [nc.num2date(timei, units=t_unit, calendar=t_cal) for timei in nctime]
+        # TODO: rm time = np.asarray(time)
 
         # detect invariant files (topography etc.)
-        invariant = True if len(time) == 1 else False
+        invariant = True if len(nctime) == 1 else False
 
         # restrict to date/time range if given
         if date is None:
-            tmask = time < datetime(3000, 1, 1)
+            tmask = nctime < nc.date2num(datetime(3000, 1, 1), units=t_unit, calendar=t_cal)
         else:
-            tmask = (time < date['end']) * (time >= date['beg'])
+            beg_num = nc.date2num(date['beg'], units=t_unit, calendar=t_cal)
+            end_num = nc.date2num(date['end'], units=t_unit, calendar=t_cal)
+            tmask = (nctime < end_num) * (nctime >= beg_num)
 
         if not any(tmask):
             sys.exit('''\n ERROR: No downloaded data exist within date range specified by interpolation control file.
@@ -170,20 +173,22 @@ class MERRAinterpolate(GenericInterpolate):
             # restrict last chunk to lenght of tmask plus one (to get last time)
             end = min(n * self.cs + self.cs, len(time_in)) - 1
 
-            # time to make tmask for chunk
-            beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
+            # make tmask for chunk
+            beg_time = time_in[beg]
             if invariant:
                 # allow topography to work in same code, len(nctime) = 1
-                end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+                # TODO: rm end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+                end_time = nctime[0]
                 # end = 1
             else:
-                end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
+                # TODO: rm end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
+                end_time = time_in[end]
 
             # !! CAN'T HAVE '<= end_time', would damage appeding
-            tmask_chunk = (time <= end_time) * (time >= beg_time)
+            tmask_chunk = (nctime <= end_time) * (nctime >= beg_time)
             if invariant:
                 # allow topography to work in same code
-                tmask_chunk = [True]
+                tmask_chunk = np.array([True])
 
             # get the interpolated variables
             dfield, variables = self.interp2D(ncfile_in, ncf_in,

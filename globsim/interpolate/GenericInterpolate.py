@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from pathlib import Path
 from fnmatch import filter as fnmatch_filter
+from collections import namedtuple
 
 from globsim.common_utils import StationListRead, str_encode
 
@@ -24,43 +25,46 @@ except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass
 
+BoundingBox = namedtuple('BoundingBox', ['xmin', 'xmax', 'ymin', 'ymax'])
+
 
 class GenericInterpolate:
 
-    def __init__(self, ifile):
+    def __init__(self, ifile: str):
         # read parameter file
         self.ifile = ifile
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
-            self.par = par = config['interpolate']
+            self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
-        self.variables = par['variables']
-        self.list_name = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
+        self.variables = par.get('variables')
+        self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
+        self.stations_bbox = create_stations_bbox(self.stations)
 
         # time bounds, add one day to par['end'] to include entire last day
-        self.date = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
-                     'end': datetime.strptime(par['end'], '%Y/%m/%d') + timedelta(days=1)}
+        self.date = {'beg': datetime.strptime(par.get('beg'), '%Y/%m/%d'),
+                     'end': datetime.strptime(par.get('end'), '%Y/%m/%d') + timedelta(days=1)}
 
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
-        self.cs = int(par['chunk_size'])
+        self.cs = int(par.get('chunk_size'))
 
     def find_stations_csv(self, par):
-        if Path(par['station_list']).is_file():
-            return Path(par['station_list'])
-        
-        elif Path(par['project_directory'], 'par', par['station_list']).is_file():
-            return Path(par['project_directory'], 'par', par['station_list'])
-        
+        if Path(par.get('station_list')).is_file():
+            return Path(par.get('station_list'))
+
+        elif Path(par.get('project_directory'), 'par', par.get('station_list')).is_file():
+            return Path(par.get('project_directory'), 'par', par.get('station_list'))
+
         else:
-            raise FileNotFoundError(f"Siteslist file {par['station_list']} not found.")
+            raise FileNotFoundError(f"Siteslist file {par.get('station_list')} not found.")
 
     def _set_input_directory(self, name):
-        self.input_dir = path.join(self.par['project_directory'], name)
+        self.input_dir = path.join(self.par.get('project_directory'), name)
 
     def TranslateCF2short(self, dpar):
         """
@@ -75,7 +79,7 @@ class GenericInterpolate:
         varlist = [item for sublist in varlist for item in sublist]
         return(varlist)
 
-    def interp2D(self, ncfile_in, ncf_in, points, tmask_chunk,
+    def interp2D(self, ncfile_in: str, ncf_in, points, tmask_chunk: "np.ndarray",
                  variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
@@ -111,6 +115,7 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
+        logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
@@ -118,13 +123,17 @@ class GenericInterpolate:
 
         # get spatial dimensions
         if pl:  # only for pressure level files
-            lev = ncf_in.variables['level'][:]
-            nlev = len(lev)
+            nlev = len(ncf_in.variables['level'][:])
+        else:
+            nlev = 1
+        
         if ens:
             num = ncf_in.variables['number'][:]
+        else:
+            num = []
 
         # test if time steps to interpolate remain
-        nt = sum(tmask_chunk)
+        nt = tmask_chunk.sum()  # TODO: could this just be length? what is being tested here?
         if nt == 0:
             raise ValueError('No time steps from netCDF file selected.')
 
@@ -141,7 +150,7 @@ class GenericInterpolate:
 
         sgrid = self.create_source_grid(ncfile_in)
 
-        # create source field on source grid
+        # create source field(s) on source grid
         if ens:
             sfield = []
             for ni in num:
@@ -156,6 +165,8 @@ class GenericInterpolate:
                                    staggerloc=ESMF.StaggerLoc.CENTER,
                                    ndbounds=[len(variables), nt]))
 
+            self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+
         else:
             if pl:  # only for pressure level files
                 sfield = ESMF.Field(sgrid, name='sgrid',
@@ -165,11 +176,10 @@ class GenericInterpolate:
                 sfield = ESMF.Field(sgrid, name='sgrid',
                                     staggerloc=ESMF.StaggerLoc.CENTER,
                                     ndbounds=[len(variables), nt])
+            #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
-        self.nc_data_to_source_field(variables, sfield, ncf_in,
-                                     tmask_chunk, pl, ens)
-
-        locstream = self.create_loc_stream()
+        locstream = self.create_loc_stream(points)
 
         # create destination field
         if ens:
@@ -196,30 +206,31 @@ class GenericInterpolate:
 
         return dfield, variables
 
-    def make_output_directory(self, par):
+    def make_output_directory(self, par) -> str:
         """make directory to hold outputs"""
         output_root = None
-        
+
         if par.get('output_directory'):
             try:
                 test_path = Path(par.get('output_directory'))
+
+                if test_path.is_dir():
+                    output_root = Path(test_path, "interpolated")
+                else:
+                    warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
+
             except TypeError:
                 warnings.warn("You provided an output_directory for interpolation that was not understood. Saving files to project directory.")
-            
-            if test_path.is_dir():
-                output_root = Path(test_path, "interpolated")
-            else:
-                warnings.warn("You provided an output_directory for interpolation that does not exist. Saving files to project directory.")
-        
+
         if not output_root:
-            output_root = path.join(par['project_directory'], 'interpolated')
+            output_root = path.join(par.get('project_directory'), 'interpolated')
 
         if not Path(output_root).is_dir():
             makedirs(output_root)
 
-        return output_root
+        return str(output_root)
 
-    def create_source_grid(self, ncfile_in):
+    def create_source_grid(self, ncfile_in: str) -> "ESMF.Grid":
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
         flist = np.sort(fnmatch_filter(listdir(self.input_dir),
@@ -228,17 +239,17 @@ class GenericInterpolate:
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         return sgrid
 
-    def create_loc_stream(self):
+    def create_loc_stream(self, points) -> "ESMF.LocStream":
         # CANNOT have third dimension!!!
-        locstream = ESMF.LocStream(len(self.stations),
+        locstream = ESMF.LocStream(len(points),
                                    coord_sys=ESMF.CoordSys.SPH_DEG)
-        locstream["ESMF:Lon"] = list(self.stations['longitude_dd'])
-        locstream["ESMF:Lat"] = list(self.stations['latitude_dd'])
+        locstream["ESMF:Lon"] = list(points['longitude_dd'])
+        locstream["ESMF:Lat"] = list(points['latitude_dd'])
 
         return locstream
 
     @staticmethod
-    def regrid(sfield, dfield):
+    def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
         # regridding function, consider ESMF.UnmappedAction.ERROR
         
         regrid2D = ESMF.Regrid(sfield, dfield,
@@ -249,42 +260,78 @@ class GenericInterpolate:
         # regrid operation, create destination field (variables, times, points)
         logger.debug("Attempting to regrid")
         dfield = regrid2D(sfield, dfield)
-        logger.info("Regridding complete")
+        logger.debug("Regridding complete")
 
         sfield.destroy()  # free memory
 
         return dfield
 
     @staticmethod
-    def nc_data_to_source_field(variables, sfield, ncf_in,
-                                tmask_chunk, pl, ens):
-        # assign data from ncdf: (variable, time, latitude, longitude)
-
+    def nc_ensemble_data_to_source_field(variables, sfield_list: "list[ESMF.Field]", ncf_in,
+                                         tmask_chunk, pl: bool):
         for n, var in enumerate(variables):
-            if ens:
-                for ni in ncf_in['number'][:]:
-                    if pl:
-                        # sfield.data [lon, lat, var, time, number, level]
-                        # vi [time, number, level, lat, lon]
-                        vi = ncf_in[var][tmask_chunk,ni,:,:,:]
-                        sfield[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
-                        logger.debug(f"Wrote {var} data to source field for regridding")
-                    else:
-                        vi = ncf_in[var][tmask_chunk,ni,:,:]
-                        sfield[ni].data[:,:,n,:] = vi.transpose((2,1,0))
-                        logger.debug(f"Wrote {var} data to source field for regridding")
-            else:
+            for ni in ncf_in['number'][:]:
                 if pl:
-                    vi = ncf_in[var][tmask_chunk,:,:,:]
-                    sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
-                    logger.debug(f"Wrote {var} data to source field for regridding")
+                    # sfield.data [lon, lat, var, time, number, level]
+                    # vi [time, number, level, lat, lon]
+                    vi = ncf_in[var][tmask_chunk,ni,:,:,:]
+                    sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+
                 else:
-                    vi = ncf_in[var][tmask_chunk,:,:]
-                    sfield.data[:,:,n,:] = vi.transpose((2,1,0))
-                    logger.debug(f"Wrote {var} data to source field for regridding")
+                    vi = ncf_in[var][tmask_chunk,ni,:,:]
+                    sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
+
+            logger.debug(f"Wrote {var} data to source field for regridding")
 
     @staticmethod
-    def remove_select_variables(varlist, pl, ens=False):
+    def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+                                tmask_chunk, pl: bool):
+        # assign data from ncdf: (time, [level], latitude, longitude)
+        # to sfield (longitude, latitude, variable, time, [level])
+        tmin = np.min(np.where(tmask_chunk))
+        tmax = np.max(np.where(tmask_chunk))
+        for n, var in enumerate(variables):
+            if pl:
+                vi = ncf_in[var][tmin:tmax + 1,:,:,:]
+                sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+            else:
+                vi = ncf_in[var][tmin:tmax + 1,:,:]
+                sfield.data[:,:,n,:] = vi.transpose((2,1,0))
+
+            logger.debug(f"Wrote {var} data to source field for regridding")
+
+    def nc_data_subset_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
+                                       tmask_chunk, pl: bool):
+        """ assign data from ncdf: (time, [level], latitude, longitude)
+                         to sfield (longitude, latitude, variable, time, [level])
+        """
+
+        # get indices of lat/lon
+        lat = ncf_in.get_variables_by_attributes(standard_name='latitude', axis='Y')[0][:]
+        lon = ncf_in.get_variables_by_attributes(standard_name='longitude', axis='X')[0][:]
+
+        lat_ix = np.where((lat >= self.stations_bbox.ymin) & (lat <= self.stations_bbox.ymax))[0]
+        lon_ix = np.where((lon >= self.stations_bbox.xmin) & (lon <= self.stations_bbox.xmax))[0]
+
+        lat_slice = slice(min(lat_ix), max(lat_ix) + 1)
+        lon_slice = slice(min(lon_ix), max(lon_ix) + 1)
+
+        tmin = np.min(np.where(tmask_chunk))
+        tmax = np.max(np.where(tmask_chunk))
+        time_slice = slice(tmin, tmax + 1)
+
+        for n, var in enumerate(variables):
+            if pl:
+                vi = ncf_in[var][time_slice, :, lat_slice, lon_slice]
+                sfield.data[lon_slice, lat_slice, n, :, :] = vi.transpose((3,2,0,1))
+            else:
+                vi = ncf_in[var][time_slice, lat_slice, lon_slice]
+                sfield.data[lon_slice, lat_slice, n, :] = vi.transpose((2,1,0))
+
+            logger.debug(f"Wrote {var} data to source field for regridding")
+
+    @staticmethod
+    def remove_select_variables(varlist: list, pl: bool, ens: bool = False):
         varlist.remove('time')
         try:
             varlist.remove('latitude')
@@ -329,3 +376,32 @@ class GenericInterpolate:
         wb /= wt  # Apply after ravel() of data.
 
         return wa, wb
+
+
+def create_stations_bbox(stations) -> BoundingBox:
+    # get max/min of points lat/lon from self.stations
+
+    stations_bbox = BoundingBox(xmin=stations['longitude_dd'].describe()["min"],
+                                xmax=stations['longitude_dd'].describe()["max"],
+                                ymin=stations['latitude_dd'].describe()["min"],
+                                ymax=stations['latitude_dd'].describe()["max"])
+    # add generous buffer
+    buffer = 2.0  # assume degrees here
+    return BoundingBox(stations_bbox.xmin - buffer,
+                       stations_bbox.xmax + buffer,
+                       stations_bbox.ymin - buffer,
+                       stations_bbox.ymax + buffer)
+
+
+def grid_from_bbox(latitudes: np.ndarray,
+                   longitudes: np.ndarray,
+                   bbox: BoundingBox) -> ESMF.Grid:
+
+    valid_lat = latitudes[np.where((latitudes >= bbox.ymin) & (latitudes <= bbox.ymax))[0]]
+    valid_lon = longitudes[np.where((longitudes >= bbox.xmin) & (longitudes <= bbox.xmax))[0]]
+
+    grid = ESMF.Grid(max_index=np.array([len(valid_lon), len(valid_lat)]))
+    grid.coords[0][0] = np.repeat(valid_lon[np.newaxis, :], len(valid_lat), axis=1).ravel().reshape(len(valid_lon),len(valid_lat))
+    grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
+    
+    return grid
