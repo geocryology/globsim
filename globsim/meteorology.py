@@ -50,6 +50,7 @@ def spec_hum_kgkg(Td, Pr):
 def water_vap_pressure(RH,T):
     '''
     water vapour pressure [unit:1], Eq C9,C10 in Fiddes and Gruber (2014)
+    https://doi.org/10.5194/gmd-7-387-2014
     RH: relative humidity (%)
     Tair: air temperature (kelvin)
     '''
@@ -65,6 +66,7 @@ def water_vap_pressure(RH,T):
 def emissivity_clear_sky(RH,T):
     '''
     clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)
+    https://doi.org/10.5194/gmd-7-387-2014
     pv: water vapour pressure (1)
     T: air temperature (kelvin)
     '''
@@ -89,6 +91,7 @@ def pressure_from_elevation(elevation):
 def LW_downward(RH,T,N):
     '''
     incoming longware radiation [W/m2], Eq(14) in Fiddes and Gruber (2014)
+    https://doi.org/10.5194/gmd-7-387-2014
     e_clear: clear sky emissivity
     N: cloud cover
     T: air temperature
