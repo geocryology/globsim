@@ -100,3 +100,20 @@ def LW_downward(RH,T,N):
     con = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
     lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * con * T**4
     return lw
+
+
+def relhu_approx_lawrence(t: np.ndarray, td: np.ndarray) -> np.ndarray:
+    '''
+    https://doi.org/10.1175/BAMS-86-2-225
+    t : temperature [C]
+    td : dewpoint temperature [C]
+    returns : relative humidity [%]
+    '''
+    t = np.atleast_1d(t)
+    td = np.atleast_1d(td)
+
+    relhu = 100 - 5 * (t - td)
+    relhu = np.where(relhu < 0 , 0, relhu)
+    relhu = np.where(relhu > 100 , 100, relhu)
+    
+    return relhu
