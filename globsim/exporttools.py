@@ -150,8 +150,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
 
     # get precip
     PREC = "PREC_sur"
-    PREC = n[PREC][:]
-    PREC /= time_step  # [mm] to [mm/s]
+    PREC = n[PREC][:]  # Defaults to mm/s (CLASSIC-compatible)
 
     # get temp
     AIRT = "AIRT_sur"
@@ -224,7 +223,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
 
     # get precip
     PREC = "PREC_sur"
-    PREC = n[PREC][:]
+    PREC = n[PREC][:]  * 3600  # Convert from mm/s to mm/hr
 
     # get wind velocity
     WSPD = "WSPD_sur"
