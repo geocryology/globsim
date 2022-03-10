@@ -267,7 +267,7 @@ class JRAscale(GenericScale):
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
-        Convert unit: mm/day to mm/time_step (hours)
+        Convert unit: mm/day to mm/s (kg m-2 s-1)
         """
 
         # add variable to ncdf file
@@ -275,14 +275,15 @@ class JRAscale(GenericScale):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
         var.units     = 'kg m-2 s-1'
-        var.standard_name = 'precipitation_amount'
+        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+        var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:]
-        values  = self.nc_sf.variables['Total precipitation'][:] / 24 / 3600  # [mm/h]
+        values  = self.nc_sf.variables['Total precipitation'][:] / (24 * 3600)  # [mm/s]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * 3600 * self.scf
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
     def LW_Wm2_topo(self):
         """
