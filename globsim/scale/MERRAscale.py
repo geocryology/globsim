@@ -369,7 +369,7 @@ class MERRAscale(GenericScale):
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
-        Convert units: kg/m2/s to mm/time_step (hours)
+        Convert units: kg/m2/s to kg/m2/s
         1 kg/m2 = 1mm
         """
 
@@ -377,15 +377,16 @@ class MERRAscale(GenericScale):
         vn = 'PREC_sur'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
-        var.units     = str_encode('mm')
-        var.standard_name = 'precipitation_amount'
+        var.units     = 'kg m-2 s-1'
+        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+        var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['PRECTOT'][:]  # mm in 1 second
+        values  = self.nc_sf.variables['PRECTOT'][:]  # mm s-1 aka kg/m2/s
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
     def PRECCORR_mm_sur(self):
         """
@@ -398,8 +399,9 @@ class MERRAscale(GenericScale):
         vn = 'PRECCORR_sur'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Corrected Total precipitation {} surface only'.format(self.NAME)
-        var.units     = str_encode('mm')
-        var.standard_name = 'precipitation_amount'
+        var.units     = 'kg m-2 s-1'
+        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+        var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
@@ -407,7 +409,7 @@ class MERRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
-                                                             values[:, n]) * self.time_step
+                                                             values[:, n]) * self.scf
 
     def SH_kgkg_sur(self):
         '''
