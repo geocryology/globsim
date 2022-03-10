@@ -260,7 +260,7 @@ class MERRAscale(GenericScale):
     def RH_per_sur(self):
         """
         Relative Humdity derived from surface data, exclusively.Clipped to
-        range [0.1,99.9]. Kernel AIRT_MERRA_C_sur must be run before.
+        range [0.1,99.9]. 
         """
 
         # temporary variable,  interpolate station by station
@@ -274,12 +274,11 @@ class MERRAscale(GenericScale):
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
 
-        # simple: https://en.wikipedia.org/wiki/Dew_point
-        # RH = 100-5 * (self.rg.variables['AIRT_sur'][:, :]-dewp[:, :])
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n])
+            rh = series_interpolate(self.times_out_nc, time_in * 3600,
+                                    values[:, n])
+            rh *= 100  # Convert to % 
+            self.rg.variables[vn][:, n] =  rh
 
     def WIND_sur(self):
         """

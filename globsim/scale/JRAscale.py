@@ -162,7 +162,7 @@ class JRAscale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Relative humidity'][:] / 100
+        values  = self.nc_sa.variables['Relative humidity'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
