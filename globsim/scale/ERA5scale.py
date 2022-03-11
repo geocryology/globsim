@@ -302,7 +302,7 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'ssrd', ni)  # self.nc_sf.variables['ssrd'][:]/3600/self.interval_in#[w/m2/s]
-        values  = values / 3600 / self.interval_in  # [w/m2/s]
+        values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
@@ -323,7 +323,7 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
-        values  = values / 3600 / self.interval_in  # [w m-2 s-1]
+        values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
