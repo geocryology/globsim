@@ -305,7 +305,7 @@ class ERA5scale(GenericScale):
         values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
     def LW_Wm2_sur(self, ni=10):
         """
@@ -326,7 +326,7 @@ class ERA5scale(GenericScale):
         values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
     def SH_kgkg_sur(self, ni=10):
         '''
