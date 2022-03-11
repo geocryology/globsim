@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from pathlib import Path
 from fnmatch import filter as fnmatch_filter
-from collections import namedtuple
 
 from globsim.common_utils import StationListRead, str_encode
+from globsim.boundingbox import stations_bbox, netcdf_bbox
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -24,8 +24,6 @@ try:
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass
-
-BoundingBox = namedtuple('BoundingBox', ['xmin', 'xmax', 'ymin', 'ymax'])
 
 
 class GenericInterpolate:
@@ -43,7 +41,7 @@ class GenericInterpolate:
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
-        self.stations_bbox = create_stations_bbox(self.stations)
+        self.stations_bbox = stations_bbox(self.stations)
 
         # time bounds, add one day to par['end'] to include entire last day
         self.date = {'beg': datetime.strptime(par.get('beg'), '%Y/%m/%d'),
@@ -377,31 +375,3 @@ class GenericInterpolate:
 
         return wa, wb
 
-
-def create_stations_bbox(stations) -> BoundingBox:
-    # get max/min of points lat/lon from self.stations
-
-    stations_bbox = BoundingBox(xmin=stations['longitude_dd'].describe()["min"],
-                                xmax=stations['longitude_dd'].describe()["max"],
-                                ymin=stations['latitude_dd'].describe()["min"],
-                                ymax=stations['latitude_dd'].describe()["max"])
-    # add generous buffer
-    buffer = 2.0  # assume degrees here
-    return BoundingBox(stations_bbox.xmin - buffer,
-                       stations_bbox.xmax + buffer,
-                       stations_bbox.ymin - buffer,
-                       stations_bbox.ymax + buffer)
-
-
-def grid_from_bbox(latitudes: np.ndarray,
-                   longitudes: np.ndarray,
-                   bbox: BoundingBox) -> ESMF.Grid:
-
-    valid_lat = latitudes[np.where((latitudes >= bbox.ymin) & (latitudes <= bbox.ymax))[0]]
-    valid_lon = longitudes[np.where((longitudes >= bbox.xmin) & (longitudes <= bbox.xmax))[0]]
-
-    grid = ESMF.Grid(max_index=np.array([len(valid_lon), len(valid_lat)]))
-    grid.coords[0][0] = np.repeat(valid_lon[np.newaxis, :], len(valid_lat), axis=1).ravel().reshape(len(valid_lon),len(valid_lat))
-    grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
-    
-    return grid
