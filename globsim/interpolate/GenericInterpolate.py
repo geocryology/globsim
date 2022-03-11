@@ -61,6 +61,16 @@ class GenericInterpolate:
         else:
             raise FileNotFoundError(f"Siteslist file {par.get('station_list')} not found.")
 
+    def validate_stations_extent(self, ncdf):
+        try:
+            if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
+                logger.error("Station coordinates exceed downloaded extent")
+                raise ValueError("Station coordinates exceed downloaded extent")
+            else:
+                logger.info("Stations within bounding box of dataset")
+        except Exception:
+            logger.error("Could not verify whether stations are within downloaded netcdf")
+
     def _set_input_directory(self, name):
         self.input_dir = path.join(self.par.get('project_directory'), name)
 
