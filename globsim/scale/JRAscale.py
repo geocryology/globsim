@@ -12,6 +12,7 @@ from globsim.common_utils import str_encode, series_interpolate
 from globsim.meteorology import LW_downward
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
+from globsim import __version__ as globsim_version
 
 logger = logging.getLogger('globsim.scale')
 
@@ -43,6 +44,9 @@ class JRAscale(GenericScale):
                                 'r')
         self.nc_sf = nc.Dataset(Path(self.intpdir, f'jra_sf_{self.list_name}.nc'),
                                 'r')
+
+        for dataset in [self.nc_pl, self.nc_sa, self.nc_sf]:
+            dataset.globsim_version = globsim_version
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')
@@ -162,7 +166,7 @@ class JRAscale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Relative humidity'][:] / 100
+        values  = self.nc_sa.variables['Relative humidity'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -267,7 +271,7 @@ class JRAscale(GenericScale):
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
-        Convert unit: mm/day to mm/time_step (hours)
+        Convert unit: mm/day to mm/s (kg m-2 s-1)
         """
 
         # add variable to ncdf file
@@ -275,14 +279,15 @@ class JRAscale(GenericScale):
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
         var.units     = 'kg m-2 s-1'
-        var.standard_name = 'precipitation_amount'
+        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+        var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:]
-        values  = self.nc_sf.variables['Total precipitation'][:] / 24 / 3600  # [mm/h]
+        values  = self.nc_sf.variables['Total precipitation'][:] / (24 * 3600)  # [mm/s]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * 3600 * self.scf
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
     def LW_Wm2_topo(self):
         """

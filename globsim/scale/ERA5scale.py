@@ -30,9 +30,10 @@ from scipy.interpolate import interp1d
 from pathlib import Path
 
 from globsim.common_utils import series_interpolate
-from globsim.meteorology import spec_hum_kgkg
+from globsim.meteorology import spec_hum_kgkg, relhu_approx_lawrence
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
+from globsim import __version__ as globsim_version
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -73,6 +74,10 @@ class ERA5scale(GenericScale):
                                 'r')
         self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.src}_to_{self.list_name}.nc'),
                                 'r')
+
+        for dataset in [self.nc_pl, self.nc_sa, self.nc_sf, self.nc_to]:
+            dataset.globsim_version = globsim_version
+
         self.nstation = len(self.nc_to.variables['station'][:])
 
         # time vector for output data
@@ -204,20 +209,22 @@ class ERA5scale(GenericScale):
         vn  = 'PREC_sur'  # variable name
         var = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Total precipitation ERA-5 surface only'
-        var.units     = 'kg m-2 s-1'
-        var.standard_name = 'precipitation_amount'
+        var.units     = 'mm s-1'
+        var.standard_name = 'precipitation_flux'
 
         # interpolation scale factor
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
 
         # total prec [mm] in 1 second
         values  = self.getValues(self.nc_sf, 'tp', ni)  # self.nc_sf.variables['tp'][:]*1000/self.interval_in
-        values  = values * 1000 / self.interval_in
+        # https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
+        # We assume interval_in is in hours (1 for regular, 3 for ensemble)
+        values  = values * 1000 / (self.interval_in * 3600) 
 
         # interpolate station by station
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
     def RH_per_sur(self, ni=10):
         """
@@ -239,8 +246,7 @@ class ERA5scale(GenericScale):
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
 
-        # simple: https://doi.org/10.1175/BAMS-86-2-225
-        RH = 100 - 5 * (self.rg.variables['AIRT_sur'][:, :] - dewp[:, :])
+        RH = relhu_approx_lawrence(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
 
     def WIND_sur(self, ni=10):
@@ -301,10 +307,10 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'ssrd', ni)  # self.nc_sf.variables['ssrd'][:]/3600/self.interval_in#[w/m2/s]
-        values  = values / 3600 / self.interval_in  # [w/m2/s]
+        values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
     def LW_Wm2_sur(self, ni=10):
         """
@@ -322,10 +328,10 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
-        values  = values / 3600 / self.interval_in  # [w m-2 s-1]
+        values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
     def SH_kgkg_sur(self, ni=10):
         '''

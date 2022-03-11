@@ -3,17 +3,21 @@ functions for creating netcdf files
 """
 import logging
 import netCDF4 as nc
-from globsim.common_utils import variables_skip, str_encode
-from os import path
 import numpy as np
-from pathlib import Path
+from os import path
+
+from globsim.common_utils import variables_skip, str_encode
+from globsim import __version__ as globsim_version
+
 
 logger = logging.getLogger('globsim.nc_elements')
+
 
 def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):
     rootgrp = nc.Dataset(ncfile_out, 'w', format=fmt)
     rootgrp.Conventions = 'CF-1.6'
     rootgrp.featureType = featureType
+    rootgrp.globsim_version = globsim_version
 
     return rootgrp
 

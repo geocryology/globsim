@@ -107,6 +107,7 @@ from globsim.common_utils import str_encode, series_interpolate
 from globsim.meteorology import LW_downward
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
+from globsim import __version__ as globsim_version
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
@@ -137,6 +138,10 @@ class MERRAscale(GenericScale):
         self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
+
+        for dataset in [self.nc_pl, self.nc_sa, self.nc_sf]:
+            dataset.globsim_version = globsim_version
+
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +
         #                        self.list_name + '.nc'), 'r')
@@ -260,7 +265,7 @@ class MERRAscale(GenericScale):
     def RH_per_sur(self):
         """
         Relative Humdity derived from surface data, exclusively.Clipped to
-        range [0.1,99.9]. Kernel AIRT_MERRA_C_sur must be run before.
+        range [0.1,99.9]. 
         """
 
         # temporary variable,  interpolate station by station
@@ -274,12 +279,11 @@ class MERRAscale(GenericScale):
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
 
-        # simple: https://en.wikipedia.org/wiki/Dew_point
-        # RH = 100-5 * (self.rg.variables['AIRT_sur'][:, :]-dewp[:, :])
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n])
+            rh = series_interpolate(self.times_out_nc, time_in * 3600,
+                                    values[:, n])
+            rh *= 100  # Convert to % 
+            self.rg.variables[vn][:, n] =  rh
 
     def WIND_sur(self):
         """
@@ -369,7 +373,7 @@ class MERRAscale(GenericScale):
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
-        Convert units: kg/m2/s to mm/time_step (hours)
+        Convert units: kg/m2/s to kg/m2/s
         1 kg/m2 = 1mm
         """
 
@@ -377,15 +381,16 @@ class MERRAscale(GenericScale):
         vn = 'PREC_sur'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
-        var.units     = str_encode('mm')
-        var.standard_name = 'precipitation_amount'
+        var.units     = 'kg m-2 s-1'
+        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+        var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['PRECTOT'][:]  # mm in 1 second
+        values  = self.nc_sf.variables['PRECTOT'][:]  # mm s-1 aka kg/m2/s
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step * self.scf
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
     def PRECCORR_mm_sur(self):
         """
@@ -398,8 +403,9 @@ class MERRAscale(GenericScale):
         vn = 'PRECCORR_sur'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = 'Corrected Total precipitation {} surface only'.format(self.NAME)
-        var.units     = str_encode('mm')
-        var.standard_name = 'precipitation_amount'
+        var.units     = 'kg m-2 s-1'
+        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+        var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
@@ -407,7 +413,7 @@ class MERRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
-                                                             values[:, n]) * self.time_step
+                                                             values[:, n]) * self.scf
 
     def SH_kgkg_sur(self):
         '''
