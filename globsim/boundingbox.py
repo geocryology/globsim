@@ -1,5 +1,6 @@
 import numpy as np
 import netCDF4 as nc
+from typing import Union
 
 
 class BoundingBox:
@@ -76,6 +77,7 @@ def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
     bbx = BoundingBox(np.min(xval), np.max(xval), np.min(yval), np.max(yval))
 
     return bbx
+
 
 """
 
