@@ -181,7 +181,7 @@ def era5_area_list(north: float, west:float, south:float, east:float):
 def make_monthly_chunks(start: datetime, end: datetime) -> "list[dict]":
     chunks = []
     
-    for year in range(start.year, end.year):
+    for year in range(start.year, end.year + 1):
         
         for month in range(1, 13):
             
