@@ -1,9 +1,12 @@
 import cdsapi
 
+import numpy as np
+
 from datetime import datetime
 from pathlib import Path
 from collections.abc import MutableMapping
-
+from globsim.meteorology import pressure_from_elevation
+from pandas import DataFrame
 
 from globsim.download.ERA5download import ERA5generic
 
@@ -13,6 +16,9 @@ class Era5RequestParameters(MutableMapping):
     VALID_KEYS = ['product_type','format','year',
                  'month','day','time','area','variable',
                  'pressure_level']
+
+    REQUIRED_KEYS = ['product_type','format','year',
+                     'month','day','time','variable']
 
     """A dictionary that applies an arbitrary key-altering
        function before accessing the keys"""
@@ -34,7 +40,7 @@ class Era5RequestParameters(MutableMapping):
         if key in self.VALID_KEYS:
             self.store[key] = value
         else:
-            raise KeyError("Not a valid ERA5 request parameter")
+            raise KeyError(f"{value} is not a valid ERA5 request parameter")
 
     def __delitem__(self, key):
         del self.store[key]
@@ -44,6 +50,21 @@ class Era5RequestParameters(MutableMapping):
     
     def __len__(self):
         return len(self.store)
+
+    def validate(self):
+        if self.missing():
+            print("missing parameters")
+            return False
+        
+        return True
+    
+    def missing(self):
+        missing = []
+        for key in self.REQUIRED_KEYS:
+            if key not in self.store.keys():
+                missing.append(key)
+        
+        return(missing)
 
     @property
     def start(self):
@@ -133,6 +154,30 @@ class Era5Request(ERA5generic):
 
         return file
 
+
+def era5_pressure_levels(elev_max: float, elev_min: float) -> "list[str]":
+    """Restrict list of ERA5 pressure levels to be downloaded"""
+    Pmax = pressure_from_elevation(elev_min) + 55
+    Pmin = pressure_from_elevation(elev_max) - 55
+    levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775,
+                     800, 825, 850, 875, 900, 925, 950, 975, 1000])
+    mask = (levs >= Pmin) * (levs <= Pmax)  # select
+    levs = [str(levi) for levi in levs[mask]]
+    return levs
+
+def era5_area_string(north, west, south, east):
+    """Converts numerical coordinates into string: North/West/South/East"""
+    res = str(round(north,2)) + "/"
+    res += str(round(west, 2)) + "/"
+    res += str(round(south,2)) + "/"
+    res += str(round(east, 2))
+    return(res)
+
+
+def era5_area_list(north: float, west:float, south:float, east:float):
+    return [north, west, south, east]
+
+
 def make_monthly_chunks(start: datetime, end: datetime) -> "list[dict]":
     chunks = []
     
@@ -166,3 +211,36 @@ def make_monthly_chunks(start: datetime, end: datetime) -> "list[dict]":
             chunks.append(chunk)
             
     return chunks
+
+# https://www.ecmwf.int/en/forecasts/datasets/list-parameters-incorrectly-calculated-era-20cmv0-edmo
+
+def cf_to_cds_single(vars: "list[str]"):
+    sl = DataFrame.from_dict(
+    {0: {"mars": '228.128', "cf":'precipitation_amount', "cds":"total_precipitation"},
+    1: {"mars": '169.128', "cf":"downwelling_shortwave_flux_in_air", "cds": "surface_solar_radiation_downwards"},
+    2: {"mars": "175.128", "cf":"downwelling_longwave_flux_in_air", "cds": "surface_thermal_radiation_downwards"},
+    3: {"mars": "167.128", "cf":"air_temperature", "cds": "2m_temperature"},
+    4: {"mars": "168.128", "cf": "relative_humidity", "cds": "2m_dewpoint_temperature"},
+    5: {"mars": "165.128", "cf": "wind_speed", "cds": "10m_u_component_of_wind"},
+    6: {"mars": "166.128", "cf": "wind_speed", "cds": "10m_v_component_of_wind"},
+    7: {"mars": "206.128", "cf": "downwelling_shortwave_flux_in_air_assuming_clear_sky", "cds": "total_column_ozone"},
+    8: {"mars": "137.128", "cf": "downwelling_shortwave_flux_in_air_assuming_clear_sky", "cds": "total_column_water_vapour"}
+    },
+    orient='index')
+    index = sl['cf'].isin(vars)
+    return sl['cds'][index].tolist()
+
+
+def cf_to_cds_pressure(vars: "list[str]"):
+
+    pl = DataFrame.from_dict(
+    {
+    1: {"mars": "130.128", "cf": "air_temperature", "cds": "temperature"},
+    2: {"mars": "157.128", "cf": "relative_humidity", "cds": "relative_humidity"},
+    3: {"mars": "131.128", "cf": "wind_speed", "cds": "u_component_of_wind"},
+    4: {"mars": "132.128", "cf": "wind_speed", "cds": "v_component_of_wind"}  
+    },
+    orient='index')
+
+    index = pl['cf'].isin(vars)
+    return pl['cds'][index].tolist()
