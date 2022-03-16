@@ -12,7 +12,6 @@ from globsim.common_utils import str_encode, series_interpolate
 from globsim.meteorology import LW_downward
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
-from globsim import __version__ as globsim_version
 
 logger = logging.getLogger('globsim.scale')
 
@@ -44,9 +43,6 @@ class JRAscale(GenericScale):
                                 'r')
         self.nc_sf = nc.Dataset(Path(self.intpdir, f'jra_sf_{self.list_name}.nc'),
                                 'r')
-
-        for dataset in [self.nc_pl, self.nc_sa, self.nc_sf]:
-            dataset.globsim_version = globsim_version
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')

@@ -33,7 +33,6 @@ from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg, relhu_approx_lawrence
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
-from globsim import __version__ as globsim_version
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -74,9 +73,6 @@ class ERA5scale(GenericScale):
                                 'r')
         self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.src}_to_{self.list_name}.nc'),
                                 'r')
-
-        for dataset in [self.nc_pl, self.nc_sa, self.nc_sf, self.nc_to]:
-            dataset.globsim_version = globsim_version
 
         self.nstation = len(self.nc_to.variables['station'][:])
 
