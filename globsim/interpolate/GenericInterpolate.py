@@ -405,3 +405,22 @@ def grid_from_bbox(latitudes: np.ndarray,
     grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
     
     return grid
+
+
+def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> "ESMF.Field":
+    nvar = len(variables)
+    try:
+        if nlev > 1:
+            field = ESMF.Field(sgrid, name='sgrid',
+                               staggerloc=ESMF.StaggerLoc.CENTER,
+                               ndbounds=[nvar, nt, nlev])
+        else:
+            field = ESMF.Field(sgrid, name='sgrid',
+                               staggerloc=ESMF.StaggerLoc.CENTER,
+                               ndbounds=[nvar, nt])
+    except TypeError as e:
+        msg = "Tried to create a ESMF.Field that was too big. Try reducing the chunk_size in your configuration."
+        logger.error(f"{msg} Currently there are {nt} time-steps (chunk size) {nvar} variables and {nlev} levels on a {sgrid.size[0][0]}-by-{sgrid.size[0][1]} grid (total size of {nt * nvar * nlev * sgrid.size[0][0] * sgrid.size[0][1]})")
+        raise Exception(msg).with_traceback(e.__traceback__)
+
+    return field
