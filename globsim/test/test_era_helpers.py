@@ -1,5 +1,5 @@
 import unittest
-from globsim.download.era_helpers import make_monthly_chunks
+from globsim.download.era_helpers import make_monthly_chunks, era5_pressure_levels
 from datetime import datetime
 
 
@@ -23,3 +23,10 @@ class TestMakeMonthlyChunks(unittest.TestCase):
         self.assertEqual(12, len(self.same_year_12_mo))
         self.assertEqual(10 * 12 + 12, len(self.partial_start))
         self.assertEqual(4 * 12 + 6, len(self.partial_end))
+
+
+class TestMakeEra5PressureLevels(unittest.TestCase):
+
+    def test_increasing(self):
+        self.assertGreater(len(era5_pressure_levels(0, 5000)), len(era5_pressure_levels(0,2000)))
+        self.assertGreater(len(era5_pressure_levels(0, 5000)), len(era5_pressure_levels(3000,5000)))
