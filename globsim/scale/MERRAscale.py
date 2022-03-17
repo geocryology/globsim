@@ -107,7 +107,6 @@ from globsim.common_utils import str_encode, series_interpolate
 from globsim.meteorology import LW_downward
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
-from globsim import __version__ as globsim_version
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
@@ -138,9 +137,6 @@ class MERRAscale(GenericScale):
         self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
-
-        for dataset in [self.nc_pl, self.nc_sa, self.nc_sf]:
-            dataset.globsim_version = globsim_version
 
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +

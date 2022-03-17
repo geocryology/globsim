@@ -163,27 +163,18 @@ class GenericInterpolate:
             sfield = []
             for ni in num:
                 if pl:  # only for pressure level files
-                    sfield.append(
-                        ESMF.Field(sgrid, name='sgrid',
-                                   staggerloc=ESMF.StaggerLoc.CENTER,
-                                   ndbounds=[len(variables), nt, nlev]))
+                    sfield.append(create_field(sgrid, variables, nt, nlev))
                 else:  # 2D files
-                    sfield.append(
-                        ESMF.Field(sgrid, name='sgrid',
-                                   staggerloc=ESMF.StaggerLoc.CENTER,
-                                   ndbounds=[len(variables), nt]))
+                    sfield.append(create_field(sgrid, variables, nt))
 
             self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
         else:
             if pl:  # only for pressure level files
-                sfield = ESMF.Field(sgrid, name='sgrid',
-                                    staggerloc=ESMF.StaggerLoc.CENTER,
-                                    ndbounds=[len(variables), nt, nlev])
+                sfield = create_field(sgrid, variables, nt, nlev)
             else:  # 2D files
-                sfield = ESMF.Field(sgrid, name='sgrid',
-                                    staggerloc=ESMF.StaggerLoc.CENTER,
-                                    ndbounds=[len(variables), nt])
+                sfield = create_field(sgrid, variables, nt)
+            
             #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
             self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
@@ -385,3 +376,50 @@ class GenericInterpolate:
 
         return wa, wb
 
+
+def create_stations_bbox(stations) -> BoundingBox:
+    # get max/min of points lat/lon from self.stations
+
+    stations_bbox = BoundingBox(xmin=stations['longitude_dd'].describe()["min"],
+                                xmax=stations['longitude_dd'].describe()["max"],
+                                ymin=stations['latitude_dd'].describe()["min"],
+                                ymax=stations['latitude_dd'].describe()["max"])
+    # add generous buffer
+    buffer = 2.0  # assume degrees here
+    return BoundingBox(stations_bbox.xmin - buffer,
+                       stations_bbox.xmax + buffer,
+                       stations_bbox.ymin - buffer,
+                       stations_bbox.ymax + buffer)
+
+
+def grid_from_bbox(latitudes: np.ndarray,
+                   longitudes: np.ndarray,
+                   bbox: BoundingBox) -> ESMF.Grid:
+
+    valid_lat = latitudes[np.where((latitudes >= bbox.ymin) & (latitudes <= bbox.ymax))[0]]
+    valid_lon = longitudes[np.where((longitudes >= bbox.xmin) & (longitudes <= bbox.xmax))[0]]
+
+    grid = ESMF.Grid(max_index=np.array([len(valid_lon), len(valid_lat)]))
+    grid.coords[0][0] = np.repeat(valid_lon[np.newaxis, :], len(valid_lat), axis=1).ravel().reshape(len(valid_lon),len(valid_lat))
+    grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
+    
+    return grid
+
+
+def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> "ESMF.Field":
+    nvar = len(variables)
+    try:
+        if nlev > 1:
+            field = ESMF.Field(sgrid, name='sgrid',
+                               staggerloc=ESMF.StaggerLoc.CENTER,
+                               ndbounds=[nvar, nt, nlev])
+        else:
+            field = ESMF.Field(sgrid, name='sgrid',
+                               staggerloc=ESMF.StaggerLoc.CENTER,
+                               ndbounds=[nvar, nt])
+    except TypeError as e:
+        msg = "Tried to create a ESMF.Field that was too big. Try reducing the chunk_size in your configuration."
+        logger.error(f"{msg} Currently there are {nt} time-steps (chunk size) {nvar} variables and {nlev} levels on a {sgrid.size[0][0]}-by-{sgrid.size[0][1]} grid (total size of {nt * nvar * nlev * sgrid.size[0][0] * sgrid.size[0][1]})")
+        raise Exception(msg).with_traceback(e.__traceback__)
+
+    return field
