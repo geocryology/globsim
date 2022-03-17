@@ -120,20 +120,28 @@ class Era5Request(ERA5generic):
         self.params = request_params
         self.directory  = directory
         self.dataset = dataset
+        self._output_file = None
 
-    def download(self):
+    def download(self, target=None):
         ''' download '''
         server = cdsapi.Client()
 
         query = self.params.as_dict()
-
-        target = self.output_file
+        
+        if not target:
+            target = self.output_file
        
         server.retrieve(self.dataset, query, target)
 
     @property
     def dataset(self):
         return self._dataset
+
+    def set_output_file(self, filename):
+        if Path(self.directory) in Path(filename).parents:  # full path specified
+            self._output_file = Path(filename)
+        else:                                               # just the filename specified
+            self._output_file = Path(self.directory, filename)
 
     @dataset.setter
     def dataset(self, value):
@@ -147,17 +155,20 @@ class Era5Request(ERA5generic):
     
     @property
     def output_file(self) -> Path:
-        time = f"{self.params.start}_to_{self.params.end}"
-        era_type = self.PRODUCTTYPES[self.params["product_type"]]
-        dataset = self.DATASETS[self.dataset]
-        file = Path(self.directory, f"era5_{era_type}_{dataset}_{time}.nc")
+        if self._output_file:
+            file = self._output_file
+        else:
+            time = f"{self.params.start}_to_{self.params.end}"
+            era_type = self.PRODUCTTYPES[self.params["product_type"]]
+            dataset = self.DATASETS[self.dataset]
+            file = Path(self.directory, f"era5_{era_type}_{dataset}_{time}.nc")
 
         return file
 
 
-def era5_pressure_levels(elev_max: float, elev_min: float) -> "list[str]":
+def era5_pressure_levels(elev_min: float, elev_max: float) -> "list[str]":
     """Restrict list of ERA5 pressure levels to be downloaded"""
-    Pmax = pressure_from_elevation(elev_min) + 55
+    Pmax = pressure_from_elevation(elev_min) + 55  # Pressure inversely correlated
     Pmin = pressure_from_elevation(elev_max) - 55
     levs = np.array([300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 775,
                      800, 825, 850, 875, 900, 925, 950, 975, 1000])
