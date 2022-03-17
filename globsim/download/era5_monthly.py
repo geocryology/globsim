@@ -5,6 +5,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from os import rename
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.era_helpers import make_monthly_chunks, Era5Request, Era5RequestParameters, era5_pressure_levels, cf_to_cds_pressure, cf_to_cds_single
@@ -125,9 +126,12 @@ def download_threadded(cds_requests, workers=6):
 
 
 def rename_pl(dir):
-    cmd = f"rename 's/^(.*?)era5_re_repl_(.*).nc$/$1era5_pl_$2.nc/' {Path(dir, 'era5_re_repl_*')}"
-    print(cmd)
-    subprocess.Popen(args=cmd.split(" "))
+    pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
+    files = [str(f) for f in Path(dir).iterdir() if pl_pattern.search(str(f))]
+    new_files = [pl_pattern.sub(r"era5_pl_\1.nc", f) for f in files]
+    
+    for old, new in zip(files, new_files):
+        rename(old, new)
 
 
 def rename_sl(dir):
@@ -135,7 +139,7 @@ def rename_sl(dir):
     files = [str(f) for f in Path(dir).iterdir()]
     matched_files = [f for f in files if orig.search(f)]
     for f in matched_files:
-        print(f'converting {f}')
+        print(f'splitting {f}')
         sf = orig.sub(r'era5_sf_\1.nc', f)
         sa = orig.sub(r'era5_sa_\1.nc', f)
         cmd1 = f"nccopy -L10 -V time,latitude,longitude,ssrd,strd,tp {f} {sf}"

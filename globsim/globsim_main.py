@@ -66,7 +66,7 @@ def GlobsimDownload(pfile, multithread=True,
     if ERA5:
         D = download.ERA5MonthlyDownload(pfile, False)
         requests = D.list_requests()
-        download.download_threadded(requests, 6)
+        D.download_threadded(requests, 6)
         #ERA5REAdownl = download.ERA5download(pfile, 'reanalysis')
         #objects.append(ERA5REAdownl)
     
