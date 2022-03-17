@@ -155,27 +155,18 @@ class GenericInterpolate:
             sfield = []
             for ni in num:
                 if pl:  # only for pressure level files
-                    sfield.append(
-                        ESMF.Field(sgrid, name='sgrid',
-                                   staggerloc=ESMF.StaggerLoc.CENTER,
-                                   ndbounds=[len(variables), nt, nlev]))
+                    sfield.append(create_field(sgrid, variables, nt, nlev))
                 else:  # 2D files
-                    sfield.append(
-                        ESMF.Field(sgrid, name='sgrid',
-                                   staggerloc=ESMF.StaggerLoc.CENTER,
-                                   ndbounds=[len(variables), nt]))
+                    sfield.append(create_field(sgrid, variables, nt))
 
             self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
         else:
             if pl:  # only for pressure level files
-                sfield = ESMF.Field(sgrid, name='sgrid',
-                                    staggerloc=ESMF.StaggerLoc.CENTER,
-                                    ndbounds=[len(variables), nt, nlev])
+                sfield = create_field(sgrid, variables, nt, nlev)
             else:  # 2D files
-                sfield = ESMF.Field(sgrid, name='sgrid',
-                                    staggerloc=ESMF.StaggerLoc.CENTER,
-                                    ndbounds=[len(variables), nt])
+                sfield = create_field(sgrid, variables, nt)
+            
             #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
             self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
