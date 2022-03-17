@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from pathlib import Path
 from fnmatch import filter as fnmatch_filter
-from collections import namedtuple
 
 from globsim.common_utils import StationListRead, str_encode
+from globsim.boundingbox import stations_bbox, netcdf_bbox
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -24,8 +24,6 @@ try:
 except ImportError:
     print("*** ESMF not imported, interpolation not possible. ***")
     pass
-
-BoundingBox = namedtuple('BoundingBox', ['xmin', 'xmax', 'ymin', 'ymax'])
 
 
 class GenericInterpolate:
@@ -43,7 +41,7 @@ class GenericInterpolate:
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
-        self.stations_bbox = create_stations_bbox(self.stations)
+        self.stations_bbox = stations_bbox(self.stations)
 
         # time bounds, add one day to par['end'] to include entire last day
         self.date = {'beg': datetime.strptime(par.get('beg'), '%Y/%m/%d'),
@@ -62,6 +60,16 @@ class GenericInterpolate:
 
         else:
             raise FileNotFoundError(f"Siteslist file {par.get('station_list')} not found.")
+
+    def validate_stations_extent(self, ncdf):
+        try:
+            if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
+                logger.error("Station coordinates exceed downloaded extent")
+                raise ValueError("Station coordinates exceed downloaded extent")
+            else:
+                logger.info("Stations within bounding box of dataset")
+        except Exception:
+            logger.error("Could not verify whether stations are within downloaded netcdf")
 
     def _set_input_directory(self, name):
         self.input_dir = path.join(self.par.get('project_directory'), name)
