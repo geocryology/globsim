@@ -155,27 +155,18 @@ class GenericInterpolate:
             sfield = []
             for ni in num:
                 if pl:  # only for pressure level files
-                    sfield.append(
-                        ESMF.Field(sgrid, name='sgrid',
-                                   staggerloc=ESMF.StaggerLoc.CENTER,
-                                   ndbounds=[len(variables), nt, nlev]))
+                    sfield.append(create_field(sgrid, variables, nt, nlev))
                 else:  # 2D files
-                    sfield.append(
-                        ESMF.Field(sgrid, name='sgrid',
-                                   staggerloc=ESMF.StaggerLoc.CENTER,
-                                   ndbounds=[len(variables), nt]))
+                    sfield.append(create_field(sgrid, variables, nt))
 
             self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
         else:
             if pl:  # only for pressure level files
-                sfield = ESMF.Field(sgrid, name='sgrid',
-                                    staggerloc=ESMF.StaggerLoc.CENTER,
-                                    ndbounds=[len(variables), nt, nlev])
+                sfield = create_field(sgrid, variables, nt, nlev)
             else:  # 2D files
-                sfield = ESMF.Field(sgrid, name='sgrid',
-                                    staggerloc=ESMF.StaggerLoc.CENTER,
-                                    ndbounds=[len(variables), nt])
+                sfield = create_field(sgrid, variables, nt)
+            
             #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
             self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
 
@@ -405,3 +396,22 @@ def grid_from_bbox(latitudes: np.ndarray,
     grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
     
     return grid
+
+
+def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> "ESMF.Field":
+    nvar = len(variables)
+    try:
+        if nlev > 1:
+            field = ESMF.Field(sgrid, name='sgrid',
+                               staggerloc=ESMF.StaggerLoc.CENTER,
+                               ndbounds=[nvar, nt, nlev])
+        else:
+            field = ESMF.Field(sgrid, name='sgrid',
+                               staggerloc=ESMF.StaggerLoc.CENTER,
+                               ndbounds=[nvar, nt])
+    except TypeError as e:
+        msg = "Tried to create a ESMF.Field that was too big. Try reducing the chunk_size in your configuration."
+        logger.error(f"{msg} Currently there are {nt} time-steps (chunk size) {nvar} variables and {nlev} levels on a {sgrid.size[0][0]}-by-{sgrid.size[0][1]} grid (total size of {nt * nvar * nlev * sgrid.size[0][0] * sgrid.size[0][1]})")
+        raise Exception(msg).with_traceback(e.__traceback__)
+
+    return field
