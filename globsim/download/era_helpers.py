@@ -7,6 +7,7 @@ from pathlib import Path
 from collections.abc import MutableMapping
 from globsim.meteorology import pressure_from_elevation
 from pandas import DataFrame
+from typing import Union, Optional
 
 from globsim.download.ERA5download import ERA5generic
 
@@ -153,6 +154,24 @@ class Era5Request(ERA5generic):
     def exists(self):
         return self.output_file.is_file()
     
+    @property
+    def product_type_alias(self) -> "Optional[str]":
+        try:
+            p_type = self.PRODUCTTYPES[self.params["product_type"]]
+        except KeyError:
+            p_type = None
+        
+        return p_type
+    
+    @property
+    def datset_alias(self) -> "Optional[str]":
+        try:
+            dataset = self.DATASETS[self.dataset]
+        except KeyError:
+            dataset = None
+        
+        return dataset
+
     @property
     def output_file(self) -> Path:
         if self._output_file:
