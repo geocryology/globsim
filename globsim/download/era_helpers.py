@@ -7,7 +7,7 @@ from pathlib import Path
 from collections.abc import MutableMapping
 from globsim.meteorology import pressure_from_elevation
 from pandas import DataFrame
-from typing import Union, Optional
+from typing import Optional
 
 from globsim.download.ERA5download import ERA5generic
 
@@ -151,9 +151,15 @@ class Era5Request(ERA5generic):
         else:
             raise KeyError(f"Not a valid dataset. Must be in {self.DATASETS.keys()}")
 
-    def exists(self):
+    def exists(self) -> bool:
         return self.output_file.is_file()
-    
+
+    def is_downloaded(self) -> bool:
+        exists = self.exists()
+        renamed = all([p.is_file() for p in self.renamed_files])
+
+        return (exists or renamed)
+
     @property
     def product_type_alias(self) -> "Optional[str]":
         try:
@@ -171,6 +177,25 @@ class Era5Request(ERA5generic):
             dataset = None
         
         return dataset
+
+    @property
+    def renamed_files(self) -> "List[Path]":
+        """ How is output_file renamed """
+        time = f"{self.params.start}_to_{self.params.end}"
+        files = []
+        
+        if self.product_type_alias == "re":
+            if self.dataset == "reanalysis-era5-single-levels":
+                files = [Path(self.directory, f"era5_{x}_{time}.nc")
+                         for x in ["sa", "sf"]]
+            
+            elif self.dataset == "reanalysis-era5-pressure-levels":
+                files = [Path(self.directory, f"era5_pl_{time}.nc")]
+
+        elif self.product_type_alias == "ens":
+            pass
+        
+        return files
 
     @property
     def output_file(self) -> Path:

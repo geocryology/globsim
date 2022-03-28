@@ -104,6 +104,8 @@ class ERA5MonthlyDownload(GenericDownload):
         for request in cds_requests:
             if request.exists():
                 logger.warning(f"Found {request.output_file}. Will not re-download.")
+            elif request.is_downloaded():
+                logger.warning(f"Found {request.renamed_files}. Will not re-download.")
             else:
                 incomplete_requests.append(request)
 
