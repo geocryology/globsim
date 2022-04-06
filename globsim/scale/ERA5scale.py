@@ -285,6 +285,7 @@ class ERA5scale(GenericScale):
         self.rg.variables[vn_spd][:, :] = WS
 
         # Wind direction: 
+        # U - easterly component  V - northerly component
         # convert to "clockwise from north" from "anti-clockwise from x-axis" : 90 - angle
         # convert "from direction" : + 180
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
