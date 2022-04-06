@@ -61,7 +61,7 @@ class ERA5scale(GenericScale):
 
         if era5type == 'reanalysis':
             self.ens = False
-            self.src = 'era5_'
+            self.src = 'era5'
         elif era5type == 'ensemble_members':
             self.ens = True
             self.src = 'era5_ens'
