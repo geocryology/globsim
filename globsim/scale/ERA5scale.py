@@ -280,12 +280,14 @@ class ERA5scale(GenericScale):
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'
 
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            WS = np.sqrt(np.power(V,2) + np.power(U,2))
-            WD = [atan2(V[i, n], U[i, n]) * (180 / pi) +
-                  180 for i in np.arange(V.shape[0])]
-            self.rg.variables[vn_spd][:, n] = WS
-            self.rg.variables[vn_dir][:,n] = WD
+        WS = np.sqrt(np.power(V,2) + np.power(U,2))
+        self.rg.variables[vn_spd][:, :] = WS
+
+        # Wind direction: 
+        # convert to "clockwise from north" from "anti-clockwise from x-axis" : 90 - angle
+        # convert "from direction" : + 180
+        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
+        self.rg.variables[vn_dir][:, :] = WD
 
     def SW_Wm2_sur(self, ni=10):
         """
