@@ -328,4 +328,3 @@ class ERAIinterpolate(GenericInterpolate):
                                         self.list_name + '.nc'),
                               path.join(self.output_dir,'erai_pl_' +
                                         self.list_name + '_surface.nc'))
-

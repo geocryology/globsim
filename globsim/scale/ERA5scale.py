@@ -68,7 +68,7 @@ class ERA5scale(GenericScale):
 
         # input file handles
         self.nc_pl = nc.Dataset(path.join(self.intpdir,
-                                          '{}_pl_'.format(self.src) +
+                                          '{}pl_'.format(self.src) +
                                           self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir,
                                           '{}_sa_'.format(self.src) +
