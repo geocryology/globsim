@@ -266,6 +266,7 @@ class ERA5scale(GenericScale):
             V[:, n] = series_interpolate(self.times_out_nc,
                                          time_in * 3600, values[:, n])
 
+
         # wind speed, add variable to ncdf file, convert
         vn_spd = 'WSPD_sur'  # variable name
         var           = self.rg.createVariable(vn_spd,'f4',('time', 'station'))
