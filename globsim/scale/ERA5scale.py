@@ -266,6 +266,7 @@ class ERA5scale(GenericScale):
             V[:, n] = series_interpolate(self.times_out_nc,
                                          time_in * 3600, values[:, n])
 
+
         # wind speed, add variable to ncdf file, convert
         vn_spd = 'WSPD_sur'  # variable name
         var           = self.rg.createVariable(vn_spd,'f4',('time', 'station'))
@@ -280,11 +281,14 @@ class ERA5scale(GenericScale):
         var.units     = 'degree'
         var.standard_name = 'wind_from_direction'
 
+        # n is index of station -- "array index"
+        # s station as dimension -- netCDF index
+        #TODO: simplify for loop for WD variable
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             WS = np.sqrt(np.power(V,2) + np.power(U,2))
             WD = [atan2(V[i, n], U[i, n]) * (180 / pi) +
                   180 for i in np.arange(V.shape[0])]
-            self.rg.variables[vn_spd][:, n] = WS
+            self.rg.variables[vn_spd][:, n] = WS[:,n]
             self.rg.variables[vn_dir][:,n] = WD
 
     def SW_Wm2_sur(self, ni=10):
