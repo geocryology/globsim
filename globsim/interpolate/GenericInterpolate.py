@@ -10,7 +10,7 @@ from pathlib import Path
 from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
-from globsim.boundingbox import stations_bbox, netcdf_bbox
+from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 
 logger = logging.getLogger('globsim.interpolate')
 
