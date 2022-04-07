@@ -15,8 +15,8 @@ from globsim.download.ERA5download import ERA5generic
 class Era5RequestParameters(MutableMapping):
     """ Request dictionary """
     VALID_KEYS = ['product_type','format','year',
-                 'month','day','time','area','variable',
-                 'pressure_level']
+                  'month','day','time','area','variable',
+                  'pressure_level']
 
     REQUIRED_KEYS = ['product_type','format','year',
                      'month','day','time','variable']
@@ -48,7 +48,7 @@ class Era5RequestParameters(MutableMapping):
 
     def __iter__(self):
         return iter(self.store)
-    
+
     def __len__(self):
         return len(self.store)
 
@@ -56,21 +56,21 @@ class Era5RequestParameters(MutableMapping):
         if self.missing():
             print("missing parameters")
             return False
-        
+
         return True
-    
+
     def missing(self):
         missing = []
         for key in self.REQUIRED_KEYS:
             if key not in self.store.keys():
                 missing.append(key)
-        
+
         return(missing)
 
     @property
     def start(self):
         return self.__date(min)
-    
+
     @property
     def end(self):
         return self.__date(max)
@@ -83,7 +83,7 @@ class Era5RequestParameters(MutableMapping):
             y = f([int(year) for year in self['year']])
         else:
             y = int(self['year'])
-        
+
         if isinstance(self['month'], list):
             m = f([int(month) for month in self['month']])
         else:
@@ -128,10 +128,10 @@ class Era5Request(ERA5generic):
         server = cdsapi.Client()
 
         query = self.params.as_dict()
-        
+
         if not target:
             target = self.output_file
-       
+
         server.retrieve(self.dataset, query, target)
 
     @property
@@ -166,35 +166,35 @@ class Era5Request(ERA5generic):
             p_type = self.PRODUCTTYPES[self.params["product_type"]]
         except KeyError:
             p_type = None
-        
+
         return p_type
-    
+
     @property
     def datset_alias(self) -> "Optional[str]":
         try:
             dataset = self.DATASETS[self.dataset]
         except KeyError:
             dataset = None
-        
+
         return dataset
 
     @property
-    def renamed_files(self) -> "List[Path]":
+    def renamed_files(self) -> "list[Path]":
         """ How is output_file renamed """
         time = f"{self.params.start}_to_{self.params.end}"
         files = []
-        
+
         if self.product_type_alias == "re":
             if self.dataset == "reanalysis-era5-single-levels":
                 files = [Path(self.directory, f"era5_{x}_{time}.nc")
                          for x in ["sa", "sf"]]
-            
+
             elif self.dataset == "reanalysis-era5-pressure-levels":
                 files = [Path(self.directory, f"era5_pl_{time}.nc")]
 
         elif self.product_type_alias == "ens":
             pass
-        
+
         return files
 
     @property
@@ -220,6 +220,7 @@ def era5_pressure_levels(elev_min: float, elev_max: float) -> "list[str]":
     levs = [str(levi) for levi in levs[mask]]
     return levs
 
+
 def era5_area_string(north, west, south, east):
     """Converts numerical coordinates into string: North/West/South/East"""
     res = str(round(north,2)) + "/"
@@ -235,53 +236,53 @@ def era5_area_list(north: float, west:float, south:float, east:float):
 
 def make_monthly_chunks(start: datetime, end: datetime) -> "list[dict]":
     chunks = []
-    
+
     for year in range(start.year, end.year + 1):
-        
+
         for month in range(1, 13):
-            
-            chunk = {'year': str(year), 
+
+            chunk = {'year': str(year),
                      'month': "{:02d}".format(month),
                      'time': ["{:02d}:00".format(H) for H in range(0, 24)]}
             if year == start.year and month < start.month:
                 continue
-            
+
             elif year == start.year and month == start.month:
                 day = ["{:02d}".format(d) for d in range(start.day, 32)]
-            
+
             elif year == end.year and month == end.month:
                 day = ["{:02d}".format(d) for d in range(1, end.day + 1)]
-            
+
             elif year == end.year and month > end.month:
                 continue
-            
-            else: 
+
+            else:
                 day = ["{:02d}".format(d) for d in range(1, 32)]
-            
+
             chunk['day'] = day
 
             if len(chunk['day'])  == 1:
                 chunk['day'] = chunk['day'][0]
-            
+
             chunks.append(chunk)
-            
+
     return chunks
 
 # https://www.ecmwf.int/en/forecasts/datasets/list-parameters-incorrectly-calculated-era-20cmv0-edmo
 
+
 def cf_to_cds_single(vars: "list[str]"):
     sl = DataFrame.from_dict(
-    {0: {"mars": '228.128', "cf":'precipitation_amount', "cds":"total_precipitation"},
-    1: {"mars": '169.128', "cf":"downwelling_shortwave_flux_in_air", "cds": "surface_solar_radiation_downwards"},
-    2: {"mars": "175.128", "cf":"downwelling_longwave_flux_in_air", "cds": "surface_thermal_radiation_downwards"},
-    3: {"mars": "167.128", "cf":"air_temperature", "cds": "2m_temperature"},
-    4: {"mars": "168.128", "cf": "relative_humidity", "cds": "2m_dewpoint_temperature"},
-    5: {"mars": "165.128", "cf": "wind_speed", "cds": "10m_u_component_of_wind"},
-    6: {"mars": "166.128", "cf": "wind_speed", "cds": "10m_v_component_of_wind"},
-    7: {"mars": "206.128", "cf": "downwelling_shortwave_flux_in_air_assuming_clear_sky", "cds": "total_column_ozone"},
-    8: {"mars": "137.128", "cf": "downwelling_shortwave_flux_in_air_assuming_clear_sky", "cds": "total_column_water_vapour"}
-    },
-    orient='index')
+        {0: {"mars": '228.128', "cf":'precipitation_amount', "cds":"total_precipitation"},
+         1: {"mars": '169.128', "cf":"downwelling_shortwave_flux_in_air", "cds": "surface_solar_radiation_downwards"},
+         2: {"mars": "175.128", "cf":"downwelling_longwave_flux_in_air", "cds": "surface_thermal_radiation_downwards"},
+         3: {"mars": "167.128", "cf":"air_temperature", "cds": "2m_temperature"},
+         4: {"mars": "168.128", "cf": "relative_humidity", "cds": "2m_dewpoint_temperature"},
+         5: {"mars": "165.128", "cf": "wind_speed", "cds": "10m_u_component_of_wind"},
+         6: {"mars": "166.128", "cf": "wind_speed", "cds": "10m_v_component_of_wind"},
+         7: {"mars": "206.128", "cf": "downwelling_shortwave_flux_in_air_assuming_clear_sky", "cds": "total_column_ozone"},
+         8: {"mars": "137.128", "cf": "downwelling_shortwave_flux_in_air_assuming_clear_sky", "cds": "total_column_water_vapour"}},
+        orient='index')
     index = sl['cf'].isin(vars)
     return sl['cds'][index].tolist()
 
@@ -289,13 +290,11 @@ def cf_to_cds_single(vars: "list[str]"):
 def cf_to_cds_pressure(vars: "list[str]"):
 
     pl = DataFrame.from_dict(
-    {
-    1: {"mars": "130.128", "cf": "air_temperature", "cds": "temperature"},
-    2: {"mars": "157.128", "cf": "relative_humidity", "cds": "relative_humidity"},
-    3: {"mars": "131.128", "cf": "wind_speed", "cds": "u_component_of_wind"},
-    4: {"mars": "132.128", "cf": "wind_speed", "cds": "v_component_of_wind"}  
-    },
-    orient='index')
+        {1: {"mars": "130.128", "cf": "air_temperature", "cds": "temperature"},
+         2: {"mars": "157.128", "cf": "relative_humidity", "cds": "relative_humidity"},
+         3: {"mars": "131.128", "cf": "wind_speed", "cds": "u_component_of_wind"},
+         4: {"mars": "132.128", "cf": "wind_speed", "cds": "v_component_of_wind"}},
+        orient='index')
 
     index = pl['cf'].isin(vars)
     return pl['cds'][index].tolist()
