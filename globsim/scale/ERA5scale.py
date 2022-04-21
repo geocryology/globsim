@@ -215,7 +215,7 @@ class ERA5scale(GenericScale):
         values  = self.getValues(self.nc_sf, 'tp', ni)  # self.nc_sf.variables['tp'][:]*1000/self.interval_in
         # https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
         # We assume interval_in is in hours (1 for regular, 3 for ensemble)
-        values  = values * 1000 / (self.interval_in * 3600) 
+        values  = values * 1000 / (self.interval_in)  # [m] -> [mm s-1]
 
         # interpolate station by station
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
@@ -307,7 +307,7 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'ssrd', ni)  # self.nc_sf.variables['ssrd'][:]/3600/self.interval_in#[w/m2/s]
-        values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
+        values  = values / (self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)
@@ -326,9 +326,10 @@ class ERA5scale(GenericScale):
         var.units     = 'W m-2'
 
         # interpolate station by station
+        import pdb;pdb.set_trace()
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
-        values  = values / (3600 * self.interval_in)  # [J m-2] -> [w m-2]
+        values  = values / (self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)
