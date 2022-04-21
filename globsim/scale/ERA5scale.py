@@ -326,7 +326,6 @@ class ERA5scale(GenericScale):
         var.units     = 'W m-2'
 
         # interpolate station by station
-        import pdb;pdb.set_trace()
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
         values  = values / (self.interval_in)  # [J m-2] -> [w m-2]
