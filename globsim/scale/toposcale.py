@@ -1,6 +1,6 @@
-from globsim.meteorology import emissivity_clear_sky, boltzmann
+from globsim.meteorology import emissivity_clear_sky, boltzmann, pressure_from_elevation
 from typing import Union
-from pysolar import solar, radiation
+from pysolar import solar
 import numpy as np
 import warnings
 
@@ -79,7 +79,7 @@ def sw_down_diffuse_toposcale(sw_down_sur, v_d):
     return sw_down_sur * v_d
 
 
-def solar_zenith(lat, lon, time, elevation=None):
+def solar_zenith(lat, lon, time):
     """ 
     lat : float
         latitude
@@ -92,8 +92,18 @@ def solar_zenith(lat, lon, time, elevation=None):
     -------
     solar_zenith(52, -117, datetime.datetime(year=2020, month=5, day=10, hour=18, tzinfo=datetime.timezone.utc))
     """
-    solar_elev = solar.get_altitude(lat, lon, time, elevation)
+    lat = np.atleast_1d(lat)
+    lon = np.atleast_1d(lon)
+    time = np.atleast_1d(time)
+
+    if len(lat) == len(lon) == 1:
+        solar_elev = solar.get_altitude(lat[0], lon[0], time[0])
+    else:
+        args = zip(lat, lon, time)
+        solar_elev = np.array([solar.get_altitude(alat, alon, atime) for alat, alon, atime in args])
+    
     zenith = 90 - solar_elev
+    
     return zenith
 
 
@@ -106,39 +116,27 @@ def delta_m(delta_z, zenith_angle):
     return d_m
 
 
-def broadband_attenuation(sw_d, sw_toa, zenith_angle):
+def broadband_attenuation(sw_d, sw_toa, m):
     """ Based on eq(5) in Fiddes and Gruber """
-    if zenith_angle > 70:
-        warnings.warn(f"Calculated zenith angle of {zenith_angle} is large. Beet-Lambert approximation [m = 1 / cos(zenith)] may not be valid.")
-    k = - np.log(sw_d / sw_toa) / (1 / np.cos(np.radians(zenith_angle)))
+    # if zenith_angle > 70:
+    #    warnings.warn(f"Calculated zenith angle of {zenith_angle} is large. Beer-Lambert approximation [m = 1 / cos(zenith)] may not be valid.")
+    
+    k = -np.log(sw_d / sw_toa) / m
+    
     return k
+
+
+def beer_lambert(toa, k, m):
+    """ Beer Lambert law for direct radiation"""
+    sw_dir = toa * np.exp(-k * m)
+    return sw_dir
 
 
 def eq6(sw_dir, k, delta_z, zenith_angle, clearness_index=None):
     """ Eq (6) from Fiddes & Gruber """
     # TODO: constrain to reasonable values? github.com/joelfiddes/toposcale/blob/593447cd9de5b7f96a2d9d503d32816fd7bc5285/src/solar.r#L71
     ratio = 1 - np.exp(-k * delta_z * np.cos(np.radians(zenith_angle)))
-    ratio = 1 - np.exp(-k * delta_z * np.cos(np.radians(zenith_angle)))
-    print(ratio)
-    delta_sw = ratio * sw_dir
-    
-    if clearness_index is None:
-        warnings.warn("air-mass corrected clearness index is unknown. Shortwave radiation may be incorrect")
-    elif clearness_index < 0.65:
-        warnings.warn(f"air-mass corrected clearness index is {clearness_index}. Correction validity is questionable.")
-    else:
-        pass
-    
-    return delta_sw
 
-
-def eq6mod(sw_dir, k, delta_z, zenith_angle, clearness_index=None):
-    """ Eq (6) from Fiddes & Gruber """
-    # TODO: constrain to reasonable values? github.com/joelfiddes/toposcale/blob/593447cd9de5b7f96a2d9d503d32816fd7bc5285/src/solar.r#L71
-    delta_m = 
-    ratio = 1 - np.exp(-k * / np.cos(np.radians(zenith_angle)))
-    ratio = 1 - np.exp(-k * delta_z * np.cos(np.radians(zenith_angle)))
-    print(ratio)
     delta_sw = ratio * sw_dir
     
     if clearness_index is None:
@@ -152,10 +150,19 @@ def eq6mod(sw_dir, k, delta_z, zenith_angle, clearness_index=None):
 
 
 def clearness_index(sw, sw_toa):
-    kt = sw / sw_toa  # clearness index
+    sw = np.atleast_1d(sw)
+    sw_toa = np.atleast_1d(sw_toa)
+
+    kt = np.zeros_like(sw, dtype='float')
+    night_mask = sw_toa <= 0
+
+    kt[~night_mask] = sw[~night_mask] / sw_toa[~night_mask]  # clearness index
+    kt[night_mask] = 0
+
     mask = np.logical_or(np.isinf(kt), np.less(kt, 0))
     kt[mask] = 0
     kt[kt > 1] = 0.8  # upper limit from topooscale R package
+    
     return kt
 
 
@@ -174,7 +181,9 @@ def illumination_angle(zenith_angle, solar_azimuth, slope_angle, aspect):
 
 def sw_partition(sw, sw_toa):
     """
-    return diffuse, direct"""
+    return
+    ------
+    tuple : diffuse component, direct component"""
     kt = clearness_index(sw=sw, sw_toa=sw_toa)
 
     kd = 0.952 - 1.041 * np.exp(-np.exp(2.3 - 4.702 * kt))
@@ -182,7 +191,7 @@ def sw_partition(sw, sw_toa):
     return kd, 1 - kd
 
 
-def sw_toa(latitude, longitude, elevation, date):
+def sw_toa(latitude, longitude, date):
     """ top-of-atmosphere solar shortwave
 
     Returns
@@ -205,21 +214,21 @@ def sw_toa(latitude, longitude, elevation, date):
     """
     
     date = np.atleast_1d(date)
+    
     args = list(zip(np.atleast_1d(latitude),
-               np.atleast_1d(longitude),
-               date,
-               np.atleast_1d(elevation)))
+                    np.atleast_1d(longitude),
+                    date))
             
     # TSI = np.array([radiation.get_apparent_extraterrestrial_flux(t.timetuple().tm_yday) for t in date])
     # warnings.warn("top-of-atmosphere irradiance values are supect. Seems to low")
     TSI = 1366  # better fit with ERA5 tisr
-    alt = np.array([solar.get_altitude(x[0], x[1], x[2], x[3]) for x in args])
+    alt = np.array([solar.get_altitude(x[0], x[1], x[2]) for x in args])
 
     zenith = 90 - alt
     zenith[zenith > 90] = 90
 
     toa = TSI * np.cos(np.radians(zenith))
-    toa[toa < 1e-2] = 0
+    toa[toa < 1e-2] = 0  # remove rounding errors
 
     return toa
     
@@ -234,7 +243,59 @@ def sw_direct_sub(sw_direct, incidence_sub, incidence_grid, shadow_mask=None):
     sw_dir_sub[shadow_mask] = 0
 
     return sw_dir_sub
+
+
+def relative_optical_airmass(zenith_angle):
+    """ Eq A5 Gubler et al"""
+    cosz = np.cos(np.radians(zenith_angle))
+    d = cosz + 0.15 * (93.885 - zenith_angle) ** -1.253
+
+    return 1 / d
+
+
+def local_condition_airmass(mr, p):
+    """_summary_
+
+    Parameters
+    ----------
+    mr : _type_
+        unitless relative optical airmass
+    p : _type_
+        screen-level atmospheric pressure [hPa]
+    Returns
+    -------
+     : local conditions airmass
+    """
+    ma = mr * p / 1013.25
+    return ma
+
+
+def elevation_corrected_sw(grid_sw, lat, lon, time, grid_elevation, sub_elevation):
+    grid_pressure = pressure_from_elevation(grid_elevation)
+    sub_pressure = pressure_from_elevation(sub_elevation)
+   
+    # atmospheric properties
+    zenith = solar_zenith(lat=lat, lon=lon, time=time)
+    toa = sw_toa(latitude=lat, longitude=lon, date=time)
     
+    if (toa < grid_sw).any():
+        warnings.warn("Calculated top-of-atmosphere radiation is less than grid-level radiation")
+
+    mr = relative_optical_airmass(zenith_angle=zenith)
+    
+    # grid
+    grid_local_airmass = local_condition_airmass(mr=mr, p=grid_pressure)
+    # kt = clearness_index(grid_sw, toa)
+    diffuse, direct = sw_partition(grid_sw, toa)
+    k = broadband_attenuation(sw_d=grid_sw * direct, sw_toa=toa, m=grid_local_airmass)
+    
+    # subgrid site
+    sub_local_airmass = local_condition_airmass(mr=mr, p=sub_pressure)
+    sw_dir_sub = beer_lambert(toa, k, sub_local_airmass)
+    # print(f"grid p {grid_pressure} \nsub_pressure {sub_pressure}\nzenith {zenith}\ntoa {toa}\nmr {mr}\nk {k}\ngrid_local = {grid_local_airmass}\nsub local {sub_local_airmass}")
+
+    return sw_dir_sub
+
 
 if __name__ == "__main__":
     # worked example - longwave
@@ -242,7 +303,7 @@ if __name__ == "__main__":
     t0 = 273 + 15  # from reanalysis
     rh = 0.2  # from reanalysis
     rh0 = 0.6  # from reanalysis
-    shortwave = 500  # from reanalysis
+    shortwave = 700  # from reanalysis
     svf = 1  # from horizon photo / provided in siteslist
 
     lw_down_toposcale(t_sub=t, rh_sub=rh, t_sur=t0, rh_sur=rh0, lw_sur=shortwave, v_d=svf)
@@ -253,19 +314,13 @@ if __name__ == "__main__":
     lon = -114  # from siteslist
     elevation = 1420  # from siteslist
     grid_elev = 100 #  derive from geopotential E [m] = G [m2 s-2] / 9.80665 [m s-2]
-    
+
     time = datetime.datetime(year=2022, month=5, day=9, hour=12, tzinfo=datetime.timezone(datetime.timedelta(seconds=60*60*-6)))
 
-    zenith = solar_zenith(lat=lat, lon=lon, time=time, elevation=elevation)
-    dm = delta_m(delta_z=grid_elev, zenith_angle=zenith)
-    toa = sw_toa(latitude=lat, longitude=lon, elevation=grid_elev, date=time)  # shouldn't have to provide elevation here.... 
-    kt = clearness_index(shortwave, toa)
-    diffuse, direct = sw_partition(shortwave, toa)
-    
-    k = broadband_attenuation(sw_d=shortwave * direct, sw_toa=toa, zenith_angle=zenith)
-    
-    delta_sw = eq6(sw_dir=shortwave * direct, k=k, delta_z=elevation-grid_elev, zenith_angle=zenith, clearness_index=kt)
-    
+
+
+
+
 
 """ 
 lat = 51.3
