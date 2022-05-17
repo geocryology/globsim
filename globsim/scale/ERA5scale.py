@@ -246,6 +246,27 @@ class ERA5scale(GenericScale):
         RH = relhu_approx_lawrence(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
 
+    def RH_per_pl(self, ni=10):
+        """
+        Relative humdity derived from pressure-level. 
+        """
+        # temporary variable,  interpolate station by station
+        rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
+        values  = self.getValues(self.nc_pl, 'r', ni)  
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            rh[:, n] = series_interpolate(self.times_out_nc,
+                                            time_in * 3600, values[:, n])
+
+        # add variable to ncdf file
+        vn = 'RH_pl'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'Relative humidity ERA-5 pressure-levels'
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
+
+        self.rg.variables[vn][:, :] = rh
+
     def WIND_sur(self, ni=10):
         """
         Wind speed and direction temperature derived from surface data,
@@ -344,13 +365,14 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        t_sub = 1
         values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
         values  = values / 3600 / self.interval_in  # [w m-2 s-1]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
             
-        lw_down_toposcale
+        lw_down_toposcale()
 
     def SH_kgkg_sur(self, ni=10):
         '''
