@@ -32,6 +32,7 @@ from pathlib import Path
 from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg, relhu_approx_lawrence
 from globsim.nc_elements import new_scaled_netcdf
+from globsim.scale.toposcale import lw_down_toposcale
 from globsim.scale.GenericScale import GenericScale
 
 urllib3.disable_warnings()
@@ -332,6 +333,24 @@ class ERA5scale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)
+
+    def LW_Wm2_topo(self, ni=10):
+        # add variable to ncdf file
+        vn = 'LW_topo'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
+        var.standard_name = 'surface_downwelling_longwave_flux'
+        var.units     = 'W m-2'
+
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
+        values  = values / 3600 / self.interval_in  # [w m-2 s-1]
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            f = interp1d(time_in * 3600, values[:, n], kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
+            
+        lw_down_toposcale
 
     def SH_kgkg_sur(self, ni=10):
         '''

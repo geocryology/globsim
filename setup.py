@@ -36,6 +36,7 @@ setuptools.setup(
         'console_scripts': [
             'globsim = globsim.globsim_cli:main',
         ]},
+
     install_requires=['lxml',
                       'numpy',
                       'pandas',
@@ -44,6 +45,6 @@ setuptools.setup(
                       'pydap', 
                       'tomlkit',
                       'ecmwf-api-client',
-                      'cdsapi'
-    ]
+                      'cdsapi',
+                      'pysolar']
 )
