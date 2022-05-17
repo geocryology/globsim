@@ -365,14 +365,19 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        t_sub = 1
-        values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
-        values  = values / 3600 / self.interval_in  # [w m-2 s-1]
+        t_sub = self.getValues(self.nc_pl, 't', ni)  # [K]
+        rh_sub = self.getValues(self.nc_pl, 'rh', ni)  # [%]
+        t_grid = self.getValues(self.nc_sa, 't2m', ni)  # [K]
+        dewp_grid = self.getValues(self.nc_sa, 'd2m', ni)  # [K]
+        lw_grid  = self.getValues(self.nc_sf, 'strd', ni) / self.interval_in  # [w m-2 s-1]
+        rh_grid = relhu_approx_lawrence(t_grid, dewp_grid)
+        v1 = np.ones_like(rh_grid)  # TODO: get sky views if available.
+
+        lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+        
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            f = interp1d(time_in * 3600, values[:, n], kind='linear')
+            f = interp1d(time_in * 3600, lw_sub[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.time_step
-            
-        lw_down_toposcale()
 
     def SH_kgkg_sur(self, ni=10):
         '''
