@@ -128,6 +128,7 @@ class ERA5scale(GenericScale):
                                         station_names=stations)
             self.indProcess(ni=10)
 
+        logger.info(f"Created scaled output file {self.output_file}")
         # close netCDF files
         self.rg.close()
         self.nc_pl.close()
@@ -359,14 +360,14 @@ class ERA5scale(GenericScale):
         # add variable to ncdf file
         vn = 'LW_topo'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Surface thermal radiation downwards ERA-5 surface only'
+        var.long_name = 'TOPOscale-corrected thermal radiation downwards ERA-5'
         var.standard_name = 'surface_downwelling_longwave_flux'
         var.units     = 'W m-2'
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         t_sub = self.getValues(self.nc_pl, 't', ni)  # [K]
-        rh_sub = self.getValues(self.nc_pl, 'rh', ni)  # [%]
+        rh_sub = self.getValues(self.nc_pl, 'r', ni)  # [%]
         t_grid = self.getValues(self.nc_sa, 't2m', ni)  # [K]
         dewp_grid = self.getValues(self.nc_sa, 'd2m', ni)  # [K]
         lw_grid  = self.getValues(self.nc_sf, 'strd', ni) / self.interval_in  # [w m-2 s-1]
