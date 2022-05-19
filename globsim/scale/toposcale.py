@@ -191,7 +191,7 @@ def sw_partition(sw, sw_toa):
     return kd, 1 - kd
 
 
-def sw_toa(latitude, longitude, date):
+def sw_toa(zenith=None, latitude=None, longitude=None, date=None):
     """ top-of-atmosphere solar shortwave
 
     Returns
@@ -212,20 +212,23 @@ def sw_toa(latitude, longitude, date):
     Seems wrong... TSI = 1360, 'apparent_ET_flux' only goes up to 1225 or so.
     Consider switching to Q = S_0 (1 + 0.034 cost(2 pi n / 365.25)) where n = julian day S0 = TSI
     """
-    
+    TSI = 1366  # better fit with ERA5 tisr
     date = np.atleast_1d(date)
     
-    args = list(zip(np.atleast_1d(latitude),
-                    np.atleast_1d(longitude),
-                    date))
-            
-    # TSI = np.array([radiation.get_apparent_extraterrestrial_flux(t.timetuple().tm_yday) for t in date])
-    # warnings.warn("top-of-atmosphere irradiance values are supect. Seems to low")
-    TSI = 1366  # better fit with ERA5 tisr
-    alt = np.array([solar.get_altitude(x[0], x[1], x[2]) for x in args])
+    if zenith is None:
+        args = list(zip(np.atleast_1d(latitude),
+                        np.atleast_1d(longitude),
+                        date))
+                
+        # TSI = np.array([radiation.get_apparent_extraterrestrial_flux(t.timetuple().tm_yday) for t in date])
+        # warnings.warn("top-of-atmosphere irradiance values are supect. Seems to low")
+        
+        alt = np.array([solar.get_altitude(x[0], x[1], x[2]) for x in args])
 
-    zenith = 90 - alt
+        zenith = 90 - alt
+    
     zenith[zenith > 90] = 90
+    zenith[zenith < 0] = 0
 
     toa = TSI * np.cos(np.radians(zenith))
     toa[toa < 1e-2] = 0  # remove rounding errors
@@ -273,7 +276,7 @@ def local_condition_airmass(mr, p):
 def elevation_corrected_sw(grid_sw, lat, lon, time, grid_elevation, sub_elevation):
     grid_pressure = pressure_from_elevation(grid_elevation)
     sub_pressure = pressure_from_elevation(sub_elevation)
-   
+
     # atmospheric properties
     zenith = solar_zenith(lat=lat, lon=lon, time=time)
     toa = sw_toa(latitude=lat, longitude=lon, date=time)
@@ -313,7 +316,7 @@ if __name__ == "__main__":
     lat = 62  # from siteslist
     lon = -114  # from siteslist
     elevation = 1420  # from siteslist
-    grid_elev = 100 #  derive from geopotential E [m] = G [m2 s-2] / 9.80665 [m s-2]
+    grid_elev = 100  # derive from geopotential E [m] = G [m2 s-2] / 9.80665 [m s-2]
 
     time = datetime.datetime(year=2022, month=5, day=9, hour=12, tzinfo=datetime.timezone(datetime.timedelta(seconds=60*60*-6)))
 
