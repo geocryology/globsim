@@ -133,7 +133,7 @@ class GenericInterpolate:
                         variables=variables, date=date)
         """
         logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
-        logger.debug(f"Current memory usage: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}")
+        logger.debug(f"Current memory usage: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} kB")
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
