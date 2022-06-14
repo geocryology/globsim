@@ -250,7 +250,9 @@ def sw_direct_sub(sw_direct, incidence_sub, incidence_grid, shadow_mask=None):
 
 def relative_optical_airmass(zenith_angle):
     """ Eq A5 Gubler et al"""
+
     cosz = np.cos(np.radians(zenith_angle))
+    
     d = cosz + 0.15 * (93.885 - zenith_angle) ** -1.253
 
     return 1 / d
@@ -279,7 +281,10 @@ def elevation_corrected_sw(grid_sw, lat, lon, time, grid_elevation, sub_elevatio
 
     # atmospheric properties
     zenith = solar_zenith(lat=lat, lon=lon, time=time)
-    toa = sw_toa(latitude=lat, longitude=lon, date=time)
+    zenith = np.atleast_1d(zenith)
+    zenith[zenith > 90] = 90
+
+    toa = sw_toa(zenith=zenith)
     
     if (toa < grid_sw).any():
         warnings.warn("Calculated top-of-atmosphere radiation is less than grid-level radiation")
@@ -297,7 +302,9 @@ def elevation_corrected_sw(grid_sw, lat, lon, time, grid_elevation, sub_elevatio
     sw_dir_sub = beer_lambert(toa, k, sub_local_airmass)
     # print(f"grid p {grid_pressure} \nsub_pressure {sub_pressure}\nzenith {zenith}\ntoa {toa}\nmr {mr}\nk {k}\ngrid_local = {grid_local_airmass}\nsub local {sub_local_airmass}")
 
-    return sw_dir_sub
+    diffuse = grid_sw * diffuse
+
+    return diffuse, sw_dir_sub
 
 
 if __name__ == "__main__":
