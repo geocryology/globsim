@@ -77,6 +77,48 @@ class GenericScale:
 
         return output_file.resolve()
 
+    def get_slope(self) -> "np.ndarray":
+        if hasattr(self, "__slope"):
+            return getattr(self, "__slope")
+
+        if 'slope' in self.stations.columns:
+            slope = self.stations['slope'].to_numpy(dtype='float32')
+        else:
+            logger.warning("No 'slope' column in siteslist. Assuming horizontal surface (00)")
+            slope = np.zeros_like(self.stations['longitude_dd'].values)
+        
+        self.__slope = np.atleast_1d(slope)  # Cache for later use
+
+        return self.__slope
+
+    def get_aspect(self) -> "np.ndarray":
+        if hasattr(self, "__aspect"):
+            return getattr(self, "__aspect")
+
+        if 'aspect' in self.stations.columns:
+            aspect = self.stations['aspect'].to_numpy(dtype='float32')
+        else:
+            logger.warning("No 'aspect' column in siteslist. Assuming north aspect (000)")
+            aspect = np.zeros_like(self.stations['longitude_dd'].values)
+        
+        self.__aspect = np.atleast_1d(aspect)  # Cache for later use
+
+        return self.__aspect
+
+    def get_sky_view(self) -> "np.ndarray":
+        if hasattr(self, "__skyview"):
+            return getattr(self, "__skyview")
+
+        if 'sky_view' in self.stations.columns:
+            svf = self.stations['sky_view'].to_numpy(dtype='float32')
+        else:
+            logger.warning("No 'sky_view' column in siteslist. Assuming SVF = 1.0")
+            svf = np.ones_like(self.stations['longitude_dd'].values)
+        
+        self.__skyview = np.atleast_1d(svf)  # Cache for later use
+
+        return self.__skyview
+
     def make_output_directory(self, par):
         """make directory to hold outputs"""
         output_dir = None
