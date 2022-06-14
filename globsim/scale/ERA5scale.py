@@ -369,6 +369,8 @@ class ERA5scale(GenericScale):
         grid_elev = self.getValues(self.nc_to, 'z', ni)[0,:] / 9.80665  # z has 2 dimensions from the scaling step
         station_elev = self.getValues(self.nc_pl, 'height', ni)
         
+        svf = self.get_sky_view()
+
         #import pdb;pdb.set_trace()
         interpolation_time = nc_time[:].astype(np.int64)
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
@@ -379,6 +381,8 @@ class ERA5scale(GenericScale):
                                                       time=py_time,
                                                       grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
                                                       sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
+
+            diffuse = diffuse * svf[n]  # apply sky-view factor
 
             f = interp1d(interpolation_time * 3600, corrected_direct, kind='linear')
             self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
