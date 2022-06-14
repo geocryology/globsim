@@ -113,7 +113,7 @@ class ERA5interpolate(GenericInterpolate):
         else:
             rootgrp.source = 'ERA5, interpolated bilinearly to stations'
 
-        rootgrp.close()
+        rootgrp.close()  # TODO: there's no need to close this file and then re-open it a moment later
 
         # open the output netCDF file, set it to be appendable ('a')
         ncf_out = nc.Dataset(ncfile_out, 'a')
@@ -133,7 +133,7 @@ class ERA5interpolate(GenericInterpolate):
 
         # restrict to date/time range if given
         if date is None:
-            tmask = time < datetime(3000, 1, 1)
+            tmask = np.array([True])
         else:
             tmask = (time < date['end']) * (time >= date['beg'])
 
@@ -165,7 +165,7 @@ class ERA5interpolate(GenericInterpolate):
             tmask_chunk = (time <= end_time) * (time >= beg_time)
             if invariant:
                 # allow topography to work in same code
-                tmask_chunk = [True]
+                tmask_chunk = np.array([True])
 
             # get the interpolated variables
             dfield, variables = self.interp2D(ncfile_in, ncf_in,
@@ -326,7 +326,7 @@ class ERA5interpolate(GenericInterpolate):
         dummy_date  = {'beg': datetime(1979, 1, 1, 12, 0),
                        'end': datetime(1979, 1, 1, 12, 0)}
         self.ERA2station(self.getInFile('to'), self.getOutFile('to'),
-                         self.stations, ['z', 'lsm'], date=dummy_date)
+                         self.stations, ['z', 'lsm'], date=None)
 
         # === 2D Interpolation for Surface Analysis Data ===
         # dictionary to translate CF Standard Names into ERA5

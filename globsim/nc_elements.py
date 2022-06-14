@@ -71,7 +71,7 @@ def ncvar_add_number(rootgrp, dimensions=('number')):
 
 def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
     height           = rootgrp.createVariable('height', 'f4', dimensions)
-    height.long_name = 'Elevation relative to ellipsoid'
+    height.long_name = 'Elevation of station'
     height.units     = 'm'
     height.axis      = 'Z'
     height.standard_name = 'height_above_reference_ellipsoid'
@@ -206,8 +206,12 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
             else:
                 tmp = rootgrp.createVariable(var,'f4', ('time','station'))
 
-        tmp.long_name = nc_in.variables[var].long_name.encode('UTF8')
-        tmp.units     = nc_in.variables[var].units.encode('UTF8')
+        # copy attributes
+        input_var = nc_in.variables[var]
+        for key in input_var.ncattrs():
+            if key in ['_FillValue']:
+                continue
+            tmp.setncattr(key, getattr(input_var, key))
         
         logger.info(f"Created new empty variable: {str_encode(var)} [{tmp.units}]")
     
