@@ -425,12 +425,9 @@ class ERA5scale(GenericScale):
         lw_grid  = self.getValues(self.nc_sf, 'strd', ni) / self.interval_in  # [w m-2 s-1]
         rh_grid = relhu_approx_lawrence(t_grid, dewp_grid)
 
-        if 'sky_view' in self.stations.columns:
-            svf = self.stations['sky_view'].values
-        else:
-            svf = np.ones_like(self.stations['longitude_dd'].values)
-
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+        
+        svf = self.get_sky_view()
 
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             data = lw_sub[:, n] * svf[n]
