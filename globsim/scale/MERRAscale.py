@@ -393,6 +393,34 @@ class MERRAscale(GenericScale):
                                                              time_in * 3600,
                                                              values[:, n])
 
+    def LW_Wm2_topo(self):
+        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
+        # add variable to ncdf file
+        vn = 'LW_topo'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected thermal radiation downwards ERA-5'
+        var.standard_name = 'surface_downwelling_longwave_flux'
+        var.units     = 'W m-2'
+
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        """ I'm cutting corners here by repeating variables with longer timesteps. This should be improved [NB]"""
+        t_sub = np.repeat(self.nc_pl['T'][:], 6, axis=0)  # [K]
+        rh_sub = np.repeat(self.nc_pl['RH'][:], 6, axis=0) * 100  # [%]
+        t_grid = self.nc_sa['T2M'][:]  # [K]
+        dewp_grid = self.nc_sf['T2MDEW'][:]  # [K]
+        lw_grid  = self.nc_sf["LWGDN"]  # [w m-2 s-1]
+        rh_grid = relhu_approx_lawrence(t_grid, dewp_grid)
+
+        lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+        
+        svf = self.get_sky_view()
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            data = lw_sub[:, n] * svf[n]
+            f = interp1d(time_in * 3600, data, kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) 
+
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
