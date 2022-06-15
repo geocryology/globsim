@@ -94,18 +94,20 @@
 
 from __future__        import print_function
 
+import logging
 import netCDF4 as nc
 import numpy as np
+import pytz
 import warnings
-import logging
 
 from os import path, makedirs
 from math import atan2, pi
+from pysolar.solar import get_azimuth_fast
 from scipy.interpolate import interp1d
 
-from globsim.common_utils import str_encode, series_interpolate
-from globsim.meteorology import LW_downward, relhu_approx_lawrence
-from globsim.scale.toposcale import lw_down_toposcale
+from globsim.common_utils import series_interpolate
+from globsim.meteorology import relhu_approx_lawrence
+from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
@@ -138,6 +140,7 @@ class MERRAscale(GenericScale):
         self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
+        self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
 
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +
@@ -177,7 +180,7 @@ class MERRAscale(GenericScale):
         names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))
 
         # create space in the netcdf
-        nchar        = self.rg.createDimension('name_strlen', 32)
+        _        = self.rg.createDimension('name_strlen', 32)
         st           = self.rg.createVariable('station_name', "S1",
                                               ('station', 'name_strlen'))
         st.standard_name = 'platform_name'
@@ -372,6 +375,69 @@ class MERRAscale(GenericScale):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n])
+
+    def SW_Wm2_topo(self, ni=10):
+        """
+        Short-wave downwelling radiation corrected using a modified version of TOPOscale.
+        Partitions into direct and diffuse
+        """
+
+        # add variable to ncdf file
+        vn_diff = 'SW_topo_diffuse'  # variable name
+        var           = self.rg.createVariable(vn_diff,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected diffuse solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_diffuse_downwelling_shortwave_flux_in_air'
+
+        vn_dir = 'SW_topo_direct'  # variable name
+        var           = self.rg.createVariable(vn_dir,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected direct solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_direct_downwelling_shortwave_flux_in_air'
+        
+        # interpolate station by station
+        nc_time = self.nc_sf.variables['time']
+        py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
+        py_time = np.array([pytz.utc.localize(t) for t in py_time])
+        lat = self.nc_pl['latitude'][:]
+        lon = self.nc_pl['longitude'][:]
+        sw = self.nc_sf['SWGDN'][:]  # [W m-2]
+        grid_elev = self.nc_sc["PHIS"][0, :] / 9.80665  # [m]
+        station_elev = self.nc_pl["height"][:]  # [m]
+
+        svf = self.get_sky_view()
+        slope = self.get_slope()
+        aspect = self.get_aspect()
+
+        interpolation_time = nc_time[:].astype(np.int64)
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            zenith = solar_zenith(lat=lat[n], lon=lon[n], time=py_time)
+            
+            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
+                                                               grid_sw=sw[:,n],
+                                                               lat=np.ones_like(sw[:,n]) * lat[n],
+                                                               lon=np.ones_like(sw[:,n]) * lon[n],
+                                                               time=py_time,
+                                                               grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
+                                                               sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
+
+            diffuse = diffuse * svf[n]  # apply sky-view factor
+
+            if not np.all(slope == 0):
+                azimuth = get_azimuth_fast(lat[n], lon[n], py_time)
+                cos_i_sub = illumination_angle(zenith, azimuth, slope[n], aspect[n])
+                cos_i_grid = np.cos(np.radians(zenith))
+                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
+                
+                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
+                corrected_direct *= sensible_values_mask
+
+            f = interp1d(interpolation_time * 3600, corrected_direct, kind='linear')
+            self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
+
+            f = interp1d(interpolation_time * 3600, diffuse, kind='linear')
+            self.rg.variables[vn_diff][:, n] = f(self.times_out_nc)
 
     def LW_Wm2_sur(self):
         """
