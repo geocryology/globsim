@@ -104,7 +104,8 @@ from math import atan2, pi
 from scipy.interpolate import interp1d
 
 from globsim.common_utils import str_encode, series_interpolate
-from globsim.meteorology import LW_downward
+from globsim.meteorology import LW_downward, relhu_approx_lawrence
+from globsim.scale.toposcale import lw_down_toposcale
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
@@ -190,6 +191,8 @@ class MERRAscale(GenericScale):
             if hasattr(self, kernel_name):
                 print(kernel_name)
                 getattr(self, kernel_name)()
+            else:
+                logger.error(f"Missing kernel {kernel_name}")
 
         # self.conv_geotop()
 
@@ -258,15 +261,40 @@ class MERRAscale(GenericScale):
                                                              time_in * 3600,
                                                              values[:, n] - 273.15)
 
-    def RH_per_sur(self):
+    def RH_per_pl(self):
         """
-        Relative Humdity derived from surface data, exclusively.Clipped to
-        range [0.1,99.9]. 
+        Relative Humdity derived from pressure level data, exclusively.Clipped to
+        range [0.1,99.9].
         """
 
         # temporary variable,  interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
         values = self.nc_pl.variables['RH'][:]
+
+        # add variable to ncdf file
+        vn = 'RH_pl'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            rh = series_interpolate(self.times_out_nc, time_in * 3600,
+                                    values[:, n])
+            rh *= 100  # Convert to % 
+            self.rg.variables[vn][:, n] = rh
+
+    def RH_per_sur(self):
+        """
+        Relative Humdity derived from surface data, exclusively.Clipped to
+        range [0.1,99.9].
+        """
+
+        # temporary variable,  interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        dewp = self.nc_sf.variables['T2MDEW'][:]
+        t = self.nc_sa.variables['T2M'][:]
+        relhu = relhu_approx_lawrence(t, dewp)
 
         # add variable to ncdf file
         vn = 'RH_sur'  # variable name
@@ -277,9 +305,8 @@ class MERRAscale(GenericScale):
 
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh = series_interpolate(self.times_out_nc, time_in * 3600,
-                                    values[:, n])
-            rh *= 100  # Convert to % 
-            self.rg.variables[vn][:, n] =  rh
+                                    relhu[:, n])
+            self.rg.variables[vn][:, n] = rh
 
     def WIND_sur(self):
         """
@@ -430,7 +457,7 @@ class MERRAscale(GenericScale):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n])
-
+'''
     def LW_Wm2_topo(self):
         """
         Long-wave radiation downwards [W/m2]
@@ -454,3 +481,5 @@ class MERRAscale(GenericScale):
                                  N[n])
 
                 self.rg.variables[vn][i, n] = LW
+
+'''
