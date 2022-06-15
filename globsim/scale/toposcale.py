@@ -4,6 +4,8 @@ from pysolar import solar
 import numpy as np
 import warnings
 
+from typing import Optional
+
 
 def emissivity_all_sky(lw: "Union[float, np.ndarray]",
                        t: "Union[float, np.ndarray]") -> "Union[float, np.ndarray]":
@@ -79,7 +81,7 @@ def sw_down_diffuse_toposcale(sw_down_sur, v_d):
     return sw_down_sur * v_d
 
 
-def solar_zenith(lat, lon, time):
+def solar_zenith(lat, lon, time, fast=True):
     """ 
     lat : float
         latitude
@@ -92,17 +94,18 @@ def solar_zenith(lat, lon, time):
     -------
     solar_zenith(52, -117, datetime.datetime(year=2020, month=5, day=10, hour=18, tzinfo=datetime.timezone.utc))
     """
+    f = solar.get_altitude_fast if fast else solar.get_altitude
+    
     lat = np.atleast_1d(lat)
     lon = np.atleast_1d(lon)
     time = np.atleast_1d(time)
 
-    if len(lat) == len(lon) == 1:
-        solar_elev = solar.get_altitude(lat[0], lon[0], time[0])
-    else:
-        args = zip(lat, lon, time)
-        solar_elev = np.array([solar.get_altitude(alat, alon, atime) for alat, alon, atime in args])
-    
+    solar_elev = f(lat, lon, time)  # about 5 times faster than get_altitude
+
     zenith = 90 - solar_elev
+
+    zenith = np.atleast_1d(zenith)
+    zenith = np.where(zenith > 90, 90, zenith)
     
     return zenith
 
@@ -116,12 +119,13 @@ def delta_m(delta_z, zenith_angle):
     return d_m
 
 
-def broadband_attenuation(sw_d, sw_toa, m):
+def broadband_attenuation(sw_d, toa, m):
     """ Based on eq(5) in Fiddes and Gruber """
     # if zenith_angle > 70:
     #    warnings.warn(f"Calculated zenith angle of {zenith_angle} is large. Beer-Lambert approximation [m = 1 / cos(zenith)] may not be valid.")
-    
-    k = -np.log(sw_d / sw_toa) / m
+    k = np.empty_like(sw_d, dtype='float64')
+    k[toa == 0] = np.nan  # should this be something else?
+    k[toa != 0] = -np.log(sw_d[toa != 0] / toa[toa != 0]) / m[toa != 0]
     
     return k
 
@@ -167,16 +171,44 @@ def clearness_index(sw, sw_toa):
 
 
 def illumination_angle(zenith_angle, solar_azimuth, slope_angle, aspect):
-    """ Eq(7) """
+    """ Eq(7) all angles in degrees """
     sin = np.sin
     cos = np.cos
     θz = np.radians(zenith_angle)
     φ0 = np.radians(solar_azimuth)
     S = np.radians(slope_angle)
     A = np.radians(aspect)
-    i_sub = np.arccos(cos(θz) * cos(S) + sin(θz) * sin(S) * cos(φ0 - A))
+    cos_i_sub = cos(θz) * cos(S) + sin(θz) * sin(S) * cos(φ0 - A)
     
-    return np.degrees(i_sub)
+    return cos_i_sub
+
+
+def shading_corrected_sw_direct(sw_dir: "np.ndarray",
+                                cos_i_sub: "np.ndarray",
+                                cos_i_grid: "np.ndarray",
+                                horizon_mask: "Optional[np.ndarray]" = None) -> "np.ndarray":
+    """ Eq (9) Fiddes & Gruber
+    input arrays must have the same shape (assumed t-by-s where t is time-steps and s is number of stations)
+    cos_i_grid can be approximated by solar zenith angle cos(theta_z)
+
+    sw_dir : ndarray
+    cos_i_sub : ndarray
+    horizon_mask : ndarray
+        0 for shaded, 1 for clear.  For each station and time step
+
+    """
+    
+    assert(sw_dir.shape == sw_dir.shape == cos_i_sub.shape == cos_i_grid.shape)
+    
+    self_shade_mask = np.where(cos_i_sub < 0, 0, 1)
+    night_mask = np.where(np.degrees(np.arccos(cos_i_grid)) >= 90, 0, 1)  # Avoids overflow errors w/ v. small sw values
+
+    if horizon_mask is None:
+        horizon_mask = np.ones_like(self_shade_mask, dtype='int32')
+
+    sw_dir_sub = sw_dir * (cos_i_sub /cos_i_grid) * self_shade_mask * night_mask * horizon_mask
+
+    return sw_dir_sub
 
 
 def sw_partition(sw, sw_toa):
@@ -275,31 +307,36 @@ def local_condition_airmass(mr, p):
     return ma
 
 
-def elevation_corrected_sw(grid_sw, lat, lon, time, grid_elevation, sub_elevation):
+def elevation_corrected_sw(zenith, grid_sw, lat, lon, time, grid_elevation, sub_elevation):
     grid_pressure = pressure_from_elevation(grid_elevation)
     sub_pressure = pressure_from_elevation(sub_elevation)
 
     # atmospheric properties
-    zenith = solar_zenith(lat=lat, lon=lon, time=time)
-    zenith = np.atleast_1d(zenith)
-    zenith[zenith > 90] = 90
-
-    toa = sw_toa(zenith=zenith)
+    if zenith is None:
+        zenith = solar_zenith(lat=lat, lon=lon, time=time)
     
+    toa = sw_toa(zenith=zenith)
+   
     if (toa < grid_sw).any():
-        warnings.warn("Calculated top-of-atmosphere radiation is less than grid-level radiation")
+        warnings.warn("Calculated top-of-atmosphere radiation is less than grid-level radiation "
+                      f"(max difference = {(toa-grid_sw).min()} W m2). This could be because "
+                      "grid-level radiation is the average of an accumulation over an interval but TOA is calculated instantaneously "
+                      "at either the beginning or end of the interval.")
+        """ try averaging out the TOA """
+        toa[toa < grid_sw] = grid_sw[toa < grid_sw]  # a workaround: just bump up the TOA a bit
 
     mr = relative_optical_airmass(zenith_angle=zenith)
-    
+
     # grid
     grid_local_airmass = local_condition_airmass(mr=mr, p=grid_pressure)
     # kt = clearness_index(grid_sw, toa)
     diffuse, direct = sw_partition(grid_sw, toa)
-    k = broadband_attenuation(sw_d=grid_sw * direct, sw_toa=toa, m=grid_local_airmass)
+
+    k = broadband_attenuation(sw_d=grid_sw * direct,toa=toa, m=grid_local_airmass)
     
     # subgrid site
     sub_local_airmass = local_condition_airmass(mr=mr, p=sub_pressure)
-    sw_dir_sub = beer_lambert(toa, k, sub_local_airmass)
+    sw_dir_sub = np.where(toa == 0, 0, beer_lambert(toa, k, sub_local_airmass))
     # print(f"grid p {grid_pressure} \nsub_pressure {sub_pressure}\nzenith {zenith}\ntoa {toa}\nmr {mr}\nk {k}\ngrid_local = {grid_local_airmass}\nsub local {sub_local_airmass}")
 
     diffuse = grid_sw * diffuse

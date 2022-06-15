@@ -29,11 +29,12 @@ import pytz
 from math import atan2, pi
 from scipy.interpolate import interp1d
 from pathlib import Path
+from pysolar.solar import get_azimuth_fast
 
 from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg, relhu_approx_lawrence
 from globsim.nc_elements import new_scaled_netcdf
-from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa
+from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale
 
 urllib3.disable_warnings()
@@ -362,27 +363,41 @@ class ERA5scale(GenericScale):
         # interpolate station by station
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
-        py_time = [pytz.utc.localize(t) for t in py_time]
+        py_time = np.array([pytz.utc.localize(t) for t in py_time])
         lat = self.getValues(self.nc_pl, 'latitude', ni)
         lon = self.getValues(self.nc_pl, 'longitude', ni)
         sw = self.getValues(self.nc_sf, 'ssrd', ni) / self.interval_in  # [J m-2] --> [W m-2]
         grid_elev = self.getValues(self.nc_to, 'z', ni)[0,:] / 9.80665  # z has 2 dimensions from the scaling step
         station_elev = self.getValues(self.nc_pl, 'height', ni)
-        
+
         svf = self.get_sky_view()
+        slope = self.get_slope()
+        aspect = self.get_aspect()
 
-        #import pdb;pdb.set_trace()
+
         interpolation_time = nc_time[:].astype(np.int64)
+        
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-
-            diffuse, corrected_direct = elevation_corrected_sw(grid_sw=sw[:,n],
-                                                      lat=np.ones_like(sw[:,n]) * lat[n],
-                                                      lon=np.ones_like(sw[:,n]) * lon[n],
-                                                      time=py_time,
-                                                      grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
-                                                      sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
+            zenith = solar_zenith(lat=lat[n], lon=lon[n], time=py_time)
+    
+            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
+                                                               grid_sw=sw[:,n],
+                                                               lat=np.ones_like(sw[:,n]) * lat[n],
+                                                               lon=np.ones_like(sw[:,n]) * lon[n],
+                                                               time=py_time,
+                                                               grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
+                                                               sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
 
             diffuse = diffuse * svf[n]  # apply sky-view factor
+
+            if not np.all(slope == 0):
+                azimuth = get_azimuth_fast(lat[n], lon[n], py_time)
+                cos_i_sub = illumination_angle(zenith, azimuth, slope[n], aspect[n])
+                cos_i_grid = np.cos(np.radians(zenith))
+                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
+                
+                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
+                corrected_direct *= sensible_values_mask
 
             f = interp1d(interpolation_time * 3600, corrected_direct, kind='linear')
             self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
