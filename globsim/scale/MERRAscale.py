@@ -376,7 +376,7 @@ class MERRAscale(GenericScale):
                                                              time_in * 3600,
                                                              values[:, n])
 
-    def SW_Wm2_topo(self, ni=10):
+    def SW_Wm2_topo(self):
         """
         Short-wave downwelling radiation corrected using a modified version of TOPOscale.
         Partitions into direct and diffuse
