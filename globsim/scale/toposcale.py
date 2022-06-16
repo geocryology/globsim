@@ -123,9 +123,11 @@ def broadband_attenuation(sw_d, toa, m):
     """ Based on eq(5) in Fiddes and Gruber """
     # if zenith_angle > 70:
     #    warnings.warn(f"Calculated zenith angle of {zenith_angle} is large. Beer-Lambert approximation [m = 1 / cos(zenith)] may not be valid.")
+
     k = np.empty_like(sw_d, dtype='float64')
     k[toa == 0] = np.nan  # should this be something else?
-    k[toa != 0] = -np.log(sw_d[toa != 0] / toa[toa != 0]) / m[toa != 0]
+    inner = sw_d[toa != 0] / toa[toa != 0]
+    k[toa != 0] = -np.log(np.where(inner > 1e-10, inner, np.nan)) / m[toa != 0]
     
     return k
 
