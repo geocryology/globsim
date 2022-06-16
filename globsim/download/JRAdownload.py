@@ -5,6 +5,7 @@ import http.cookiejar
 import json
 import netCDF4 as nc
 import numpy as np
+import re
 import sys
 import tarfile
 import time
@@ -461,6 +462,31 @@ class JRAsa(object):
         return self.dictionary
 
 
+class JRAto:
+
+    def __init__(self, area, rda):
+        self.area=area
+        self.param=["Geopotential"]
+    
+    def getDictionary(self):
+        self.dictionary = {
+                'dataset': 'ds628.0',
+                'date': "198101010000/to/198101010000",
+                'param': 'Geopotential',
+                'level': 'Ground or water surface:0',
+                'oformat': 'netCDF',
+                'nlat': str(self.area['north']),
+                'slat': str(self.area['south']),
+                'wlon': str(self.area['west']),
+                'elon': str(self.area['east']),
+                'product': 'Analysis',
+                'compression': 'NN',
+                'gridproj': 'latLon',
+                'griddef': '288:145:90N:0E:90S:1.25W:1.25:1.25'}
+
+        return self.dictionary
+
+
 class JRAsf(object):
 
     def __init__(self, date, area, variables, rda):
@@ -529,6 +555,7 @@ class JRAdownload(GenericDownload):
     # TODO: add credential
     def __init__(self, pfile):
         super().__init__(pfile)
+        self.retry_delay_min = 1
         par = self.par
         self._set_input_directory("jra55")
 
@@ -557,6 +584,7 @@ class JRAdownload(GenericDownload):
                 'g0_lon_2':              'longitude',
                 'g0_lat_2':              'latitude',
                 'g0_lon_3':              'longitude',
+                'GP_GDS0_SFC':           'Geopotential',
                 'HGT_GDS0_ISBL':         'Geopotential height',
                 'RH_GDS0_ISBL':          'Relative humidity',
                 'VGRD_GDS0_ISBL':        'v-component of wind',
@@ -600,6 +628,10 @@ class JRAdownload(GenericDownload):
             dataLev = 'sa'
         elif lev == 'phy2m125':
             dataLev = 'sf'
+        elif lev == 'gp':
+            dataLev = 'to'
+        else:
+            raise KeyError(f"File name unknown for data {dsi}")
 
         return dataLev
 
@@ -610,8 +642,12 @@ class JRAdownload(GenericDownload):
         varlist = []
         for f in flist:
             fname = path.basename(f)
-            var = fname.split('_')[2]
-            varlist.append(var.split('.')[0])
+            try:
+                var = fname.split('_')[2]
+                varlist.append(var.split('.')[0])
+            except IndexError:  # one variable (i.e. 'gp' geopotential)
+                var = re.search(r"\.\d{3}_([a-zA-Z]*)\.", fname).group(1)
+                varlist.append(var)
 
         variables = np.unique(varlist)
 
@@ -641,7 +677,7 @@ class JRAdownload(GenericDownload):
         if dataLev == 'pl':
             self.lonName = 'g0_lon_3'
             self.latName = 'g0_lat_2'
-        elif dataLev in ['sa', 'sf']:
+        elif dataLev in ['sa', 'sf', 'to']:
             self.lonName = 'g0_lon_2'
             self.latName = 'g0_lat_1'
 
@@ -705,7 +741,7 @@ class JRAdownload(GenericDownload):
             for n, var in enumerate(ncf.variables.keys()):
                 if variables_skip(self.ncfVar[var]):
                     continue
-                logger.info("Creating variable: ", var)
+                logger.info(f"Creating variable: {var}")
                 if dataLev == 'pl':
                     vari = ncn.createVariable(self.ncfVar[var], 'f4',
                                               ('time', 'level',
@@ -757,10 +793,11 @@ class JRAdownload(GenericDownload):
                        self.variables, rda)
             sa = JRAsa(date_i, self.area, self.variables, rda)
             sf = JRAsf(date_i, self.area, self.variables, rda)
+            to = JRAto(self.area, rda)
 
             # get download data level
             JRAli = []
-            for jrai in [pl, sa, sf]:
+            for jrai in [to, sa, sf, pl]:
                 if len(jrai.param) > 0:
                     JRAli.append(jrai)
 
@@ -785,7 +822,11 @@ class JRAdownload(GenericDownload):
                     rda.download(self.directory, ds)
                     self.makeNCF(ds)
                 doneI += dsIndex
-            time.sleep(60 * 10)  # check available data every 10 mins
+
+            if self.retry_delay_min < 10:
+                self.retry_delay_min *= 1.6
+
+            time.sleep(60 * self.retry_delay_min)  # check available data every 10 mins
 
         logger.info('''Download Completed''')
 
@@ -800,4 +841,3 @@ class JRAdownload(GenericDownload):
         self.requestDownload(rda, dsN)  # download dataset
 
         logger.info('''JRA-55 Complete''')
-
