@@ -46,11 +46,11 @@ def lw_down_toposcale(t_sub: "Union[float, np.ndarray]",
     t_sub : float
         temperature [K] at subgrid level
     rh_sub : float
-        relative humidity [1] (unitless) at subgrid level
+        relative humidity [%] at subgrid level
     t_sur : float
         surface temperature [K] (GRID temperature in Fiddes & Gruber)
     rh_sur : float
-        relative humidity [1] (unitless) at surface level (GRID level)
+        relative humidity [%] at surface level (GRID level)
     lw_sur : float
         total downwelling LW radiation [W m-2] at surface level (GRID level)
     v_d : float

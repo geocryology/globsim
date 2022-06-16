@@ -70,10 +70,17 @@ def emissivity_clear_sky(RH,T):
     '''
     clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)W
     https://doi.org/10.5194/gmd-7-387-2014
-
-    pv: water vapour pressure [1] (unitless)
-
-    T: air temperature (kelvin)
+   
+    Parameters
+    ----------
+    RH : float or array
+        water vapour pressure [%]
+    T : float or array
+        air temperature (kelvin)
+    
+    Returns 
+    -------
+    float or array : clear sky emissivity [1] (unitless)
     '''
     pv = water_vap_pressure(RH, T)
     x1 = 0.43
