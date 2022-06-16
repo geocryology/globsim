@@ -10,6 +10,7 @@ from scipy.interpolate import interp1d
 
 from globsim.common_utils import str_encode, series_interpolate
 from globsim.meteorology import LW_downward
+from globsim.scale.toposcale import lw_down_toposcale
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
@@ -264,6 +265,33 @@ class JRAscale(GenericScale):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
 
+    def LW_Wm2_topo(self):
+        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
+        # add variable to ncdf file
+        vn = 'LW_topo'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected thermal radiation downwards'
+        var.standard_name = 'surface_downwelling_longwave_flux'
+        var.units     = 'W m-2'
+
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        
+        t_sub = self.nc_pl['Temperature'][:]  # [K]
+        rh_sub = self.nc_pl['Relative humidity'][:]  # [%]
+        t_grid = self.nc_sa['Temperature'][:]  # [K]
+        rh_grid = self.nc_sa['Relative humidity'][:]  # [%]
+        lw_grid  = self.nc_sf["Downward longwave radiation flux"]  # [w m-2 s-1]
+
+        lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+        
+        svf = self.get_sky_view()
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            values = lw_sub[:, n] * svf[n]
+            f = interp1d(time_in, values, kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)
+
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
@@ -284,28 +312,6 @@ class JRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
-
-    def LW_Wm2_topo(self):
-        """
-        Long-wave radiation downwards [W/m2]
-        https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
-        """
-        # get sky view, and interpolate in time
-        N = np.asarray(list(self.stations['sky_view'][:]))
-
-        # add variable to ncdf file
-        vn = 'LW_topo'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Incoming long-wave radiation {} surface only'.format(self.NAME)
-        var.units     = str_encode('W m-2')
-        var.standard_name = 'surface_downwelling_longwave_flux'
-
-        # compute
-        for i in range(0, len(self.rg.variables['RH_sur'][:])):
-            for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_sur'][i, n],
-                                 self.rg.variables['AIRT_sur'][i, n] + 273.15, N[n])
-                self.rg.variables[vn][i, n] = LW
 
     def SH_kgkg_sur(self):
         '''
