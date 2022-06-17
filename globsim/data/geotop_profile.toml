@@ -1,0 +1,39 @@
+[IPrec]
+input = "PREC_sur"
+scale_factor = 3600
+offset = 0
+
+[WindVelocity]
+input = "WSPD_sur"
+scale_factor= 1
+offset= 0
+
+[WindDirection]
+input = "WDIR_sur"
+scale_factor = 1
+offset = 0
+
+[RH]
+input = "RH_sur"
+scale_factor = 0.01
+offset = 0
+
+[AirTemp]
+input = "AIRT_sur"
+scale_factor= 1
+offset = 0
+
+[AirPress]
+input = "PRESS_pl"
+scale_factor = 1e-5
+offset = 0
+
+[SWglobal]
+input = "SW_sur"
+scale_factor = 1
+offset = 0
+
+[LWin]
+input = "LW_sur"
+scale_factor = 1
+offset = 0

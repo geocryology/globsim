@@ -3,10 +3,12 @@ Export functions to convert globsim output to other file types
 """
 from os import path
 
-import pandas as pd
+import logging
 import netCDF4 as nc
 import numpy as np
-import logging
+import pandas as pd
+import pkg_resources
+import tomlkit
 
 from globsim.common_utils import variables_skip
 
@@ -204,66 +206,48 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
     ncd: netcdf dataset
     site: site name or index
     """
+    # Open geotop profile
+    filepath = pkg_resources.resource_filename("globsim", "data/geotop_profile.toml")
+    with open(filepath) as p:
+        profile = tomlkit.loads(p.read())
+        logger.info(f"Loaded geotop export profile from {filepath}")
+    
     # open netcdf if string provided
     if type(ncd) is str:
-        n = nc.Dataset(ncd)
+        ncd = nc.Dataset(ncd)
     
-    logger.debug(f"Reading file {n.filepath}")
+    logger.debug(f"Read file {ncd.filepath}")
     
     # find number of stations
-    nstn = len(n['station'][:])
+    nstn = len(ncd['station'][:])
 
     # get date / time column
-    time = nc.num2date(n['time'][:],
-                       units=n['time'].units,
-                       calendar=n['time'].calendar)
+    time = nc.num2date(ncd['time'][:],
+                       units=ncd['time'].units,
+                       calendar=ncd['time'].calendar)
 
     time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
     time = pd.DataFrame(time)
 
-    # get precip
-    PREC = "PREC_sur"
-    PREC = n[PREC][:]  * 3600  # Convert from mm/s to mm/hr
+    output_dict = {}
 
-    # get wind velocity
-    WSPD = "WSPD_sur"
-    WSPD = n[WSPD][:]
-
-    # get wind direction
-    WDIR = "WDIR_sur"
-    WDIR = n[WDIR][:]
-
-    # get windx and windy
-
-    # get RH
-    RH = "RH_sur"
-    RH = n[RH][:]
-    RH *= 0.01  # Convert RH to dimensionless fraction for geotop
-
-    # get air temp
-    AIRT = "AIRT_sur"
-    AIRT = n[AIRT][:]
-
-    # get dew temp (missing?)
-
-    # get air pressure
-    PRESS = "PRESS_pl"
-    PRESS = n[PRESS][:]
-    PRESS *= 1e-5      # convert to bar for geotop
-
-    # get shortwave solar global (direct / diffuse missing?)
-    SW = "SW_sur"
-    SW = n[SW][:]
-
-    # get longwave incoming
-    LW = "LW_sur"
-    LW = n[LW][:]
+    for out_var, cfg in profile.items():
+        var_name = cfg.get("input")
+        scale_factor = cfg.get("scale_factor", 1)
+        offset = cfg.get("offset", 0)
+        
+        try:
+            arr = ncd[var_name][:] * scale_factor + offset
+            output_dict[out_var] = arr
+        
+        except IndexError:
+            logger.error(f"Scaled netCDF file has no variable '{var_name}'")
 
     # get site names
-    NAMES = nc.chartostring(n['station_name'][:])
+    NAMES = nc.chartostring(ncd['station_name'][:])
 
     # combine data variables into array
-    data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
+    data = np.stack([arr for arr in output_dict.values()])
 
     # write output files
     files = []
@@ -272,8 +256,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
             # massage data into the right shape
             out_df = pd.DataFrame(np.transpose(data[:, :, i]))
             out_df = pd.concat([time, out_df], axis=1)
-            out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
-                              "AirTemp", "AirPress", "SWglobal", "LWin"]
+            out_df.columns = ["Date"] + [name for name in output_dict.keys()]
 
             # get station name
             st_name = NAMES[i]
