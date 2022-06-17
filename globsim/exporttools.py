@@ -52,62 +52,6 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     return df
 
 
-def globsim2CLASS(ncdf_globsim, met_class, station_nr):
-    """
-    Convert globsim scaled netCDF to CLASS-CTEM .met file.
-
-    ncdf_globsim: full path to a globsim scaled netCDF (by station)
-
-    met_class: full path to the CLASS-CTEM met file to write.
-
-    station_nr: station_number, as given in the stations .csv file to identify
-                the station.
-
-    The columns in CLASS-CTEM MET files are:
-    1)  Hour
-    2)  Minute
-    3)  Day of year
-    4)  Year YYYY
-    5)  Shortwave Radiation (W/m2)
-    6)  Longwave Radiation (W/m2)
-    7)  Precip (mm/s)
-    8)  Temp.(°C)
-    9)  Specific Humidity (Kg/Kg)
-    10) Wind Speed (m/s)
-    11) Pressure (Pa)
-
-    """
-
-    # columns to export
-    columns = ['time', 'SW_sur', 'LW_sur', 'PREC_sur',
-               'AIRT_sur', 'SH_sur', 'WSPD_sur',
-               'AIRT_pl']
-
-    # output ASCII formatting
-    formatters = {"time": "  {:%H %M  %j  %Y}".format,
-                  "SW_ERA_Wm2_sur": "{:8.2f}".format,
-                  "LW_ERA_Wm2_sur": "{:8.2f}".format,
-                  "PREC_ERA_mmsec_sur": "{:13.4E}".format,
-                  "AIRT_ERA_C_sur": "{:8.2f}".format,
-                  "SH_ERA_kgkg_sur": "{:11.3E}".format,
-                  "WSPD_ERA_ms_sur": "{:7.2f}".format,
-                  "AIRT_PRESS_Pa_pl": "{:11.2f}".format}
-
-    # get data
-    df = globsimScaled2Pandas(ncdf_globsim, station_nr)
-
-    # convert precipitation
-    df["PREC_ERA_mmsec_sur"] = df["PREC_ERA_mm_sur"] / 1800.0
-
-    # write FORTRAN formatted ASCII file
-    with open(met_class, 'w') as f:
-        f.write(' ')
-        f.write(df.to_string(columns=columns,
-                formatters=formatters,
-                header=False, index=False))
-    f.close()
-
-
 def globsim_to_classic_met(ncd, out_dir, site=None):
     """
     @args
