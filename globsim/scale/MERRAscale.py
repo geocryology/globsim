@@ -94,17 +94,20 @@
 
 from __future__        import print_function
 
+import logging
 import netCDF4 as nc
 import numpy as np
+import pytz
 import warnings
-import logging
 
 from os import path, makedirs
 from math import atan2, pi
+from pysolar.solar import get_azimuth_fast
 from scipy.interpolate import interp1d
 
-from globsim.common_utils import str_encode, series_interpolate
-from globsim.meteorology import LW_downward
+from globsim.common_utils import series_interpolate
+from globsim.meteorology import relhu_approx_lawrence
+from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
@@ -137,6 +140,7 @@ class MERRAscale(GenericScale):
         self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
+        self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
 
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +
@@ -176,7 +180,7 @@ class MERRAscale(GenericScale):
         names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))
 
         # create space in the netcdf
-        nchar        = self.rg.createDimension('name_strlen', 32)
+        _        = self.rg.createDimension('name_strlen', 32)
         st           = self.rg.createVariable('station_name', "S1",
                                               ('station', 'name_strlen'))
         st.standard_name = 'platform_name'
@@ -190,6 +194,8 @@ class MERRAscale(GenericScale):
             if hasattr(self, kernel_name):
                 print(kernel_name)
                 getattr(self, kernel_name)()
+            else:
+                logger.error(f"Missing kernel {kernel_name}")
 
         # self.conv_geotop()
 
@@ -258,15 +264,40 @@ class MERRAscale(GenericScale):
                                                              time_in * 3600,
                                                              values[:, n] - 273.15)
 
-    def RH_per_sur(self):
+    def RH_per_pl(self):
         """
-        Relative Humdity derived from surface data, exclusively.Clipped to
-        range [0.1,99.9]. 
+        Relative Humdity derived from pressure level data, exclusively.Clipped to
+        range [0.1,99.9].
         """
 
         # temporary variable,  interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
         values = self.nc_pl.variables['RH'][:]
+
+        # add variable to ncdf file
+        vn = 'RH_pl'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            rh = series_interpolate(self.times_out_nc, time_in * 3600,
+                                    values[:, n])
+            rh *= 100  # Convert to % 
+            self.rg.variables[vn][:, n] = rh
+
+    def RH_per_sur(self):
+        """
+        Relative Humdity derived from surface data, exclusively.Clipped to
+        range [0.1,99.9].
+        """
+
+        # temporary variable,  interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        dewp = self.nc_sf.variables['T2MDEW'][:]
+        t = self.nc_sa.variables['T2M'][:]
+        relhu = relhu_approx_lawrence(t, dewp)
 
         # add variable to ncdf file
         vn = 'RH_sur'  # variable name
@@ -277,9 +308,8 @@ class MERRAscale(GenericScale):
 
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh = series_interpolate(self.times_out_nc, time_in * 3600,
-                                    values[:, n])
-            rh *= 100  # Convert to % 
-            self.rg.variables[vn][:, n] =  rh
+                                    relhu[:, n])
+            self.rg.variables[vn][:, n] = rh
 
     def WIND_sur(self):
         """
@@ -346,6 +376,69 @@ class MERRAscale(GenericScale):
                                                              time_in * 3600,
                                                              values[:, n])
 
+    def SW_Wm2_topo(self):
+        """
+        Short-wave downwelling radiation corrected using a modified version of TOPOscale.
+        Partitions into direct and diffuse
+        """
+
+        # add variable to ncdf file
+        vn_diff = 'SW_topo_diffuse'  # variable name
+        var           = self.rg.createVariable(vn_diff,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected diffuse solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_diffuse_downwelling_shortwave_flux_in_air'
+
+        vn_dir = 'SW_topo_direct'  # variable name
+        var           = self.rg.createVariable(vn_dir,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected direct solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_direct_downwelling_shortwave_flux_in_air'
+        
+        # interpolate station by station
+        nc_time = self.nc_sf.variables['time']
+        py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
+        py_time = np.array([pytz.utc.localize(t) for t in py_time])
+        lat = self.nc_pl['latitude'][:]
+        lon = self.nc_pl['longitude'][:]
+        sw = self.nc_sf['SWGDN'][:]  # [W m-2]
+        grid_elev = self.nc_sc["PHIS"][0, :] / 9.80665  # [m]
+        station_elev = self.nc_pl["height"][:]  # [m]
+
+        svf = self.get_sky_view()
+        slope = self.get_slope()
+        aspect = self.get_aspect()
+
+        interpolation_time = nc_time[:].astype(np.int64)
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            zenith = solar_zenith(lat=lat[n], lon=lon[n], time=py_time)
+            
+            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
+                                                               grid_sw=sw[:,n],
+                                                               lat=np.ones_like(sw[:,n]) * lat[n],
+                                                               lon=np.ones_like(sw[:,n]) * lon[n],
+                                                               time=py_time,
+                                                               grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
+                                                               sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
+
+            diffuse = diffuse * svf[n]  # apply sky-view factor
+
+            if not np.all(slope == 0):
+                azimuth = get_azimuth_fast(lat[n], lon[n], py_time)
+                cos_i_sub = illumination_angle(zenith, azimuth, slope[n], aspect[n])
+                cos_i_grid = np.cos(np.radians(zenith))
+                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
+                
+                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
+                corrected_direct *= sensible_values_mask
+
+            f = interp1d(interpolation_time * 3600, corrected_direct, kind='linear')
+            self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
+
+            f = interp1d(interpolation_time * 3600, diffuse, kind='linear')
+            self.rg.variables[vn_diff][:, n] = f(self.times_out_nc)
+
     def LW_Wm2_sur(self):
         """
         Long-wave radiation downwards derived from surface data, exclusively.
@@ -365,6 +458,34 @@ class MERRAscale(GenericScale):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n])
+
+    def LW_Wm2_topo(self):
+        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
+        # add variable to ncdf file
+        vn = 'LW_topo'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected thermal radiation downwards ERA-5'
+        var.standard_name = 'surface_downwelling_longwave_flux'
+        var.units     = 'W m-2'
+
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        """ I'm cutting corners here by repeating variables with longer timesteps. This should be improved [NB]"""
+        t_sub = np.repeat(self.nc_pl['T'][:], 6, axis=0)  # [K]
+        rh_sub = np.repeat(self.nc_pl['RH'][:], 6, axis=0) * 100  # [%]
+        t_grid = self.nc_sa['T2M'][:]  # [K]
+        dewp_grid = self.nc_sf['T2MDEW'][:]  # [K]
+        lw_grid  = self.nc_sf["LWGDN"]  # [w m-2 s-1]
+        rh_grid = relhu_approx_lawrence(t_grid, dewp_grid)
+
+        lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+        
+        svf = self.get_sky_view()
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            data = lw_sub[:, n] * svf[n]
+            f = interp1d(time_in * 3600, data, kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc) 
 
     def PREC_mm_sur(self):
         """
@@ -430,7 +551,7 @@ class MERRAscale(GenericScale):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n])
-
+'''
     def LW_Wm2_topo(self):
         """
         Long-wave radiation downwards [W/m2]
@@ -454,3 +575,5 @@ class MERRAscale(GenericScale):
                                  N[n])
 
                 self.rg.variables[vn][i, n] = LW
+
+'''

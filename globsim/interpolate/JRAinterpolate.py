@@ -109,7 +109,7 @@ class JRAinterpolate(GenericInterpolate):
         time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
 
         # detect invariant files (topography etc.)
-        invariant = True if len(time) == 1 else False
+        invariant = True if len(np.unique(time)) == 1 else False
 
         # restrict to date/time range if given
         if date is None:
@@ -130,7 +130,10 @@ class JRAinterpolate(GenericInterpolate):
             # indices
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n * self.cs + self.cs, len(time_in)) - 1
+            if invariant:
+                end = beg
+            else:
+                end = min(n * self.cs + self.cs, len(time_in)) - 1
 
             # time to make tmask for chunk
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
@@ -145,7 +148,7 @@ class JRAinterpolate(GenericInterpolate):
             tmask_chunk = (time <= end_time) * (time >= beg_time)
             if invariant:
                 # allow topography to work in same code
-                tmask_chunk = [True]
+                tmask_chunk = np.array([True])
 
             # get the interpolated variables
             dfield, variables = self.interp2D(ncfile_in, ncf_in,
@@ -277,6 +280,13 @@ class JRAinterpolate(GenericInterpolate):
         Interpolate point time series from downloaded data. Provides access to
         the more generically JRA-like interpolation functions.
         """
+        try:
+            self.JRA2station(path.join(self.input_dir,'jra55_to_*.nc'),
+                            path.join(self.output_dir,f'jra_to_{self.list_name}.nc'),
+                            self.stations, ['Geopotential'], date=None)
+        except OSError:
+            logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
+                         "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
 
         # === 2D Interpolation for Surface  Data ===
         # dictionary to translate CF Standard Names into JRA55

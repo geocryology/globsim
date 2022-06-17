@@ -16,6 +16,7 @@ Welcome to GlobSim
    Installation
    Credentials
    Operation
+   Siteslist
    Docker
    Examples
    

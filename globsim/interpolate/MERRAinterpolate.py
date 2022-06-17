@@ -147,7 +147,7 @@ class MERRAinterpolate(GenericInterpolate):
         # TODO: rm time = np.asarray(time)
 
         # detect invariant files (topography etc.)
-        invariant = True if len(nctime) == 1 else False
+        invariant = True if len(np.unique(nctime)) <= 2 else False
 
         # restrict to date/time range if given
         if date is None:
@@ -174,7 +174,10 @@ class MERRAinterpolate(GenericInterpolate):
             # indices
             beg = n * self.cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n * self.cs + self.cs, len(time_in)) - 1
+            if invariant:
+                end = beg
+            else:
+                end = min(n * self.cs + self.cs, len(time_in)) - 1
 
             # make tmask for chunk
             beg_time = time_in[beg]
@@ -208,7 +211,7 @@ class MERRAinterpolate(GenericInterpolate):
 
                 # extra treatment for pressure level files
                 if pl:
-                    lev = ncf_in.variables['level'][:]
+                    # lev = ncf_in.variables['level'][:]
                     ncf_out.variables[var][beg:end + 1, :, :] = dfield.data[:, i, :, :].transpose(1,2,0)
                 else:
                     ncf_out.variables[var][beg:end + 1, :] = dfield.data[:, i, :].transpose(1,0)
@@ -332,11 +335,15 @@ class MERRAinterpolate(GenericInterpolate):
         # 2D Interpolation for Constant Model Parameters
         # dictionary to translate CF Standard Names into MERRA
         # pressure level variable keys.
-        dummy_date = {'beg' : datetime(1992, 1, 2, 3, 0),
-                      'end' : datetime(1992, 1, 2, 4, 0)}
+        # dummy_date = {'beg' : datetime(1992, 1, 2, 3, 0),
+        #              'end' : datetime(1992, 1, 2, 4, 0)}
 
         if not path.isdir(self.output_dir):
             makedirs(self.output_dir)
+
+        self.MERRA2station(path.join(self.input_dir,'merra_sc.nc'),
+                           path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
+                           self.stations, ['PHIS','FRLAND'], date=None)
 
         # === 2D Interpolation for Surface Analysis Data ===
         # dictionary to translate CF Standard Names into MERRA2

@@ -1,0 +1,44 @@
+[IPrec]
+input = "PREC_sur"
+scale_factor = 3600
+offset = 0
+
+[WindVelocity]
+input = "WSPD_sur"
+scale_factor= 1
+offset = 0
+
+[WindDirection]
+input = "WDIR_sur"
+scale_factor = 1
+offset = 0
+
+[RH]
+input = "RH_pl"
+scale_factor = 0.01
+offset = 0
+
+[AirTemp]
+input = "AIRT_pl"
+scale_factor = 1
+offset = 0
+
+[AirPress]
+input = "PRESS_pl"
+scale_factor = 1e-5
+offset = 0
+
+[SWdirect]
+input = "SW_topo_direct"
+scale_factor = 1
+offset = 0
+
+[SWdiffuse]
+input = "SW_topo_diffuse"
+scale_factor = 1
+offset = 0
+
+[LWin]
+input = "LW_topo"
+scale_factor = 1
+offset = 0
