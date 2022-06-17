@@ -173,6 +173,24 @@ class JRAscale(GenericScale):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
 
+    def RH_per_pl(self):
+        """
+        Relative Humidity derived from pressure-level data, exclusively.
+        """
+        # add variable to ncdf file
+        vn = 'RH_pl'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'relative humidity {} pressure-level only'.format(self.NAME)
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
+
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:]
+        values  = self.nc_pl.variables['Relative humidity'][:]
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
+                                                    time_in, values[:, n])
+
     def WIND_sur(self):
         """
         Wind at 10 metre derived from surface data, exclusively.
