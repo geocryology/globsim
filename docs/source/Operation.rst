@@ -60,6 +60,7 @@ Rescaling
 ``overwrite``                     Either ``true`` or ``false``. Whether or not to overwrite the ``output_file`` if it exists.
 ``time_step``                     The desired output time step in hours
 ``kernels``                       Which processing kernels should be used. Missing or misspelled kernels will be ignored by globsim.
+``scf``                           (optional) snow correction factor, a positive real number used to manually scale the precipitation for all sites.
 =========================         ===============
 
 Example Parameter File
@@ -133,12 +134,13 @@ Here is an example of a TOML parameter file with all three sections (download, i
 
 Station list for interpolation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This is an example of a Globsim station list file. The resulting netCDF file will use the station numbers as identifiers. Use extension like this: 'my_stations.csv'::
+This is an example of a Globsim station list file. The resulting netCDF file will use the station numbers as identifiers. ::
 
-     station_number, station_name, longitude_dd, latitude_dd, elevation_m 
-     1, yellowknife_airport, -114.44234, 62.46720, 207
-     2, ekati_airport, -110.60804, 64.70591, 461
-     
+     station_number,station_name,longitude_dd,latitude_dd,elevation_m 
+     1,yellowknife_airport,-114.44234,62.46720,207
+     2, ekati_airport,-110.60804,64.70591,461
+   
+More information about the station list can be found on the :ref:`stationlist` page
      
 Project directory
 ^^^^^^^^^^^^^^^^^     
