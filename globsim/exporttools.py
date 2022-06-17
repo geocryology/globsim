@@ -144,24 +144,37 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     return files
 
 
-def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
+def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, end=None) -> "list[str]":
     """
-    @args
-    ncd: netcdf dataset
-    site: site name or index
+    Export a scaled globsim file to a GEOtop-style text file
+
+    Parameters
+    ----------
+    ncd : str or Dataset
+        netcdf dataset or path to dataset
+    site : str or int
+        site name or index
+    export_profile : str, optional
+        path to TOML file that provides configuration information. If not provided, a default configuration is used.
+
+    Returns
+    -------
+    list : list of file paths to created files
     """
     # Open geotop profile
-    filepath = pkg_resources.resource_filename("globsim", "data/geotop_profile.toml")
-    with open(filepath) as p:
+    if export_profile is None:
+        export_profile = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
+
+    with open(export_profile) as p:
         profile = tomlkit.loads(p.read())
-        logger.info(f"Loaded geotop export profile from {filepath}")
-    
+        logger.info(f"Loaded geotop export profile from {export_profile}")
+
     # open netcdf if string provided
     if type(ncd) is str:
         ncd = nc.Dataset(ncd)
-    
+
     logger.debug(f"Read file {ncd.filepath}")
-    
+
     # find number of stations
     nstn = len(ncd['station'][:])
 
