@@ -42,9 +42,10 @@ setuptools.setup(
                       'pandas',
                       'netCDF4',
                       'scipy',
-                      'pydap', 
+                      'pydap',
                       'tomlkit',
                       'ecmwf-api-client',
                       'cdsapi',
-                      'pysolar']
+                      'pysolar',
+                      'pytz']
 )
