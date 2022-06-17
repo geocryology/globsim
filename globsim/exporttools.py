@@ -3,10 +3,12 @@ Export functions to convert globsim output to other file types
 """
 from os import path
 
-import pandas as pd
+import logging
 import netCDF4 as nc
 import numpy as np
-import logging
+import pandas as pd
+import pkg_resources
+import tomlkit
 
 from globsim.common_utils import variables_skip
 
@@ -48,62 +50,6 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
         df = pd.concat([df, pd.DataFrame(data=data, columns=[var])], axis=1)
 
     return df
-
-
-def globsim2CLASS(ncdf_globsim, met_class, station_nr):
-    """
-    Convert globsim scaled netCDF to CLASS-CTEM .met file.
-
-    ncdf_globsim: full path to a globsim scaled netCDF (by station)
-
-    met_class: full path to the CLASS-CTEM met file to write.
-
-    station_nr: station_number, as given in the stations .csv file to identify
-                the station.
-
-    The columns in CLASS-CTEM MET files are:
-    1)  Hour
-    2)  Minute
-    3)  Day of year
-    4)  Year YYYY
-    5)  Shortwave Radiation (W/m2)
-    6)  Longwave Radiation (W/m2)
-    7)  Precip (mm/s)
-    8)  Temp.(°C)
-    9)  Specific Humidity (Kg/Kg)
-    10) Wind Speed (m/s)
-    11) Pressure (Pa)
-
-    """
-
-    # columns to export
-    columns = ['time', 'SW_sur', 'LW_sur', 'PREC_sur',
-               'AIRT_sur', 'SH_sur', 'WSPD_sur',
-               'AIRT_pl']
-
-    # output ASCII formatting
-    formatters = {"time": "  {:%H %M  %j  %Y}".format,
-                  "SW_ERA_Wm2_sur": "{:8.2f}".format,
-                  "LW_ERA_Wm2_sur": "{:8.2f}".format,
-                  "PREC_ERA_mmsec_sur": "{:13.4E}".format,
-                  "AIRT_ERA_C_sur": "{:8.2f}".format,
-                  "SH_ERA_kgkg_sur": "{:11.3E}".format,
-                  "WSPD_ERA_ms_sur": "{:7.2f}".format,
-                  "AIRT_PRESS_Pa_pl": "{:11.2f}".format}
-
-    # get data
-    df = globsimScaled2Pandas(ncdf_globsim, station_nr)
-
-    # convert precipitation
-    df["PREC_ERA_mmsec_sur"] = df["PREC_ERA_mm_sur"] / 1800.0
-
-    # write FORTRAN formatted ASCII file
-    with open(met_class, 'w') as f:
-        f.write(' ')
-        f.write(df.to_string(columns=columns,
-                formatters=formatters,
-                header=False, index=False))
-    f.close()
 
 
 def globsim_to_classic_met(ncd, out_dir, site=None):
@@ -198,72 +144,67 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     return files
 
 
-def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
+def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, end=None) -> "list[str]":
     """
-    @args
-    ncd: netcdf dataset
-    site: site name or index
+    Export a scaled globsim file to a GEOtop-style text file
+
+    Parameters
+    ----------
+    ncd : str or Dataset
+        netcdf dataset or path to dataset
+    site : str or int
+        site name or index
+    export_profile : str, optional
+        path to TOML file that provides configuration information. If not provided, a default configuration is used.
+
+    Returns
+    -------
+    list : list of file paths to created files
     """
+    # Open geotop profile
+    if export_profile is None:
+        export_profile = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
+
+    with open(export_profile) as p:
+        profile = tomlkit.loads(p.read())
+        logger.info(f"Loaded geotop export profile from {export_profile}")
+
     # open netcdf if string provided
     if type(ncd) is str:
-        n = nc.Dataset(ncd)
-    
-    logger.debug(f"Reading file {n.filepath}")
-    
+        ncd = nc.Dataset(ncd)
+
+    logger.debug(f"Read file {ncd.filepath}")
+
     # find number of stations
-    nstn = len(n['station'][:])
+    nstn = len(ncd['station'][:])
 
     # get date / time column
-    time = nc.num2date(n['time'][:],
-                       units=n['time'].units,
-                       calendar=n['time'].calendar)
+    time = nc.num2date(ncd['time'][:],
+                       units=ncd['time'].units,
+                       calendar=ncd['time'].calendar)
 
     time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
     time = pd.DataFrame(time)
 
-    # get precip
-    PREC = "PREC_sur"
-    PREC = n[PREC][:]  * 3600  # Convert from mm/s to mm/hr
+    output_dict = {}
 
-    # get wind velocity
-    WSPD = "WSPD_sur"
-    WSPD = n[WSPD][:]
-
-    # get wind direction
-    WDIR = "WDIR_sur"
-    WDIR = n[WDIR][:]
-
-    # get windx and windy
-
-    # get RH
-    RH = "RH_sur"
-    RH = n[RH][:]
-    RH *= 0.01  # Convert RH to dimensionless fraction for geotop
-
-    # get air temp
-    AIRT = "AIRT_sur"
-    AIRT = n[AIRT][:]
-
-    # get dew temp (missing?)
-
-    # get air pressure
-    PRESS = "PRESS_pl"
-    PRESS = n[PRESS][:]
-    PRESS *= 1e-5      # convert to bar for geotop
-
-    # get shortwave solar global (direct / diffuse missing?)
-    SW = "SW_sur"
-    SW = n[SW][:]
-
-    # get longwave incoming
-    LW = "LW_sur"
-    LW = n[LW][:]
+    for out_var, cfg in profile.items():
+        var_name = cfg.get("input")
+        scale_factor = cfg.get("scale_factor", 1)
+        offset = cfg.get("offset", 0)
+        
+        try:
+            arr = ncd[var_name][:] * scale_factor + offset
+            output_dict[out_var] = arr
+        
+        except IndexError:
+            logger.error(f"Scaled netCDF file has no variable '{var_name}'")
 
     # get site names
-    NAMES = nc.chartostring(n['station_name'][:])
+    NAMES = nc.chartostring(ncd['station_name'][:])
 
     # combine data variables into array
-    data = np.stack((PREC, WSPD, WDIR, RH, AIRT, PRESS, SW, LW))
+    data = np.stack([arr for arr in output_dict.values()])
 
     # write output files
     files = []
@@ -272,8 +213,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, start=None, end=None):
             # massage data into the right shape
             out_df = pd.DataFrame(np.transpose(data[:, :, i]))
             out_df = pd.concat([time, out_df], axis=1)
-            out_df.columns = ["Date", "IPrec", "WindVelocity", "WindDirection", "RH",
-                              "AirTemp", "AirPress", "SWglobal", "LWin"]
+            out_df.columns = ["Date"] + [name for name in output_dict.keys()]
 
             # get station name
             st_name = NAMES[i]

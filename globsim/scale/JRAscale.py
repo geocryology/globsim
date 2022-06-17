@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import logging
 import netCDF4 as nc
 import numpy as np
-import logging
+import pytz
 
-from pathlib import Path
+
 from math import atan2, pi
+from pathlib import Path
+from pysolar.solar import get_azimuth_fast
 from scipy.interpolate import interp1d
 
 from globsim.common_utils import str_encode, series_interpolate
-from globsim.meteorology import LW_downward
+from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
+                                     shading_corrected_sw_direct, elevation_corrected_sw, 
+                                     solar_zenith)
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale
 
@@ -37,12 +42,13 @@ class JRAscale(GenericScale):
         par = self.par
 
         # input file names
-        self.nc_pl = nc.Dataset(Path(self.intpdir, f'jra_pl_{self.list_name}_surface.nc'),
-                                'r')
-        self.nc_sa = nc.Dataset(Path(self.intpdir, f'jra_sa_{self.list_name}.nc'),
-                                'r')
-        self.nc_sf = nc.Dataset(Path(self.intpdir, f'jra_sf_{self.list_name}.nc'),
-                                'r')
+        self.nc_pl = nc.Dataset(Path(self.intpdir, f'jra_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_sa = nc.Dataset(Path(self.intpdir, f'jra_sa_{self.list_name}.nc'), 'r')
+        self.nc_sf = nc.Dataset(Path(self.intpdir, f'jra_sf_{self.list_name}.nc'), 'r')
+        try:
+            self.nc_to = nc.Dataset(Path(self.intpdir, f'jra_to_{self.list_name}.nc'), 'r')
+        except AttributeError:
+            logger.error("Missing invariant ('*_to') file. Some scaling kernels may fail. ")
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')
@@ -167,6 +173,24 @@ class JRAscale(GenericScale):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
 
+    def RH_per_pl(self):
+        """
+        Relative Humidity derived from pressure-level data, exclusively.
+        """
+        # add variable to ncdf file
+        vn = 'RH_pl'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'relative humidity {} pressure-level only'.format(self.NAME)
+        var.units     = 'percent'
+        var.standard_name = 'relative_humidity'
+
+        # interpolate station by station
+        time_in = self.nc_pl.variables['time'][:]
+        values  = self.nc_pl.variables['Relative humidity'][:]
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
+                                                    time_in, values[:, n])
+
     def WIND_sur(self):
         """
         Wind at 10 metre derived from surface data, exclusively.
@@ -245,6 +269,68 @@ class JRAscale(GenericScale):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
 
+    def SW_Wm2_topo(self):
+        """
+        Short-wave downwelling radiation corrected using a modified version of TOPOscale.
+        Partitions into direct and diffuse
+        """
+        # add variable to ncdf file
+        vn_diff = 'SW_topo_diffuse'  # variable name
+        var           = self.rg.createVariable(vn_diff,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected diffuse solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_diffuse_downwelling_shortwave_flux_in_air'
+
+        vn_dir = 'SW_topo_direct'  # variable name
+        var           = self.rg.createVariable(vn_dir,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected direct solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_direct_downwelling_shortwave_flux_in_air'
+        
+        # interpolate station by station
+        nc_time = self.nc_sf.variables['time']
+        py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
+        py_time = np.array([pytz.utc.localize(t) for t in py_time])
+        lat = self.nc_pl['latitude'][:]
+        lon = self.nc_pl['longitude'][:]
+        sw = self.nc_sf['Downward solar radiation flux'][:]  # [W m-2]
+        grid_elev = self.nc_to["Geopotential"][0, :] / 9.80665  # [m]
+        station_elev = self.nc_pl["height"][:]  # [m]
+
+        svf = self.get_sky_view()
+        slope = self.get_slope()
+        aspect = self.get_aspect()
+
+        interpolation_time = nc_time[:].astype(np.int64)
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            zenith = solar_zenith(lat=lat[n], lon=lon[n], time=py_time)
+            
+            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
+                                                               grid_sw=sw[:,n],
+                                                               lat=np.ones_like(sw[:,n]) * lat[n],
+                                                               lon=np.ones_like(sw[:,n]) * lon[n],
+                                                               time=py_time,
+                                                               grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
+                                                               sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
+
+            diffuse = diffuse * svf[n]  # apply sky-view factor
+
+            if not np.all(slope == 0):
+                azimuth = get_azimuth_fast(lat[n], lon[n], py_time)
+                cos_i_sub = illumination_angle(zenith, azimuth, slope[n], aspect[n])
+                cos_i_grid = np.cos(np.radians(zenith))
+                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
+                
+                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
+                corrected_direct *= sensible_values_mask
+
+            f = interp1d(interpolation_time, corrected_direct, kind='linear')
+            self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
+
+            f = interp1d(interpolation_time, diffuse, kind='linear')
+            self.rg.variables[vn_diff][:, n] = f(self.times_out_nc)
+
     def LW_Wm2_sur(self):
         """
         Long-wave radiation downwards derived from surface data, exclusively.
@@ -263,6 +349,33 @@ class JRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
+
+    def LW_Wm2_topo(self):
+        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
+        # add variable to ncdf file
+        vn = 'LW_topo'  # variable name
+        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected thermal radiation downwards'
+        var.standard_name = 'surface_downwelling_longwave_flux'
+        var.units     = 'W m-2'
+
+        # interpolate station by station
+        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        
+        t_sub = self.nc_pl['Temperature'][:]  # [K]
+        rh_sub = self.nc_pl['Relative humidity'][:]  # [%]
+        t_grid = self.nc_sa['Temperature'][:]  # [K]
+        rh_grid = self.nc_sa['Relative humidity'][:]  # [%]
+        lw_grid  = self.nc_sf["Downward longwave radiation flux"]  # [w m-2 s-1]
+
+        lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+        
+        svf = self.get_sky_view()
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            values = lw_sub[:, n] * svf[n]
+            f = interp1d(time_in, values, kind='linear')
+            self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
     def PREC_mm_sur(self):
         """
@@ -284,28 +397,6 @@ class JRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
-
-    def LW_Wm2_topo(self):
-        """
-        Long-wave radiation downwards [W/m2]
-        https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
-        """
-        # get sky view, and interpolate in time
-        N = np.asarray(list(self.stations['sky_view'][:]))
-
-        # add variable to ncdf file
-        vn = 'LW_topo'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Incoming long-wave radiation {} surface only'.format(self.NAME)
-        var.units     = str_encode('W m-2')
-        var.standard_name = 'surface_downwelling_longwave_flux'
-
-        # compute
-        for i in range(0, len(self.rg.variables['RH_sur'][:])):
-            for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_sur'][i, n],
-                                 self.rg.variables['AIRT_sur'][i, n] + 273.15, N[n])
-                self.rg.variables[vn][i, n] = LW
 
     def SH_kgkg_sur(self):
         '''

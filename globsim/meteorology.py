@@ -1,6 +1,9 @@
 import numpy as np
 
 
+boltzmann = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
+
+
 def satvapp_kPa_fT(T):
     '''
     Saturation water vapour pressure [kPa] following the Tetens formula, Eq 4.2
@@ -65,10 +68,19 @@ def water_vap_pressure(RH,T):
 
 def emissivity_clear_sky(RH,T):
     '''
-    clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)
+    clear sky emissivity, Eq(1) in Fiddes and Gruber (2014)W
     https://doi.org/10.5194/gmd-7-387-2014
-    pv: water vapour pressure (1)
-    T: air temperature (kelvin)
+   
+    Parameters
+    ----------
+    RH : float or array
+        water vapour pressure [%]
+    T : float or array
+        air temperature (kelvin)
+    
+    Returns 
+    -------
+    float or array : clear sky emissivity [1] (unitless)
     '''
     pv = water_vap_pressure(RH, T)
     x1 = 0.43
@@ -100,8 +112,7 @@ def LW_downward(RH,T,N):
     p1 = 6
     p2 = 4
     e_as = 0.979
-    con = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
-    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * con * T**4
+    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * boltzmann * T**4
     return lw
 
 
