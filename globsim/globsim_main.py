@@ -33,6 +33,7 @@
 
 from multiprocessing.dummy import Pool as ThreadPool
 from globsim.LazyLoader import LazyLoader
+from globsim.download.era5_monthly import download_threadded
 
 download = LazyLoader('globsim.download')
 interpolate = LazyLoader('globsim.interpolate')
@@ -63,8 +64,11 @@ def GlobsimDownload(pfile, multithread=True,
     
     # === ERA5 ===
     if ERA5:
-        ERA5REAdownl = download.ERA5download(pfile, 'reanalysis')
-        objects.append(ERA5REAdownl)
+        D = download.ERA5MonthlyDownload(pfile, False)
+        requests = D.list_requests()
+        D.download_threadded(requests, 12)
+        #ERA5REAdownl = download.ERA5download(pfile, 'reanalysis')
+        #objects.append(ERA5REAdownl)
     
     # === ERA5 10-member ensemble ===
     if ERA5ENS:
