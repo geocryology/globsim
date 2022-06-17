@@ -213,7 +213,7 @@ def shading_corrected_sw_direct(sw_dir: "np.ndarray",
     return sw_dir_sub
 
 
-def sw_partition(sw, sw_toa):
+def sw_partition(sw, sw_toa) -> "tuple[float,float]":
     """
     return
     ------
@@ -221,7 +221,7 @@ def sw_partition(sw, sw_toa):
     kt = clearness_index(sw=sw, sw_toa=sw_toa)
 
     kd = 0.952 - 1.041 * np.exp(-np.exp(2.3 - 4.702 * kt))
-    
+
     return kd, 1 - kd
 
 
@@ -309,14 +309,16 @@ def local_condition_airmass(mr, p):
     return ma
 
 
-def elevation_corrected_sw(zenith, grid_sw, lat, lon, time, grid_elevation, sub_elevation):
+def elevation_corrected_sw(zenith, grid_sw, lat, lon, time, grid_elevation, sub_elevation) -> "tuple":
     grid_pressure = pressure_from_elevation(grid_elevation)
     sub_pressure = pressure_from_elevation(sub_elevation)
 
     # atmospheric properties
     if zenith is None:
         zenith = solar_zenith(lat=lat, lon=lon, time=time)
-    
+    else:
+        zenith = np.atleast_1d(zenith)
+
     toa = sw_toa(zenith=zenith)
    
     if (toa < grid_sw).any():

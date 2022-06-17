@@ -53,6 +53,7 @@ class LocalAirmass(unittest.TestCase):
 
     pass
 
+
 class ToposcaleShortwaveElevation(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -63,22 +64,23 @@ class ToposcaleShortwaveElevation(unittest.TestCase):
         self.time = np.array([datetime.datetime(year=2020, month=5, day=10, hour=hour, tzinfo=datetime.timezone.utc) for hour in [1, 9, 17]])
         self.se = np.array([500, 500, 500])
         self.ge = np.array([100, 500, 1000])
+        self.zenith = np.array([45, 45, 45])
 
     def test_array(self):
-        self.assertEqual(3, len(top.elevation_corrected_sw(grid_sw=self.sw, lat=self.lat,
+        self.assertEqual(3, len(top.elevation_corrected_sw(zenith=self.zenith, grid_sw=self.sw, lat=self.lat,
                                                            lon=self.lon, time=self.time,
-                                                           grid_elevation=self.ge, sub_elevation=self.se)))
+                                                           grid_elevation=self.ge, sub_elevation=self.se)[0]))
 
     def test_elevation_effect(self):
-        self.assertGreater(top.elevation_corrected_sw(grid_sw=500, lat=50,
+        self.assertGreater(top.elevation_corrected_sw(zenith=45, grid_sw=500, lat=50,
                                                       lon=-110,
                                                       time=datetime.datetime(year=2020, month=5, day=10, hour=18, tzinfo=datetime.timezone.utc),
-                                                      grid_elevation=100, sub_elevation=2000)[0],
+                                                      grid_elevation=100, sub_elevation=2000)[1],
                            
-                           top.elevation_corrected_sw(grid_sw=500, lat=50,
+                           top.elevation_corrected_sw(zenith=45, grid_sw=500, lat=50,
                                                       lon=-110,
                                                       time=datetime.datetime(year=2020, month=5, day=10, hour=18, tzinfo=datetime.timezone.utc),
-                                                      grid_elevation=100, sub_elevation=1000)[0])
+                                                      grid_elevation=100, sub_elevation=1000)[1])
         
 
 if __name__ == '__main__':
