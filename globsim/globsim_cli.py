@@ -86,6 +86,7 @@ def main():
                          help="Output directory to write new files")
     convert.add_argument('-s', "--site", dest='site', default=None, nargs="*", type=str,
                          help="(optional) The name of the site you want to export. If not provided, all sites will be exported")
+    convert.add_argument('-p', "--profile", dest='profile', default=None, type=str, help="Path to an 'export profile' TOML file (geotop only) ")
 
     if len(sys.argv) == 1:
         mainparser.print_help(sys.stderr)
