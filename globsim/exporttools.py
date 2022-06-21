@@ -1,7 +1,7 @@
 """
 Export functions to convert globsim output to other file types
 """
-from os import path
+from os import path, makedirs
 from pathlib import Path
 
 import logging
@@ -172,6 +172,10 @@ def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, 
 
         if not Path(export_profile).is_file():
             default = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
+            
+            if not export_profile.parent.is_dir():
+                makedirs(export_profile.parent)
+            
             shutil.copy(default, export_profile)
             logger.warning(f"Created default geotop export profile: {export_profile}")
 
