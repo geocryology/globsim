@@ -146,7 +146,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     return files
 
 
-def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, end=None) -> "list[str]":
+def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":
     """
     Export a scaled globsim file to a GEOtop-style text file
 
