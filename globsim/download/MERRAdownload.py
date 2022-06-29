@@ -451,16 +451,17 @@ class MERRAdownload(GenericDownload):
 
         self.date = self.update_time_bounds(init_date)
 
-        # start connection session
-        self.credential = path.join(par['credentials_directory'], ".merrarc")
-        self.account = open(self.credential, "r")
-        self.inf = self.account.readlines()
-        self.username = ''.join(self.inf[0].split())
-        self.password = ''.join(self.inf[1].split())
-        self.start_session()
+        if self.mode != 'combine':  # could possibly exclude links as well?
+            # start connection session
+            self.credential = path.join(par['credentials_directory'], ".merrarc")
+            self.account = open(self.credential, "r")
+            self.inf = self.account.readlines()
+            self.username = ''.join(self.inf[0].split())
+            self.password = ''.join(self.inf[1].split())
+            self.start_session()
 
-        # Create Subsetter objects
-        self.build_subsetters()
+            # Create Subsetter objects
+            self.build_subsetters()
 
     @staticmethod
     def constant_extrapolation(all_data):
@@ -990,7 +991,7 @@ class MerraAggregator():
 
 def map_dates(directory: str, globtext: str) -> "zip[tuple[datetime, Path]]":
     files = Path(directory).glob(globtext)
-    files_sorted = sorted(files)
+    files_sorted = sorted(files, key=lambda x: x.name[11:])  # don't distinguish MERRA2_?00* and MERRA2_?01*
     merra_date = re.compile(r"(\d{8})\.nc4")
     dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
     # dates = [x for x in files_sorted]
