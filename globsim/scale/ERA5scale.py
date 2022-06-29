@@ -105,8 +105,10 @@ class ERA5scale(GenericScale):
     def indProcess(self, ni=10):
         for kernel_name in self.kernels:
             if hasattr(self, kernel_name):
-                print(kernel_name)
+                logger.info(f"running scaling kernel: '{kernel_name}'")
                 getattr(self, kernel_name)(ni)
+            else:
+                logger.error(f"Missing kernel {kernel_name}")
 
     def process(self, ni=10):
         """
@@ -257,6 +259,7 @@ class ERA5scale(GenericScale):
         """
         Relative humdity derived from pressure-level. 
         """
+        import pdb;pdb.set_trace()
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
