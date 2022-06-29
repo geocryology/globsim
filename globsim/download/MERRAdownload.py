@@ -451,16 +451,17 @@ class MERRAdownload(GenericDownload):
 
         self.date = self.update_time_bounds(init_date)
 
-        # start connection session
-        self.credential = path.join(par['credentials_directory'], ".merrarc")
-        self.account = open(self.credential, "r")
-        self.inf = self.account.readlines()
-        self.username = ''.join(self.inf[0].split())
-        self.password = ''.join(self.inf[1].split())
-        self.start_session()
+        if self.mode != 'combine':  # could possibly exclude links as well?
+            # start connection session
+            self.credential = path.join(par['credentials_directory'], ".merrarc")
+            self.account = open(self.credential, "r")
+            self.inf = self.account.readlines()
+            self.username = ''.join(self.inf[0].split())
+            self.password = ''.join(self.inf[1].split())
+            self.start_session()
 
-        # Create Subsetter objects
-        self.build_subsetters()
+            # Create Subsetter objects
+            self.build_subsetters()
 
     @staticmethod
     def constant_extrapolation(all_data):
@@ -945,6 +946,7 @@ class MERRASubsetter:
 class MerraAggregator():
     """ Turn downloaded Merra files into *_pl, *_sf, and *_sa files """
     def __init__(self, directory: str):
+        import pdb;pdb.set_trace()
         self.directory = directory
         self.inst6_3d_ana_Np = map_dates(directory,"MERRA2_?0?.inst6_3d_ana_Np*")
         self.inst3_3d_asm_Np = map_dates(directory,"MERRA2_?0?.inst3_3d_asm_Np*")
