@@ -35,7 +35,7 @@ from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg, relhu_approx_lawrence
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
-from globsim.scale.GenericScale import GenericScale
+from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -68,14 +68,19 @@ class ERA5scale(GenericScale):
             self.src = 'era5_ens'
 
         # input file handles
-        self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}_surface.nc"),
-                                'r')
-        self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.src}_sa_{self.list_name}.nc'),
-                                'r')
-        self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.src}_sf_{self.list_name}.nc'),
-                                'r')
-        self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.src}_to_{self.list_name}.nc'),
-                                'r')
+        self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}_surface.nc"), 'r')
+        self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.src}_sa_{self.list_name}.nc'), 'r')
+        self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.src}_sf_{self.list_name}.nc'), 'r')
+        self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.src}_to_{self.list_name}.nc'), 'r')
+
+        # Check data integrity
+        _check_timestep_length(self.nc_pl.variables['time'], "pl")
+        _check_timestep_length(self.nc_sa.variables['time'], "sa")
+        _check_timestep_length(self.nc_sf.variables['time'], "sf")
+
+        if not (self.nc_sf['time'].shape == self.nc_pl['time'].shape == self.nc_sa['time'].shape):
+            logger.critical(f"Different number of time steps in input data: sf ({self.nc_sf['time'].shape[0]}) pl ({self.nc_pl['time'].shape[0]}) sa ({self.nc_sa['time'].shape[0]})")
+
         try:
             self.nc_to.set_auto_scale(True)
         except Exception:

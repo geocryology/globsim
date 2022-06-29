@@ -109,7 +109,7 @@ from globsim.common_utils import series_interpolate
 from globsim.meteorology import relhu_approx_lawrence
 from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
 from globsim.nc_elements import new_scaled_netcdf
-from globsim.scale.GenericScale import GenericScale
+from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
@@ -141,6 +141,11 @@ class MERRAscale(GenericScale):
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
         self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
+
+        # Check data integrity
+        _check_timestep_length(self.nc_pl.variables['time'], "pl")
+        _check_timestep_length(self.nc_sa.variables['time'], "sa")
+        _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +
