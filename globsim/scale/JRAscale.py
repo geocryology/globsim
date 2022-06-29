@@ -86,12 +86,7 @@ class JRAscale(GenericScale):
         st[:] = names_out
 
         # iterate through kernels and start process
-        for kernel_name in self.kernels:
-            if hasattr(self, kernel_name):
-                logger.info(f"running scaling kernel: '{kernel_name}'")
-                getattr(self, kernel_name)()
-
-        # self.conv_geotop()
+        self.run_kernels()
 
         # close netCDF files
         self.rg.close()

@@ -176,3 +176,11 @@ class GenericScale:
                              calendar=output_calendar)
 
         return result
+
+    def run_kernels(self):
+        for kernel_name in self.kernels:
+            if hasattr(self, kernel_name):
+                logger.info(f"running scaling kernel: '{kernel_name}'")
+                getattr(self, kernel_name)()
+            else:
+                logger.error(f"Missing kernel {kernel_name}")
