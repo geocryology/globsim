@@ -946,7 +946,6 @@ class MERRASubsetter:
 class MerraAggregator():
     """ Turn downloaded Merra files into *_pl, *_sf, and *_sa files """
     def __init__(self, directory: str):
-        import pdb;pdb.set_trace()
         self.directory = directory
         self.inst6_3d_ana_Np = map_dates(directory,"MERRA2_?0?.inst6_3d_ana_Np*")
         self.inst3_3d_asm_Np = map_dates(directory,"MERRA2_?0?.inst3_3d_asm_Np*")
@@ -992,7 +991,7 @@ class MerraAggregator():
 
 def map_dates(directory: str, globtext: str) -> "zip[tuple[datetime, Path]]":
     files = Path(directory).glob(globtext)
-    files_sorted = sorted(files)
+    files_sorted = sorted(files, key=lambda x: x.name[11:])  # don't distinguish MERRA2_?00* and MERRA2_?01*
     merra_date = re.compile(r"(\d{8})\.nc4")
     dates = [datetime.strptime(merra_date.search(str(x)).group(1), r"%Y%m%d") for x in files_sorted]
     # dates = [x for x in files_sorted]
