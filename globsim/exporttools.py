@@ -1,7 +1,8 @@
 """
 Export functions to convert globsim output to other file types
 """
-from os import path
+from os import path, makedirs
+from pathlib import Path
 
 import logging
 import netCDF4 as nc
@@ -9,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pkg_resources
 import tomlkit
+import shutil
 
 from globsim.common_utils import variables_skip
 
@@ -144,7 +146,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     return files
 
 
-def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, end=None) -> "list[str]":
+def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":
     """
     Export a scaled globsim file to a GEOtop-style text file
 
@@ -155,7 +157,9 @@ def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, 
     site : str or int
         site name or index
     export_profile : str, optional
-        path to TOML file that provides configuration information. If not provided, a default configuration is used.
+        path to TOML file that provides configuration information. If not provided, a default configuration is created in your home
+        directory in a .globsim folder (i.e. '~/.globsim/geotop_profile.toml'). For example configuration files see the globsim/data/ folder
+        in the package.
 
     Returns
     -------
@@ -163,7 +167,17 @@ def globsim_to_geotop(ncd, out_dir, export_profile=None, site=None, start=None, 
     """
     # Open geotop profile
     if export_profile is None:
-        export_profile = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
+
+        export_profile = Path("~/.globsim/geotop_profile.toml").expanduser()
+
+        if not Path(export_profile).is_file():
+            default = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
+            
+            if not export_profile.parent.is_dir():
+                makedirs(export_profile.parent)
+            
+            shutil.copy(default, export_profile)
+            logger.warning(f"Created default geotop export profile: {export_profile}")
 
     with open(export_profile) as p:
         profile = tomlkit.loads(p.read())

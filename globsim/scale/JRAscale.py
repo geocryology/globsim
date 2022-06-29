@@ -16,7 +16,7 @@ from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
                                      shading_corrected_sw_direct, elevation_corrected_sw, 
                                      solar_zenith)
 from globsim.nc_elements import new_scaled_netcdf
-from globsim.scale.GenericScale import GenericScale
+from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 
 logger = logging.getLogger('globsim.scale')
 
@@ -49,6 +49,11 @@ class JRAscale(GenericScale):
             self.nc_to = nc.Dataset(Path(self.intpdir, f'jra_to_{self.list_name}.nc'), 'r')
         except AttributeError:
             logger.error("Missing invariant ('*_to') file. Some scaling kernels may fail. ")
+
+        # Check data integrity
+        _check_timestep_length(self.nc_pl.variables['time'], "pl")
+        _check_timestep_length(self.nc_sa.variables['time'], "sa")
+        _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'jra55')
@@ -86,12 +91,7 @@ class JRAscale(GenericScale):
         st[:] = names_out
 
         # iterate through kernels and start process
-        for kernel_name in self.kernels:
-            if hasattr(self, kernel_name):
-                logger.info(f"running scaling kernel: '{kernel_name}'")
-                getattr(self, kernel_name)()
-
-        # self.conv_geotop()
+        self.run_kernels()
 
         # close netCDF files
         self.rg.close()

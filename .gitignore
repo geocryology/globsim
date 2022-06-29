@@ -1,6 +1,7 @@
 *.pyc
 
 *.nc
+/docs/source/_build/*
 
 *.pyc
 build/*

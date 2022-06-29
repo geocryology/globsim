@@ -146,6 +146,7 @@ class GenericScale:
 
     def set_time_scale(self, time_variable, time_step):
         nctime = time_variable[:]
+
         self.t_unit = time_variable.units
         self.t_cal  = time_variable.calendar
         self.time_step = time_step
@@ -176,3 +177,32 @@ class GenericScale:
                              calendar=output_calendar)
 
         return result
+
+    def run_kernels(self):
+        for kernel_name in self.kernels:
+            if hasattr(self, kernel_name):
+                logger.info(f"running scaling kernel: '{kernel_name}'")
+                getattr(self, kernel_name)()
+            else:
+                logger.error(f"Missing kernel {kernel_name}")
+
+
+def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:
+    """ Ensure that input data has a consistent timestep
+
+    An inconsistent timestep usually suggests that there is a data gap.
+
+    Parameters
+    ----------
+    nctime : netCDF4.Variable
+        A time variable with 'units' attribute in the form of 'X since Y'
+    source : str
+        Where does the data come from?
+    """
+    # Check for a single time step
+    steps = np.unique(np.diff(nctime[:]))
+
+    units = nctime.units.split(" ")[0] if hasattr(nctime, 'units') else ""
+
+    if len(steps) != 1:
+        logger.critical(f"Input time step length is not consistent for {source}. Found time steps: {list(steps)} ({units}).")
