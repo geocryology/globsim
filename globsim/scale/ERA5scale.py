@@ -262,7 +262,7 @@ class ERA5scale(GenericScale):
         import pdb;pdb.set_trace()
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
+        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
         values  = self.getValues(self.nc_pl, 'r', ni)  
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh[:, n] = series_interpolate(self.times_out_nc,
