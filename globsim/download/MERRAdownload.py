@@ -946,12 +946,12 @@ class MerraAggregator():
     """ Turn downloaded Merra files into *_pl, *_sf, and *_sa files """
     def __init__(self, directory: str):
         self.directory = directory
-        self.inst6_3d_ana_Np = map_dates(directory,"MERRA2_*00.inst6_3d_ana_Np*")
-        self.inst3_3d_asm_Np = map_dates(directory,"MERRA2_*00.inst3_3d_asm_Np*")
-        self.inst1_2d_asm_Nx = map_dates(directory,"MERRA2_*00.inst1_2d_asm_Nx*")
-        self.tavg1_2d_flx_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_flx_Nx*")
-        self.tavg1_2d_rad_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_rad_Nx*")
-        self.tavg1_2d_slv_Nx = map_dates(directory,"MERRA2_*00.tavg1_2d_slv_Nx*")
+        self.inst6_3d_ana_Np = map_dates(directory,"MERRA2_?0?.inst6_3d_ana_Np*")
+        self.inst3_3d_asm_Np = map_dates(directory,"MERRA2_?0?.inst3_3d_asm_Np*")
+        self.inst1_2d_asm_Nx = map_dates(directory,"MERRA2_?0?.inst1_2d_asm_Nx*")
+        self.tavg1_2d_flx_Nx = map_dates(directory,"MERRA2_?0?.tavg1_2d_flx_Nx*")
+        self.tavg1_2d_rad_Nx = map_dates(directory,"MERRA2_?0?.tavg1_2d_rad_Nx*")
+        self.tavg1_2d_slv_Nx = map_dates(directory,"MERRA2_?0?.tavg1_2d_slv_Nx*")
 
     def combine(self, elevation: dict, date_range: "Optional[dict[str, datetime]]"):
         if date_range is None:
