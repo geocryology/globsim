@@ -264,7 +264,6 @@ class ERA5scale(GenericScale):
         """
         Relative humdity derived from pressure-level. 
         """
-        import pdb;pdb.set_trace()
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
