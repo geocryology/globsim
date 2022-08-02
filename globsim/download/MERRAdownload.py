@@ -100,7 +100,6 @@ class SaveNCDF_pl_3dm():
 
             # stack data arrays
             all_data = np.concatenate([dataset[x].data for dataset in data_3dmana], axis=0)
-            np.save("/fs/extraspace/merratest/all_data_extrapolate_input.dat", all_data)
             if x in ["U", "V"]:
                 all_data = MERRAdownload.constant_extrapolation(all_data)
 
