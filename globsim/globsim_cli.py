@@ -55,12 +55,12 @@ def main():
 
     for parser in [download, interpolate, scale]:
 
-        parser.add_argument("-f", "--config-file", 
+        parser.add_argument("-f", "--config-file",
                             default=None, type=str, required=True, dest='f',
                             help="Path to GlobSim configuration file.")
 
-        parser.add_argument("-d", 
-                            default=None, nargs="*",required=True, type=str, 
+        parser.add_argument("-d",
+                            default=None, nargs="*",required=True, type=str.upper,
                             choices=["ERAI", "ERA5", "ERA5ENS", "MERRA", "JRA"],
                             dest='d', help="What data sources should run?")
 
