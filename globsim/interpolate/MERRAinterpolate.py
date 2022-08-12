@@ -36,6 +36,8 @@ class MERRAinterpolate(GenericInterpolate):
         self.mf_sf = nc.MFDataset(path.join(self.input_dir,'merra_sf.nc'), 'r', aggdim="time")
         self.mf_pl = nc.MFDataset(path.join(self.input_dir,'merra_pl.nc'), 'r', aggdim="time")
 
+        # Check dataset integrity
+
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         # TODO: change date type from f4 to f8 for lat and lon
         '''
@@ -95,7 +97,7 @@ class MERRAinterpolate(GenericInterpolate):
         rootgrp.close()
         logger.debug(f"Created empty netcdf file {ncfile_out}")
 
-    def MERRA2station(self, ncfile_in, ncfile_out, points,
+    def MERRA2station(self, ncf_in, ncfile_out, points,
                       variables=None, date=None):
         """
         Given the type of variables to interpoalted from MERRA2 downloaded diretory
@@ -106,9 +108,7 @@ class MERRAinterpolate(GenericInterpolate):
         Close all files
 
         Args:
-        ncfile_in: Full path to an MERRA-2 derived netCDF file. This can
-                    contain wildcards to point to multiple files if temporal
-                    chunking was used.
+        ncf_in:  MFDatast of an MERRA-2 derived netCDF file. 
 
         ncfile_out: Full path to the output netCDF file to write.
 
@@ -121,14 +121,9 @@ class MERRAinterpolate(GenericInterpolate):
                     Defaults to using all variables available.
 
         date: Directory to specify begin and end time for the derived time
-                series. Defaluts to using all times available in ncfile_in.
+                series. Defaluts to using all times available in ncf_in.
 
         """
-
-        # read in one type of mutiple netcdf files
-        logger.info("Loading reanalysis data into memory")
-        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim='time')
-
         # Check station bounds
         self.validate_stations_extent(ncf_in)
 
@@ -203,7 +198,7 @@ class MERRAinterpolate(GenericInterpolate):
                 tmask_chunk = np.array([True])
 
             # get the interpolated variables
-            dfield, variables = self.interp2D(ncfile_in, ncf_in,
+            dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
                                               variables=None, date=None)
 
@@ -347,7 +342,7 @@ class MERRAinterpolate(GenericInterpolate):
         if not path.isdir(self.output_dir):
             makedirs(self.output_dir)
 
-        self.MERRA2station(path.join(self.input_dir,'merra_sc.nc'),
+        self.MERRA2station(self.mf_sc,
                            path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
                            self.stations, ['PHIS','FRLAND'], date=None)
 
@@ -358,7 +353,7 @@ class MERRAinterpolate(GenericInterpolate):
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M'],   # [m s-1] 2m & 10m values
                 'relative_humidity' : ['QV2M']}  # 2m value
         varlist = self.TranslateCF2short(dpar)
-        self.MERRA2station(path.join(self.input_dir,'merra_sa_*.nc'),
+        self.MERRA2station(self.mf_sa,
                            path.join(self.output_dir,'merra2_sa_' + self.list_name + '.nc'),
                            self.stations, varlist, date=self.date)
 
@@ -373,7 +368,7 @@ class MERRAinterpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'],  # [W/m2] short-wave downward assuming clear sky
                 'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']}  # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)
-        self.MERRA2station(path.join(self.input_dir,'merra_sf_*.nc'),
+        self.MERRA2station(self.mf_sf,
                            path.join(self.output_dir,'merra2_sf_' + self.list_name + '.nc'),
                            self.stations, varlist, date=self.date)
 
@@ -385,7 +380,7 @@ class MERRAinterpolate(GenericInterpolate):
                 'wind_speed'        : ['U', 'V'],      # [m s-1]
                 'relative_humidity' : ['RH']}          # [1]
         varlist = self.TranslateCF2short(dpar).append('H')
-        self.MERRA2station(path.join(self.input_dir,'merra_pl_*.nc'),
+        self.MERRA2station(self.mf_pl,
                            path.join(self.output_dir,'merra2_pl_' + self.list_name + '.nc'),
                            self.stations, varlist, date=self.date)
 
