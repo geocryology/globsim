@@ -450,7 +450,7 @@ class MERRAdownload(GenericDownload):
 
         self.date = self.update_time_bounds(init_date)
 
-        if self.mode != 'combine':  # could possibly exclude links as well?
+        if self.mode == 'download':  # could possibly exclude links as well?
             # start connection session
             self.credential = path.join(par['credentials_directory'], ".merrarc")
             self.account = open(self.credential, "r")
@@ -461,6 +461,9 @@ class MERRAdownload(GenericDownload):
 
             # Create Subsetter objects
             self.build_subsetters()
+        
+        else:
+            logger.debug(f"MERRA download using mode: '{self.mode}'")
 
     @staticmethod
     def constant_extrapolation(all_data):
@@ -677,10 +680,11 @@ class MERRAdownload(GenericDownload):
         # Chunk size for spliting files and download [days], Format:Integer
         chunk_size = int(self.chunk_size)
 
-        # Get merra-2 2d Constant Model Parameters (outside of time & date looping!)
-        logger.info("Download variables From MERRA2 2d Time-Invariant (Single-level, Constant Model Parameters)")
-        self.download_merra_to()
-        logger.info("MERRA2 2d Time-Invariant Complete")
+        if self.mode == "download":
+            # Get merra-2 2d Constant Model Parameters (outside of time & date looping!)
+            logger.info("Download variables From MERRA2 2d Time-Invariant (Single-level, Constant Model Parameters)")
+            self.download_merra_to()
+            logger.info("MERRA2 2d Time-Invariant Complete")
 
         # build chunks
         all_dates = pd.date_range(self.date['beg'], self.date['end'])
@@ -704,7 +708,7 @@ class MERRAdownload(GenericDownload):
             
             elif self.mode == "combine":
                 M = MerraAggregator(self.directory)
-                M.combine(self.elevation, date_range)
+                _ = M.combine(self.elevation, date_range)
 
     def download_links(self, date_range: "dict[str, datetime]", url_file: str):
         """ Save the links to the datasets (which can be downloaded in paralell with wget + xargs)"""

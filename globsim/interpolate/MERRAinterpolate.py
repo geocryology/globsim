@@ -30,6 +30,12 @@ class MERRAinterpolate(GenericInterpolate):
 
         self.input_dir = path.join(par['project_directory'],'merra2')
 
+        # Load MF Datasets
+        self.mf_sc = nc.MFDataset(path.join(self.input_dir,'merra_sc.nc'), 'r', aggdim="time")
+        self.mf_sa = nc.MFDataset(path.join(self.input_dir,'merra_sa.nc'), 'r', aggdim="time")
+        self.mf_sf = nc.MFDataset(path.join(self.input_dir,'merra_sf.nc'), 'r', aggdim="time")
+        self.mf_pl = nc.MFDataset(path.join(self.input_dir,'merra_pl.nc'), 'r', aggdim="time")
+
     def netCDF_empty(self, ncfile_out, stations, nc_in):
         # TODO: change date type from f4 to f8 for lat and lon
         '''
