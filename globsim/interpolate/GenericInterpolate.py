@@ -1,4 +1,6 @@
+from sqlite3 import DataError
 import numpy as np
+import netCDF4 as nc
 import re
 import tomlkit
 import warnings
@@ -11,6 +13,7 @@ from fnmatch import filter as fnmatch_filter
 
 from globsim.common_utils import StationListRead, str_encode
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
+from globsim.gap_checker import check_time_integrity
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -376,6 +379,35 @@ class GenericInterpolate:
 
         return wa, wb
 
+    def ensure_datset_integrity(self, time: "nc.Variable", interval: float):
+        """ Perform basic pre-flight checks on (downloaded) input datasets before running interpolate"""
+        # Check coverage
+        interpolate_start = self.date['beg']
+        interpolate_end = self.date['end'] - timedelta(days=1)  # take off last day added in __init__
+        data_start = nc.num2date(time[0], time.units, time.calendar)
+        data_end = nc.num2date(time[-1], time.units, time.calendar)
+
+        if not (data_start <= interpolate_start):
+            raise ValueError(f"Requested interpolation start ({interpolate_start}) is before data bounds ({data_start})")
+
+        elif not (data_end >= interpolate_end):
+            raise ValueError(f"Requested interpolation end ({interpolate_end}) is after data bounds ({data_end})")
+
+        # Check gaps
+        critical = False
+        for gap_i, gap_start, gap_end in zip(*check_time_integrity(time, interval)):
+            message = f"Data gap found at index {gap_i}. Missing data from {gap_start} to {gap_end}."
+            
+            if interpolate_start <= gap_start <= gap_end:
+                critical=True
+                logger.critical(message)
+            else:
+                logger.warning(message)
+        
+        if critical:
+            raise ValueError("Data gaps found within interpolation bounds.")
+
+            
 
 def create_stations_bbox(stations) -> BoundingBox:
     # get max/min of points lat/lon from self.stations

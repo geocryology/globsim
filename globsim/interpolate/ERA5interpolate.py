@@ -35,8 +35,20 @@ class ERA5interpolate(GenericInterpolate):
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
+        # Load MF Datasets
+        logger.info("Loading datasets")
+        self.mf_sa = nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time')
+        self.mf_sf = nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time')
+        self.mf_pl = nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time')
 
-            
+        # Check dataset integrity
+        logger.info("Check data integrity")
+        #import pdb;pdb.set_trace()
+        self.ensure_datset_integrity(self.mf_sa['time'], 1)
+        self.ensure_datset_integrity(self.mf_sf['time'], 1)
+        self.ensure_datset_integrity(self.mf_pl['time'], 1)
+        logger.info("Data integrity ok")
+
     def getInFile(self, levStr):
         # edited naming conventions for simplicity and to avoid errors
         if self.ens:
@@ -54,8 +66,6 @@ class ERA5interpolate(GenericInterpolate):
         return infile
 
     def getOutFile(self, levStr):
-
-
         if self.ens:
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         else:
@@ -323,8 +333,6 @@ class ERA5interpolate(GenericInterpolate):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
-        dummy_date  = {'beg': datetime(1979, 1, 1, 12, 0),
-                       'end': datetime(1979, 1, 1, 12, 0)}
         self.ERA2station(self.getInFile('to'), self.getOutFile('to'),
                          self.stations, ['z', 'lsm'], date=None)
 

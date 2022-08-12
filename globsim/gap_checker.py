@@ -16,16 +16,16 @@ def check_mf_time_integrity(mfdataset: "nc.MFDataset", interval: "Optional[float
     t = find_time(mfdataset)
 
     time = mfdataset[t]
-    
+
     result = check_time_integrity(time, interval)
 
 
 def check_time_integrity(time: "nc.Variable", interval: "Optional[float]" = None) -> "tuple[np.ndarray,np.ndarray,np.ndarray]":
     if not interval:
         interval = estimate_interval(time[:])
-    
+
     gaps = find_gaps(time, interval)
-    
+
     gap_starts = time[:][gaps]
     gap_ends = time[:][gaps + 1]
 
@@ -34,23 +34,26 @@ def check_time_integrity(time: "nc.Variable", interval: "Optional[float]" = None
 
     calendar = time.calendar if hasattr(time, 'calendar') else 'standard'
 
-    pytime = nc.num2date(time[:], time.units, calendar)
+    t_gap_starts = nc.num2date(gap_starts, time.units, calendar)
+    t_gap_ends = nc.num2date(gap_ends, time.units, calendar)
 
-    return pytime, gap_starts, gap_ends
+    return gaps, t_gap_starts, t_gap_ends
 
 
-def find_gaps(var: "nc.Variable", interval: float):
-    """ Find gaps in a variable with regular interval """
+def find_gaps(var: "nc.Variable", interval: float) -> "np.ndarray":
+    """ Find indices of gaps in a variable with regular interval """
     diff = np.diff(var[:])
 
     gaps = np.where(diff != interval)[0]
-    
+
     return gaps
+
 
 #def report_gaps(pytime, gap_starts, gap_ends, interpolate_start, interpolate_end):
 
 
 def find_time(ncdf: "nc.Dataset") -> str:
+    """ Find the time variable in a netCDF file """
     # Search by unit name
     unit_pattern = re.compile(r"^\w* since ")
     candidates = [n for n,v in ncdf.variables.items() if unit_pattern.match(v.units)]
@@ -73,11 +76,12 @@ def find_time(ncdf: "nc.Dataset") -> str:
 
 
 def estimate_interval(i: np.ndarray) -> float:
+    """ Estimate the (regular) interval between successive data points"""
     mode = st.mode(np.diff(i))
-    
+
     if not len(mode.mode) == 1:
         raise ValueError("Could not guess interval (multiple modes found)")
-    
+
     return mode.mode
 
 
