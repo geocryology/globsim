@@ -12,6 +12,7 @@ from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
 logger = logging.getLogger('globsim.interpolate')
 
+
 class JRAinterpolate(GenericInterpolate):
     """
     Algorithms to interpolate JRA55 netCDF files to station coordinates.
@@ -39,7 +40,15 @@ class JRAinterpolate(GenericInterpolate):
         # Override inherited chunk size
         self.cs *= 200
 
-    def JRA2station(self, ncfile_in, ncfile_out, points,
+        # Load MF Datasets
+        self.mf_to = path.join(self.input_dir,'jra55_to_*.nc')
+        self.mf_sa = path.join(self.input_dir,'jra55_sa_*.nc')
+        self.mf_sf = path.join(self.input_dir,'jra55_sf_*.nc')
+        self.mf_pl = path.join(self.input_dir,'jra55_pl_*.nc')
+
+        # Check dataset integrity
+
+    def JRA2station(self, ncf_in: "nc.MFDataset", ncfile_out, points,
                     variables=None, date=None):
 
         """
@@ -54,9 +63,7 @@ class JRAinterpolate(GenericInterpolate):
         be set in the interpolation parameter file.
 
         Args:
-        ncfile_in: Full path to an JRA-55 derived netCDF file. This can
-                   contain wildcards to point to multiple files if temporal
-                  chunking was used.
+        ncf_in: a MFDataset of globsim-downloaded files
 
         ncfile_out: Full path to the output netCDF file to write.
 
@@ -73,16 +80,12 @@ class JRAinterpolate(GenericInterpolate):
                     Defaults to using all variables available.
 
         date: Directory to specify begin and end time for the derived time
-                series. Defaluts to using all times available in ncfile_in.
+                series. Defaluts to using all times available in ncf_in.
 
         cs: chunk size, i.e. how many time steps to interpolate at once. This
             helps to manage overall memory usage (small cs is slower but less
             memory intense).
         """
-
-        # read in one type of mutiple netcdf files
-        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim='time')
-
         # Check station bounds
         self.validate_stations_extent(ncf_in)
 
@@ -151,13 +154,13 @@ class JRAinterpolate(GenericInterpolate):
                 tmask_chunk = np.array([True])
 
             # get the interpolated variables
-            dfield, variables = self.interp2D(ncfile_in, ncf_in,
+            dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
                                               variables=None, date=None)
 
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
-                                                     time_in[beg:end+1])
+                                                     time_in[beg:end + 1])
 
             # append variables
             for i, var in enumerate(variables):
@@ -167,9 +170,9 @@ class JRAinterpolate(GenericInterpolate):
                 if pl:
                     lev = ncf_in.variables['level'][:]
 
-                    ncf_out.variables[var][beg:end+1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
+                    ncf_out.variables[var][beg:end + 1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
                 else:
-                    ncf_out.variables[var][beg:end+1,:] = dfield.data[:,i,:].transpose((1,0))
+                    ncf_out.variables[var][beg:end + 1,:] = dfield.data[:,i,:].transpose((1,0))
 
         # close the file
         ncf_in.close()
@@ -281,9 +284,9 @@ class JRAinterpolate(GenericInterpolate):
         the more generically JRA-like interpolation functions.
         """
         try:
-            self.JRA2station(path.join(self.input_dir,'jra55_to_*.nc'),
-                            path.join(self.output_dir,f'jra_to_{self.list_name}.nc'),
-                            self.stations, ['Geopotential'], date=None)
+            self.JRA2station(self.mf_to,
+                             path.join(self.output_dir,f'jra_to_{self.list_name}.nc'),
+                             self.stations, ['Geopotential'], date=None)
         except OSError:
             logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
                          "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
@@ -295,10 +298,10 @@ class JRAinterpolate(GenericInterpolate):
                 'relative_humidity' : ['relative_humidity'],  # [%]
                 'wind_speed' : ['eastward_wind', 'northward_wind']}  # [m s-1] 2m & 10m values
         varlist = self.TranslateCF2short(dpar)
-        self.JRA2station(path.join(self.input_dir,'jra55_sa_*.nc'),
-                            path.join(self.output_dir,'jra_sa_' +
-                                      self.list_name + '.nc'), self.stations,
-                                      varlist, date=self.date)
+        self.JRA2station(self.mf_sa,
+                         path.join(self.output_dir,'jra_sa_' + self.list_name + '.nc'),
+                         self.stations,
+                         varlist, date=self.date)
 
         # 2D Interpolation for Radiation Data
         # dictionary to translate CF Standard Names into JRA55
@@ -309,10 +312,11 @@ class JRAinterpolate(GenericInterpolate):
                 'downwelling_longwave_flux_in_air_assuming_clear_sky': ['downwelling_longwave_flux_in_air_assuming_clear_sky'],
                 'precipitation_amount' : ['total_precipitation']}  # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)
-        self.JRA2station(path.join(self.input_dir,'jra55_sf_*.nc'),
-                         path.join(self.output_dir,'jra_sf_' +
-                                   self.list_name + '.nc'), self.stations,
-                                   varlist, date=self.date)
+        self.JRA2station(self.mf_sf,
+                         path.join(self.output_dir,'jra_sf_' + self.list_name + '.nc'),
+                         self.stations,
+                         varlist,
+                         date=self.date)
 
         # 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA
         # dictionary to translate CF Standard Names into MERRA2
@@ -321,13 +325,12 @@ class JRAinterpolate(GenericInterpolate):
                 'relative_humidity' : ['relative_humidity'],  # [%]
                 'wind_speed'        : ['eastward_wind', 'northward_wind']}  # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('geopotential_height')
-        self.JRA2station(path.join(self.input_dir,'jra55_pl_*.nc'),
-                         path.join(self.output_dir,'jra_pl_' +
-                                   self.list_name + '.nc'), self.stations,
-                                   varlist, date=self.date)
+        self.JRA2station(self.mf_pl,
+                         path.join(self.output_dir,'jra_pl_' + self.list_name + '.nc'),
+                         self.stations,
+                         varlist,
+                         date=self.date)
 
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.output_dir,'jra_pl_' +
-                                        self.list_name + '.nc'),
-                              path.join(self.output_dir,'jra_pl_' +
-                                        self.list_name + '_surface.nc'))
+        self.levels2elevation(path.join(self.output_dir,'jra_pl_' + self.list_name + '.nc'),
+                              path.join(self.output_dir,'jra_pl_' + self.list_name + '_surface.nc'))
