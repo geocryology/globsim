@@ -141,12 +141,11 @@ def rename_sl(dir):
     files = [str(f) for f in Path(dir).iterdir()]
     matched_files = [f for f in files if orig.search(f)]
     for f in matched_files:
-        print(f'splitting {f}')
         sf = orig.sub(r'era5_sf_\1.nc', f)
         sa = orig.sub(r'era5_sa_\1.nc', f)
-        cmd1 = f"nccopy -L10 -V time,latitude,longitude,ssrd,strd,tp {f} {sf}"
-        cmd2 = f"nccopy -L10 -V time,latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
-        print(sf)
+        cmd1 = f"nccopy -V time,latitude,longitude,ssrd,strd,tp {f} {sf}"
+        cmd2 = f"nccopy -V time,latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
+        logger.debug(cmd1)
         subprocess.Popen(cmd1.split(" "))
-        print(sa)
+        logger.debug(cmd2)
         subprocess.Popen(cmd2.split(" "))
