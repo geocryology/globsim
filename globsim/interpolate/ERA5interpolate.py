@@ -212,8 +212,10 @@ class ERA5interpolate(GenericInterpolate):
         ncf_in.close()
         ncf_out.close()
 
-    def levels2elevation(self, ncfile_in, ncfile_out):
+    def levels2elevation(self, ncf, ncfile_out):
         """
+        ncf : nc.Dataset
+            netcdf Dataset or MFDataset
         Linear 1D interpolation of pressure level data available for individual
         stations to station elevation. Where and when stations are below the
         lowest pressure level, they are assigned the value of the lowest
@@ -222,7 +224,6 @@ class ERA5interpolate(GenericInterpolate):
         """
         # open file
         # TODO: check the aggdim does not work
-        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
@@ -378,4 +379,4 @@ class ERA5interpolate(GenericInterpolate):
         else:
             outf = 'era5_pl_'
         outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
-        self.levels2elevation(self.getOutFile('pl'), outf)
+        self.levels2elevation(self.mf_pl, outf)
