@@ -14,6 +14,7 @@ from fnmatch import filter as fnmatch_filter
 from globsim.common_utils import StationListRead, str_encode
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 from globsim.gap_checker import check_time_integrity
+from globsim.decorators import check
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -39,6 +40,7 @@ class GenericInterpolate:
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
+        self.skip_checks = bool(par.get("skip_checks", False))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
         # read station points
@@ -64,6 +66,7 @@ class GenericInterpolate:
         else:
             raise FileNotFoundError(f"Siteslist file {par.get('station_list')} not found.")
 
+    @check
     def validate_stations_extent(self, ncdf):
         try:
             if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
@@ -379,6 +382,7 @@ class GenericInterpolate:
 
         return wa, wb
 
+    @check
     def ensure_datset_integrity(self, time: "nc.Variable", interval: float):
         """ Perform basic pre-flight checks on (downloaded) input datasets before running interpolate"""
         # Check coverage
@@ -407,7 +411,6 @@ class GenericInterpolate:
         if critical:
             raise ValueError("Data gaps found within interpolation bounds.")
 
-            
 
 def create_stations_bbox(stations) -> BoundingBox:
     # get max/min of points lat/lon from self.stations
