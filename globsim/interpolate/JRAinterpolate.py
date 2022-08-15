@@ -41,12 +41,20 @@ class JRAinterpolate(GenericInterpolate):
         self.cs *= 200
 
         # Load MF Datasets
-        self.mf_to = path.join(self.input_dir,'jra55_to_*.nc')
-        self.mf_sa = path.join(self.input_dir,'jra55_sa_*.nc')
-        self.mf_sf = path.join(self.input_dir,'jra55_sf_*.nc')
-        self.mf_pl = path.join(self.input_dir,'jra55_pl_*.nc')
+        self.mf_to = nc.MFDataset(path.join(self.input_dir,'jra55_to_*.nc'), 'r', aggdim="time")
+        self.mf_sa = nc.MFDataset(path.join(self.input_dir,'jra55_sa_*.nc'), 'r', aggdim="time")
+        self.mf_sf = nc.MFDataset(path.join(self.input_dir,'jra55_sf_*.nc'), 'r', aggdim="time")
+        self.mf_pl = nc.MFDataset(path.join(self.input_dir,'jra55_pl_*.nc'), 'r', aggdim="time")
 
         # Check dataset integrity
+        #import pdb;pdb.set_trace()
+        logger.info("Check data integrity (sa)")
+        self.ensure_datset_integrity(self.mf_sa['time'], 6)
+        logger.info("Check data integrity (sf)")
+        self.ensure_datset_integrity(self.mf_sf['time'], 6)
+        logger.info("Check data integrity (pl)")
+        self.ensure_datset_integrity(self.mf_pl['time'], 6)
+        logger.info("Data integrity ok")
 
     def JRA2station(self, ncf_in: "nc.MFDataset", ncfile_out, points,
                     variables=None, date=None):

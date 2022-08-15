@@ -26,6 +26,9 @@ def check_time_integrity(time: "nc.Variable", interval: "Optional[float]" = None
 
     gaps = find_gaps(time, interval)
 
+    if len(gaps) == 0:
+        return (np.array([]), np.array([]), np.array([]))
+
     gap_starts = time[:][gaps]
     gap_ends = time[:][gaps + 1]
 

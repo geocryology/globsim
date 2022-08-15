@@ -37,15 +37,17 @@ class ERA5interpolate(GenericInterpolate):
 
         # Load MF Datasets
         logger.info("Loading datasets")
+        self.mf_to = nc.MFDataset(self.getInFile('to'), 'r', aggdim='time')
         self.mf_sa = nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time')
         self.mf_sf = nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time')
         self.mf_pl = nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time')
 
         # Check dataset integrity
-        logger.info("Check data integrity")
- 
+        logger.info("Check data integrity (sa)")
         self.ensure_datset_integrity(self.mf_sa['time'], 1)
+        logger.info("Check data integrity (sf)")
         self.ensure_datset_integrity(self.mf_sf['time'], 1)
+        logger.info("Check data integrity (pl)")
         self.ensure_datset_integrity(self.mf_pl['time'], 1)
         logger.info("Data integrity ok")
 
@@ -173,7 +175,7 @@ class ERA5interpolate(GenericInterpolate):
                 tmask_chunk = np.array([True])
 
             # get the interpolated variables
-            dfield, variables = self.interp2D(ncfile_in, ncf_in,
+            dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
                                               variables=None, date=None)
             # append time
@@ -207,7 +209,7 @@ class ERA5interpolate(GenericInterpolate):
         ncf_in.close()
         ncf_out.close()
 
-    def levels2elevation(self, ncf, ncfile_out):
+    def levels2elevation(self, ncfile_in, ncfile_out):
         """
         ncf : nc.Dataset
             netcdf Dataset or MFDataset
@@ -219,6 +221,7 @@ class ERA5interpolate(GenericInterpolate):
         """
         # open file
         # TODO: check the aggdim does not work
+        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
@@ -329,8 +332,7 @@ class ERA5interpolate(GenericInterpolate):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
-        era5_to = nc.Dataset(self.getInFile('to'))
-        self.ERA2station(era5_to, self.getOutFile('to'),
+        self.ERA2station(self.mf_to, self.getOutFile('to'),
                          self.stations, ['z', 'lsm'], date=None)
 
         # === 2D Interpolation for Surface Analysis Data ===
@@ -375,4 +377,4 @@ class ERA5interpolate(GenericInterpolate):
         else:
             outf = 'era5_pl_'
         outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
-        self.levels2elevation(self.mf_pl, outf)
+        self.levels2elevation(self.getOutFile('pl'), outf)
