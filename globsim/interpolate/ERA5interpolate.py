@@ -35,8 +35,22 @@ class ERA5interpolate(GenericInterpolate):
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
+        # Load MF Datasets
+        logger.info("Loading datasets")
+        self.mf_to = nc.MFDataset(self.getInFile('to'), 'r', aggdim='time')
+        self.mf_sa = nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time')
+        self.mf_sf = nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time')
+        self.mf_pl = nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time')
 
-            
+        # Check dataset integrity
+        logger.info("Check data integrity (sa)")
+        self.ensure_datset_integrity(self.mf_sa['time'], 1)
+        logger.info("Check data integrity (sf)")
+        self.ensure_datset_integrity(self.mf_sf['time'], 1)
+        logger.info("Check data integrity (pl)")
+        self.ensure_datset_integrity(self.mf_pl['time'], 1)
+        logger.info("Data integrity ok")
+
     def getInFile(self, levStr):
         # edited naming conventions for simplicity and to avoid errors
         if self.ens:
@@ -54,8 +68,6 @@ class ERA5interpolate(GenericInterpolate):
         return infile
 
     def getOutFile(self, levStr):
-
-
         if self.ens:
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         else:
@@ -63,7 +75,7 @@ class ERA5interpolate(GenericInterpolate):
         outfile = path.join(self.output_dir, nome)
         return outfile
 
-    def ERA2station(self, ncfile_in, ncfile_out, points,
+    def ERA2station(self, ncf_in, ncfile_out, points,
                     variables=None, date=None):
 
         """
@@ -78,9 +90,7 @@ class ERA5interpolate(GenericInterpolate):
         be set in the interpolation parameter file.
 
         Args:
-        ncfile_in: Full path to an ERA5 derived netCDF file. This can
-                   contain wildcards to point to multiple files if temporal
-                  chunking was used.
+        ncf_in: Globsim-derived ERA5 dataset (single file or MFDataset)
 
         ncfile_out: Full path to the output netCDF file to write.
 
@@ -94,9 +104,6 @@ class ERA5interpolate(GenericInterpolate):
         date: Directory to specify begin and end time for the derived time
                 series. Defaluts to using all times available in ncfile_in.
         """
-
-        # read in one type of mutiple netcdf files
-        ncf_in = nc.MFDataset(ncfile_in, 'r', aggdim='time')
 
         # Check station bounds
         self.validate_stations_extent(ncf_in)
@@ -168,7 +175,7 @@ class ERA5interpolate(GenericInterpolate):
                 tmask_chunk = np.array([True])
 
             # get the interpolated variables
-            dfield, variables = self.interp2D(ncfile_in, ncf_in,
+            dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
                                               variables=None, date=None)
             # append time
@@ -204,6 +211,8 @@ class ERA5interpolate(GenericInterpolate):
 
     def levels2elevation(self, ncfile_in, ncfile_out):
         """
+        ncf : nc.Dataset
+            netcdf Dataset or MFDataset
         Linear 1D interpolation of pressure level data available for individual
         stations to station elevation. Where and when stations are below the
         lowest pressure level, they are assigned the value of the lowest
@@ -323,9 +332,7 @@ class ERA5interpolate(GenericInterpolate):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
-        dummy_date  = {'beg': datetime(1979, 1, 1, 12, 0),
-                       'end': datetime(1979, 1, 1, 12, 0)}
-        self.ERA2station(self.getInFile('to'), self.getOutFile('to'),
+        self.ERA2station(self.mf_to, self.getOutFile('to'),
                          self.stations, ['z', 'lsm'], date=None)
 
         # === 2D Interpolation for Surface Analysis Data ===
@@ -338,7 +345,7 @@ class ERA5interpolate(GenericInterpolate):
                                         # [kg m-2] Total column W vapor
                 'wind_speed': ['u10', 'v10']}   # [m s-1] 10m values
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(self.getInFile('sa'), self.getOutFile('sa'),
+        self.ERA2station(self.mf_sa, self.getOutFile('sa'),
                          self.stations, varlist, date=self.date)
 
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
@@ -351,7 +358,7 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(self.getInFile('sf'), self.getOutFile('sf'),
+        self.ERA2station(self.mf_sf, self.getOutFile('sf'),
                          self.stations, varlist, date=self.date)
 
         # === 2D Interpolation for Pressure Level Data ===
@@ -361,7 +368,7 @@ class ERA5interpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(self.getInFile('pl'), self.getOutFile('pl'),
+        self.ERA2station(self.mf_pl, self.getOutFile('pl'),
                          self.stations, varlist, date=self.date)
 
         # 1D Interpolation for Pressure Level Data

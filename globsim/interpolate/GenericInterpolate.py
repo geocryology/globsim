@@ -1,4 +1,5 @@
 import numpy as np
+import netCDF4 as nc
 import re
 import tomlkit
 import warnings
@@ -8,9 +9,12 @@ from datetime import datetime, timedelta
 from os import path, makedirs, listdir
 from pathlib import Path
 from fnmatch import filter as fnmatch_filter
+from typing import Union
 
 from globsim.common_utils import StationListRead, str_encode
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
+from globsim.gap_checker import check_time_integrity
+from globsim.decorators import check
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -36,6 +40,7 @@ class GenericInterpolate:
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
+        self.skip_checks = bool(par.get("skip_checks", False))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
         # read station points
@@ -61,6 +66,7 @@ class GenericInterpolate:
         else:
             raise FileNotFoundError(f"Siteslist file {par.get('station_list')} not found.")
 
+    @check
     def validate_stations_extent(self, ncdf):
         try:
             if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
@@ -87,7 +93,7 @@ class GenericInterpolate:
         varlist = [item for sublist in varlist for item in sublist]
         return(varlist)
 
-    def interp2D(self, ncfile_in: str, ncf_in, points, tmask_chunk: "np.ndarray",
+    def interp2D(self,  ncf_in, points, tmask_chunk: "np.ndarray",
                  variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
@@ -95,7 +101,7 @@ class GenericInterpolate:
         surface and for pressure level files
 
         Args:
-            ncfile_in: Full path to an Era-Interim derived netCDF file. This can
+            ncfile_in: nc Dataset  OR Full path to an Era-Interim derived netCDF file. This can
                        contain wildcards to point to multiple files if temporal
                        chunking was used.
 
@@ -123,6 +129,7 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
+
         logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
 
         # is it a file with pressure levels?
@@ -156,7 +163,7 @@ class GenericInterpolate:
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
 
-        sgrid = self.create_source_grid(ncfile_in)
+        sgrid = self.create_source_grid(ncf_in)
 
         # create source field(s) on source grid
         if ens:
@@ -229,12 +236,13 @@ class GenericInterpolate:
 
         return str(output_root)
 
-    def create_source_grid(self, ncfile_in: str) -> "ESMF.Grid":
+    def create_source_grid(self, ncf_in: "nc.MFDataset") -> "ESMF.Grid":
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        flist = np.sort(fnmatch_filter(listdir(self.input_dir),
-                                       path.basename(ncfile_in)))
-        ncsingle = path.join(self.input_dir, flist[0])
+        #flist = np.sort(fnmatch_filter(listdir(self.input_dir),
+        #                               path.basename(ncfile_in)))
+        #ncsingle = path.join(self.input_dir, flist[0])
+        ncsingle = ncf_in._files[0]
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         return sgrid
 
@@ -375,6 +383,35 @@ class GenericInterpolate:
         wb /= wt  # Apply after ravel() of data.
 
         return wa, wb
+
+    @check
+    def ensure_datset_integrity(self, time: "nc.Variable", interval: float):
+        """ Perform basic pre-flight checks on (downloaded) input datasets before running interpolate"""
+        # Check coverage
+        interpolate_start = self.date['beg']
+        interpolate_end = self.date['end'] - timedelta(days=1)  # take off last day added in __init__
+        data_start = nc.num2date(time[0], time.units, time.calendar)
+        data_end = nc.num2date(time[-1], time.units, time.calendar)
+
+        if not (data_start <= interpolate_start):
+            raise ValueError(f"Requested interpolation start ({interpolate_start}) is before data bounds ({data_start})")
+
+        elif not (data_end >= interpolate_end):
+            raise ValueError(f"Requested interpolation end ({interpolate_end}) is after data bounds ({data_end})")
+
+        # Check gaps
+        critical = False
+        for gap_i, gap_start, gap_end in zip(*check_time_integrity(time, interval)):
+            message = f"Data gap found at index {gap_i}. Missing data from {gap_start} to {gap_end}."
+            
+            if interpolate_start <= gap_start <= gap_end:
+                critical=True
+                logger.critical(message)
+            else:
+                logger.warning(message)
+        
+        if critical:
+            raise ValueError("Data gaps found within interpolation bounds.")
 
 
 def create_stations_bbox(stations) -> BoundingBox:
