@@ -32,7 +32,7 @@ from pathlib import Path
 from pysolar.solar import get_azimuth_fast
 
 from globsim.common_utils import series_interpolate
-from globsim.meteorology import spec_hum_kgkg, relhu_approx_lawrence
+from globsim.meteorology import spec_hum_kgkg, rh_lawrence
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
@@ -257,17 +257,17 @@ class ERA5scale(GenericScale):
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
 
-        RH = relhu_approx_lawrence(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
+        RH = rh_lawrence(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
 
     def RH_per_pl(self, ni=10):
         """
-        Relative humdity derived from pressure-level. 
+        Relative humdity derived from pressure-level.
         """
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_pl, 'r', ni)  
+        values  = self.getValues(self.nc_pl, 'r', ni)
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh[:, n] = series_interpolate(self.times_out_nc,
                                             time_in * 3600, values[:, n])
@@ -449,7 +449,7 @@ class ERA5scale(GenericScale):
         t_grid = self.getValues(self.nc_sa, 't2m', ni)  # [K]
         dewp_grid = self.getValues(self.nc_sa, 'd2m', ni)  # [K]
         lw_grid  = self.getValues(self.nc_sf, 'strd', ni) / self.interval_in  # [w m-2 s-1]
-        rh_grid = relhu_approx_lawrence(t_grid, dewp_grid)
+        rh_grid = rh_lawrence(t_grid, dewp_grid)
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
         

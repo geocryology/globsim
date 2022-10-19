@@ -116,7 +116,7 @@ def LW_downward(RH,T,N):
     return lw
 
 
-def relhu_approx_lawrence(t: np.ndarray, td: np.ndarray) -> np.ndarray:
+def rh_lawrence(t: np.ndarray, td: np.ndarray) -> np.ndarray:
     '''
     https://doi.org/10.1175/BAMS-86-2-225
     t : temperature [C]
