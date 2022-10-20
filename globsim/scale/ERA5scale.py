@@ -32,7 +32,7 @@ from pathlib import Path
 from pysolar.solar import get_azimuth_fast
 
 from globsim.common_utils import series_interpolate
-from globsim.meteorology import spec_hum_kgkg, rh_lawrence
+from globsim.meteorology import spec_hum_kgkg
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
@@ -257,7 +257,7 @@ class ERA5scale(GenericScale):
         var.units     = 'percent'
         var.standard_name = 'relative_humidity'
 
-        RH = rh_lawrence(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
+        RH = self._rh()(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
 
     def RH_per_pl(self, ni=10):
@@ -449,7 +449,7 @@ class ERA5scale(GenericScale):
         t_grid = self.getValues(self.nc_sa, 't2m', ni)  # [K]
         dewp_grid = self.getValues(self.nc_sa, 'd2m', ni)  # [K]
         lw_grid  = self.getValues(self.nc_sf, 'strd', ni) / self.interval_in  # [w m-2 s-1]
-        rh_grid = rh_lawrence(t_grid, dewp_grid)
+        rh_grid = self._rh()(t_grid, dewp_grid)
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
         
