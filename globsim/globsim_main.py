@@ -153,7 +153,7 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True
         
     # === ERA5ENS ===
     if ERA5ENS:
-        ERA5sc = scale.ERA5scale(sfile, 'ensemble_members')
+        ERA5sc = scale.ERA5Escale(sfile)
         ERA5sc.process()
     
     # # === MERRA-2 ===

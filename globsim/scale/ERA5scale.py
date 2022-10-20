@@ -57,7 +57,7 @@ class ERA5scale(GenericScale):
     """
     src = 'era5'
 
-    def __init__(self, sfile, era5type='reanalysis'):
+    def __init__(self, sfile):
         super().__init__(sfile)
         par = self.par
 
