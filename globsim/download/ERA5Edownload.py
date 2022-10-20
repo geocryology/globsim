@@ -6,28 +6,28 @@ from globsim.download.ERA5download import ERA5download, ERA5pl, ERA5sa, ERA5sf, 
 class ERA5Epl(ERA5pl):
 
     @property
-    def era5type(self):
+    def eratype(self):
         return 'ensemble_members'
 
 
 class ERA5Eto(ERA5to):
 
     @property
-    def era5type(self):
+    def eratype(self):
         return 'ensemble_members'
 
 
 class ERA5Esf(ERA5sf):
 
     @property
-    def era5type(self):
+    def eratype(self):
         return 'ensemble_members'
 
 
 class ERA5Esa(ERA5sa):
 
     @property
-    def era5type(self):
+    def eratype(self):
         return 'ensemble_members'
 
 
@@ -69,7 +69,6 @@ class ERA5Edownload(ERA5download):
         return "era5ens"
 
     def list_downloaders(self, date_i):
-        import pdb;pdb.set_trace()
         pl = ERA5Epl(date_i, self.area, self.elevation, self.variables, self.directory)
         sa = ERA5Esa(date_i, self.area, self.variables, self.directory)
         sf = ERA5Esf(date_i, self.area, self.variables, self.directory)
