@@ -59,6 +59,17 @@ class GenericScale:
         finally:
             logger.debug(f"Snow correction factor for scaling set to {self.scf}")
 
+        # read RH approximation
+        try:
+            rhf = par['rh_approximation']
+        except KeyError:
+            logger.warning("Missing relative humidity approximation choice in control file (rh_approximation). Reverting to default ('rh_liston').")
+            rhf = 'rh_liston'
+        finally:
+            self._rh_function_name = rhf
+            logger.debug(f"Using relative humidity approximation {rhf}")
+
+
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
@@ -189,8 +200,7 @@ class GenericScale:
                 logger.error(f"Missing kernel {kernel_name}")
 
     def _rh(self) -> Callable:
-        rh_function_name = self.par.get('rh_approximation', 'rh_liston')
-        rh_function = getattr(met, rh_function_name)
+        rh_function = getattr(met, self._rh_function_name)
         return rh_function
 
 
