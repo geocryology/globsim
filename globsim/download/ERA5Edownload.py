@@ -6,28 +6,28 @@ from globsim.download.ERA5download import ERA5download, ERA5pl, ERA5sa, ERA5sf, 
 class ERA5Epl(ERA5pl):
 
     @property
-    def eratype(self):
+    def era5type(self):
         return 'ensemble_members'
 
 
 class ERA5Eto(ERA5to):
 
     @property
-    def eratype(self):
+    def era5type(self):
         return 'ensemble_members'
 
 
 class ERA5Esf(ERA5sf):
 
     @property
-    def eratype(self):
+    def era5type(self):
         return 'ensemble_members'
 
 
 class ERA5Esa(ERA5sa):
 
     @property
-    def eratype(self):
+    def era5type(self):
         return 'ensemble_members'
 
 
