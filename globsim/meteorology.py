@@ -135,10 +135,12 @@ def rh_lawrence(t: np.ndarray, td: np.ndarray) -> np.ndarray:
 
 def rh_liston(t: np.ndarray, td: np.ndarray) -> np.ndarray:
     """
+    https://doi.org/10.1175/JHM486.1
     t : temperature [C]
     td : dewpoint temperature [C]
     returns : relative humidity [%]
     """
+
     t = np.atleast_1d(t)
     td = np.atleast_1d(td)
     
