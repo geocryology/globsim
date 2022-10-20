@@ -61,6 +61,7 @@ Rescaling
 ``time_step``                     The desired output time step in hours
 ``kernels``                       Which processing kernels should be used. Missing or misspelled kernels will be ignored by globsim.
 ``scf``                           (optional) snow correction factor, a positive real number used to manually scale the precipitation for all sites.
+``rh_approximation``              (optional) which relative humidity approximation to use. Choose from  'rh_liston' (default) or 'rh_lawrence'
 =========================         ===============
 
 Example Parameter File
