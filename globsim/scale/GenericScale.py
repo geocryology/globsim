@@ -7,8 +7,10 @@ from datetime import datetime
 from os import path, makedirs
 from pathlib import Path
 from math import floor
+from typing import Callable
 
 from globsim.common_utils import StationListRead
+import globsim.meteorology as met
 
 logger = logging.getLogger('globsim.scale')
 
@@ -56,6 +58,17 @@ class GenericScale:
             self.scf = 1
         finally:
             logger.debug(f"Snow correction factor for scaling set to {self.scf}")
+
+        # read RH approximation
+        try:
+            rhf = par['rh_approximation']
+        except KeyError:
+            logger.warning("Missing relative humidity approximation choice in control file (rh_approximation). Reverting to default ('rh_liston').")
+            rhf = 'rh_liston'
+        finally:
+            self._rh_function_name = rhf
+            logger.debug(f"Using relative humidity approximation {rhf}")
+
 
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
@@ -185,6 +198,10 @@ class GenericScale:
                 getattr(self, kernel_name)()
             else:
                 logger.error(f"Missing kernel {kernel_name}")
+
+    def _rh(self) -> Callable:
+        rh_function = getattr(met, self._rh_function_name)
+        return rh_function
 
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:

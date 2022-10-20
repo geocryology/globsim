@@ -106,7 +106,6 @@ from pysolar.solar import get_azimuth_fast
 from scipy.interpolate import interp1d
 
 from globsim.common_utils import series_interpolate
-from globsim.meteorology import relhu_approx_lawrence
 from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
@@ -295,7 +294,7 @@ class MERRAscale(GenericScale):
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         dewp = self.nc_sf.variables['T2MDEW'][:]
         t = self.nc_sa.variables['T2M'][:]
-        relhu = relhu_approx_lawrence(t, dewp)
+        relhu = self._rh()(t, dewp)
 
         # add variable to ncdf file
         vn = 'RH_sur'  # variable name
@@ -474,7 +473,7 @@ class MERRAscale(GenericScale):
         t_grid = self.nc_sa['T2M'][:]  # [K]
         dewp_grid = self.nc_sf['T2MDEW'][:]  # [K]
         lw_grid  = self.nc_sf["LWGDN"]  # [w m-2 s-1]
-        rh_grid = relhu_approx_lawrence(t_grid, dewp_grid)
+        rh_grid = self._rh()(t_grid, dewp_grid)
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
         
