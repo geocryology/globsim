@@ -37,6 +37,11 @@ class ERA5generic(object):
                 '175.128': 'surface_thermal_radiation_downwards',
                 '172.128': 'land_sea_mask'}
 
+    ERA_TYPES = {
+        'reanalysis':'era5',
+        'ensemble_members':'era5_ens'
+    }
+
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
         res = str(round(area['north'],2)) + "/"
@@ -59,8 +64,12 @@ class ERA5generic(object):
         return(res)
 
     def typeString(self):
-        return 'era5'
+        return self.ERA_TYPES[self.era5type]
 
+    @property
+    def era5type(self):
+        return 'reanalysis'
+        
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
         Pmax = pressure_from_elevation(elevation['min']) + 55
@@ -144,10 +153,6 @@ class ERA5generic(object):
         string = ("List of generic variables to query ECMWF server for "
                   "ERA5 data: {0}")
         return string.format(self.getDictionary)
-
-    @property
-    def era5type(self):
-        return 'reanalysis'
 
 
 class ERA5pl(ERA5generic):
