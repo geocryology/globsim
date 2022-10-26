@@ -68,13 +68,20 @@ class GenericInterpolate:
 
     @check
     def validate_stations_extent(self, ncdf):
+        
+        data_bbox = netcdf_bbox(ncdf)
+        msg = f"Station coordinates {self.stations_bbox} exceed downloaded extent {data_bbox}"
         try:
-            if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
-                logger.error("Station coordinates exceed downloaded extent")
-                raise ValueError("Station coordinates exceed downloaded extent")
+            if not data_bbox.contains_bbox(self.stations_bbox):
+                logger.error(msg)
+                raise ValueError(msg)
             else:
                 logger.info("Stations within bounding box of dataset")
-        except Exception:
+        
+        except ValueError:
+            raise ValueError(msg)
+        
+        except KeyError:
             logger.error("Could not verify whether stations are within downloaded netcdf")
 
     def _set_input_directory(self, name):
@@ -239,9 +246,9 @@ class GenericInterpolate:
     def create_source_grid(self, ncf_in: "nc.MFDataset") -> "ESMF.Grid":
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        #flist = np.sort(fnmatch_filter(listdir(self.input_dir),
+        # flist = np.sort(fnmatch_filter(listdir(self.input_dir),
         #                               path.basename(ncfile_in)))
-        #ncsingle = path.join(self.input_dir, flist[0])
+        # ncsingle = path.join(self.input_dir, flist[0])
         ncsingle = ncf_in._files[0]
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         return sgrid

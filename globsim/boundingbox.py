@@ -5,6 +5,12 @@ from typing import Union
 
 class BoundingBox:
 
+    def __str__(self):
+        return f"BoundingBox({self.xmin},{self.xmax},{self.ymin},{self.ymax})"
+
+    def __repr__(self):
+        return f"BoundingBox({self.xmin},{self.xmax},{self.ymin},{self.ymax})"
+
     def __init__(self, xmin, xmax, ymin, ymax):
         self.xmin = xmin
         self.xmax = xmax
@@ -37,10 +43,10 @@ class BoundingBox:
             self.ymin -= amount
 
     def contains_bbox(self, bbox: "BoundingBox") -> bool:
-        contains = ((self.xmin < bbox.xmin) and
-                    (self.xmax > bbox.xmax) and
-                    (self.ymin < bbox.ymin) and
-                    (self.ymax > bbox.ymax))
+        contains = ((self.xmin % 360 < bbox.xmin % 360) and
+                    (self.xmax % 360 > bbox.xmax % 360) and
+                    (self.ymin % 360 < bbox.ymin % 360) and
+                    (self.ymax % 360 > bbox.ymax % 360))
         return contains
 
     def within_bbox(self, bbox: "BoundingBox") -> bool:
@@ -62,14 +68,22 @@ def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
     x = ncf.get_variables_by_attributes(axis='X')
     if not x:
         x = ncf.get_variables_by_attributes(standard_name='longitude')
-        if not x:
-            raise KeyError("Could not find x-coordinate")
+    if not x:
+        x = ncf.get_variables_by_attributes(long_name='longitude')
+    if not x:
+        x = 'longitude' if 'longitude' in ncf.variables else None
+    if not x:
+        raise KeyError("Could not find x-coordinate")
 
     y = ncf.get_variables_by_attributes(axis='Y')
     if not y:
         y = ncf.get_variables_by_attributes(standard_name='latitude')
-        if not y:
-            raise KeyError("Could not find y-coordinate")
+    if not y:
+        y = ncf.get_variables_by_attributes(long_name='latitude')
+    if not x:
+        x = 'latitude' if 'latitude' in ncf.variables else None
+    if not y:
+        raise KeyError("Could not find y-coordinate")
 
     xval = x[:]
     yval = y[:]
