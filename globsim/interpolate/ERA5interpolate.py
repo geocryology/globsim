@@ -208,7 +208,6 @@ class ERA5interpolate(GenericInterpolate):
                         ncf_out.variables[var][beg:end+1,:] = vi
 
         # close the file
-        ncf_in.close()
         ncf_out.close()
 
     def levels2elevation(self, ncfile_in, ncfile_out):
@@ -350,7 +349,7 @@ class ERA5interpolate(GenericInterpolate):
 
         with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
             self.ERA2station(sa, self.getOutFile('sa'),
-                            self.stations, varlist, date=self.date)
+                             self.stations, varlist, date=self.date)
 
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
         # dictionary to translate CF Standard Names into ERA5
