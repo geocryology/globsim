@@ -35,21 +35,23 @@ class ERA5interpolate(GenericInterpolate):
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
-        # Load MF Datasets
-        logger.info("Loading datasets")
         self.mf_to = nc.MFDataset(self.getInFile('to'), 'r', aggdim='time')
-        self.mf_sa = nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time')
-        self.mf_sf = nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time')
-        self.mf_pl = nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time')
-
+        
         # Check dataset integrity
-        logger.info("Check data integrity (sa)")
-        self.ensure_datset_integrity(self.mf_sa['time'], 1)
-        logger.info("Check data integrity (sf)")
-        self.ensure_datset_integrity(self.mf_sf['time'], 1)
-        logger.info("Check data integrity (pl)")
-        self.ensure_datset_integrity(self.mf_pl['time'], 1)
-        logger.info("Data integrity ok")
+        if not self.skip_checks:
+            with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
+                logger.info("Check data integrity (sa)")
+                self.ensure_datset_integrity(sa['time'], 1)
+            
+            with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
+                logger.info("Check data integrity (sf)")
+                self.ensure_datset_integrity(sf['time'], 1)
+
+            with nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time') as pl:
+                logger.info("Check data integrity (pl)")
+                self.ensure_datset_integrity(pl['time'], 1)
+
+            logger.info("Data integrity ok")
 
     def getInFile(self, levStr):
         # edited naming conventions for simplicity and to avoid errors
@@ -345,8 +347,10 @@ class ERA5interpolate(GenericInterpolate):
                                         # [kg m-2] Total column W vapor
                 'wind_speed': ['u10', 'v10']}   # [m s-1] 10m values
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(self.mf_sa, self.getOutFile('sa'),
-                         self.stations, varlist, date=self.date)
+
+        with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
+            self.ERA2station(sa, self.getOutFile('sa'),
+                            self.stations, varlist, date=self.date)
 
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
         # dictionary to translate CF Standard Names into ERA5
@@ -358,8 +362,9 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        self.ERA2station(self.mf_sf, self.getOutFile('sf'),
-                         self.stations, varlist, date=self.date)
+        with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
+            self.ERA2station(sf, self.getOutFile('sf'),
+                            self.stations, varlist, date=self.date)
 
         # === 2D Interpolation for Pressure Level Data ===
         # dictionary to translate CF Standard Names into ERA5
@@ -368,8 +373,9 @@ class ERA5interpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        self.ERA2station(self.mf_pl, self.getOutFile('pl'),
-                         self.stations, varlist, date=self.date)
+        with nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time') as pl:
+            self.ERA2station(pl, self.getOutFile('pl'),
+                             self.stations, varlist, date=self.date)
 
         # 1D Interpolation for Pressure Level Data
         if self.ens:
