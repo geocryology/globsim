@@ -171,6 +171,8 @@ class GenericInterpolate:
             raise ValueError('One or more variables not in netCDF file.')
 
         sgrid = self.create_source_grid(ncf_in)
+        lon_subset, lat_subset = clipped_grid_indices(sgrid, self.stations_bbox)
+        subset_grid = clip_grid_to_indices(sgrid, lon_subset, lat_subset)
 
         # create source field(s) on source grid
         if ens:
@@ -448,6 +450,60 @@ def grid_from_bbox(latitudes: np.ndarray,
     grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
     
     return grid
+
+
+def get_buffered_slices(grid: "ESMF.Grid",
+                        lon_indices:'np.ndarray',
+                        lat_indices:'np.ndarray',
+                        b=3) -> tuple:
+    # Buffer by 'b' grid cells to ensure enough room for interpolation
+    # But ensure data boundaries are not exceeded
+    x_start = max(0, lon_indices[0] - b)
+    x_end = min(len(grid.coords[0][0]), lon_indices[1] + b + 1)
+    y_start = max(0, lat_indices[0] - b)
+    y_end = min(len(grid.coords[0][1]), lat_indices[1] + b + 1)
+
+    lon_slice = slice(x_start, x_end)
+    lat_slice = slice(y_start, y_end)
+
+    sliced_lon = grid.coords[0][0][lon_slice, lat_slice]
+    sliced_lat = grid.coords[0][1][lon_slice, lat_slice]
+
+    return sliced_lon, sliced_lat
+
+
+def clip_grid_to_indices(grid: "ESMF.Grid", 
+                         lon_indices:'np.ndarray',
+                         lat_indices:'np.ndarray') -> "ESMF.Grid":
+
+    sliced_lon, sliced_lat = get_buffered_slices(grid, lon_indices, lat_indices)
+
+    new_grid = ESMF.Grid(max_index=np.array([sliced_lon.shape[0], sliced_lat.shape[1]], dtype='int32'),
+                         num_peri_dims=grid.num_peri_dims,
+                         periodic_dim=grid.periodic_dim,
+                         pole_dim=grid.pole_dim,
+                         coord_sys=grid.coord_sys)
+                        
+    new_grid.coords[0][0] = sliced_lon
+    new_grid.coords[0][1] = sliced_lat
+
+    return new_grid
+
+
+def clipped_grid_indices(grid: "ESMF.Grid", bbox: "BoundingBox"):
+    latitudes = grid.coords[0][1]
+    longitudes = grid.coords[0][0]
+    
+    # Consider cases where all points within a single grid cell
+    new_bbox = BoundingBox(max(longitudes[longitudes <= bbox.xmin]),
+                           min(longitudes[longitudes >= bbox.xmax]),
+                           max(latitudes[latitudes <= bbox.ymin]),
+                           min(latitudes[latitudes >= bbox.ymax]))
+
+    valid_lat = np.where((latitudes[0,:] >= new_bbox.ymin) & (latitudes[0,:] <= new_bbox.ymax))[0]
+    valid_lon = np.where((longitudes[:,0] >= new_bbox.xmin) & (longitudes[:,0] <= new_bbox.xmax))[0]
+
+    return valid_lon, valid_lat
 
 
 def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> "ESMF.Field":
