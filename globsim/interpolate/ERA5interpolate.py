@@ -10,7 +10,10 @@ from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
+
+
 logger = logging.getLogger('globsim.interpolate')
+
 
 urllib3.disable_warnings()
 
@@ -154,6 +157,10 @@ class ERA5interpolate(GenericInterpolate):
         niter = len(time_in) // self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
+        # Create source grid
+        sgrid = self.create_source_grid(ncf_in)
+        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
+
         # loop over chunks
         for n in range(niter):
             # indices (relative to index of the output file)
@@ -179,6 +186,7 @@ class ERA5interpolate(GenericInterpolate):
             # get the interpolated variables
             dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
+                                              subset_grid, lon_slice, lat_slice,
                                               variables=None, date=None)
             # append time
             ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],

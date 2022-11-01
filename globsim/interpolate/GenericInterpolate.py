@@ -15,6 +15,7 @@ from globsim.common_utils import StationListRead, str_encode
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 from globsim.gap_checker import check_time_integrity
 from globsim.decorators import check
+from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -101,6 +102,8 @@ class GenericInterpolate:
         return(varlist)
 
     def interp2D(self,  ncf_in, points, tmask_chunk: "np.ndarray",
+                 sgrid: "ESMF.Grid",
+                 lon_subset:slice, lat_subset:slice,
                  variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
@@ -170,9 +173,6 @@ class GenericInterpolate:
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
 
-        sgrid = self.create_source_grid(ncf_in)
-        lon_subset, lat_subset = clipped_grid_indices(sgrid, self.stations_bbox)
-        subset_grid = clip_grid_to_indices(sgrid, lon_subset, lat_subset)
 
         # create source field(s) on source grid
         if ens:
@@ -191,8 +191,7 @@ class GenericInterpolate:
             else:  # 2D files
                 sfield = create_field(sgrid, variables, nt)
             
-            #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
-            self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl, lon_subset, lat_subset)
 
         locstream = self.create_loc_stream(points)
 
@@ -210,7 +209,7 @@ class GenericInterpolate:
         else:
             if pl:  # only for pressure level files
                 dfield = ESMF.Field(locstream, name='dfield',
-                                    ndbounds=[len(variables), nt, nlev])
+                                    ndbounds=[len(variables), nt, nlev])  # TODO: we can just get this from sfield.ndbounds
             else:
                 dfield = ESMF.Field(locstream, name='dfield',
                                     ndbounds=[len(variables), nt])
@@ -253,8 +252,16 @@ class GenericInterpolate:
         # ncsingle = path.join(self.input_dir, flist[0])
         ncsingle = ncf_in._files[0]
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+        
         return sgrid
 
+    def create_subset_source_grid(self, sgrid: "ESMF.Grid", bbox: BoundingBox) -> "tuple[ESMF.Grid, slice, slice]":
+        lon_subset, lat_subset = clipped_grid_indices(sgrid, bbox)
+        lon_slice, lat_slice = get_buffered_slices(sgrid, lon_subset, lat_subset)
+        subset_grid = clip_grid_to_indices(sgrid, lon_subset, lat_subset)
+        
+        return subset_grid, lon_slice, lat_slice
+    
     def create_loc_stream(self, points) -> "ESMF.LocStream":
         # CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(points),
@@ -316,22 +323,12 @@ class GenericInterpolate:
 
             logger.debug(f"Wrote {var} data to source field for regridding")
 
-    def nc_data_subset_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
-                                       tmask_chunk, pl: bool):
+    @staticmethod
+    def nc_data_subset_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+                                       tmask_chunk, pl: bool, lon_slice, lat_slice):
         """ assign data from ncdf: (time, [level], latitude, longitude)
                          to sfield (longitude, latitude, variable, time, [level])
         """
-
-        # get indices of lat/lon
-        lat = ncf_in.get_variables_by_attributes(standard_name='latitude', axis='Y')[0][:]
-        lon = ncf_in.get_variables_by_attributes(standard_name='longitude', axis='X')[0][:]
-
-        lat_ix = np.where((lat >= self.stations_bbox.ymin) & (lat <= self.stations_bbox.ymax))[0]
-        lon_ix = np.where((lon >= self.stations_bbox.xmin) & (lon <= self.stations_bbox.xmax))[0]
-
-        lat_slice = slice(min(lat_ix), max(lat_ix) + 1)
-        lon_slice = slice(min(lon_ix), max(lon_ix) + 1)
-
         tmin = np.min(np.where(tmask_chunk))
         tmax = np.max(np.where(tmask_chunk))
         time_slice = slice(tmin, tmax + 1)
@@ -339,10 +336,10 @@ class GenericInterpolate:
         for n, var in enumerate(variables):
             if pl:
                 vi = ncf_in[var][time_slice, :, lat_slice, lon_slice]
-                sfield.data[lon_slice, lat_slice, n, :, :] = vi.transpose((3,2,0,1))
+                sfield.data[:, :, n, :, :] = vi.transpose((3,2,0,1))
             else:
                 vi = ncf_in[var][time_slice, lat_slice, lon_slice]
-                sfield.data[lon_slice, lat_slice, n, :] = vi.transpose((2,1,0))
+                sfield.data[:, :, n, :] = vi.transpose((2,1,0))
 
             logger.debug(f"Wrote {var} data to source field for regridding")
 
@@ -450,60 +447,6 @@ def grid_from_bbox(latitudes: np.ndarray,
     grid.coords[0][1] = np.repeat(valid_lat[np.newaxis, :], len(valid_lon), axis=0)
     
     return grid
-
-
-def get_buffered_slices(grid: "ESMF.Grid",
-                        lon_indices:'np.ndarray',
-                        lat_indices:'np.ndarray',
-                        b=3) -> tuple:
-    # Buffer by 'b' grid cells to ensure enough room for interpolation
-    # But ensure data boundaries are not exceeded
-    x_start = max(0, lon_indices[0] - b)
-    x_end = min(len(grid.coords[0][0]), lon_indices[1] + b + 1)
-    y_start = max(0, lat_indices[0] - b)
-    y_end = min(len(grid.coords[0][1]), lat_indices[1] + b + 1)
-
-    lon_slice = slice(x_start, x_end)
-    lat_slice = slice(y_start, y_end)
-
-    sliced_lon = grid.coords[0][0][lon_slice, lat_slice]
-    sliced_lat = grid.coords[0][1][lon_slice, lat_slice]
-
-    return sliced_lon, sliced_lat
-
-
-def clip_grid_to_indices(grid: "ESMF.Grid", 
-                         lon_indices:'np.ndarray',
-                         lat_indices:'np.ndarray') -> "ESMF.Grid":
-
-    sliced_lon, sliced_lat = get_buffered_slices(grid, lon_indices, lat_indices)
-
-    new_grid = ESMF.Grid(max_index=np.array([sliced_lon.shape[0], sliced_lat.shape[1]], dtype='int32'),
-                         num_peri_dims=grid.num_peri_dims,
-                         periodic_dim=grid.periodic_dim,
-                         pole_dim=grid.pole_dim,
-                         coord_sys=grid.coord_sys)
-                        
-    new_grid.coords[0][0] = sliced_lon
-    new_grid.coords[0][1] = sliced_lat
-
-    return new_grid
-
-
-def clipped_grid_indices(grid: "ESMF.Grid", bbox: "BoundingBox"):
-    latitudes = grid.coords[0][1]
-    longitudes = grid.coords[0][0]
-    
-    # Consider cases where all points within a single grid cell
-    new_bbox = BoundingBox(max(longitudes[longitudes <= bbox.xmin]),
-                           min(longitudes[longitudes >= bbox.xmax]),
-                           max(latitudes[latitudes <= bbox.ymin]),
-                           min(latitudes[latitudes >= bbox.ymax]))
-
-    valid_lat = np.where((latitudes[0,:] >= new_bbox.ymin) & (latitudes[0,:] <= new_bbox.ymax))[0]
-    valid_lon = np.where((longitudes[:,0] >= new_bbox.xmin) & (longitudes[:,0] <= new_bbox.xmax))[0]
-
-    return valid_lon, valid_lat
 
 
 def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> "ESMF.Field":
