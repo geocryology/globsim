@@ -157,6 +157,10 @@ class JRAinterpolate(GenericInterpolate):
         niter = len(time_in) // self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
+        # Create source grid
+        sgrid = self.create_source_grid(ncf_in)
+        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
+
         # loop over chunks
         for n in range(niter):
             # indices
@@ -185,6 +189,7 @@ class JRAinterpolate(GenericInterpolate):
             # get the interpolated variables
             dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
+                                              subset_grid, lon_slice, lat_slice,
                                               variables=None, date=None)
 
             # append time
