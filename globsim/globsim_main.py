@@ -67,12 +67,12 @@ def GlobsimDownload(pfile, multithread=True,
         D = download.ERA5MonthlyDownload(pfile, False)
         requests = D.list_requests()
         D.download_threadded(requests, 12)
-        #ERA5REAdownl = download.ERA5download(pfile, 'reanalysis')
+        #ERA5REAdownl = download.ERA5download(pfile)
         #objects.append(ERA5REAdownl)
     
     # === ERA5 10-member ensemble ===
     if ERA5ENS:
-        ERA5ENSdownl = download.ERA5download(pfile, 'ensemble_members')
+        ERA5ENSdownl = download.ERA5Edownload(pfile)
         objects.append(ERA5ENSdownl)
     
     # === MERRA-2 ===
@@ -153,7 +153,7 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True
         
     # === ERA5ENS ===
     if ERA5ENS:
-        ERA5sc = scale.ERA5scale(sfile, 'ensemble_members')
+        ERA5sc = scale.ERA5Escale(sfile)
         ERA5sc.process()
     
     # # === MERRA-2 ===
