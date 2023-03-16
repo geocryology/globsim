@@ -110,8 +110,10 @@ class ERA5scale(GenericScale):
         Run all relevant processes and save data. Each kernel processes one
         variable and adds it to the netCDF file.
         """
-
-        stations = self.stations['station_name']
+        try:
+            stations = self.stations['station_name']
+        except:
+            stations = self.stations['station']
         # iterate thorugh kernels and start process
 
         self.output_file = self.getOutNCF(self.par, self.src)
