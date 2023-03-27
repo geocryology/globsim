@@ -1,9 +1,10 @@
-from globsim.exporttools import globsim_to_geotop, globsim_to_classic_met
+from globsim.exporttools import globsim_to_geotop, globsim_to_classic_met, globsim_to_freethaw
 
 import argparse
 
 export_styles = {"geotop": globsim_to_geotop,
-                 "classicmet": globsim_to_classic_met}
+                 "classicmet": globsim_to_classic_met,
+                 "freethaw": globsim_to_freethaw}
 
 
 def main(args):
@@ -23,6 +24,11 @@ def main(args):
         globsim_to_classic_met(ncd=source_file,
                                out_dir=dest_directory,
                                site=site)
+        
+    elif export_type == "freethaw":
+        globsim_to_freethaw(ncd=source_file,
+                            out_dir=dest_directory,
+                            site=site)
 
 
 if __name__ == "__main__":

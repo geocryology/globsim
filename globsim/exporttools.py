@@ -4,6 +4,7 @@ Export functions to convert globsim output to other file types
 from os import path, makedirs
 from pathlib import Path
 
+import datetime
 import logging
 import netCDF4 as nc
 import numpy as np
@@ -71,6 +72,8 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     # open netcdf if string provided
     if type(ncd) is str:
         n = nc.Dataset(ncd)
+    else:
+        n = ncd
 
     # find number of stations
     nstn = len(n['station'][:])
@@ -240,5 +243,85 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
             # create file
             logger.info(f"writing file '{savepath}'")
             out_df.to_csv(savepath, index=False, float_format="%10.5f")
+
+    return files
+
+
+def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":
+    """
+    Export a scaled globsim file to a Freethaw-style (OMS3) text file
+
+    Parameters
+    ----------
+    ncd : str or Dataset
+        netcdf dataset or path to dataset
+    site : str or int
+        site name or index
+    export_profile : str, optional
+        path to TOML file that provides configuration information. If not provided, a default configuration is created in your home
+        directory in a .globsim folder (i.e. '~/.globsim/geotop_profile.toml'). For example configuration files see the globsim/data/ folder
+        in the package.
+
+    Returns
+    -------
+    list : list of file paths to created files
+    """
+    # open netcdf if string provided
+    if type(ncd) is str:
+        ncd = nc.Dataset(ncd)
+
+    logger.debug(f"Read file '{ncd.filepath()}'")
+
+    # find number of stations
+    nstn = len(ncd['station'][:])
+
+    # get date / time column
+    time = nc.num2date(ncd['time'][:],
+                       units=ncd['time'].units,
+                       calendar=ncd['time'].calendar)
+
+    time = [x.strftime('%Y-%m-%d %H:%M') for x in time]  # TODO: this could be faster
+    time = pd.DataFrame(time)
+
+    # write headers lines
+    headers = [f"@Table,table,\n",
+               f"Created,{datetime.datetime.now().isoformat()[:19]},\n",
+               "Author,Globsim,\n",
+               "ID,,0\n",
+               "Type,Date,double\n",
+               "@Header,timestamp,temperature\n",
+               "Format,yyyy-MM-dd HH:mm,,\n"]
+
+    AIRT = "AIRT_sur"
+    AIRT = ncd[AIRT][:]
+
+    # get site names
+    NAMES = nc.chartostring(ncd['station_name'][:])
+
+    # combine data variables into array
+    data = AIRT
+
+    # write output files
+    files = []
+    for i in range(nstn):
+        if (site is None) or (site == i) or (site == NAMES[i]):
+            # massage data into the right shape
+            out_df = pd.DataFrame(data[:,i])
+            out_df = pd.concat([time, out_df], axis=1)
+            out_df.insert(loc=0, column="Format",value="")
+
+            # get station name
+            st_name = NAMES[i]
+
+            # prepare paths
+            filename = "{}-{}_Temperature.csv".format(i, st_name)
+            savepath = path.join(out_dir, filename)
+            files.append(savepath)
+
+            # create file
+            logger.info(f"writing file '{savepath}'")
+            with open(savepath, 'w') as file:
+                file.writelines(headers)
+                file.write(out_df.to_csv(header=False, index=False))
 
     return files
