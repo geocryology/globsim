@@ -6,8 +6,8 @@ import xarray as xr
 import pygrib
 
 from pathlib import Path
-
-from globsim.download.ERA3Q_dl import GetAccessor
+from typing import Optional
+from globsim.download.JRA3Q_dl import GetAccessor
 # workflow ->
 
 # make an empty netcdf file with the correct dimensions, unlimited time dimension
@@ -159,4 +159,29 @@ def url_fcst_phy2m125(year, month, day, hour):
     url = f"https://data.diasjp.net/dl/storages/downloadCmd/{coded}"
 
     return url, p1, p2
+
+
+class GribSubsetter:
+    DEFAULT_LEV_HPA = [0.1, 0.3, 1.0, 3.0, 7.0,
+                       1, 2, 3, 5, 7, 10, 20, 30,
+                       40, 50, 60, 70, 85, 100,
+                       125, 150, 175, 200, 225,
+                       250, 300, 350, 400, 450,
+                       500, 550, 600, 650, 700,
+                       750, 775, 800, 825, 850,
+                       875, 900, 925, 950, 975,
+                       1000]
+    
+    def __init__(self, lon_min, lon_max, lat_min, lat_max,
+                 levels:Optional[list] = None):
+        self.lon_min = lon_min % 360
+        self.lon_max = lon_max % 360
+        self.lat_min = lat_min % 360
+        self.lat_max = lat_max % 360
+        self.levels = self.DEFAULT_LEV_HPA if levels is None else levels
+
+    def subset(self, record) -> tuple:
+        vals, lats, lons = record.data(lat1=self.lat_min, lat2=self.lat_max, lon1=self.lon_min, lon2=self.lon_max)
+        return vals, lats, lons
+
 
