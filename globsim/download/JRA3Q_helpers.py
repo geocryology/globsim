@@ -1,13 +1,12 @@
 
 import base64
-import numpy as np
-
-import xarray as xr
-import pygrib
+import logging
 
 from pathlib import Path
 from typing import Optional
-from globsim.download.JRA3Q_dl import GetAccessor
+
+logger = logging.getLogger("globsim.download")
+
 # workflow ->
 
 # make an empty netcdf file with the correct dimensions, unlimited time dimension
@@ -20,37 +19,72 @@ from globsim.download.JRA3Q_dl import GetAccessor
 # 
 
 
-def build_dir_structure(project_dir):
-    pass
-
-
 def download_constant(access, dest_dir):
     url, path, name = url_LL125_surf()
     path = str(Path(dest_dir, path))
     access.dl(url, path, name)
 
 
-def download_daily_gribs(access, dest_dir, year, month, day):
+def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path], list[Path], list[Path]]":
+    sa, pl, sf = [], [], []
+    
     for hour in range(0, 24, 6):
         # surface
         url, path, name = url_anl_surf125(year, month, day, hour)
-        path = str(Path(dest_dir, path[1:]))
-        print(f"Downloading {name} {year}-{month}-{day} {hour}")
-        access.dl(url, path, name, absolute_path=True)
+        dirpath = Path(dest_dir, path[1:])
+        fname = Path(dirpath, name)
+        sa.append(fname)
+        if Path(dirpath, name).exists():
+            print(f"Already exists: {fname}")
+        else:
+            print(f"Downloading {name} {year}-{month}-{day} {hour}")
+            access.dl(url, str(dirpath), name, absolute_path=True)
 
         # pressure-level
         for var in ['tmp', 'spfh', 'ugrd', 'vgrd']:
             url, path, name = url_anl_p125(year, month, day, hour, var)
-            path = str(Path(dest_dir, path[1:]))
-            print(f"Downloading {name} ({var}) {year}-{month}-{day} {hour}")
-            access.dl(url, path, name, absolute_path=True)
+            dirpath = Path(dest_dir, path[1:])
+            fname = Path(dirpath, name)
+            pl.append(fname)
+            if Path(dirpath, name).exists():
+                print(f"Already exists: {fname}")
+            else:
+                print(f"Downloading {name} ({var}) {year}-{month}-{day} {hour}")
+                access.dl(url, str(dirpath), name, absolute_path=True)
 
     # forecast
     for hour in range(0, 24, 1):
         url, path, name = url_fcst_phy2m125(year, month, day, hour)
-        path = str(Path(dest_dir, path[1:]))
-        print(f"Downloading {name} {year}-{month}-{day} {hour}")
-        access.dl(url, path, name, absolute_path=True)
+        dirpath = Path(dest_dir, path[1:])
+        fname = Path(dirpath, name)
+        sf.append(fname)
+        if Path(dirpath, name).exists():
+            print(f"Already exists: {fname}")
+        else:
+            print(f"Downloading {name} {year}-{month}-{day} {hour}")
+            access.dl(url, str(dirpath), name, absolute_path=True)
+
+    return sa, sf, pl
+
+
+def download_monthly_gribs(access, dest_dir, year, month):
+    if month in [1, 3, 5, 7, 8, 10, 12]:
+        days = 31
+    elif month in [4, 6, 9, 11]:
+        days = 30
+    elif month == 2:
+        if year % 4 == 0:
+            days = 29
+        else:
+            days = 28
+    else:
+        raise ValueError(f"Invalid month: {month}")
+    
+    for day in range(1, days + 1):
+        try:
+            sa, sf, pl = download_daily_gribs(access, dest_dir, year, month, day)
+        except Exception as e:
+            print(f"Error downloading {year}-{month}-{day}: {e}")
 
 
 def url_LL125_surf():

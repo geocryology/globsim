@@ -3,11 +3,13 @@ import tomlkit
 import logging
 
 from os import path, makedirs
+from abc import ABC, abstractmethod
+
 
 logger = logging.getLogger("globsim.download")
 
 
-class GenericDownload(object):
+class GenericDownload(ABC):
     """
     Generic functionality for download classes
     """
@@ -24,6 +26,10 @@ class GenericDownload(object):
         self._check_area(par)
 
         self.variables = par['variables']
+
+    @abstractmethod
+    def retrieve(self):
+        raise NotImplementedError("This method must be implemented by a subclass.")
 
     def _check_area(self, par):
         if (par['bbN'] < par['bbS']) or (par['bbE'] < par['bbW']):

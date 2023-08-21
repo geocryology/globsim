@@ -564,7 +564,7 @@ class JRAdownload(GenericDownload):
         self.__varCheck(par)
 
         # time bounds
-        self.date  = self.getDate(par)
+        self.date  = getDate(par)
 
         self.credential = path.join(par['credentials_directory'], ".jrarc")
         self.account = open(self.credential, "r")
@@ -607,15 +607,6 @@ class JRAdownload(GenericDownload):
 
         if not isinstance(par['variables'], (list,)):
             par['variables'] = [par['variables']]
-
-    def getDate(self, par):
-        '''get download daterange'''
-
-        dateRange = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
-                     'end': datetime.strptime(par['end'], '%Y/%m/%d')}
-        dateRange['end'] = dateRange['end'] + timedelta(hours=23)
-
-        return dateRange
 
     def getDataLev(self, dsi):
         '''get data level of the download data set'''
@@ -841,3 +832,13 @@ class JRAdownload(GenericDownload):
         self.requestDownload(rda, dsN)  # download dataset
 
         logger.info('''JRA-55 Complete''')
+
+
+def getDate(par):
+    '''get download daterange'''
+
+    dateRange = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
+                 'end': datetime.strptime(par['end'], '%Y/%m/%d')}
+    dateRange['end'] = dateRange['end'] + timedelta(hours=23)
+
+    return dateRange
