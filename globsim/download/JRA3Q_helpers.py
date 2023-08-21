@@ -19,15 +19,23 @@ logger = logging.getLogger("globsim.download")
 # 
 
 
-def download_constant(access, dest_dir):
+def download_constant(access, dest_dir) -> Path:
     url, path, name = url_LL125_surf()
-    path = str(Path(dest_dir, path))
-    access.dl(url, path, name)
+    dirpath = Path(dest_dir, path[1:])
+    fname = Path(dirpath, name)
+
+    if Path(dirpath, name).exists():
+        print(f"Already exists: {fname}")
+    else:
+        print(f"Downloading {name}")
+        access.dl(url, str(dirpath), name, absolute_path=True)
+
+    return fname
 
 
 def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path], list[Path], list[Path]]":
     sa, pl, sf = [], [], []
-    
+
     for hour in range(0, 24, 6):
         # surface
         url, path, name = url_anl_surf125(year, month, day, hour)

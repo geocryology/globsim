@@ -9,7 +9,7 @@ from typing import Optional, Union
 
 from abc import ABC, abstractmethod
 from globsim.download.GenericDownload import GenericDownload
-from globsim.download.JRA3Q_helpers import GribSubsetter, download_daily_gribs
+from globsim.download.JRA3Q_helpers import GribSubsetter, download_daily_gribs, download_constant
 from globsim.download.JRAdownload import getDate
 from globsim.download.JRA3Q_dl import GetAccessor
 from datetime import datetime
@@ -65,6 +65,18 @@ class J3QD(GenericDownload):
     def retrieve(self):
         days = pd.date_range(self.date['beg'], self.date['end'])
 
+        # Constant surface data
+        to_grib = [download_constant(self.access, self.directory)]
+        t = days[0]
+        to_ncfile = Path(self.directory, f'jra3q_to_{t.strftime(r"%Y%m%d")}_to_{t.strftime(r"%Y%m%d")}.nc')
+        gribs_to_netcdf(*to_grib,
+                        netcdf_file=to_ncfile,
+                        tstart=self.date2num(t),
+                        tstop=self.date2num(days[1]),
+                        kind="to",
+                        subsetter=self._subsetter)
+
+        # Temporal data
         running_sa, running_sf, running_pl, running_dates = [], [], [], []
 
         for date in days:
@@ -85,7 +97,7 @@ class J3QD(GenericDownload):
                 gribs_to_netcdf(*running_sf, netcdf_file=sf_ncfile, tstart=tstart, tstop=tstop, kind="sf", subsetter=self._subsetter)
                 gribs_to_netcdf(*running_pl, netcdf_file=pl_ncfile, tstart=tstart, tstop=tstop, kind="pl", subsetter=self._subsetter)
 
-                # delete grib files
+                #  delete grib files
                 logger.info("Deleting grib files")
                 #for grib in running_sa + running_sf + running_pl:
                     #Path(grib).unlink()
@@ -183,19 +195,40 @@ class ConversionHandler(ABC):
             try:
                 t_i = np.where(self.times == timestep)[0][0]
             except IndexError:
-                print(f"err: timestamp {record.validDate} not in ncfile {ncfile}")
-                return
+                t_i = self.handle_missing_timestep(record, ncfile)
 
             # write data
-            self.write_record(ncd=ncd,
-                            varname=varname,
-                            t_i=t_i,
-                            vals=vals,
-                            record=record)
+            if t_i is not None:
+                self.write_record(ncd=ncd,
+                                  varname=varname,
+                                  t_i=t_i,
+                                  vals=vals,
+                                  record=record)
 
+    def handle_missing_timestep(self, record, ncfile):
+        print(f"err: timestamp {record.validDate} not in ncfile {ncfile}")
+        return None
 
     def write_record(self, ncd, varname, t_i, vals, record):
         ncd[varname][t_i, :, :] = vals
+
+
+class ToConverter(ConversionHandler):
+    _include = ["z"]
+    _dims = ("time", "latitude", "longitude",)
+
+    @property
+    def tstep(self):
+        return 24
+
+    def empty_file(self, filename:str, lats, lons, times):
+        empty_surface_file(filename, lats, lons, times)
+
+    def write_record(self, ncd, varname, t_i, vals, record):
+        ncd[varname][0, :, :] = vals
+
+    def handle_missing_timestep(self, record, ncfile):
+        return 0
 
 
 class SaConverter(ConversionHandler):
@@ -265,6 +298,20 @@ class PlConverter(ConversionHandler):
         ncd[varname][t_i, lev_i, :, :] = vals
 
 
+def empty_constant_file(filename: str, lats, lons):
+    with nc.Dataset(filename, 'w', format='NETCDF4') as ncd:
+        _ = ncd.createDimension('latitude', len(lats))
+        _ = ncd.createDimension('longitude', len(lons))
+
+        var_lat = ncd.createVariable('latitude', 'f8', ('latitude',))
+        var_lat.units = "degrees_north"
+        var_lon = ncd.createVariable('longitude', 'f8', ('longitude',))
+        var_lon.units = "degrees_east"
+
+        var_lat[:] = lats
+        var_lon[:] = lons
+        
+
 def empty_surface_file(filename:str, lats, lons, times):
     with nc.Dataset(filename, 'w', format='NETCDF4') as ncd:
         _ = ncd.createDimension('time', len(times))
@@ -307,7 +354,8 @@ def empty_pressure_levels_file(filename:str, lats, lons, times, levs):
         var_lev[:] = levs
 
 
-def gribs_to_netcdf(*grib_files:str, netcdf_file:"Union[str,Path]", tstart:float, tstop:float, kind:str, subsetter=None):
+def gribs_to_netcdf(*grib_files:"Union[str,Path]", netcdf_file:"Union[str,Path]", tstart:float, tstop:float, kind:str, subsetter=None):
+    notified = []
     Converter = get_converter(kind)
     converter = Converter(tstart, tstop, subsetter)
 
@@ -317,15 +365,19 @@ def gribs_to_netcdf(*grib_files:str, netcdf_file:"Union[str,Path]", tstart:float
                 try:
                     converter.grib_to_nc(netcdf_file, record, subsetter=subsetter)
                 except VariableError as e:
-                    logger.debug(f"debug: skip variable {e}")
+                    if e.args[0] not in notified:
+                        logger.warning(f"warning: skip variable {e}")
+                        notified.append(e.args[0])
 
 
 def get_converter(kind:str) -> "type[ConversionHandler]":
-    if kind == "sa":
-        return SaConverter
-    elif kind == "sf":
+    if kind == "sf":
         return FcstConverter
+    elif kind == "sa":
+        return SaConverter
     elif kind == "pl":
         return PlConverter
+    elif kind == "to":
+        return ToConverter
     else:
         raise ValueError(f"unknown kind {kind}")
