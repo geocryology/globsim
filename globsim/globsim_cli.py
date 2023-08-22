@@ -61,7 +61,7 @@ def main():
 
         parser.add_argument("-d",
                             default=None, nargs="*",required=True, type=str.upper,
-                            choices=["ERAI", "ERA5", "ERA5ENS", "MERRA", "JRA"],
+                            choices=["ERAI", "ERA5", "ERA5ENS", "MERRA", "JRA", "JRA3Q"],
                             dest='d', help="What data sources should run?")
 
     for parser in [download, interpolate, scale, convert]:

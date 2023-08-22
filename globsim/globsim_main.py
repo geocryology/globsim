@@ -48,7 +48,7 @@ scale = LazyLoader('globsim.scale')
 
 def GlobsimDownload(pfile, multithread=True, 
                     ERAI=True, ERA5=True, 
-                    ERA5ENS=True, MERRA=True, JRA=True):
+                    ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
     """
     Download data from multiple reanalyses. Each reanalysis is run as one 
     separate thread if 'multithread = True'. If 'multithread = False', each
@@ -82,8 +82,13 @@ def GlobsimDownload(pfile, multithread=True,
 
     # === JRA-55 ===
     if JRA:
-        JRAdownl = download.JRAdownload(pfile)
+        JRAdownl = download.J3QD(pfile)
         objects.append(JRAdownl)
+
+    # === JRA-3Q ===
+    if JRA3Q:
+        JRA3Qdownl = download.JRA3Qdownload(pfile)
+        objects.append(JRA3Qdownl)
 
     # serial of parallel execution
     if multithread:

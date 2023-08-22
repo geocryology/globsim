@@ -276,7 +276,7 @@ class PlConverter(ConversionHandler):
 
     def __init__(self):
         super().__init__()
-        self.mem_array = np.empty((len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
+        # self.mem_array = np.empty((len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
                                   
     def valid_record(self, record):
         good_variable = record.shortName in self._include
