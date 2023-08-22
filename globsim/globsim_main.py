@@ -82,12 +82,12 @@ def GlobsimDownload(pfile, multithread=True,
 
     # === JRA-55 ===
     if JRA:
-        JRAdownl = download.J3QD(pfile)
+        JRAdownl = download.JRAdownload(pfile)
         objects.append(JRAdownl)
 
     # === JRA-3Q ===
     if JRA3Q:
-        JRA3Qdownl = download.JRA3Qdownload(pfile)
+        JRA3Qdownl = download.J3QD(pfile)
         objects.append(JRA3Qdownl)
 
     # serial of parallel execution
