@@ -87,9 +87,9 @@ class J3QD(GenericDownload):
                 tstart = J3QD.date2num(t1)
                 tstop = J3QD.date2num(date)  # t2 + timedelta(days=1)
 
-                sa_ncfile = Path(self.directory, f'jra3q_sa_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
-                sf_ncfile = Path(self.directory, f'jra3q_sf_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
-                pl_ncfile = Path(self.directory, f'jra3q_pl_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                sa_ncfile = Path(self.output_directory, f'jra3q_sa_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                sf_ncfile = Path(self.output_directory, f'jra3q_sf_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                pl_ncfile = Path(self.output_directory, f'jra3q_pl_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
 
                 # aggregate gribs then delete them
                 logger.info("Aggregating gribs to netcdf")
@@ -98,7 +98,7 @@ class J3QD(GenericDownload):
                 gribs_to_netcdf(*running_pl, netcdf_file=pl_ncfile, tstart=tstart, tstop=tstop, kind="pl", subsetter=self._subsetter)
 
                 #  delete grib files
-                logger.info("Deleting grib files")
+                logger.info("Not deleting grib files")
                 #for grib in running_sa + running_sf + running_pl:
                     #Path(grib).unlink()
 
@@ -196,6 +196,9 @@ class ConversionHandler(ABC):
                 t_i = np.where(self.times == timestep)[0][0]
             except IndexError:
                 t_i = self.handle_missing_timestep(record, ncfile)
+            
+            # write temporary array 
+            self.write_mem(ncd, t_i, vals, record)
 
             # write data
             if t_i is not None:
@@ -271,6 +274,10 @@ class PlConverter(ConversionHandler):
     _dims = ("time","level", "latitude", "longitude",)
     _include = ["t", "u", "v"]
 
+    def __init__(self):
+        super().__init__()
+        self.mem_array = np.empty((len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
+                                  
     def valid_record(self, record):
         good_variable = record.shortName in self._include
         lv_hPa = record.level if record.pressureUnits == "hPa" else record.level / 10

@@ -5,6 +5,7 @@ import logging
 from os import path, makedirs
 from abc import ABC, abstractmethod
 
+from globsim.meteorology import pressure_from_elevation
 
 logger = logging.getLogger("globsim.download")
 
@@ -53,3 +54,38 @@ class GenericDownload(ABC):
         self.directory = path.join(self.par['project_directory'], name)
         if not path.isdir(self.directory):
             makedirs(self.directory)
+        
+        if self.par.get("output_directory") is not None:
+            self.output_directory = self.par.get("output_directory")
+            if not path.isdir(self.output_directory):
+                makedirs(self.output_directory)
+        else:
+            self.output_directory = self.directory
+
+    @staticmethod
+    def getPressureLevels(elevations: list, min, max):
+        # flip max and min because 1000 is the bottom and 0 is the top
+        elevationMax = pressure_from_elevation(min)
+        elevationMin = pressure_from_elevation(max)
+
+        minNum = min(elevations, key=lambda x:abs(x - elevationMin))
+        maxNum = min(elevations, key=lambda x:abs(x - elevationMax))
+
+        if (minNum > elevationMin and elevations.index(minNum) > 0):
+            elevationMinRange = elevations.index(minNum) - 1
+        else:
+            elevationMinRange = elevations.index(minNum)
+
+        if (maxNum < elevationMin and elevations.index(maxNum) < 36):
+            elevationMaxRange = elevations.index(maxNum) - 1
+        else:
+            elevationMaxRange = elevations.index(maxNum)
+
+        elevation = []
+        for e in range(elevationMinRange, elevationMaxRange + 1):
+            elevation.append(elevations[e])
+
+        elevation = [str(ele) for ele in elevation]
+        elevation = '/'.join(elevation)
+
+        return elevation
