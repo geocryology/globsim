@@ -317,7 +317,10 @@ class RDA(object):
 
 
 class JRApl(object):
-
+    VALID_LEVELS = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550,
+                    600, 650, 700, 750, 775, 800, 825, 850, 875, 900,
+                    925, 950, 975, 1000]
+    
     def __init__(self, date, area, elevation, variables, rda):
         '''Returns an object for JRA55 data that has methods for querying the
         NCAR server for pressure level variables (prec, swin, lwin). '''
@@ -356,43 +359,16 @@ class JRApl(object):
 
         return dateRange
 
-    def getPressureLevels(self):
-        total_ele37 = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550,
-                       600, 650, 700, 750, 775, 800, 825, 850, 875, 900,
-                       925, 950, 975, 1000]
-
-        # flip max and min because 1000 is the bottom and 0 is the top
-        elevationMax = pressure_from_elevation(self.elevation['min'])
-        elevationMin = pressure_from_elevation(self.elevation['max'])
-
-        minNum = min(total_ele37, key=lambda x:abs(x - elevationMin))
-        maxNum = min(total_ele37, key=lambda x:abs(x - elevationMax))
-
-        if (minNum > elevationMin and total_ele37.index(minNum) > 0):
-            elevationMinRange = total_ele37.index(minNum) - 1
-        else:
-            elevationMinRange = total_ele37.index(minNum)
-
-        if (maxNum < elevationMin and total_ele37.index(maxNum) < 36):
-            elevationMaxRange = total_ele37.index(maxNum) - 1
-        else:
-            elevationMaxRange = total_ele37.index(maxNum)
-
-        elevation = []
-        for e in range(elevationMinRange, elevationMaxRange + 1):
-            elevation.append(total_ele37[e])
-
-        elevation = [str(ele) for ele in elevation]
+    def getDictionary(self):
+        levels = getPressureLevels(self.VALID_LEVELS, self.elevation['min'], self.elevation['max'])
+        elevation = [str(ele) for ele in levels]
         elevation = '/'.join(elevation)
 
-        return elevation
-
-    def getDictionary(self):
         self.dictionary = {
                 'dataset': 'ds628.0',
                 'date': self.makeDate(),
                 'param': '/'.join(self.param),
-                'level': 'Isobaric surface:' + self.getPressureLevels(),
+                'level': 'Isobaric surface:' + elevation,
                 'oformat': 'netCDF',
                 'nlat': str(self.area['north']),
                 'slat': str(self.area['south']),
@@ -842,3 +818,28 @@ def getDate(par):
     dateRange['end'] = dateRange['end'] + timedelta(hours=23)
 
     return dateRange
+
+
+def getPressureLevels(levels: list, min_elev: float, max_elev: float) -> "list[float]":
+    # flip max and min because 1000 is the bottom and 0 is the top
+    elevationMax = pressure_from_elevation(min_elev)
+    elevationMin = pressure_from_elevation(max_elev)
+
+    minNum = min(levels, key=lambda x:abs(x - elevationMin))
+    maxNum = min(levels, key=lambda x:abs(x - elevationMax))
+
+    if (minNum > elevationMin and levels.index(minNum) > 0):
+        elevationMinRange = levels.index(minNum) - 1
+    else:
+        elevationMinRange = levels.index(minNum)
+
+    if (maxNum < elevationMin and levels.index(maxNum) < 36):
+        elevationMaxRange = levels.index(maxNum) - 1
+    else:
+        elevationMaxRange = levels.index(maxNum)
+
+    elevation = []
+    for e in range(elevationMinRange, elevationMaxRange + 1):
+        elevation.append(levels[e])
+
+    return elevation
