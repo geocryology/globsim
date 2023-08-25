@@ -220,17 +220,17 @@ class GribSubsetter:
                  levels:Optional[list] = None):
         self.lon_min = np.floor((lon_min % 360) / 1.25) * 1.25
         self.lon_max = np.ceil((lon_max % 360) / 1.25) * 1.25
-        self.lat_min = np.floor((lon_max % 360) / 1.25) * 1.25
+        self.lat_min = np.floor((lat_min % 360) / 1.25) * 1.25
         self.lat_max = np.ceil((lat_max % 360) / 1.25) * 1.25
         self.levels = self.DEFAULT_LEV_HPA if levels is None else levels
 
     @property
     def lats(self):
-        np.arange(self.lat_min, self.lat_max, 1.25)
+        return np.arange(self.lat_min, self.lat_max, 1.25)
 
     @property
     def lons(self):
-        np.arange(self.lon_min, self.lon_max, 1.25)
+        return np.arange(self.lon_min, self.lon_max, 1.25)
 
     def subset(self, record) -> tuple:
         vals, lats, lons = record.data(lat1=self.lat_min, lat2=self.lat_max, lon1=self.lon_min, lon2=self.lon_max)
