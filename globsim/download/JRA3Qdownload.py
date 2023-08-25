@@ -12,6 +12,7 @@ from globsim.download.GenericDownload import GenericDownload
 from globsim.download.JRA3Q_helpers import GribSubsetter, download_daily_gribs, download_constant
 from globsim.download.JRAdownload import getDate
 from globsim.download.JRA3Q_dl import GetAccessor
+from globsim.download.JRAdownload import getPressureLevels
 from datetime import datetime
 
 logger = logging.getLogger('globsim.download')
@@ -27,10 +28,12 @@ class J3QD(GenericDownload):
         self.retry_delay_min = 1
         par = self.par
         self._set_input_directory("jra3q")
+        levels = getPressureLevels(GribSubsetter.DEFAULT_LEV_HPA, self.elevation['min'], self.elevation['max'])
         self._subsetter = GribSubsetter(round((float(par['bbW']) - 1.25) / 1.25) * 1.25,
                                         round(float(par['bbE']) / 1.25) * 1.25,
                                         round((float(par['bbS']) - 1.25) / 1.25) * 1.25,
-                                        round(float(par['bbN']) / 1.25) * 1.25)
+                                        round(float(par['bbN']) / 1.25) * 1.25,
+                                        levels=levels)
 
         # time bounds
         self.date  = getDate(par)
@@ -68,7 +71,7 @@ class J3QD(GenericDownload):
         # Constant surface data
         to_grib = [download_constant(self.access, self.directory)]
         t = days[0]
-        to_ncfile = Path(self.directory, f'jra3q_to_{t.strftime(r"%Y%m%d")}_to_{t.strftime(r"%Y%m%d")}.nc')
+        to_ncfile = Path(self.output_directory, "jra3q", f'jra3q_to_{t.strftime(r"%Y%m%d")}_to_{t.strftime(r"%Y%m%d")}.nc')
         gribs_to_netcdf(*to_grib,
                         netcdf_file=to_ncfile,
                         tstart=self.date2num(t),
@@ -87,9 +90,9 @@ class J3QD(GenericDownload):
                 tstart = J3QD.date2num(t1)
                 tstop = J3QD.date2num(date)  # t2 + timedelta(days=1)
 
-                sa_ncfile = Path(self.output_directory, f'jra3q_sa_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
-                sf_ncfile = Path(self.output_directory, f'jra3q_sf_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
-                pl_ncfile = Path(self.output_directory, f'jra3q_pl_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                sa_ncfile = Path(self.output_directory, "jra3q", f'jra3q_sa_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                sf_ncfile = Path(self.output_directory, "jra3q", f'jra3q_sf_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                pl_ncfile = Path(self.output_directory, "jra3q", f'jra3q_pl_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
 
                 # aggregate gribs then delete them
                 logger.info("Aggregating gribs to netcdf")
@@ -112,9 +115,7 @@ class J3QD(GenericDownload):
             running_sf += sf
             running_pl += pl
             running_dates.append(date)
-
             
-
 
 class VariableError(ValueError):
     pass
@@ -197,8 +198,8 @@ class ConversionHandler(ABC):
             except IndexError:
                 t_i = self.handle_missing_timestep(record, ncfile)
             
-            # write temporary array 
-            self.write_mem(ncd, t_i, vals, record)
+            # write temporary array
+            # self.write_mem(ncd, t_i, vals, record)
 
             # write data
             if t_i is not None:
@@ -274,9 +275,9 @@ class PlConverter(ConversionHandler):
     _dims = ("time","level", "latitude", "longitude",)
     _include = ["t", "u", "v"]
 
-    def __init__(self):
-        super().__init__()
-        # self.mem_array = np.empty((len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
+    def __init__(self, tstart, tstop, subsetter):
+        super().__init__(tstart, tstop, subsetter)
+        self.mem_array = np.empty(len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
                                   
     def valid_record(self, record):
         good_variable = record.shortName in self._include
@@ -301,7 +302,6 @@ class PlConverter(ConversionHandler):
 
         lev_i = np.where(ncd['level'][:] == lev)[0][0]
 
-        print(f"writing record at t[{t_i}] and lev[{lev_i}]")
         ncd[varname][t_i, lev_i, :, :] = vals
 
 
