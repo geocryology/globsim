@@ -105,7 +105,7 @@ def GlobsimDownload(pfile, multithread=True,
         print('Serial download finished')
     
 def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True, 
-                              MERRA=True, JRA=True):
+                              MERRA=True, JRA=True, JRA3Q=True):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
     The temporal granularity and variables of each re-analysis are preserved. 
@@ -138,6 +138,9 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
         JRAinterp = interpolate.JRAinterpolate(ifile)
         JRAinterp.process()
   
+    if JRA3Q:
+        JRA3Qinterp = interpolate.J3QI(ifile)
+        JRA3Qinterp.process()
             
 def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True):
     """
