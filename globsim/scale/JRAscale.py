@@ -37,6 +37,9 @@ class JRAscale(GenericScale):
     """
     NAME = "JRA-55"
     REANALYSIS = "jra55"
+    SCALING = {"sf": {"Total precipitation": (24 * 3600, 0)},
+               "sa": {},
+               "pl": {}}
 
     def __init__(self, sfile):
         super().__init__(sfile)
@@ -57,7 +60,7 @@ class JRAscale(GenericScale):
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
         # check if output file exists and remove if overwrite parameter is set
-        self.output_file = self.getOutNCF(par, 'jra55')
+        self.output_file = self.getOutNCF(par, f'{self.REANALYSIS}')
 
         # time vector for output data
         # get time and convert to datetime object
@@ -100,6 +103,43 @@ class JRAscale(GenericScale):
         self.nc_sf.close()
         self.nc_sa.close()
 
+    def get_file(self, file:str) -> "nc.Dataset":
+        if file == "sa":
+            f = self.nc_sa
+        elif file == "sf":
+            f = self.nc_sf
+        elif file == "pl":
+            f = self.nc_pl
+        elif file == "to":
+            f = self.nc_to
+        else:
+            raise ValueError("sa, sf, to, or pl")
+        
+        return f
+    
+    def get_name(self, file:str, jra55name:str) -> str:
+        return jra55name
+    
+    def get_values(self, file:str, jra55name:str, _slice=None, attr=None):
+        f = self.get_file(file)
+        n = self.get_name(file, jra55name)
+        
+        if attr is not None:
+            v = f.variables[n].getncattr(attr)
+        
+        else:
+            if _slice is None:
+                v = f.variables[n][:]
+            else:
+                v = f.variables[n][_slice]
+            
+            if jra55name in self.SCALING.get(file).keys():
+                scale, offset = self.SCALING.get(file).get(jra55name)
+                v *= scale
+                v += offset
+
+        return v
+    
     def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
@@ -112,8 +152,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl.variables['air_pressure'][:]
+        time_in = self.get_values("pl","time").astype(np.int64)
+        values  = self.get_values("pl", "air_pressure")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
@@ -131,8 +171,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:]
-        values  = self.nc_pl.variables['Temperature'][:]
+        time_in = self.get_values("pl","time")
+        values  = self.get_values("pl","Temperature")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n]) - 273.15
@@ -150,8 +190,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Temperature'][:]
+        time_in = self.get_values("sa","time")
+        values  = self.get_values("sa", "Temperature")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n]) - 273.15
@@ -168,8 +208,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'relative_humidity'
 
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Relative humidity'][:]
+        time_in = self.get_values("sa","time")
+        values  = self.get_values("sa", "Relative humidity")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -186,8 +226,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'relative_humidity'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:]
-        values  = self.nc_pl.variables['Relative humidity'][:]
+        time_in = self.get_values("pl","time")
+        values  = self.get_values("pl", "Relative humidity")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -201,11 +241,11 @@ class JRAscale(GenericScale):
         vn = '10 metre U wind component'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = '10 metre U wind component'
-        var.units     = str_encode(self.nc_sa.variables['u-component of wind'].units)
+        var.units     = self.get_values("sa","u-component of wind", attr="units")
 
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['u-component of wind'][:]
+        time_in = self.get_values("sa","time")
+        values  = self.get_values("sa", "u-component of wind")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -214,11 +254,11 @@ class JRAscale(GenericScale):
         vn = '10 metre V wind component'  # variable name
         var           = self.rg.createVariable(vn,'f4',('time', 'station'))
         var.long_name = '10 metre V wind component'
-        var.units     = str_encode(self.nc_sa.variables['v-component of wind'].units)
+        var.units     = self.get_values("sa","v-component of wind", attr="units")
 
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['v-component of wind'][:]
+        time_in = self.get_values("sa","time")
+        values  = self.get_values("sa","v-component of wind")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -264,8 +304,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'surface_downwelling_shortwave_flux'
 
         # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:]
-        values  = self.nc_sf.variables['Downward solar radiation flux'][:]
+        time_in = self.get_values("sf","time")
+        values  = self.get_values("sf","Downward solar radiation flux")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -292,11 +332,11 @@ class JRAscale(GenericScale):
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        lat = self.nc_pl['latitude'][:]
-        lon = self.nc_pl['longitude'][:]
-        sw = self.nc_sf['Downward solar radiation flux'][:]  # [W m-2]
-        grid_elev = self.nc_to["Geopotential"][0, :] / 9.80665  # [m]
-        station_elev = self.nc_pl["height"][:]  # [m]
+        lat = self.get_values("pl","latitude")
+        lon = self.get_values("pl","longitude")
+        sw = self.get_values("sf","Downward solar radiation flux")  # [W m-2]
+        grid_elev = self.get_values("to", "Geopotential", (0, slice(None,None,1))) / 9.80665  # [m]
+        station_elev = self.get_values("pl","height")  # [m]
 
         svf = self.get_sky_view()
         slope = self.get_slope()
@@ -345,8 +385,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'surface_downwelling_longwave_flux'
 
         # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:]
-        values  = self.nc_sf.variables['Downward longwave radiation flux'][:]
+        time_in = self.get_values("sf","time")
+        values  = self.get_values("sf","Downward longwave radiation flux")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -361,12 +401,12 @@ class JRAscale(GenericScale):
         var.units     = 'W m-2'
 
         # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
+        time_in = self.get_values("sf","time").astype(np.int64)
         
-        t_sub = self.nc_pl['Temperature'][:]  # [K]
-        rh_sub = self.nc_pl['Relative humidity'][:]  # [%]
-        t_grid = self.nc_sa['Temperature'][:]  # [K]
-        rh_grid = self.nc_sa['Relative humidity'][:]  # [%]
+        t_sub = self.get_values("pl","Temperature")  # [K]
+        rh_sub = self.get_values("pl","Relative humidity")  # [%]
+        t_grid = self.get_values("sa","Temperature")  # [K]
+        rh_grid = self.get_values("sa","Relative humidity")  # [%]
         lw_grid  = self.nc_sf["Downward longwave radiation flux"]  # [w m-2 s-1]
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
@@ -393,8 +433,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'precipitation_flux'
 
         # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:]
-        values  = self.nc_sf.variables['Total precipitation'][:] / (24 * 3600)  # [mm/s]
+        time_in = self.get_values("sf","time")
+        values  = self.get_values("sf","Total precipitation") / (24 * 3600)  # [mm/s]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
@@ -411,8 +451,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'specific_humidity'
 
         # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:]
-        values  = self.nc_sa.variables['Specific humidity'][:]
+        time_in = self.get_values("sa","time")
+        values  = self.get_values("sa","Specific humidity")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
