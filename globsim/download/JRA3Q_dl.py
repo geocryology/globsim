@@ -101,7 +101,7 @@ class DIASAccess():
                 f.write(buffer)
 
             f.close
-            print(path + file + "  OK")
+            print(path + "/" + file + "  OK")
             return response
 
         except urllib.request.HTTPError:
