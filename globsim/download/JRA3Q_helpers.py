@@ -2,7 +2,7 @@
 import base64
 import logging
 import numpy as np
-
+import pygrib
 
 from pathlib import Path
 from typing import Optional
@@ -27,9 +27,9 @@ def download_constant(access, dest_dir) -> Path:
     fname = Path(dirpath, name)
 
     if Path(dirpath, name).exists():
-        print(f"Already exists: {fname}")
+        logger.warning(f"Already exists: {fname}")
     else:
-        print(f"Downloading {name}")
+        logger.info(f"Downloading {name}")
         access.dl(url, str(dirpath), name, absolute_path=True)
 
     return fname
@@ -45,21 +45,21 @@ def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path
         fname = Path(dirpath, name)
         sa.append(fname)
         if Path(dirpath, name).exists():
-            print(f"Already exists: {fname}")
+            logger.debug(f"Already exists: {fname}")
         else:
-            print(f"Downloading {name} {year}-{month}-{day} {hour}")
+            logger.info(f"Downloading {name} {year}-{month}-{day} {hour}")
             access.dl(url, str(dirpath), name, absolute_path=True)
 
         # pressure-level
-        for var in ['tmp', 'spfh', 'ugrd', 'vgrd']:
+        for var in ['tmp', 'spfh', 'rh', 'ugrd', 'vgrd', 'hgt']:
             url, path, name = url_anl_p125(year, month, day, hour, var)
             dirpath = Path(dest_dir, path[1:])
             fname = Path(dirpath, name)
             pl.append(fname)
             if Path(dirpath, name).exists():
-                print(f"Already exists: {fname}")
+                logger.debug(f"Already exists: {fname}")
             else:
-                print(f"Downloading {name} ({var}) {year}-{month}-{day} {hour}")
+                logger.info(f"Downloading {name} ({var}) {year}-{month}-{day} {hour}")
                 access.dl(url, str(dirpath), name, absolute_path=True)
 
     # forecast
@@ -69,9 +69,9 @@ def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path
         fname = Path(dirpath, name)
         sf.append(fname)
         if Path(dirpath, name).exists():
-            print(f"Already exists: {fname}")
+            logger.debug(f"Already exists: {fname}")
         else:
-            print(f"Downloading {name} {year}-{month}-{day} {hour}")
+            logger.info(f"Downloading {name} {year}-{month}-{day} {hour}")
             access.dl(url, str(dirpath), name, absolute_path=True)
 
     return sa, sf, pl
@@ -141,7 +141,7 @@ def url_anl_p125(year, month, day, hour, var):
     Parameters
     ----------
     var : str
-        tmp: temperature, spfh: specific humidity, ugrd: u wind, vgrd: v wind,
+        tmp: temperature, spfh: specific humidity,  rh: relative humidity, ugrd: u wind, vgrd: v wind, hgt: geopotential
     """
     YYYY = "{:04}".format(year)
     MM = "{:02}".format(month)
@@ -215,25 +215,45 @@ class GribSubsetter:
                        750, 775, 800, 825, 850,
                        875, 900, 925, 950, 975,
                        1000]
-    
+
     def __init__(self, lon_min, lon_max, lat_min, lat_max,
                  levels:Optional[list] = None):
         self.lon_min = np.floor((lon_min % 360) / 1.25) * 1.25
         self.lon_max = np.ceil((lon_max % 360) / 1.25) * 1.25
-        self.lat_min = np.floor((lat_min % 360) / 1.25) * 1.25
-        self.lat_max = np.ceil((lat_max % 360) / 1.25) * 1.25
+        self.lat_min = np.floor((lat_min) / 1.25) * 1.25
+        self.lat_max = np.ceil((lat_max) / 1.25) * 1.25
         self.levels = self.DEFAULT_LEV_HPA if levels is None else levels
 
     @property
+    def lev_min(self):
+        return min(self.levels)
+
+    @property
+    def lev_max(self):
+        return max(self.levels)
+
+    @property
     def lats(self):
-        return np.arange(self.lat_min, self.lat_max, 1.25)
+        return np.arange(self.lat_min, self.lat_max + 1.25, 1.25)
 
     @property
     def lons(self):
-        return np.arange(self.lon_min, self.lon_max, 1.25)
+        return np.arange(self.lon_min, self.lon_max + 1.25, 1.25)
 
     def subset(self, record) -> tuple:
         vals, lats, lons = record.data(lat1=self.lat_min, lat2=self.lat_max, lon1=self.lon_min, lon2=self.lon_max)
+        return vals, lats, lons
+
+    def xsubset(self, var) -> tuple:
+        if 'isobaricInhPa' not in var.dims:
+            ss = var.sel(latitude=slice(self.lat_max, self.lat_min),  # indexed from N to S
+                         longitude=slice(self.lon_min % 360, self.lon_max % 360))
+        else:
+            ss = var.sel(latitude=slice(self.lat_max, self.lat_min),  # indexed from N to S
+                         longitude=slice(self.lon_min % 360, self.lon_max % 360),
+                         isobaricInhPa=slice(self.lev_max, self.lev_min))  # levels positive down
+
+        vals, lats, lons = ss.values, ss.latitude.values, ss.longitude.values
         return vals, lats, lons
 
 
