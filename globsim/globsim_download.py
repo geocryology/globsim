@@ -33,6 +33,7 @@ def main(args):
     ERA5ENS = True if args.d is None or "ERA5ENS"  in args.d else False
     JRA     = True if args.d is None or "JRA"   in args.d else False
     MERRA   = True if args.d is None or "MERRA" in args.d else False
+    JRA3Q   = True if args.d is None or "JRA3Q" in args.d else False
 
     r_max = args.retry
     i = 0
@@ -44,7 +45,7 @@ def main(args):
         while i < r_max:
             try:
                 GlobsimDownload(pfile, ERAI=ERAI, ERA5=ERA5, ERA5ENS=ERA5ENS, 
-                                JRA=JRA, MERRA=MERRA, multithread=args.multi)
+                                JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q, multithread=args.multi)
             except Exception as e:
                 print(e)
             time.sleep(360)

@@ -30,30 +30,51 @@ class JRAinterpolate(GenericInterpolate):
         JRAinterpolate(ifile)
 
     """
+    REANALYSIS = "jra55"
+    SA_INTERVAL = 6
+    PL_INTERVAL = 6
+    SF_INTERVAL = 6
+    T_UNITS = 'hours since 1800-01-01 00:00:0.0'
+
+    dpar_sa = {'air_temperature'   : ['surface_temperature'],  # [K] 2m values
+                'relative_humidity' : ['relative_humidity'],  # [%]
+                'wind_speed' : ['eastward_wind', 'northward_wind']}  # [m s-1] 2m & 10m values
+    
+    dpar_sf = dpar = {'downwelling_shortwave_flux_in_air': ['downwelling_shortwave_flux_in_air'],  # [W/m2] short-wave downward
+                'downwelling_longwave_flux_in_air' : ['downwelling_longwave_flux_in_air'],  # [W/m2] long-wave downward
+                'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['downwelling_shortwave_flux_in_air_assuming_clear_sky'],  # [W/m2] short-wave downward assuming clear sky
+                'downwelling_longwave_flux_in_air_assuming_clear_sky': ['downwelling_longwave_flux_in_air_assuming_clear_sky'],
+                'precipitation_amount' : ['total_precipitation']}  # [W/m2] long-wave downward assuming clear sky
+
+    dpar_pl = {'air_temperature'   : ['air_temperature'],  # [K]
+               'relative_humidity' : ['relative_humidity'],  # [%]
+               'wind_speed'        : ['eastward_wind', 'northward_wind']}  # [m s-1]
+    
+    GEOPOTENTIAL = "Geopotential height"
 
     def __init__(self, ifile):
         super().__init__(ifile)
         par = self.par
 
-        self.input_dir = path.join(par['project_directory'],'jra55')
+        self.input_dir = path.join(par['project_directory'], self.REANALYSIS)
 
         # Override inherited chunk size
         self.cs *= 200
 
         # Load MF Datasets
-        self.mf_to = nc.MFDataset(path.join(self.input_dir,'jra55_to_*.nc'), 'r', aggdim="time")
-        self.mf_sa = nc.MFDataset(path.join(self.input_dir,'jra55_sa_*.nc'), 'r', aggdim="time")
-        self.mf_sf = nc.MFDataset(path.join(self.input_dir,'jra55_sf_*.nc'), 'r', aggdim="time")
-        self.mf_pl = nc.MFDataset(path.join(self.input_dir,'jra55_pl_*.nc'), 'r', aggdim="time")
+        self.mf_to = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_to_*.nc'), 'r', aggdim="time")
+        self.mf_sa = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_sa_*.nc'), 'r', aggdim="time")
+        self.mf_sf = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_sf_*.nc'), 'r', aggdim="time")
+        self.mf_pl = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_pl_*.nc'), 'r', aggdim="time")
 
         # Check dataset integrity
         #import pdb;pdb.set_trace()
         logger.info("Check data integrity (sa)")
-        self.ensure_datset_integrity(self.mf_sa['time'], 6)
+        self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
         logger.info("Check data integrity (sf)")
-        self.ensure_datset_integrity(self.mf_sf['time'], 6)
+        self.ensure_datset_integrity(self.mf_sf['time'], self.SF_INTERVAL)
         logger.info("Check data integrity (pl)")
-        self.ensure_datset_integrity(self.mf_pl['time'], 6)
+        self.ensure_datset_integrity(self.mf_pl['time'], self.PL_INTERVAL)
         logger.info("Data integrity ok")
 
     def JRA2station(self, ncf_in: "nc.MFDataset", ncfile_out, points,
@@ -102,8 +123,8 @@ class JRAinterpolate(GenericInterpolate):
 
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                          time_units='hours since 1800-01-01 00:00:0.0')
-        rootgrp.source = 'JRA55, interpolated bilinearly to stations'
+                                          time_units=self.T_UNITS)
+        rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
         rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
@@ -213,8 +234,8 @@ class JRAinterpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                              'hours since 1800-01-01 00:00:0.0')
-        rootgrp.source = 'JRA-55, interpolated (bi)linearly to stations'
+                              self.T_UNITS)
+        rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
 
         # access variables
         time = rootgrp['time']
@@ -249,7 +270,7 @@ class JRAinterpolate(GenericInterpolate):
         for n, h in enumerate(height):
             # convert geopotential [millibar] to height [m]
             # shape: (time, level)
-            elevation = ncf.variables['Geopotential height'][:,:,n]
+            elevation = ncf.variables[self.GEOPOTENTIAL][:,:,n]
 
             # difference in elevation.
             # level directly above will be >= 0
@@ -293,7 +314,7 @@ class JRAinterpolate(GenericInterpolate):
         """
         try:
             self.JRA2station(self.mf_to,
-                             path.join(self.output_dir,f'jra_to_{self.list_name}.nc'),
+                             path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
                              self.stations, ['Geopotential'], date=None)
         except OSError:
             logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
@@ -302,43 +323,29 @@ class JRAinterpolate(GenericInterpolate):
         # === 2D Interpolation for Surface  Data ===
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
-        dpar = {'air_temperature'   : ['surface_temperature'],  # [K] 2m values
-                'relative_humidity' : ['relative_humidity'],  # [%]
-                'wind_speed' : ['eastward_wind', 'northward_wind']}  # [m s-1] 2m & 10m values
-        varlist = self.TranslateCF2short(dpar)
+        varlist = self.TranslateCF2short(self.dpar_sa)
         self.JRA2station(self.mf_sa,
-                         path.join(self.output_dir,'jra_sa_' + self.list_name + '.nc'),
+                         path.join(self.output_dir,f'{self.REANALYSIS}_sa_' + self.list_name + '.nc'),
                          self.stations,
                          varlist, date=self.date)
 
         # 2D Interpolation for Radiation Data
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
-        dpar = {'downwelling_shortwave_flux_in_air': ['downwelling_shortwave_flux_in_air'],  # [W/m2] short-wave downward
-                'downwelling_longwave_flux_in_air' : ['downwelling_longwave_flux_in_air'],  # [W/m2] long-wave downward
-                'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['downwelling_shortwave_flux_in_air_assuming_clear_sky'],  # [W/m2] short-wave downward assuming clear sky
-                'downwelling_longwave_flux_in_air_assuming_clear_sky': ['downwelling_longwave_flux_in_air_assuming_clear_sky'],
-                'precipitation_amount' : ['total_precipitation']}  # [W/m2] long-wave downward assuming clear sky
-        varlist = self.TranslateCF2short(dpar)
+        varlist = self.TranslateCF2short(self.dpar_sf)
         self.JRA2station(self.mf_sf,
-                         path.join(self.output_dir,'jra_sf_' + self.list_name + '.nc'),
+                         path.join(self.output_dir,f'{self.REANALYSIS}_sf_' + self.list_name + '.nc'),
                          self.stations,
                          varlist,
                          date=self.date)
-
-        # 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA
-        # dictionary to translate CF Standard Names into MERRA2
-        # pressure level variable keys.
-        dpar = {'air_temperature'   : ['air_temperature'],  # [K]
-                'relative_humidity' : ['relative_humidity'],  # [%]
-                'wind_speed'        : ['eastward_wind', 'northward_wind']}  # [m s-1]
-        varlist = self.TranslateCF2short(dpar).append('geopotential_height')
+        
+        varlist = self.TranslateCF2short(self.dpar_pl).append('geopotential_height')
         self.JRA2station(self.mf_pl,
-                         path.join(self.output_dir,'jra_pl_' + self.list_name + '.nc'),
+                         path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '.nc'),
                          self.stations,
                          varlist,
                          date=self.date)
 
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.output_dir,'jra_pl_' + self.list_name + '.nc'),
-                              path.join(self.output_dir,'jra_pl_' + self.list_name + '_surface.nc'))
+        self.levels2elevation(path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '.nc'),
+                              path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '_surface.nc'))

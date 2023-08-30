@@ -247,7 +247,9 @@ class ERA5scale(GenericScale):
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
+
         values  = self.getValues(self.nc_pl, 'r')
+
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh[:, n] = series_interpolate(self.times_out_nc,
                                             time_in * 3600, values[:, n])
@@ -429,6 +431,7 @@ class ERA5scale(GenericScale):
         t_grid = self.getValues(self.nc_sa, 't2m')  # [K]
         dewp_grid = self.getValues(self.nc_sa, 'd2m')  # [K]
         lw_grid  = self.getValues(self.nc_sf, 'strd') / self.interval_in  # [w m-2 s-1]
+
         rh_grid = self._rh()(t_grid, dewp_grid)
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)

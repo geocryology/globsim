@@ -3,6 +3,7 @@ from .ERA5Edownload import ERA5Edownload
 from .ERAIdownload import ERAIdownload
 from .JRAdownload import JRAdownload
 from .MERRAdownload import MERRAdownload
+from .JRA3Qdownload import J3QD
 from .era5_monthly import download_threadded, ERA5MonthlyDownload
 
 __all__ = ["ERA5download",

@@ -48,7 +48,7 @@ scale = LazyLoader('globsim.scale')
 
 def GlobsimDownload(pfile, multithread=True, 
                     ERAI=True, ERA5=True, 
-                    ERA5ENS=True, MERRA=True, JRA=True):
+                    ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
     """
     Download data from multiple reanalyses. Each reanalysis is run as one 
     separate thread if 'multithread = True'. If 'multithread = False', each
@@ -85,6 +85,11 @@ def GlobsimDownload(pfile, multithread=True,
         JRAdownl = download.JRAdownload(pfile)
         objects.append(JRAdownl)
 
+    # === JRA-3Q ===
+    if JRA3Q:
+        JRA3Qdownl = download.J3QD(pfile)
+        objects.append(JRA3Qdownl)
+
     # serial of parallel execution
     if multithread:
         # Make the Pool of workers and run as lambda functions
@@ -100,7 +105,7 @@ def GlobsimDownload(pfile, multithread=True,
         print('Serial download finished')
     
 def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True, 
-                              MERRA=True, JRA=True):
+                              MERRA=True, JRA=True, JRA3Q=True):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
     The temporal granularity and variables of each re-analysis are preserved. 
@@ -133,8 +138,11 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
         JRAinterp = interpolate.JRAinterpolate(ifile)
         JRAinterp.process()
   
+    if JRA3Q:
+        JRA3Qinterp = interpolate.J3QI(ifile)
+        JRA3Qinterp.process()
             
-def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True):
+def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
     """
     Use re-analysis data that has been interpolated to station locations to 
     derive fluxes scaled / converted / adjusted to drive point-scale 
@@ -165,4 +173,9 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True
     if JRA:
         JRAsc = scale.JRAscale(sfile)
         JRAsc.process()
+
+    # # === JRA-3Q ===
+    if JRA3Q:
+        JRA3Qsc = scale.J3QS(sfile)
+        JRA3Qsc.process()
                   
