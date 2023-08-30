@@ -1,27 +1,35 @@
+import logging
 import netCDF4 as nc
 import numpy as np
 import pandas as pd
 import pygrib
-import logging
-from urllib.error import URLError
-from pathlib import Path
-from typing import Optional, Union
+import xarray as xr
 
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+from os import rename
+from pathlib import Path
+from typing import Optional, Union
+from urllib.error import URLError
+
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.JRA3Q_helpers import GribSubsetter, download_daily_gribs, download_constant
 from globsim.download.JRAdownload import getDate
 from globsim.download.JRA3Q_dl import GetAccessor
 from globsim.download.JRAdownload import getPressureLevels
-from datetime import datetime
+
 
 logger = logging.getLogger('globsim.download')
+
+CHUNK_LAT = 4
+CHUNK_LON = 4
 
 
 class J3QD(GenericDownload):
 
     _tunits = "hours since 1947-01-01"
     _tcal = "standard"
+    REANALYSIS = 'jra3q'
 
     def __init__(self, pfile):
         super().__init__(pfile)
@@ -43,35 +51,49 @@ class J3QD(GenericDownload):
         self.connect()
 
         # chunk size for downloading and storing data [days]
-        logging.info("Chunk size ignored for JRA3Q download. Using monthly")
+        logger.info("Chunk size ignored for JRA3Q download. Using monthly")
         # self.chunk_size = par['chunk_size'] * 2000
 
         # variables
-        logging.info("Variable list ignored for JRA3Q")
+        logger.info(f"Variable list ignored for {self.REANALYSIS}")
+
+        if par.get("download_only") is not None:
+            self.download_only = par.get("download_only")
+        else:
+            self.download_only = False
+
+    def file_in_progress(self, filename):
+        return str(Path(filename).with_suffix(".inp"))
+    
+    def complete(self, filename):
+        f = self.file_in_progress(filename)
+        rename(f, filename)
 
     def connect(self):
         try:
             self.access = GetAccessor(netrc_file=self.credential)
         except ValueError:
-            logging.error("Could not find credentials. Aborting")
+            logger.error("Could not find credentials. Aborting")
             raise ValueError(f"Could not find credentials file {self.credential}")
         except URLError:
-            logging.error("Could not connect to JRA server. This aint gonna work.")
+            logger.error("Could not connect to JRA server. This aint gonna work.")
 
     @staticmethod
     def date2num(dt:datetime) -> float:
-        return nc.date2num(dt, J3QD._tunits, J3QD._tcal)
+        t = nc.date2num(dt, J3QD._tunits, J3QD._tcal)
+        t = np.round(t, 5)  # catch any floating-point errors
+        return t
 
     def nc_filename(self, year, month, kind="sa") -> str:
-        return f"jra3q_{kind}_{year}{month}01_to_{year}{month}31.nc"
+        return f"{self.REANALYSIS}_{kind}_{year}{month}01_to_{year}{month}31.nc"
 
     def retrieve(self):
-        days = pd.date_range(self.date['beg'], self.date['end'])
+        days = pd.date_range(self.date['beg'], self.date['end'] + timedelta(days=1))  # add extra day but end when we get to it
 
         # Constant surface data
         to_grib = [download_constant(self.access, self.directory)]
         t = days[0]
-        to_ncfile = Path(self.output_directory, "jra3q", f'jra3q_to_{t.strftime(r"%Y%m%d")}_to_{t.strftime(r"%Y%m%d")}.nc')
+        to_ncfile = Path(self.output_directory, f'{self.REANALYSIS}_to_{t.strftime(r"%Y%m%d")}_to_{t.strftime(r"%Y%m%d")}.nc')
         gribs_to_netcdf(*to_grib,
                         netcdf_file=to_ncfile,
                         tstart=self.date2num(t),
@@ -83,23 +105,37 @@ class J3QD(GenericDownload):
         running_sa, running_sf, running_pl, running_dates = [], [], [], []
 
         for date in days:
+            end_of_days = (date == days[-1])
+            
             # Aggregation subroutine
-            if date.day == 1 and len(running_dates) > 1:
+            if (not self.download_only) and ((date.day == 1 and len(running_dates) > 1) or end_of_days):
                 t1 = running_dates[0]
                 t2 = running_dates[-1]
                 tstart = J3QD.date2num(t1)
                 tstop = J3QD.date2num(date)  # t2 + timedelta(days=1)
 
-                sa_ncfile = Path(self.output_directory, "jra3q", f'jra3q_sa_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
-                sf_ncfile = Path(self.output_directory, "jra3q", f'jra3q_sf_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
-                pl_ncfile = Path(self.output_directory, "jra3q", f'jra3q_pl_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                sa_ncfile = Path(self.output_directory, f'{self.REANALYSIS}_sa_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                sf_ncfile = Path(self.output_directory, f'{self.REANALYSIS}_sf_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
+                pl_ncfile = Path(self.output_directory, f'{self.REANALYSIS}_pl_{t1.strftime(r"%Y%m%d")}_to_{t2.strftime(r"%Y%m%d")}.nc')
 
                 # aggregate gribs then delete them
-                logger.info("Aggregating gribs to netcdf")
-                gribs_to_netcdf(*running_sa, netcdf_file=sa_ncfile, tstart=tstart, tstop=tstop, kind="sa", subsetter=self._subsetter)
-                gribs_to_netcdf(*running_sf, netcdf_file=sf_ncfile, tstart=tstart, tstop=tstop, kind="sf", subsetter=self._subsetter)
-                gribs_to_netcdf(*running_pl, netcdf_file=pl_ncfile, tstart=tstart, tstop=tstop, kind="pl", subsetter=self._subsetter)
+                logger.info(f"Aggregating gribs to netcdf: {t1} to {t2}")
 
+                if not sa_ncfile.is_file():
+                    gribs_to_netcdf(*running_sa, netcdf_file=self.file_in_progress(sa_ncfile),
+                                    tstart=tstart, tstop=tstop, kind="sa", subsetter=self._subsetter, engine="pygrib")
+                    self.complete(sa_ncfile)
+                
+                if not sf_ncfile.is_file():
+                    gribs_to_netcdf(*running_sf, netcdf_file=self.file_in_progress(sf_ncfile), 
+                                    tstart=tstart, tstop=tstop, kind="sf", subsetter=self._subsetter, engine="pygrib")
+                    self.complete(sf_ncfile)
+                
+                if not pl_ncfile.is_file():
+                    gribs_to_netcdf(*running_pl, netcdf_file=self.file_in_progress(pl_ncfile),
+                                    tstart=tstart, tstop=tstop, kind="pl", subsetter=self._subsetter, engine="xarray")
+                    self.complete(pl_ncfile)
+                
                 #  delete grib files
                 logger.info("Not deleting grib files")
                 #for grib in running_sa + running_sf + running_pl:
@@ -108,6 +144,9 @@ class J3QD(GenericDownload):
                 # clear running
                 running_sa, running_sf, running_pl, running_dates = [], [], [], []
 
+            if end_of_days:
+                break
+
             # Download
             logger.info(f"Downloading gribs for {date}")
             sa, sf, pl = download_daily_gribs(self.access, self.directory, date.year, date.month, date.day)
@@ -115,7 +154,7 @@ class J3QD(GenericDownload):
             running_sf += sf
             running_pl += pl
             running_dates.append(date)
-            
+
 
 class VariableError(ValueError):
     pass
@@ -150,26 +189,75 @@ class ConversionHandler(ABC):
     def empty_file(self, *args, **kwargs):
         raise NotImplementedError("implement in child class")
 
-    def create_variable(self, record, ncd, ncvar_dict):
-        varname = record.shortName
-        var = ncd.createVariable(varname, "f8", self._dims)
+    def create_variable(self, shortName, ncd, ncvar_dict):
+        var = ncd.createVariable(shortName, "f8", self._dims, chunksizes=self.chunk_sizes(ncd))
         for attr in ncvar_dict:
             var.setncattr(attr, ncvar_dict[attr])
 
+    def chunk_sizes(self, ncd):
+        return None
+    
     def valid_record(self, record):
         is_valid = record.shortName in self._include
         return is_valid
+    
+    def get_valid_vars(self, dataset) -> "list[str]":
+        return [v for v in dataset.variables if v in self._include.keys()]
 
-    def grib_to_nc(self, ncfile, record, subsetter=None):
+    def xread_grib(self, gribfile) -> "xr.Dataset":
+        d = xr.open_dataset(gribfile, engine='cfgrib')
+        return d
+
+    def xgrib_to_nc(self, ncfile, gribfile):
+        logger.debug(f"de-gribbing {Path(gribfile).name} with xarray")
+        dataset = self.xread_grib(gribfile)
+        for v in self.get_valid_vars(dataset):
+            var = dataset[v]
+            self.xvar_to_nc(var, ncfile)
+    
+    def xvar_to_nc(self, var, ncfile):
+        if self.subsetter is not None:
+            vals, lats, lons = self.subsetter.xsubset(var)
+        else:
+            vals, lats, lons = var.values, var.latitude.values, var.longitude.values
+
+        # check if ncfile exists
+        if not Path(ncfile).exists():
+            logger.warning(f"missing file {ncfile}. Creating it")
+            self.empty_file(ncfile, lats, lons, self.times)
+
+        with nc.Dataset(ncfile, 'a') as ncd:
+            # check if variable is in ncfile
+            # if not, add it
+            ncvar_dict = {"units" : var.units,
+                          "long_name" : var.name}
+
+            if var.name not in ncd.variables:
+                self.create_variable(var.name, ncd, ncvar_dict)
+
+            # check if timestep is in ncfile
+            timestep = J3QD.date2num(pd.Timestamp(var.valid_time.values).to_pydatetime())
+            try:
+                t_i = np.where(self.times == timestep)[0][0]
+            except IndexError:
+                t_i = self.handle_missing_timestep(var.valid_time.values, ncfile)
+
+            # write data
+            if t_i is not None:
+                self.xwrite_record(ncd=ncd,
+                                   varname=var.name,
+                                   t_i=t_i,
+                                   vals=vals,
+                                   var=var)
+
+    def grib_to_nc(self, ncfile, record):
         varname = record.shortName
-
-        subsetter = self.subsetter if subsetter is None else subsetter
 
         if not self.valid_record(record):
             raise VariableError(f"{varname}")
 
-        if subsetter is not None:
-            vals, lats, lons = subsetter.subset(record)
+        if self.subsetter is not None:
+            vals, lats, lons = self.subsetter.subset(record)
         else:
             vals, lats, lons = record.data()
 
@@ -189,7 +277,7 @@ class ConversionHandler(ABC):
                           "comment": record.__repr__()}
 
             if varname not in ncd.variables:
-                self.create_variable(record, ncd, ncvar_dict)
+                self.create_variable(record.shortName, ncd, ncvar_dict)
 
             # check if timestep is in ncfile
             timestep = J3QD.date2num(record.validDate)
@@ -209,16 +297,23 @@ class ConversionHandler(ABC):
                                   vals=vals,
                                   record=record)
 
-    def handle_missing_timestep(self, record, ncfile):
-        print(f"err: timestamp {record.validDate} not in ncfile {ncfile}")
+    def handle_missing_timestep(self, date, ncfile):
+        print(f"err: timestamp {date} not in ncfile {ncfile}")
         return None
 
     def write_record(self, ncd, varname, t_i, vals, record):
         ncd[varname][t_i, :, :] = vals
 
+    def xwrite_record(self, ncd, varname, t_i, vals, var):
+        ncd[varname][t_i, :, :] = vals
+
+    def valid_messages(self):
+        m = [d["messagenumber"] for d in list(self._include.values()) if "messagenumber" in d]
+        return m
+
 
 class ToConverter(ConversionHandler):
-    _include = ["z"]
+    _include = {"z": None}
     _dims = ("time", "latitude", "longitude",)
 
     @property
@@ -231,12 +326,20 @@ class ToConverter(ConversionHandler):
     def write_record(self, ncd, varname, t_i, vals, record):
         ncd[varname][0, :, :] = vals
 
-    def handle_missing_timestep(self, record, ncfile):
+    def xwrite_record(self, ncd, varname, t_i, vals, var):
+        ncd[varname][0, :, :] = vals
+
+    def handle_missing_timestep(self, date, ncfile):
         return 0
 
 
 class SaConverter(ConversionHandler):
-    _include = ["sp", "2t", "2sh", "2r", "10u", "10v"]
+    _include = {"sp": None,
+                "2t": None,
+                "2sh": None,
+                "2r": None,
+                "10u": None,
+                "10v": None}
     _dims = ("time", "latitude", "longitude",)
 
     @property
@@ -246,17 +349,25 @@ class SaConverter(ConversionHandler):
         t2 = J3QD.date2num(datetime(1980, 3, 1, 6))
         return t2 - t1
 
+    def chunk_sizes(self, ncd):
+        return (ncd['time'].shape[0], CHUNK_LAT, CHUNK_LON,)
+    
+    def xread_grib(self, gribfile) -> xr.Dataset:
+        d = xr.open_dataset(gribfile, engine='cfgrib', backend_kwargs={"filter_by_keys":{'typeOfLevel': 'surface'}})
+        return d
+
     def empty_file(self, filename:str, lats, lons, times):
         empty_surface_file(filename, lats, lons, times)
 
 
 class FcstConverter(ConversionHandler):
-    _include = {6: "tprate",
-                12: "sp",
-                13: 'dswrf',
-                17: "dlwrf"}
+    _include = {"tprate": {"messagenumber": 6},
+                "sp": {"messagenumber": 12},
+                'dswrf': {"messagenumber": 13},
+                "dlwrf": {"messagenumber": 17}
+                }
     _dims = ("time", "latitude", "longitude",)
-
+   
     @property
     def tstep(self):
         # 6-hourly, calculated on the fly in case we change time units in the future
@@ -265,20 +376,33 @@ class FcstConverter(ConversionHandler):
         return t2 - t1
 
     def valid_record(self, record):
-        return record.messagenumber in self._include.keys()
-
+        return record.messagenumber in self.valid_messages()
+        
     def empty_file(self, filename:str, lats, lons, times):
         empty_surface_file(filename, lats, lons, times)
 
+    def xread_grib(self, gribfile) -> xr.Dataset:
+        d = xr.open_dataset(gribfile, engine='cfgrib', backend_kwargs={"filter_by_keys":{'typeOfLevel': 'surface'}})
+        return d
+
+    def chunk_sizes(self, ncd):
+        return (ncd['time'].shape[0], CHUNK_LAT, CHUNK_LON,)
+
 
 class PlConverter(ConversionHandler):
-    _dims = ("time","level", "latitude", "longitude",)
-    _include = ["t", "u", "v"]
+    _dims = ("time", "level", "latitude", "longitude",)
+    _include = {"t":None,  # temperature
+                "u":None,  # u-wind
+                "v":None,  # v-wind
+                "q":None,  # specific humidity
+                "r":None,   # relative humidity
+                "gh":None    # geopotential
+                }
 
     def __init__(self, tstart, tstop, subsetter):
         super().__init__(tstart, tstop, subsetter)
-        self.mem_array = np.empty(len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
-                                  
+        # self.mem_array = np.empty(len(self.times), len(self.subsetter.levels), len(self.subsetter.lats), len(self.subsetter.lons))
+
     def valid_record(self, record):
         good_variable = record.shortName in self._include
         lv_hPa = record.level if record.pressureUnits == "hPa" else record.level / 10
@@ -286,6 +410,10 @@ class PlConverter(ConversionHandler):
 
         return (good_variable and good_level)
 
+    def xread_grib(self, gribfile) -> xr.Dataset:
+        d = xr.open_dataset(gribfile, engine='cfgrib', backend_kwargs={"filter_by_keys":{'typeOfLevel': 'isobaricInhPa'}})
+        return d
+    
     @property
     def tstep(self):
         # 6-hourly, calculated on the fly in case we change time units in the future
@@ -304,9 +432,15 @@ class PlConverter(ConversionHandler):
 
         ncd[varname][t_i, lev_i, :, :] = vals
 
+    def xwrite_record(self, ncd, varname, t_i, vals, var):
+        ncd[varname][t_i, :, :, :] = vals[::-1, :, :]  # put levels in backwards to match JRA55
+    
+    def chunk_sizes(self, ncd):
+        return (ncd['time'].shape[0], ncd['level'].shape[0], CHUNK_LAT, CHUNK_LON,)
+
 
 def empty_constant_file(filename: str, lats, lons):
-    with nc.Dataset(filename, 'w', format='NETCDF4') as ncd:
+    with nc.Dataset(filename, 'w', format='NETCDF4_CLASSIC') as ncd:
         _ = ncd.createDimension('latitude', len(lats))
         _ = ncd.createDimension('longitude', len(lons))
 
@@ -320,12 +454,12 @@ def empty_constant_file(filename: str, lats, lons):
         
 
 def empty_surface_file(filename:str, lats, lons, times):
-    with nc.Dataset(filename, 'w', format='NETCDF4') as ncd:
+    with nc.Dataset(filename, 'w', format='NETCDF4_CLASSIC') as ncd:
         _ = ncd.createDimension('time', len(times))
         _ = ncd.createDimension('latitude', len(lats))
         _ = ncd.createDimension('longitude', len(lons))
 
-        var_time = ncd.createVariable('time', 'i8', ('time',))
+        var_time = ncd.createVariable('time', 'f8', ('time',))
         var_time.units = J3QD._tunits
         var_time.calendar = J3QD._tcal
         var_lat = ncd.createVariable('latitude', 'f8', ('latitude',))
@@ -339,7 +473,7 @@ def empty_surface_file(filename:str, lats, lons, times):
 
 
 def empty_pressure_levels_file(filename:str, lats, lons, times, levs):
-    with nc.Dataset(filename, 'w', format='NETCDF4') as ncd:
+    with nc.Dataset(filename, 'w', format='NETCDF4_CLASSIC') as ncd:
         _ = ncd.createDimension('level', len(levs))
         _ = ncd.createDimension('time', len(times))
         _ = ncd.createDimension('latitude', len(lats))
@@ -361,20 +495,32 @@ def empty_pressure_levels_file(filename:str, lats, lons, times, levs):
         var_lev[:] = levs
 
 
-def gribs_to_netcdf(*grib_files:"Union[str,Path]", netcdf_file:"Union[str,Path]", tstart:float, tstop:float, kind:str, subsetter=None):
+def gribs_to_netcdf(*grib_files:"Union[str,Path]", netcdf_file:"Union[str,Path]", tstart:float, tstop:float, kind:str, subsetter=None, engine="xarray"):
+    logger.info(f"creating {netcdf_file}")
     notified = []
     Converter = get_converter(kind)
     converter = Converter(tstart, tstop, subsetter)
 
-    for grib_file in grib_files:
-        with pygrib.open(str(grib_file)) as f:  # pygrib doesn't like Path objects
-            for record in f:
-                try:
-                    converter.grib_to_nc(netcdf_file, record, subsetter=subsetter)
-                except VariableError as e:
-                    if e.args[0] not in notified:
-                        logger.warning(f"warning: skip variable {e}")
-                        notified.append(e.args[0])
+    for gribfile in grib_files:
+        if engine == "xarray":
+            converter.xgrib_to_nc(netcdf_file, gribfile)
+
+        elif engine == "pygrib":
+            logger.debug(f"de-gribbing {Path(gribfile).name} with pygrib")
+
+            with pygrib.open(str(gribfile)) as f:  # pygrib doesn't like Path objects
+                for record in f:
+                    if not converter.valid_record(record):
+                        continue
+                    try:
+                        converter.grib_to_nc(netcdf_file, record)
+                    except VariableError as e:
+                        if e.args[0] not in notified:
+                            logger.warning(f"warning: skip variable {e}")
+                            notified.append(e.args[0])
+
+        else:
+            raise ValueError("engine must be 'pygrib' or 'xarray'")
 
 
 def get_converter(kind:str) -> "type[ConversionHandler]":
