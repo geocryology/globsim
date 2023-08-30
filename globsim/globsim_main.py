@@ -142,7 +142,7 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
         JRA3Qinterp = interpolate.J3QI(ifile)
         JRA3Qinterp.process()
             
-def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True):
+def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
     """
     Use re-analysis data that has been interpolated to station locations to 
     derive fluxes scaled / converted / adjusted to drive point-scale 
@@ -173,4 +173,9 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True
     if JRA:
         JRAsc = scale.JRAscale(sfile)
         JRAsc.process()
+
+    # # === JRA-3Q ===
+    if JRA3Q:
+        JRA3Qsc = scale.J3QS(sfile)
+        JRA3Qsc.process()
                   
