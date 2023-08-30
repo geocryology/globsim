@@ -39,6 +39,7 @@ def main(args):
         if sum([ERAI, ERA5, ERA5ENS, JRA, MERRA, JRA3Q]) > 0:
             GlobsimScale(sfile, ERAI=ERAI, ERA5=ERA5, ERA5ENS=ERA5ENS, 
                         JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q)
+
         
         else: print("Failed! Reanalysis source should be ERAI, ERA5, MERRA, JRA, JRA3Q please check")
 

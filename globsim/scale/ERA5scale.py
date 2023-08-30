@@ -55,17 +55,11 @@ class ERA5scale(GenericScale):
         ERAd = ERA5scale(sfile)
         ERAd.process()
     """
+    src = 'era5'
 
-    def __init__(self, sfile, era5type='reanalysis'):
+    def __init__(self, sfile):
         super().__init__(sfile)
         par = self.par
-
-        if era5type == 'reanalysis':
-            self.ens = False
-            self.src = 'era5'
-        elif era5type == 'ensemble_members':
-            self.ens = True
-            self.src = 'era5_ens'
 
         # input file handles
         self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}_surface.nc"), 'r')
@@ -99,23 +93,19 @@ class ERA5scale(GenericScale):
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.t_cal)
 
-    def getValues(self, ncf, varStr, ni=10):
-        if self.ens:
-            values = ncf.variables[varStr][:, ni, :]
-        else:
-            values = ncf.variables[varStr][:]
+    def getValues(self, ncf, varStr):
+        return ncf.variables[varStr][:]
 
-        return values
-
-    def indProcess(self, ni=10):
+    def indProcess(self):
         for kernel_name in self.kernels:
             if hasattr(self, kernel_name):
                 logger.info(f"running scaling kernel: '{kernel_name}'")
-                getattr(self, kernel_name)(ni)
+                kernel = getattr(self, kernel_name)
+                _ = kernel()
             else:
                 logger.error(f"Missing kernel {kernel_name}")
 
-    def process(self, ni=10):
+    def process(self):
         """
         Run all relevant processes and save data. Each kernel processes one
         variable and adds it to the netCDF file.
@@ -123,23 +113,13 @@ class ERA5scale(GenericScale):
 
         stations = self.stations['station_name']
         # iterate thorugh kernels and start process
-        if self.ens:
-            for ni in self.nc_sa['number']:
-                src = '{}_{}'.format(self.src, ni)
-                self.output_file = self.getOutNCF(self.par, src)
-                self.rg = new_scaled_netcdf(self.output_file,
-                                            self.nc_pl, self.times_out_nc,
-                                            t_unit=self.scaled_t_units,
-                                            station_names=stations)
-                self.indProcess(ni)
 
-        else:
-            self.output_file = self.getOutNCF(self.par, self.src)
-            self.rg = new_scaled_netcdf(self.output_file,
-                                        self.nc_pl, self.times_out_nc,
-                                        t_unit=self.scaled_t_units,
-                                        station_names=stations)
-            self.indProcess(ni=10)
+        self.output_file = self.getOutNCF(self.par, self.src)
+        self.rg = new_scaled_netcdf(self.output_file,
+                                    self.nc_pl, self.times_out_nc,
+                                    t_unit=self.scaled_t_units,
+                                    station_names=stations)
+        self.indProcess()
 
         logger.info(f"Created scaled output file {self.output_file}")
         # close netCDF files
@@ -149,7 +129,7 @@ class ERA5scale(GenericScale):
         self.nc_sa.close()
         self.nc_to.close()
 
-    def PRESS_Pa_pl(self, ni=10):
+    def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """
@@ -162,14 +142,14 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_pl, 'air_pressure', ni)
+        values  = self.getValues(self.nc_pl, 'air_pressure')
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n]) * 100
 
-    def AIRT_C_pl(self, ni=10):
+    def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """
@@ -182,12 +162,12 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_pl, 't', ni)  # self.nc_pl.variables['t'][:]
+        values  = self.getValues(self.nc_pl, 't')  # self.nc_pl.variables['t'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600, values[:, n] - 273.15)
 
-    def AIRT_C_sur(self, ni=10):
+    def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """
@@ -199,20 +179,20 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sa, 't2m', ni)  # self.nc_sa.variables['t2m'][:]
+        values  = self.getValues(self.nc_sa, 't2m')  # self.nc_sa.variables['t2m'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n] - 273.15)
 
-    def AIRT_redcapp(self, ni=10):
+    def AIRT_redcapp(self):
         """
         Air temperature derived from surface data and pressure level data as
         shown by the method REDCAPP.
         """
         print("AIRT_redcapp")
 
-    def PREC_mm_sur(self, ni=10):
+    def PREC_mm_sur(self):
         """
         Precipitation sum in mm for the time step given.
         """
@@ -227,7 +207,7 @@ class ERA5scale(GenericScale):
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
 
         # total prec [mm] in 1 second
-        values  = self.getValues(self.nc_sf, 'tp', ni)  # self.nc_sf.variables['tp'][:]*1000/self.interval_in
+        values  = self.getValues(self.nc_sf, 'tp')  # self.nc_sf.variables['tp'][:]*1000/self.interval_in
         # https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
         # We assume interval_in is in hours (1 for regular, 3 for ensemble)
         values  = values * 1000 / (self.interval_in)  # [m] -> [mm s-1]
@@ -237,7 +217,7 @@ class ERA5scale(GenericScale):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
 
-    def RH_per_sur(self, ni=10):
+    def RH_per_sur(self):
         """
         Relative humdity derived from surface data, exclusively. Clipped to
         range [0.1,99.9]. Kernel AIRT_C_sur must be run before.
@@ -245,7 +225,7 @@ class ERA5scale(GenericScale):
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sa, 'd2m', ni)  # self.nc_sa.variables['d2m'][:]
+        values  = self.getValues(self.nc_sa, 'd2m')  # self.nc_sa.variables['d2m'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             dewp[:, n] = series_interpolate(self.times_out_nc,
                                             time_in * 3600, values[:, n] - 273.15)
@@ -260,14 +240,16 @@ class ERA5scale(GenericScale):
         RH = self._rh()(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
         self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
 
-    def RH_per_pl(self, ni=10):
+    def RH_per_pl(self):
         """
         Relative humdity derived from pressure-level.
         """
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_pl, 'r', ni)
+
+        values  = self.getValues(self.nc_pl, 'r')
+
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh[:, n] = series_interpolate(self.times_out_nc,
                                             time_in * 3600, values[:, n])
@@ -281,7 +263,7 @@ class ERA5scale(GenericScale):
 
         self.rg.variables[vn][:, :] = rh
 
-    def WIND_sur(self, ni=10):
+    def WIND_sur(self):
         """
         Wind speed and direction temperature derived from surface data,
         exclusively.
@@ -289,7 +271,7 @@ class ERA5scale(GenericScale):
         # temporary variable, interpolate station by station
         U = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sa, 'u10', ni)  # self.nc_sa.variables['u10'][:]
+        values  = self.getValues(self.nc_sa, 'u10')  # self.nc_sa.variables['u10'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             U[:, n] = series_interpolate(self.times_out_nc,
                                          time_in * 3600, values[:, n])
@@ -297,7 +279,7 @@ class ERA5scale(GenericScale):
         # temporary variable, interpolate station by station
         V = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sa, 'v10', ni)  # self.nc_sa.variables['v10'][:]
+        values  = self.getValues(self.nc_sa, 'v10')  # self.nc_sa.variables['v10'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             V[:, n] = series_interpolate(self.times_out_nc,
                                          time_in * 3600, values[:, n])
@@ -327,7 +309,7 @@ class ERA5scale(GenericScale):
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
         self.rg.variables[vn_dir][:, :] = WD
 
-    def SW_Wm2_sur(self, ni=10):
+    def SW_Wm2_sur(self):
         """
         Short-wave downwelling radiation derived from surface data, exclusively.
         This kernel only interpolates in time.
@@ -342,13 +324,13 @@ class ERA5scale(GenericScale):
         
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sf, 'ssrd', ni)  # self.nc_sf.variables['ssrd'][:]/3600/self.interval_in#[w/m2/s]
+        values  = self.getValues(self.nc_sf, 'ssrd')  # self.nc_sf.variables['ssrd'][:]/3600/self.interval_in#[w/m2/s]
         values  = values / (self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
-    def SW_Wm2_topo(self, ni=10):
+    def SW_Wm2_topo(self):
         """
         Short-wave downwelling radiation corrected using a modified version of TOPOscale.
         Partitions into direct and diffuse
@@ -371,11 +353,11 @@ class ERA5scale(GenericScale):
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        lat = self.getValues(self.nc_pl, 'latitude', ni)
-        lon = self.getValues(self.nc_pl, 'longitude', ni)
-        sw = self.getValues(self.nc_sf, 'ssrd', ni) / self.interval_in  # [J m-2] --> [W m-2]
-        grid_elev = self.getValues(self.nc_to, 'z', ni)[0,:] / 9.80665  # z has 2 dimensions from the scaling step
-        station_elev = self.getValues(self.nc_pl, 'height', ni)
+        lat = self.getValues(self.nc_pl, 'latitude')
+        lon = self.getValues(self.nc_pl, 'longitude')
+        sw = self.getValues(self.nc_sf, 'ssrd') / self.interval_in  # [J m-2] --> [W m-2]
+        grid_elev = self.getValues(self.nc_to, 'z')[0,:] / 9.80665  # z has 2 dimensions from the scaling step
+        station_elev = self.getValues(self.nc_pl, 'height')
 
         svf = self.get_sky_view()
         slope = self.get_slope()
@@ -412,7 +394,7 @@ class ERA5scale(GenericScale):
             f = interp1d(interpolation_time * 3600, diffuse, kind='linear')
             self.rg.variables[vn_diff][:, n] = f(self.times_out_nc)
 
-    def LW_Wm2_sur(self, ni=10):
+    def LW_Wm2_sur(self):
         """
         Long-wave downwelling radiation derived from surface data, exclusively.
         This kernel only interpolates in time.
@@ -427,13 +409,13 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sf, 'strd', ni)  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
+        values  = self.getValues(self.nc_sf, 'strd')  # self.nc_sf.variables['strd'][:]/3600/self.interval_in #[w m-2 s-1]
         values  = values / (self.interval_in)  # [J m-2] -> [w m-2]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in * 3600, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc)
 
-    def LW_Wm2_topo(self, ni=10):
+    def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
         # add variable to ncdf file
         vn = 'LW_topo'  # variable name
@@ -444,11 +426,12 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        t_sub = self.getValues(self.nc_pl, 't', ni)  # [K]
-        rh_sub = self.getValues(self.nc_pl, 'r', ni)  # [%]
-        t_grid = self.getValues(self.nc_sa, 't2m', ni)  # [K]
-        dewp_grid = self.getValues(self.nc_sa, 'd2m', ni)  # [K]
-        lw_grid  = self.getValues(self.nc_sf, 'strd', ni) / self.interval_in  # [w m-2 s-1]
+        t_sub = self.getValues(self.nc_pl, 't')  # [K]
+        rh_sub = self.getValues(self.nc_pl, 'r')  # [%]
+        t_grid = self.getValues(self.nc_sa, 't2m')  # [K]
+        dewp_grid = self.getValues(self.nc_sa, 'd2m')  # [K]
+        lw_grid  = self.getValues(self.nc_sf, 'strd') / self.interval_in  # [w m-2 s-1]
+
         rh_grid = self._rh()(t_grid, dewp_grid)
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
@@ -460,7 +443,7 @@ class ERA5scale(GenericScale):
             f = interp1d(time_in * 3600, data, kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) 
 
-    def SH_kgkg_sur(self, ni=10):
+    def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg]
         https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
@@ -469,7 +452,7 @@ class ERA5scale(GenericScale):
         # temporary variable,  interpolate station by station
         dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_sa, 'd2m', ni)  # self.nc_sa.variables['d2m'][:]
+        values  = self.getValues(self.nc_sa, 'd2m')  # self.nc_sa.variables['d2m'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             dewp[:, n] = series_interpolate(self.times_out_nc,
                                             time_in * 3600, values[:, n] - 273.15)
