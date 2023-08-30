@@ -34,6 +34,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8
         python -m pip install -r requirements.txt
+        python -m pip install pydap 
+        python -m pip install xarray
         python setup.py install
     - name: Lint with flake8
       run: |
