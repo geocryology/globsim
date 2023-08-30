@@ -37,6 +37,11 @@ class ERA5generic(object):
                 '175.128': 'surface_thermal_radiation_downwards',
                 '172.128': 'land_sea_mask'}
 
+    ERA_TYPES = {
+        'reanalysis':'era5',
+        'ensemble_members':'era5_ens'
+    }
+
     def areaString(self, area):
         """Converts numerical coordinates into string: North/West/South/East"""
         res = str(round(area['north'],2)) + "/"
@@ -45,12 +50,8 @@ class ERA5generic(object):
         res += str(round(area['east'], 2))
         return(res)
 
-    def timeString(self, era5type):
-
-        if era5type == 'ensemble_members':
-            times = np.arange(0, 24, 3)
-        elif era5type == 'reanalysis':
-            times = np.arange(0, 24)
+    def timeString(self):
+        times = np.arange(0, 24)
 
         times = [str(t).zfill(2) for t in times]
         times = [t + ':00' for t in times]
@@ -59,17 +60,16 @@ class ERA5generic(object):
 
     def dateString(self, date):
         """Converts datetime objects into string"""
-        res = (date['beg'].strftime("%Y-%m-%d") + "/" +
-               date['end'].strftime("%Y-%m-%d"))
+        res = f"{date['beg'].strftime('%Y-%m-%d')}/{date['end'].strftime('%Y-%m-%d')}"
         return(res)
 
-    def typeString(self, era5type):
+    def typeString(self):
+        return self.ERA_TYPES[self.era5type]
 
-        if era5type == 'ensemble_members':
-            return 'era5_ens'
-        elif era5type == 'reanalysis':
-            return 'era5'
-
+    @property
+    def era5type(self):
+        return 'reanalysis'
+        
     def getPressureLevels(self, elevation):
         """Restrict list of ERA5 pressure levels to be downloaded"""
         Pmax = pressure_from_elevation(elevation['min']) + 55
@@ -94,13 +94,11 @@ class ERA5generic(object):
         return dictionary_gen
 
     def getDstring(self):
-        return ('_' + self.date['beg'].strftime("%Y%m%d")
-                + "_to_"
-                + self.date['end'].strftime("%Y%m%d"))
+        return f"_{self.date['beg'].strftime('%Y%m%d')}_to_{self.date['end'].strftime('%Y%m%d')}"
 
     def getDownFile(self, levStr):
         '''make outfile name with data level string'''
-        typeStr = self.typeString(self.era5type)
+        typeStr = self.typeString()
         outfile = typeStr + '_' + levStr + self.getDstring() + '.nc'
         return outfile
 
@@ -156,6 +154,10 @@ class ERA5generic(object):
                   "ERA5 data: {0}")
         return string.format(self.getDictionary)
 
+    @property
+    def era5type(self):
+        return 'reanalysis'
+
 
 class ERA5pl(ERA5generic):
     """Returns an object for ERA5 data that has methods for querying the
@@ -191,8 +193,7 @@ class ERA5pl(ERA5generic):
         ERA5pl = ERA5pl(date, area, elevation, variables, directory)
         ERA5pl.download()
     """
-    def __init__(self, era5type, date, area, elevation, variables, directory):
-        self.era5type = era5type
+    def __init__(self, date, area, elevation, variables, directory):
         self.date       = date
         self.area       = area
         self.elevation  = elevation
@@ -213,7 +214,7 @@ class ERA5pl(ERA5generic):
         self.dictionary = {'product_type': self.era5type,
                            'levtype'  : "pl",
                            'levellist': self.getPressureLevels(self.elevation),
-                           'time'     : self.timeString(self.era5type),
+                           'time'     : self.timeString(),
                            'step'     : "0",
                            'type'     : "an",
                            'param'    : self.param,
@@ -253,8 +254,7 @@ class ERA5sa(ERA5generic):
         ERA5sa = ERA5sa(date, area, variables, directory)
         ERA5sa.download()
     """
-    def __init__(self, era5type, date, area, variables, directory):
-        self.era5type = era5type
+    def __init__(self, date, area, variables, directory):
         self.date       = date
         self.area       = area
         self.directory  = directory
@@ -285,7 +285,7 @@ class ERA5sa(ERA5generic):
     def getDictionary(self):
         self.dictionary = {'product_type': self.era5type,
                            'levtype'  : "sfc",
-                           'time'     : self.timeString(self.era5type),
+                           'time'     : self.timeString(),
                            'step'     : "0",
                            'type'     : "an",
                            'param'    : self.param,
@@ -326,8 +326,7 @@ class ERA5sf(ERA5generic):
         ERA5sf = ERA5sf(date, area, variables, directory)
         ERA5sf.download()
     """
-    def __init__(self, era5type, date, area, variables, directory):
-        self.era5type = era5type
+    def __init__(self, date, area, variables, directory):
         self.date       = date
         self.area       = area
         self.directory  = directory
@@ -357,7 +356,7 @@ class ERA5sf(ERA5generic):
 
         self.dictionary = {'product_type': self.era5type,
                            'levtype'  : "sfc",
-                           'time'     : self.timeString(self.era5type),
+                           'time'     : self.timeString(),
                            'step'     : self.getStep(),
                            'type'     : "fc",
                            'param'    : self.param,
@@ -388,23 +387,21 @@ class ERA5to(ERA5generic):
         ERA5to = ERA5to(area, directory)
         ERA5to.download()
     """
-    def __init__(self, era5type, area, directory):
-        self.era5type   = era5type
+    def __init__(self, area, directory):
         self.area       = area
         self.date       = {'beg' : datetime(2017, 1, 1),
                            'end' : datetime(2017, 1, 1)}
         self.directory  = directory
-        self.file_ncdf  = path.join(self.directory, self.typeString(self.era5type) + '_to.nc')
+        self.file_ncdf  = path.join(self.directory, self.typeString() + '_to.nc')
 
     def getDictionary(self):
-        self.dictionary = {
-           'product_type' : self.era5type,
-           'levtype'  : "sfc",
-           'time'     : "00:00:00",
-           'step'     : "0",
-           'type'     : "an",
-           'param'    : "129.128/172.128",  # geopotential and land-sea mask
-           'target'   : self.file_ncdf}
+        self.dictionary = {'product_type' : self.era5type,
+                           'levtype'  : "sfc",
+                           'time'     : "00:00:00",
+                           'step'     : "0",
+                           'type'     : "an",
+                           'param'    : "129.128/172.128",  # geopotential and land-sea mask
+                           'target'   : self.file_ncdf}
 
         self.dictionary.update(self.getDictionaryGen(self.area, self.date))
         return self.dictionary
@@ -430,20 +427,12 @@ class ERA5download(GenericDownload, ERA5generic):
         ERAd = ERA5download(pfile)
         ERAd.retrieve()
     """
-
-    def __init__(self, pfile, era5type='reanalysis', api='cds', storage='cds'):
+    def __init__(self, pfile, api='cds', storage='cds'):
         super().__init__(pfile)
         par = self.par
-        self.era5type = era5type
 
-        if self.era5type == 'reanalysis':
-            self._set_input_directory("era5")
-            self.topo_file = 'era5_to.nc'
-            
-        elif self.era5type == 'ensemble_members':
-            self._set_input_directory("era5ens")
-            self.topo_file = 'era5_ens_to.nc'
-            
+        self._set_input_directory(self.input_directory)
+
         # time bounds
         self.date = {'beg': datetime.strptime(par['beg'], '%Y/%m/%d'),
                      'end': datetime.strptime(par['end'], '%Y/%m/%d')}
@@ -455,20 +444,28 @@ class ERA5download(GenericDownload, ERA5generic):
         self.api = api
         self.storage = storage
 
+    @property
+    def topo_file(self) -> str:
+        return 'era5_to.nc'
+
+    @property
+    def input_directory(self) -> str:
+        return "era5"
+
     def retrieve(self):
         """
         Retrieve all required ERA5 data from MARS/CDS server.
         """
         # prepare time loop
         date_i = {}
-        slices = floor(float((self.date['end'] - self.date['beg']).days) /
-                       self.chunk_size) + 1
+        delta_t = self.date['end'] - self.date['beg']
+        slices = floor(float((delta_t).days) / self.chunk_size) + 1
 
         # topography
         if path.isfile(path.join(self.directory, self.topo_file)):
             logger.warning(f"File {self.topo_file} already exists. Skipping.")
         else:
-            top = ERA5to(self.era5type, self.area, self.directory)
+            top = ERA5to(self.area, self.directory)
             top.download(self.storage)
 
         for ind in range(0, int(slices)):
@@ -481,19 +478,20 @@ class ERA5download(GenericDownload, ERA5generic):
                 date_i['end'] = self.date['end']
 
             # actual functions
-            pl = ERA5pl(self.era5type, date_i, self.area, self.elevation,
-                        self.variables, self.directory)
-            sa = ERA5sa(self.era5type, date_i, self.area,
-                        self.variables, self.directory)
-            sf = ERA5sf(self.era5type, date_i, self.area,
-                        self.variables, self.directory)
-
-            ERAli = [pl, sa, sf]
+            ERAli = self.list_downloaders(date_i)
             for era in ERAli:
                 era.download(self.storage)
 
         # report inventory
         self.inventory()
+
+    def list_downloaders(self, date_i):
+        pl = ERA5pl(date_i, self.area, self.elevation, self.variables, self.directory)
+        sa = ERA5sa(date_i, self.area, self.variables, self.directory)
+        sf = ERA5sf(date_i, self.area, self.variables, self.directory)
+
+        ERAli = [pl, sa, sf]
+        return ERAli
 
     def inventory(self):
         """
@@ -502,10 +500,10 @@ class ERA5download(GenericDownload, ERA5generic):
         logger.info("START INVENTORY FOR GLOBSIM ERA5 DATA")
         logger.debug(f"Download parameter file: {self.pfile}")
         # loop over filetypes, read, report
-        file_type = [self.typeString(self.era5type) + '_pl_*.nc',
-                     self.typeString(self.era5type) + '_sa_*.nc',
-                     self.typeString(self.era5type) + '_sf_*.nc',
-                     self.typeString(self.era5type) + '_t*.nc']
+        file_type = [self.typeString() + '_pl_*.nc',
+                     self.typeString() + '_sa_*.nc',
+                     self.typeString() + '_sf_*.nc',
+                     self.typeString() + '_t*.nc']
         for ft in file_type:
             infile = path.join(self.directory, ft)
             nf = len(filter(listdir(self.directory), ft))
