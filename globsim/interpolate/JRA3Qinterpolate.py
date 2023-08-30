@@ -1,4 +1,5 @@
 from globsim.interpolate.JRAinterpolate import JRAinterpolate
+from globsim.download.JRA3Qdownload import J3QD
 
 import logging
 
@@ -11,6 +12,8 @@ class J3QI(JRAinterpolate):
     SA_INTERVAL = 6
     PL_INTERVAL = 6
     SF_INTERVAL = 1
+
+    T_UNITS = J3QD._tunits
 
     GEOPOTENTIAL = "gh"
 

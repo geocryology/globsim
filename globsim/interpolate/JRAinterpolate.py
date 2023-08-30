@@ -34,6 +34,7 @@ class JRAinterpolate(GenericInterpolate):
     SA_INTERVAL = 6
     PL_INTERVAL = 6
     SF_INTERVAL = 6
+    T_UNITS = 'hours since 1800-01-01 00:00:0.0'
 
     dpar_sa = {'air_temperature'   : ['surface_temperature'],  # [K] 2m values
                 'relative_humidity' : ['relative_humidity'],  # [%]
@@ -122,7 +123,7 @@ class JRAinterpolate(GenericInterpolate):
 
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                          time_units='hours since 1800-01-01 00:00:0.0')
+                                          time_units=self.T_UNITS)
         rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
         rootgrp.close()
 
@@ -233,7 +234,7 @@ class JRAinterpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                              'hours since 1800-01-01 00:00:0.0')
+                              self.T_UNITS)
         rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
 
         # access variables
@@ -313,7 +314,7 @@ class JRAinterpolate(GenericInterpolate):
         """
         try:
             self.JRA2station(self.mf_to,
-                             path.join(self.output_dir,f'{self.REANALYSIS[:-2]}_to_{self.list_name}.nc'),
+                             path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
                              self.stations, ['Geopotential'], date=None)
         except OSError:
             logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
