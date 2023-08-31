@@ -71,7 +71,7 @@ def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
     if not x:
         x = ncf.get_variables_by_attributes(long_name='longitude')
     if not x:
-        x = 'longitude' if 'longitude' in ncf.variables else None
+        x = ncf['longitude'] if 'longitude' in ncf.variables else None
     if not x:
         raise KeyError("Could not find x-coordinate")
 
@@ -80,8 +80,8 @@ def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
         y = ncf.get_variables_by_attributes(standard_name='latitude')
     if not y:
         y = ncf.get_variables_by_attributes(long_name='latitude')
-    if not x:
-        x = 'latitude' if 'latitude' in ncf.variables else None
+    if not y:
+        y = ncf['latitude'] if 'latitude' in ncf.variables else None
     if not y:
         raise KeyError("Could not find y-coordinate")
 
