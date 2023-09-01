@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 boltzmann = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
@@ -153,3 +154,120 @@ def rh_liston(t: np.ndarray, td: np.ndarray) -> np.ndarray:
     rh = 100 * e / es
     
     return rh
+
+
+def degree_days(df: pd.DataFrame) -> pd.DataFrame:
+    """ 
+
+    df : pd.DataFrame
+        Dataframe with a time index and first column temperatures
+    """
+    daily = df.resample("D").mean()  # ensure daily means
+    df['degree_days'] = daily['T']
+
+
+def swe_accumulation(times, temps, total_precip) -> pd.Series:
+    """ 
+    Calculate snow water equivalent accumulation over a time period
+
+    Parameters
+    ----------
+    times : array-like
+        Times of observations
+    temps : array-like
+        Temperatures at each time [C]
+    total_precip : array-like
+        Precipitation at each time [mm]
+
+    Returns
+    -------
+    swe : float
+        Accumulated snow water equivalent over the time period
+    """
+    df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
+    df['P'] = df['P'].clip(lower=0)  # remove negative precipitation
+    df['P'] = df['P'].fillna(0)  # remove NaNs
+    precip_fractions = precip_fraction(df.index, df['T'], df['P'])
+    df['P_liq'] = df['P'] * precip_fractions['liquid']
+    df['P_solid'] = df['P'] * precip_fractions['solid']
+    
+    return df["P_solid"]
+
+
+def precip_fraction(times, temps, total_precip, method="static", **kwargs) -> pd.DataFrame:
+    """
+    Calculate the solid (snow) and liquid (rain) fraction of precipitation over a time period
+    """
+    df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
+    # select and apply appropriate method here
+    if method == "static":
+        rain_frac = lambda t: np.heaviside(t - 2.2, 1)
+    else:
+        raise NotImplementedError
+    
+    df['liquid'] = rain_frac(df['T'])
+    df['solid'] = 1 - df['liquid']
+
+    return df[['liquid', 'solid']]
+
+
+def snowmelt(times, temps) -> pd.DataFrame:
+    """
+    Calculate potential snow melt
+    
+    snow melt is calculated according to a constant degree-day factor of 
+    3.0 mm oC-1 d-1 (https://core.ac.uk/reader/14923120)
+    Returns
+    --------
+    melt : pd.DataFrame
+        Data frame with 1 column of melt [mm]
+    """
+    df = pd.DataFrame(data = temps, index=times, columns = ["T"])
+    df.resample("D").mean()  # ensure daily means
+    melt = df['T'] * -3.0
+    melt = melt.clip(upper=0)  # remove negative melt
+
+    return pd.DataFrame(data={"melt_mm": melt.values}, index=df.index)
+
+
+def snow_model(times, temps, total_precip):
+    """
+    Calculate snow water equivalent accumulation and melt over a time period
+
+    Parameters
+    ----------
+    times : array-like
+        Times of observations
+    temps : array-like
+        Temperatures at each time [C]
+    precip : array-like
+        Precipitation at each time [mm]
+
+    Returns
+    -------
+    swe : float
+        Accumulated snow water equivalent over the time period
+    """
+    df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
+    # 
+
+    accum = swe_accumulation(times, temps, total_precip)
+    potential_melt = snowmelt(times, temps)
+    
+    df['accumulation'] = accum
+    df['potential_melt'] = potential_melt
+
+    df['snowpack_SWE'] = accumulate(accum.values, potential_melt.values)
+    
+    return df
+
+
+def accumulate(accumulation, potential_melt, init=0.0) -> np.ndarray:
+    out = np.zeros_like(accumulation, dtype='float64')
+    for i, (acc, melt) in enumerate(zip(accumulation, potential_melt)):
+        if i == 0:
+            out[i] = max(0.0, (init + acc + melt))
+        else:
+            out[i] = max(0.0, (out[i - 1] + acc + melt))
+    return out
+
