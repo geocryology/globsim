@@ -152,6 +152,9 @@ class ERA5interpolate(GenericInterpolate):
         # get time vector for output
         time_in = nctime[tmask]
 
+        # write time
+        ncf_out.variables['time'][:] = time_in
+
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
         niter = len(time_in) // self.cs
@@ -189,8 +192,8 @@ class ERA5interpolate(GenericInterpolate):
                                               subset_grid, lon_slice, lat_slice,
                                               variables=None, date=None)
             # append time
-            ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
-                                                     time_in[beg:end+1])
+            # ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
+                                                     # time_in[beg:end+1])
 
             # append variables
             for i, var in enumerate(variables):
@@ -343,6 +346,7 @@ class ERA5interpolate(GenericInterpolate):
         # pressure level variable keys.
         self.ERA2station(self.mf_to, self.getOutFile('to'),
                          self.stations, ['z', 'lsm'], date=None)
+        
 
         # === 2D Interpolation for Surface Analysis Data ===
         # dictionary to translate CF Standard Names into ERA5
@@ -358,7 +362,7 @@ class ERA5interpolate(GenericInterpolate):
         with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
             self.ERA2station(sa, self.getOutFile('sa'),
                              self.stations, varlist, date=self.date)
-
+        
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
@@ -372,7 +376,7 @@ class ERA5interpolate(GenericInterpolate):
         with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
             self.ERA2station(sf, self.getOutFile('sf'),
                             self.stations, varlist, date=self.date)
-
+        
         # === 2D Interpolation for Pressure Level Data ===
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
