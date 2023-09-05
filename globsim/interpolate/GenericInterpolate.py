@@ -43,7 +43,7 @@ class GenericInterpolate:
         self.variables = par.get('variables')
         self.skip_checks = bool(par.get("skip_checks", False))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
-        
+
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
@@ -57,6 +57,9 @@ class GenericInterpolate:
         # A small chunk size keeps memory usage down but is slow.
         self.cs = int(par.get('chunk_size'))
 
+        self._array = np.array([])  # recycled numpy array
+        self._plarray = np.array([])
+
     def find_stations_csv(self, par):
         if Path(par.get('station_list')).is_file():
             return Path(par.get('station_list'))
@@ -69,7 +72,6 @@ class GenericInterpolate:
 
     @check
     def validate_stations_extent(self, ncdf):
-        
         data_bbox = netcdf_bbox(ncdf)
         msg = f"Station coordinates {self.stations_bbox} exceed downloaded extent {data_bbox}"
         try:
@@ -301,6 +303,7 @@ class GenericInterpolate:
                     sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
 
                 else:
+
                     vi = ncf_in[var][tmask_chunk,ni,:,:]
                     sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
 
@@ -323,8 +326,7 @@ class GenericInterpolate:
 
             logger.debug(f"Wrote {var} data to source field for regridding")
 
-    @staticmethod
-    def nc_data_subset_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+    def nc_data_subset_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
                                        tmask_chunk, pl: bool, lon_slice, lat_slice):
         """ assign data from ncdf: (time, [level], latitude, longitude)
                          to sfield (longitude, latitude, variable, time, [level])
@@ -332,16 +334,34 @@ class GenericInterpolate:
         tmin = np.min(np.where(tmask_chunk))
         tmax = np.max(np.where(tmask_chunk))
         time_slice = slice(tmin, tmax + 1)
+        dlon, dlat, dtime = [x.stop - x.start for x in [lon_slice, lat_slice, time_slice]]
 
-        for n, var in enumerate(variables):
+        logger.info("Reading source data from netcdf file")
+        t0 = datetime.now()
+
+        for n, v in enumerate(variables):
+            var = ncf_in[v]
+
             if pl:
-                vi = ncf_in[var][time_slice, :, lat_slice, lon_slice]
-                sfield.data[:, :, n, :, :] = vi.transpose((3,2,0,1))
-            else:
-                vi = ncf_in[var][time_slice, lat_slice, lon_slice]
-                sfield.data[:, :, n, :] = vi.transpose((2,1,0))
+                logger.debug(f"Reading {v} data from source.")  # NB: writing is almost instantaneous
+                if self._plarray.shape[0] == dtime:
+                    self._plarray[:] = var[time_slice, :, lat_slice, lon_slice]
+                else:
+                    self._plarray = var[time_slice, :, lat_slice, lon_slice]
+                # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
+                sfield.data[:, :, n, :, :] = self._array.transpose((3,2,0,1))
 
-            logger.debug(f"Wrote {var} data to source field for regridding")
+            else:
+                logger.debug(f"Reading {v} data from source")
+                if self._array.shape == (dtime, dlat, dlon):
+                    self._array[:] = var[time_slice, lat_slice, lon_slice]
+                else:
+                    self._array = var[time_slice, lat_slice, lon_slice]
+                # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
+                sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
+
+        filltime = (datetime.now() - t0).total_seconds()
+        logger.info(f"Finished reading source data for chunk ({filltime} seconds)")
 
     @staticmethod
     def remove_select_variables(varlist: list, pl: bool, ens: bool = False):
