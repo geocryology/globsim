@@ -40,6 +40,10 @@ class ERA5MonthlyDownload(GenericDownload):
             self.product_type = 'reanalysis'
             self.topo_file = 'era5_to.nc'
 
+    def retrieve(self):
+        requests = self.list_requests()
+        self.download_threadded(requests, 12)
+        
     def list_requests(self):
         variables = self.par.get('variables')
 
