@@ -68,7 +68,6 @@ class JRAinterpolate(GenericInterpolate):
         self.mf_pl = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_pl_*.nc'), 'r', aggdim="time")
 
         # Check dataset integrity
-        #import pdb;pdb.set_trace()
         logger.info("Check data integrity (sa)")
         self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
         logger.info("Check data integrity (sf)")
