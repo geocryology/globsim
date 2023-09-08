@@ -117,6 +117,11 @@ class ERA5interpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
         ens = 'number' in ncf_in.dimensions.keys()
 
+        # reduce chunk size for pressure-level interpolation
+        cs = self.cs
+        if pl:
+            cs = cs // len(ncf_in.variables['level'][:])  # get actual number of levels
+
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units='hours since 1900-01-01 00:00:0.0')
@@ -157,8 +162,8 @@ class ERA5interpolate(GenericInterpolate):
 
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter = len(time_in) // self.cs
-        niter += ((len(time_in) % self.cs) > 0)
+        niter = len(time_in) // cs
+        niter += ((len(time_in) % cs) > 0)
 
         # Create source grid
         sgrid = self.create_source_grid(ncf_in)
@@ -167,9 +172,9 @@ class ERA5interpolate(GenericInterpolate):
         # loop over chunks
         for n in range(niter):
             # indices (relative to index of the output file)
-            beg = n * self.cs
+            beg = n * cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n * self.cs + self.cs, len(time_in)) - 1
+            end = min(n * cs + cs, len(time_in)) - 1
 
             # time to make tmask for chunk
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
