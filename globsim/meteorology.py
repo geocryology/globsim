@@ -166,6 +166,36 @@ def degree_days(df: pd.DataFrame) -> pd.DataFrame:
     df['degree_days'] = daily['T']
 
 
+def forteau_2021_conductivity(rho, T):
+    """
+    Forteau et al. (2021) thermal conductivity model for snow
+
+    rho : float or array
+        Density of snow [kg m-3]
+    T : float or array
+        Temperature of snow [K]
+    """
+    # thermal conductivity [W m-1 K-1]
+    if np.max(T) < 50:
+        print("Warning: temperatures should be in degrees K")
+
+    fitted = {223.0: (+2.564, -0.059, +0.0205),
+              248.0: (+2.172, +0.015, +0.0252),
+              263.0: (+1.985, +0.073, +0.0336),
+              268.0: (+1.883, +0.107, +0.0386),
+              273.0: (+1.776, +0.147, +0.0455),}
+    
+    closest_value = min(list(fitted.keys()), key=lambda x: abs(T - x))
+    
+    c1, c2, c3 = fitted[closest_value]
+    rho_i = 917  # density of ice [kg m-3]
+    vfi: float = rho / rho_i
+    
+    k = c1 * (vfi)**2 + c2 * (vfi) + c3
+    
+    return k
+
+
 def swe_accumulation(times, temps, total_precip) -> pd.Series:
     """ 
     Calculate snow water equivalent accumulation over a time period
@@ -259,7 +289,34 @@ def snow_model(times, temps, total_precip):
 
     df['snowpack_SWE'] = accumulate(accum.values, potential_melt.values)
     
+    df['age_of_snowpack'] = df['snowpack_SWE'].groupby((df['snowpack_SWE'] == 0).cumsum()).cumcount()
+
     return df
+
+
+def HTC_transfer(swe, t, alpha: float, beta:float):
+    """ 
+    Calculate heat transfer coefficient for snowpack
+    Parameters
+    ----------
+    swe : float
+        Snow water equivalent [mm]
+    t : float
+        Temperature [C]
+    alpha : float
+        Constant
+    beta : float   
+        Constant
+    """
+    swe = np.atleast_1d(swe)
+    t = np.atleast_1d(t)
+    Hs = np.empty_like(swe)
+    Hs[swe == 0] = np.nan
+    Hs[t == beta] = np.nan
+
+    Hs[~np.isnan(Hs)] = 1 / (swe[~np.isnan(Hs)] * alpha * (1 - (t[~np.isnan(Hs)] / beta)))
+
+    return Hs
 
 
 def accumulate(accumulation, potential_melt, init=0.0) -> np.ndarray:
@@ -271,3 +328,45 @@ def accumulate(accumulation, potential_melt, init=0.0) -> np.ndarray:
             out[i] = max(0.0, (out[i - 1] + acc + melt))
     return out
 
+
+if __name__ == "__main__":
+    import pandas as pd
+    w19 = pd.read_csv(r"C:\Users\Nick\Downloads\en_climate_daily_NT_2204101_2019_P1D.csv")
+    w20 = pd.read_csv(r"C:\Users\Nick\Downloads\en_climate_daily_NT_2204101_2020_P1D.csv")
+    w21 = pd.read_csv(r"C:\Users\Nick\Downloads\en_climate_daily_NT_2204101_2021_P1D.csv")
+    w22 = pd.read_csv(r"C:\Users\Nick\Downloads\en_climate_daily_NT_2204101_2022_P1D.csv")
+    EC = pd.concat([w19, w20, w21, w22])
+    EC['Date/Time'] = pd.to_datetime(EC['Date/Time'])
+    EC['Mean Temp (°C)'].interpolate(inplace=True)
+    EC["Total Precip (mm)"].interpolate(inplace=True)
+    EC.set_index("Date/Time", inplace=True)
+    EC = EC[(EC.index.year >= 2020 )| (EC.index.month >= 8)]
+    times = EC.index
+    temps = EC["Mean Temp (°C)"].values
+    total_precip = EC["Total Precip (mm)"].values
+    snow = snow_model(times, temps, total_precip)
+    htc = HTC_transfer(snow['snowpack_SWE'], snow['age_of_snowpack'], 0.14, 365)
+
+
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('SWE', color="blue")
+
+    ax1.plot(snow.index, snow['snowpack_SWE'], color="blue")
+    ax2.set_ylabel('htc', color="blue")
+    ax2.plot(snow.index, 1/htc, color="black")
+    fig.tight_layout()
+    plt.show()
+
+    ## plotting
+    fig, ax = plt.subplots()
+    ax.plot(EC['Snow on Grnd (cm)'], label="Env. Can.", color="black")
+
+    rho = 100
+    ax.plot(snow['snowpack_SWE'] * 100 / (rho), label=f"model (rho={rho} kg m-3)", color="blue")
+    ax.set_ylabel("Snow depth [cm]")
+    ax.set_xlabel("Date")
+    ax.set_title("Yellowknife")
+    plt.legend()
+    plt.show()
