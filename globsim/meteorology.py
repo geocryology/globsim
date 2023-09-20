@@ -290,11 +290,12 @@ def snow_model(times, temps, total_precip):
     df['snowpack_SWE'] = accumulate(accum.values, potential_melt.values)
     
     df['age_of_snowpack'] = df['snowpack_SWE'].groupby((df['snowpack_SWE'] == 0).cumsum()).cumcount()
+    df['snowcover'] = (df['snowpack_SWE']>0).astype('int')
 
     return df
 
 
-def HTC_transfer(swe, t, alpha: float, beta:float):
+def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15):
     """ 
     Calculate heat transfer coefficient for snowpack
     Parameters
@@ -302,20 +303,23 @@ def HTC_transfer(swe, t, alpha: float, beta:float):
     swe : float
         Snow water equivalent [mm]
     t : float
-        Temperature [C]
+        Age of snowpack [days]
     alpha : float
-        Constant
+        Constant [W m-3 C-1]
     beta : float   
-        Constant
+        Constant [days]
     """
+    if (max(t) >= beta):
+        raise ValueError(f"beta ({beta}) must be greater than the longest snowpack duration ({max(t)} days)")
+    
     swe = np.atleast_1d(swe)
     t = np.atleast_1d(t)
     Hs = np.empty_like(swe)
     Hs[swe == 0] = np.nan
-    Hs[t == beta] = np.nan
 
     Hs[~np.isnan(Hs)] = 1 / (swe[~np.isnan(Hs)] * alpha * (1 - (t[~np.isnan(Hs)] / beta)))
-
+    Hs[np.isnan(Hs)] = nosnow
+    
     return Hs
 
 
