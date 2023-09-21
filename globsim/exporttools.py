@@ -120,7 +120,11 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     PRESS = n[PRESS][:]
 
     # get site names
-    NAMES = nc.chartostring(n['station_name'][:])
+    try:
+        NAMES = nc.chartostring(n['station'][:])
+    except ValueError:
+        NAMES = n['station'][:].astype('str')
+
 
     data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
 
@@ -218,7 +222,10 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
             logger.error(f"Scaled netCDF file has no variable '{var_name}'")
 
     # get site names
-    NAMES = nc.chartostring(ncd['station'][:])
+    try:
+        NAMES = nc.chartostring(ncd['station'][:])
+    except ValueError:
+        NAMES = ncd['station'][:].astype('str')
 
     # combine data variables into array
     data = np.stack([arr for arr in output_dict.values()])
