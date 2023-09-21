@@ -218,7 +218,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
             logger.error(f"Scaled netCDF file has no variable '{var_name}'")
 
     # get site names
-    NAMES = nc.chartostring(ncd['station_name'][:])
+    NAMES = nc.chartostring(ncd['station'][:])
 
     # combine data variables into array
     data = np.stack([arr for arr in output_dict.values()])
