@@ -5,6 +5,7 @@ import logging
 
 from datetime          import datetime
 from os                import path, makedirs
+import resource
 
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
@@ -226,6 +227,12 @@ class MERRAinterpolate(GenericInterpolate):
 
         ncf_in.close()
         ncf_out.close()
+
+        try:
+            dfield.destroy()
+            logger.debug(f"Cleared dfield, memory usage: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}")
+        except:
+            print("Could not clear dfield in Merra2station function.")
 
     def levels2elevation(self, ncfile_in, ncfile_out):
         """

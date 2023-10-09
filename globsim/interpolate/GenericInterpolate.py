@@ -4,6 +4,7 @@ import re
 import tomlkit
 import warnings
 import logging
+import resource
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
@@ -17,6 +18,14 @@ from globsim.gap_checker import check_time_integrity
 from globsim.decorators import check
 
 logger = logging.getLogger('globsim.interpolate')
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('globsim_interpolate.log')
+fh.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+
+logger.addHandler(fh)
 
 try:
     import ESMF
@@ -131,6 +140,7 @@ class GenericInterpolate:
         """
 
         logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
+        logger.debug(f"Current memory usage: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} kB")
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
@@ -270,7 +280,8 @@ class GenericInterpolate:
         logger.debug("Regridding complete")
 
         sfield.destroy()  # free memory
-
+        logger.debug(f"Memory usage after freeing memory: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}")
+        #fh.emit()
         return dfield
 
     @staticmethod
