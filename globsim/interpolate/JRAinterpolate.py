@@ -52,8 +52,8 @@ class JRAinterpolate(GenericInterpolate):
     
     GEOPOTENTIAL = "Geopotential height"
 
-    def __init__(self, ifile):
-        super().__init__(ifile)
+    def __init__(self, ifile, **kwargs):
+        super().__init__(ifile, **kwargs)
         par = self.par
 
         self.input_dir = path.join(par['project_directory'], self.REANALYSIS)

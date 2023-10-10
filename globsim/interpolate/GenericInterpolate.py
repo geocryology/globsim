@@ -33,7 +33,7 @@ except ImportError:
 
 class GenericInterpolate:
 
-    def __init__(self, ifile: str):
+    def __init__(self, ifile: str, **kwargs):
         # read parameter file
         self.ifile = ifile
         with open(self.ifile) as FILE:
@@ -41,7 +41,7 @@ class GenericInterpolate:
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
-        self.skip_checks = bool(par.get("skip_checks", False))
+        self.skip_checks = kwargs.get('skip_checks', bool(par.get("skip_checks", False)))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
 
         # read station points
@@ -59,6 +59,10 @@ class GenericInterpolate:
 
         self._array = np.array([])  # recycled numpy array
         self._plarray = np.array([])
+
+        self.__skip_sa = kwargs.get('skip_sa', False)
+        self.__skip_sf = kwargs.get('skip_sf', False)
+        self.__skip_pl = kwargs.get('skip_pl', False)
 
     def find_stations_csv(self, par):
         if Path(par.get('station_list')).is_file():
@@ -86,6 +90,27 @@ class GenericInterpolate:
         
         except KeyError:
             logger.error("Could not verify whether stations are within downloaded netcdf")
+
+    def process(self):
+        self._preprocess()
+        if not self.__skip_sa:
+            self._process_sa()
+        if not self.__skip_sf:
+            self._process_sf()
+        if not self.__skip_pl:
+            self._process_pl()
+
+    def _preprocess(self):
+        pass
+
+    def _process_sa(self):
+        pass
+
+    def _process_sf(self):
+        pass
+
+    def _process_pl(self):
+        pass
 
     def _set_input_directory(self, name):
         self.input_dir = path.join(self.par.get('project_directory'), name)
@@ -349,7 +374,7 @@ class GenericInterpolate:
                 else:
                     self._plarray = var[time_slice, :, lat_slice, lon_slice]
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
-                sfield.data[:, :, n, :, :] = self._array.transpose((3,2,0,1))
+                sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
 
             else:
                 logger.debug(f"Reading {v} data from source")

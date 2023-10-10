@@ -24,8 +24,8 @@ class MERRAinterpolate(GenericInterpolate):
     Referenced from era_interim.py (Dr.Stephan Gruber): Class ERAinterpolate()
     """
 
-    def __init__(self, ifile):
-        super().__init__(ifile)
+    def __init__(self, ifile, **kwargs):
+        super().__init__(ifile, **kwargs)
         par = self.par
 
         self.input_dir = path.join(par['project_directory'],'merra2')
