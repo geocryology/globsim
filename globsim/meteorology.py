@@ -275,8 +275,12 @@ def snow_model(times, temps, total_precip):
 
     Returns
     -------
-    swe : float
-        Accumulated snow water equivalent over the time period
+    swe : pd.DataFrame
+        Dataframe with the following columns:
+        'accumulation': Accumulated snow water equivalent over the time period
+        'potential_melt': how much melt is theoretically possible on a given day
+        'snowpack_SWE': SWE of snowpack for day
+        'snowcover': binary 0 (no snow) or 1 (snow) 
     """
     df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
     # 
@@ -295,7 +299,7 @@ def snow_model(times, temps, total_precip):
     return df
 
 
-def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15):
+def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15) -> np.ndarray:
     """ 
     Calculate heat transfer coefficient for snowpack
     Parameters
@@ -305,9 +309,17 @@ def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15):
     t : float
         Age of snowpack [days]
     alpha : float
-        Constant [W m-3 C-1]
+        Constant [W m-3 C-1]. Higher values result in less thermally
+        conductive snow
     beta : float   
-        Constant [days]
+        Constant [days]. Aging factor. Snowpack doubles in conductivity 
+        in (beta / 2) days.  Higher values result in more thermally 
+        conductive snow.
+
+    Returns
+    -------
+    np.ndarray
+        numpy array same length as input data
     """
     if (max(t) >= beta):
         raise ValueError(f"beta ({beta}) must be greater than the longest snowpack duration ({max(t)} days)")
@@ -319,7 +331,8 @@ def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15):
 
     Hs[~np.isnan(Hs)] = 1 / (swe[~np.isnan(Hs)] * alpha * (1 - (t[~np.isnan(Hs)] / beta)))
     Hs[np.isnan(Hs)] = nosnow
-    
+    Hs[Hs>nosnow] = nosnow  # threshold for extremely thin snowpacks
+
     return Hs
 
 
