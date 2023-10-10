@@ -24,8 +24,8 @@ class ERA5interpolate(GenericInterpolate):
     coordinates. All variables retain their original units and time stepping.
     """
 
-    def __init__(self, ifile, era5type='reanalysis'):
-        super().__init__(ifile)
+    def __init__(self, ifile, era5type='reanalysis', **kwargs):
+        super().__init__(ifile=ifile, **kwargs)
         self.era5type = era5type
 
         if self.era5type == 'reanalysis':
@@ -340,19 +340,14 @@ class ERA5interpolate(GenericInterpolate):
         ncf.close()
         # closed file ==========================================================
 
-    def process(self):
-        """
-        Interpolate point time series from downloaded data. Provides access to
-        the more generically ERA-like interpolation functions.
-        """
-
+    def _preprocess(self):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
         self.ERA2station(self.mf_to, self.getOutFile('to'),
                          self.stations, ['z', 'lsm'], date=None)
         
-
+    def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
@@ -367,21 +362,8 @@ class ERA5interpolate(GenericInterpolate):
         with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
             self.ERA2station(sa, self.getOutFile('sa'),
                              self.stations, varlist, date=self.date)
-        
-        # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
-        # dictionary to translate CF Standard Names into ERA5
-        # pressure level variable keys.
-        # [m] total precipitation
-        # [J m-2] short-wave downward
-        # [J m-2] long-wave downward
-        dpar = {'precipitation_amount'              : ['tp'],
-                'downwelling_shortwave_flux_in_air' : ['ssrd'],
-                'downwelling_longwave_flux_in_air'  : ['strd']}
-        varlist = self.TranslateCF2short(dpar)
-        with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
-            self.ERA2station(sf, self.getOutFile('sf'),
-                            self.stations, varlist, date=self.date)
-        
+    
+    def _process_pl(self):
         # === 2D Interpolation for Pressure Level Data ===
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
@@ -400,3 +382,18 @@ class ERA5interpolate(GenericInterpolate):
             outf = 'era5_pl_'
         outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
         self.levels2elevation(self.getOutFile('pl'), outf)
+    
+    def _process_sf(self):
+        # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
+        # dictionary to translate CF Standard Names into ERA5
+        # pressure level variable keys.
+        # [m] total precipitation
+        # [J m-2] short-wave downward
+        # [J m-2] long-wave downward
+        dpar = {'precipitation_amount'              : ['tp'],
+                'downwelling_shortwave_flux_in_air' : ['ssrd'],
+                'downwelling_longwave_flux_in_air'  : ['strd']}
+        varlist = self.TranslateCF2short(dpar)
+        with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
+            self.ERA2station(sf, self.getOutFile('sf'),
+                            self.stations, varlist, date=self.date)

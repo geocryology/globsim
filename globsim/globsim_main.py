@@ -103,33 +103,34 @@ def GlobsimDownload(pfile, multithread=True,
             print(result)
         print('Serial download finished')
     
-def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True, 
-                              MERRA=True, JRA=True, JRA3Q=True):
+
+def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
+                              MERRA=True, JRA=True, JRA3Q=True, **kwargs):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
-    The temporal granularity and variables of each re-analysis are preserved. 
-    The resulting data is saved in netCDF format. THis is not parallelised to 
+    The temporal granularity and variables of each re-analysis are preserved.
+    The resulting data is saved in netCDF format. THis is not parallelised to
     differing processors as memory may be a limiting factor.
     """
     
     # === ERA-Interim ===
     if ERAI:
-        ERAIinterp = interpolate.ERAIinterpolate(ifile)
+        ERAIinterp = interpolate.ERAIinterpolate(ifile, **kwargs)
         ERAIinterp.process()
     
     # === ERA5 ===
     if ERA5:
-        ERA5interp = interpolate.ERA5interpolate(ifile)
+        ERA5interp = interpolate.ERA5interpolate(ifile, **kwargs)
         ERA5interp.process()
         
     # === ERA5ENS ===
     if ERA5ENS:
-        ERA5interp = interpolate.ERA5interpolate(ifile, 'ensemble_members')
+        ERA5interp = interpolate.ERA5interpolate(ifile, 'ensemble_members', **kwargs)
         ERA5interp.process()
     
     # === MERRA-2 ===
     if MERRA:
-        MERRAinterp = interpolate.MERRAinterpolate(ifile)
+        MERRAinterp = interpolate.MERRAinterpolate(ifile, **kwargs)
         MERRAinterp.process()
 
     # === JRA-55 ===
