@@ -69,7 +69,6 @@ class GenericScale:
             self._rh_function_name = rhf
             logger.debug(f"Using relative humidity approximation {rhf}")
 
-
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
