@@ -148,7 +148,7 @@ class GenericInterpolate:
             points: A dictionary of locations. See method StationListRead in
                     common_utils.py for more details.
 
-            tmask_chunk:
+            tmask_chunk: boolean array of which indices along the time axis to include
 
             variables:  List of variable(s) to interpolate such as
                         ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
@@ -166,8 +166,9 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-
-        logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
+        tbeg = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][0]], ncf_in['time'].units, 'standard')
+        tend = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][-1]], ncf_in['time'].units, 'standard')
+        logger.debug(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
