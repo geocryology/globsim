@@ -93,12 +93,21 @@ class GenericInterpolate:
 
     def process(self):
         self._preprocess()
+
         if not self.__skip_sa:
             self._process_sa()
+        else:
+            logger.info("skipping interpolation of _sa file")
+
         if not self.__skip_sf:
             self._process_sf()
+        else:
+            logger.info("skipping interpolation of _sf file")
+
         if not self.__skip_pl:
             self._process_pl()
+        else:
+            logger.info("skipping interpolation of _pl file")
 
     def _preprocess(self):
         pass
@@ -200,7 +209,6 @@ class GenericInterpolate:
         # test is variables given are available in file
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
-
 
         # create source field(s) on source grid
         if ens:
