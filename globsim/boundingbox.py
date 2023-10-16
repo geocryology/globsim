@@ -63,11 +63,15 @@ def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
     if not x:
         x = ncf.get_variables_by_attributes(standard_name='longitude')
         if not x:
+            x = ncf['longitude']
+        if not x:
             raise KeyError("Could not find x-coordinate")
 
     y = ncf.get_variables_by_attributes(axis='Y')
     if not y:
         y = ncf.get_variables_by_attributes(standard_name='latitude')
+        if not y:
+            y = ncf['latitude']
         if not y:
             raise KeyError("Could not find y-coordinate")
 

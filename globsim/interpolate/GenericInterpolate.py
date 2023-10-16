@@ -78,6 +78,7 @@ class GenericInterpolate:
             if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
                 logger.error("Station coordinates exceed downloaded extent")
                 raise ValueError("Station coordinates exceed downloaded extent")
+                pass
             else:
                 logger.info("Stations within bounding box of dataset")
         except Exception:

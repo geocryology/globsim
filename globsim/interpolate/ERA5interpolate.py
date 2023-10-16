@@ -34,7 +34,7 @@ class ERA5interpolate(GenericInterpolate):
             
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
-
+        logger.debug(f"longitude: {self.stations['longitude_dd']}; latitude: {self.stations['latitude_dd']}")
         self.mf_to = nc.MFDataset(self.getInFile('to'), 'r', aggdim='time')
         
         # Check dataset integrity
@@ -108,6 +108,8 @@ class ERA5interpolate(GenericInterpolate):
         """
 
         # Check station bounds
+        #import pdb
+        #pdb.set_trace()
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
