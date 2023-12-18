@@ -284,7 +284,9 @@ def snow_model(times, temps, total_precip):
     """
     df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
     # 
-
+    if (temps > 100).any():
+        print("Temperatures > 100 C found.  Are you sure those aren't Kelvin?")
+        
     accum = swe_accumulation(times, temps, total_precip)
     potential_melt = snowmelt(times, temps)
     
