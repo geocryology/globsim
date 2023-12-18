@@ -197,7 +197,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     logger.debug(f"Read file {ncd.filepath}")
 
     # find number of stations
-    nstn = len(ncd['station'][:])
+    nstn = len(ncd['station_name'][:])
 
     # get date / time column
     time = nc.num2date(ncd['time'][:],
@@ -213,7 +213,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
         var_name = cfg.get("input")
         scale_factor = cfg.get("scale_factor", 1)
         offset = cfg.get("offset", 0)
-        
+
         try:
             arr = ncd[var_name][:] * scale_factor + offset
             output_dict[out_var] = arr
@@ -223,9 +223,9 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
 
     # get site names
     try:
-        NAMES = nc.chartostring(ncd['station'][:])
+        NAMES = nc.chartostring(ncd['station_name'][:])
     except ValueError:
-        NAMES = ncd['station'][:].astype('str')
+        NAMES = ncd['station_name'][:].astype('str')
 
     # combine data variables into array
     data = np.stack([arr for arr in output_dict.values()])
