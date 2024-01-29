@@ -21,8 +21,8 @@ logger = logging.getLogger("globsim.download")
 # 
 
 
-def download_constant(access, dest_dir) -> Path:
-    url, path, name = url_LL125_surf()
+def download_constant(access, dest_dir, grid="TL479") -> Path:
+    url, path, name = url_surf(grid=grid)
     dirpath = Path(dest_dir, path[1:])
     fname = Path(dirpath, name)
 
@@ -35,12 +35,12 @@ def download_constant(access, dest_dir) -> Path:
     return fname
 
 
-def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path], list[Path], list[Path]]":
+def download_daily_gribs(access, dest_dir, year, month, day, grid="TL479") -> "tuple[list[Path], list[Path], list[Path]]":
     sa, pl, sf = [], [], []
 
     for hour in range(0, 24, 6):
         # surface
-        url, path, name = url_anl_surf125(year, month, day, hour)
+        url, path, name = url_anl_surf(year, month, day, hour, grid=grid)
         dirpath = Path(dest_dir, path[1:])
         fname = Path(dirpath, name)
         sa.append(fname)
@@ -52,7 +52,7 @@ def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path
 
         # pressure-level
         for var in ['tmp', 'spfh', 'rh', 'ugrd', 'vgrd', 'hgt']:
-            url, path, name = url_anl_p125(year, month, day, hour, var)
+            url, path, name = url_anl_p(year, month, day, hour, var, grid=grid)
             dirpath = Path(dest_dir, path[1:])
             fname = Path(dirpath, name)
             pl.append(fname)
@@ -64,7 +64,7 @@ def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path
 
     # forecast
     for hour in range(0, 24, 1):
-        url, path, name = url_fcst_phy2m125(year, month, day, hour)
+        url, path, name = url_fcst_phy2m(year, month, day, hour, grid=grid)
         dirpath = Path(dest_dir, path[1:])
         fname = Path(dirpath, name)
         sf.append(fname)
@@ -77,7 +77,7 @@ def download_daily_gribs(access, dest_dir, year, month, day) -> "tuple[list[Path
     return sa, sf, pl
 
 
-def download_monthly_gribs(access, dest_dir, year, month):
+def download_monthly_gribs(access, dest_dir, year, month, grid="TL479"):
     if month in [1, 3, 5, 7, 8, 10, 12]:
         days = 31
     elif month in [4, 6, 9, 11]:
@@ -92,20 +92,26 @@ def download_monthly_gribs(access, dest_dir, year, month):
     
     for day in range(1, days + 1):
         try:
-            sa, sf, pl = download_daily_gribs(access, dest_dir, year, month, day)
+            sa, sf, pl = download_daily_gribs(access, dest_dir, year, month, day, grid=grid)
         except Exception as e:
             print(f"Error downloading {year}-{month}-{day}: {e}")
 
 
-def url_LL125_surf():
-    url = r"https://data.diasjp.net/dl/storages/downloadCmd/L0pSQTNRL0NvbnN0L0xMMTI1X3N1cmYuZ3JpYjI="
-    p1 = "/JRA3Q/Const/"
-    p2 = "LL125_surf.grib2"
-    
+def url_surf(grid="TL479"):
+    if grid == "LL125":
+        url = r"https://data.diasjp.net/dl/storages/downloadCmd/L0pSQTNRL0NvbnN0L0xMMTI1X3N1cmYuZ3JpYjI="
+        p1 = "/JRA3Q/Const/"
+        p2 = "LL125_surf.grib2"
+
+    elif grid == "TL479":
+        url = r"https://data.diasjp.net/dl/storages/downloadCmd/L0pSQTNRL0NvbnN0L1RMNDc5X3N1cmYuZ3JpYjI="
+        p1 = "/JRA3Q/Const/"
+        p2 = "TL479_surf.grib2"
+
     return url, p1, p2
 
 
-def url_anl_surf125(year, month, day, hour):
+def url_anl_surf(year, month, day, hour, grid="TL479"):
     """
     1 Total column vertically-integrated water vapour
     2 Potential temperature
@@ -126,17 +132,21 @@ def url_anl_surf125(year, month, day, hour):
     DD = "{:02}".format(day)
     HH = "{:02}".format(hour)
 
-    p1 = f"/JRA3Q/Hist/Daily/anl_surf125/{YYYY}{MM}/"
-    p2 = f"anl_surf125.{YYYY}{MM}{DD}{HH}"
+    if grid == "LL125":
+        p1 = f"/JRA3Q/Hist/Daily/anl_surf125/{YYYY}{MM}/"
+        p2 = f"anl_surf125.{YYYY}{MM}{DD}{HH}"
+    elif grid == "TL479":
+        p1 = f"/JRA3Q/Hist/Daily/anl_surf/{YYYY}{MM}/"
+        p2 = f"anl_surf.{YYYY}{MM}{DD}{HH}"
     
     coded = base64.b64encode((p1 + p2).encode("utf-8")).decode("UTF-8")
-    
+
     url = f"https://data.diasjp.net/dl/storages/downloadCmd/{coded}"
 
     return url, p1, p2
-    
 
-def url_anl_p125(year, month, day, hour, var):
+
+def url_anl_p(year, month, day, hour, var, grid="TL479"):
     """
     Parameters
     ----------
@@ -148,18 +158,22 @@ def url_anl_p125(year, month, day, hour, var):
     DD = "{:02}".format(day)
     HH = "{:02}".format(hour)
 
-    p1 = f"/JRA3Q/Hist/Daily/anl_p125/{YYYY}{MM}/"
-    p2 = f"anl_p125_{var}.{YYYY}{MM}{DD}{HH}"
+    if grid == "LL125":
+        p1 = f"/JRA3Q/Hist/Daily/anl_p125/{YYYY}{MM}/"
+        p2 = f"anl_p125_{var}.{YYYY}{MM}{DD}{HH}"
+    elif grid == "TL479":
+        p1 = f"/JRA3Q/Hist/Daily/anl_p/{YYYY}{MM}/"
+        p2 = f"anl_p_{var}.{YYYY}{MM}{DD}{HH}"
 
     coded = base64.b64encode((p1 + p2).encode("utf-8")).decode("UTF-8")
-    
+
     # url = f"https://data.diasjp.net/dl/storages/file/{coded}"
     url = f"https://data.diasjp.net/dl/storages/downloadCmd/{coded}"
 
     return url, p1, p2
 
 
-def url_fcst_phy2m125(year, month, day, hour):
+def url_fcst_phy2m(year, month, day, hour, grid="TL479"):
     """
     1 unknown
     2 unknown
@@ -195,8 +209,12 @@ def url_fcst_phy2m125(year, month, day, hour):
     DD = "{:02}".format(day)
     HH = "{:02}".format(hour)
 
-    p1 = f"/JRA3Q/Hist/Daily/fcst_phy2m125/{YYYY}{MM}/"
-    p2 = f"fcst_phy2m125.{YYYY}{MM}{DD}{HH}"
+    if grid == "LL125":
+        p1 = f"/JRA3Q/Hist/Daily/fcst_phy2m125/{YYYY}{MM}/"
+        p2 = f"fcst_phy2m125.{YYYY}{MM}{DD}{HH}"
+    elif grid == "TL479":
+        p1 = f"/JRA3Q/Hist/Daily/fcst_phy2m/{YYYY}{MM}/"
+        p2 = f"fcst_phy2m.{YYYY}{MM}{DD}{HH}"
 
     coded = base64.b64encode((p1 + p2).encode("utf-8")).decode("UTF-8")
 
