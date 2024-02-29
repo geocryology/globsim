@@ -213,9 +213,8 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
         var_name = cfg.get("input")
         scale_factor = cfg.get("scale_factor", 1)
         offset = cfg.get("offset", 0)
-
         try:
-            arr = ncd[var_name][:] * scale_factor + offset
+            arr = ((ncd["SW_topo_diffuse"][:] + ncd["SW_topo_direct"][:]) if var_name == "SW_topo" else ncd[var_name][:]) * scale_factor + offset
             output_dict[out_var] = arr
         
         except IndexError:

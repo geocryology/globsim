@@ -15,11 +15,11 @@ offset = 0
 
 [RH]
 input = "RH_sur"
-scale_factor = 0.01
+scale_factor = 1
 offset = 0
 
 [AirTemp]
-input = "AIRT_sur"
+input = "AIRT_pl"
 scale_factor= 1
 offset = 0
 
