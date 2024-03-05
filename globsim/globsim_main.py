@@ -64,10 +64,8 @@ def GlobsimDownload(pfile, multithread=True,
     
     # === ERA5 ===
     if ERA5:
-        D = download.ERA5MonthlyDownload(pfile, False)
-        D.retrieve()
-        #ERA5REAdownl = download.ERA5download(pfile)
-        #objects.append(ERA5REAdownl)
+        ERA5REAdownl = download.ERA5MonthlyDownload(pfile, False)
+        objects.append(ERA5REAdownl)
     
     # === ERA5 10-member ensemble ===
     if ERA5ENS:

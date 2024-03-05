@@ -15,7 +15,7 @@ offset = 0
 
 [RH]
 input = "RH_pl"
-scale_factor = 0.01
+scale_factor = 1
 offset = 0
 
 [AirTemp]

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 boltzmann = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
@@ -153,3 +154,196 @@ def rh_liston(t: np.ndarray, td: np.ndarray) -> np.ndarray:
     rh = 100 * e / es
     
     return rh
+
+
+def degree_days(df: pd.DataFrame) -> pd.DataFrame:
+    """ 
+
+    df : pd.DataFrame
+        Dataframe with a time index and first column temperatures
+    """
+    daily = df.resample("D").mean()  # ensure daily means
+    df['degree_days'] = daily['T']
+
+
+def forteau_2021_conductivity(rho, T):
+    """
+    Forteau et al. (2021) thermal conductivity model for snow
+
+    rho : float or array
+        Density of snow [kg m-3]
+    T : float or array
+        Temperature of snow [K]
+    """
+    # thermal conductivity [W m-1 K-1]
+    if np.max(T) < 50:
+        print("Warning: temperatures should be in degrees K")
+
+    fitted = {223.0: (+2.564, -0.059, +0.0205),
+              248.0: (+2.172, +0.015, +0.0252),
+              263.0: (+1.985, +0.073, +0.0336),
+              268.0: (+1.883, +0.107, +0.0386),
+              273.0: (+1.776, +0.147, +0.0455),}
+    
+    closest_value = min(list(fitted.keys()), key=lambda x: abs(T - x))
+    
+    c1, c2, c3 = fitted[closest_value]
+    rho_i = 917  # density of ice [kg m-3]
+    vfi: float = rho / rho_i
+    
+    k = c1 * (vfi)**2 + c2 * (vfi) + c3
+    
+    return k
+
+
+def swe_accumulation(times, temps, total_precip) -> pd.Series:
+    """ 
+    Calculate snow water equivalent accumulation over a time period
+
+    Parameters
+    ----------
+    times : array-like
+        Times of observations
+    temps : array-like
+        Temperatures at each time [C]
+    total_precip : array-like
+        Precipitation at each time [mm]
+
+    Returns
+    -------
+    swe : float
+        Accumulated snow water equivalent over the time period
+    """
+    df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
+    df['P'] = df['P'].clip(lower=0)  # remove negative precipitation
+    df['P'] = df['P'].fillna(0)  # remove NaNs
+    precip_fractions = precip_fraction(df.index, df['T'], df['P'])
+    df['P_liq'] = df['P'] * precip_fractions['liquid']
+    df['P_solid'] = df['P'] * precip_fractions['solid']
+    
+    return df["P_solid"]
+
+
+def precip_fraction(times, temps, total_precip, method="static", **kwargs) -> pd.DataFrame:
+    """
+    Calculate the solid (snow) and liquid (rain) fraction of precipitation over a time period
+    """
+    df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
+    # select and apply appropriate method here
+    if method == "static":
+        rain_frac = lambda t: np.heaviside(t - 2.2, 1)
+    else:
+        raise NotImplementedError
+    
+    df['liquid'] = rain_frac(df['T'])
+    df['solid'] = 1 - df['liquid']
+
+    return df[['liquid', 'solid']]
+
+
+def snowmelt(times, temps) -> pd.DataFrame:
+    """
+    Calculate potential snow melt
+    
+    snow melt is calculated according to a constant degree-day factor of 
+    3.0 mm oC-1 d-1 (https://core.ac.uk/reader/14923120)
+    Returns
+    --------
+    melt : pd.DataFrame
+        Data frame with 1 column of melt [mm]
+    """
+    df = pd.DataFrame(data = temps, index=times, columns = ["T"])
+    df.resample("D").mean()  # ensure daily means
+    melt = df['T'] * -3.0
+    melt = melt.clip(upper=0)  # remove negative melt
+
+    return pd.DataFrame(data={"melt_mm": melt.values}, index=df.index)
+
+
+def snow_model(times, temps, total_precip):
+    """
+    Calculate snow water equivalent accumulation and melt over a time period
+
+    Parameters
+    ----------
+    times : array-like
+        Times of observations
+    temps : array-like
+        Temperatures at each time [C]
+    precip : array-like
+        Precipitation at each time [mm]
+
+    Returns
+    -------
+    swe : pd.DataFrame
+        Dataframe with the following columns:
+        'accumulation': Accumulated snow water equivalent over the time period
+        'potential_melt': how much melt is theoretically possible on a given day
+        'snowpack_SWE': SWE of snowpack for day
+        'snowcover': binary 0 (no snow) or 1 (snow) 
+    """
+    df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
+    # 
+    if (temps > 100).any():
+        print("Temperatures > 100 C found.  Are you sure those aren't Kelvin?")
+        
+    accum = swe_accumulation(times, temps, total_precip)
+    potential_melt = snowmelt(times, temps)
+    
+    df['accumulation'] = accum
+    df['potential_melt'] = potential_melt
+
+    df['snowpack_SWE'] = accumulate(accum.values, potential_melt.values)
+    
+    df['age_of_snowpack'] = df['snowpack_SWE'].groupby((df['snowpack_SWE'] == 0).cumsum()).cumcount()
+    df['snowcover'] = (df['snowpack_SWE']>0).astype('int')
+
+    return df
+
+
+def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15) -> np.ndarray:
+    """ 
+    Calculate heat transfer coefficient for snowpack
+    Parameters
+    ----------
+    swe : float
+        Snow water equivalent [mm]
+    t : float
+        Age of snowpack [days]
+    alpha : float
+        Constant [W m-3 C-1]. Higher values result in less thermally
+        conductive snow
+    beta : float   
+        Constant [days]. Aging factor. Snowpack doubles in conductivity 
+        in (beta / 2) days.  Higher values result in more thermally 
+        conductive snow.
+
+    Returns
+    -------
+    np.ndarray
+        numpy array same length as input data
+    """
+    if (max(t) >= beta):
+        raise ValueError(f"beta ({beta}) must be greater than the longest snowpack duration ({max(t)} days)")
+    
+    swe = np.atleast_1d(swe)
+    t = np.atleast_1d(t)
+    Hs = np.empty_like(swe)
+    Hs[swe == 0] = np.nan
+
+    Hs[~np.isnan(Hs)] = 1 / (swe[~np.isnan(Hs)] * alpha * (1 - (t[~np.isnan(Hs)] / beta)))
+    Hs[np.isnan(Hs)] = nosnow
+    Hs[Hs>nosnow] = nosnow  # threshold for extremely thin snowpacks
+
+    return Hs
+
+
+def accumulate(accumulation, potential_melt, init=0.0) -> np.ndarray:
+    out = np.zeros_like(accumulation, dtype='float64')
+    for i, (acc, melt) in enumerate(zip(accumulation, potential_melt)):
+        if i == 0:
+            out[i] = max(0.0, (init + acc + melt))
+        else:
+            out[i] = max(0.0, (out[i - 1] + acc + melt))
+    return out
+

@@ -118,6 +118,10 @@ class ERA5MonthlyDownload(GenericDownload):
         rename_pl(self.directory)
         rename_sl(self.directory)
 
+    def retrieve(self, workers=6):
+        requests = self.list_requests()
+        self.download_threadded(requests, workers)
+
 
 def download_threadded(cds_requests, workers=6):
     def download_request(request):
