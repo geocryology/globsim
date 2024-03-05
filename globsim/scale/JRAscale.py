@@ -37,7 +37,7 @@ class JRAscale(GenericScale):
     """
     NAME = "JRA-55"
     REANALYSIS = "jra55"
-    SCALING = {"sf": {"Total precipitation": (24 * 3600, 0)},
+    SCALING = {"sf": {"Total precipitation": (1 / (24 * 3600), 0)},
                "sa": {},
                "pl": {}}
 
@@ -121,6 +121,10 @@ class JRAscale(GenericScale):
         return jra55name
     
     def get_values(self, file:str, jra55name:str, _slice=None, attr=None):
+        """ Get JRA-55 or 3Q values in common units
+
+        Handles name differences and  scale-offset conversions 
+        between JRA55 and JRA3Q """
         f = self.get_file(file)
         n = self.get_name(file, jra55name)
         
@@ -282,14 +286,17 @@ class JRAscale(GenericScale):
         # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
         V = self.rg.variables['10 metre V wind component'][:]
         U = self.rg.variables['10 metre U wind component'][:]
+        
+        
+        WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
+        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
 
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
-            WD = [atan2(V[i, n], U[i, n]) * (180 / pi) +
-                  180 for i in np.arange(V.shape[0])]
+        #for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+         #   WD = [atan2(V[i, n], U[i, n]) * (180 / pi) +
+          #        180 for i in np.arange(V.shape[0])]
 
-            self.rg.variables['WSPD_sur'][:, n] = WS
-            self.rg.variables['WDIR_sur'][:,n] = WD
+        self.rg.variables['WSPD_sur'][:] = WS
+        self.rg.variables['WDIR_sur'][:] = WD
 
     def SW_Wm2_sur(self):
         """
@@ -421,7 +428,7 @@ class JRAscale(GenericScale):
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
-        Convert unit: mm/day to mm/s (kg m-2 s-1)
+        Convert unit: to mm/s (kg m-2 s-1)
         """
 
         # add variable to ncdf file
@@ -434,7 +441,7 @@ class JRAscale(GenericScale):
 
         # interpolate station by station
         time_in = self.get_values("sf","time")
-        values  = self.get_values("sf","Total precipitation") / (24 * 3600)  # [mm/s]
+        values  = self.get_values("sf","Total precipitation")  # We expect this in [mm/s]. 'get_values' handles conversion
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             f = interp1d(time_in, values[:, n], kind='linear')
             self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf

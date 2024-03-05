@@ -15,6 +15,7 @@ from globsim.common_utils import StationListRead, str_encode
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 from globsim.gap_checker import check_time_integrity
 from globsim.decorators import check
+from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -32,7 +33,7 @@ except ImportError:
 
 class GenericInterpolate:
 
-    def __init__(self, ifile: str):
+    def __init__(self, ifile: str, **kwargs):
         # read parameter file
         self.ifile = ifile
         with open(self.ifile) as FILE:
@@ -40,9 +41,9 @@ class GenericInterpolate:
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
-        self.skip_checks = bool(par.get("skip_checks", False))
+        self.skip_checks = kwargs.get('skip_checks', bool(par.get("skip_checks", False)))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
-        
+
         # read station points
         self.stations_csv = self.find_stations_csv(par)
         self.stations = StationListRead(self.stations_csv)
@@ -56,6 +57,13 @@ class GenericInterpolate:
         # A small chunk size keeps memory usage down but is slow.
         self.cs = int(par.get('chunk_size'))
 
+        self._array = np.array([])  # recycled numpy array
+        self._plarray = np.array([])
+
+        self.__skip_sa = kwargs.get('skip_sa', False)
+        self.__skip_sf = kwargs.get('skip_sf', False)
+        self.__skip_pl = kwargs.get('skip_pl', False)
+
     def find_stations_csv(self, par):
         if Path(par.get('station_list')).is_file():
             return Path(par.get('station_list'))
@@ -68,14 +76,50 @@ class GenericInterpolate:
 
     @check
     def validate_stations_extent(self, ncdf):
+        data_bbox = netcdf_bbox(ncdf)
+        msg = f"Station coordinates {self.stations_bbox} exceed downloaded extent {data_bbox}"
         try:
-            if not netcdf_bbox(ncdf).contains_bbox(self.stations_bbox):
-                logger.error("Station coordinates exceed downloaded extent")
-                raise ValueError("Station coordinates exceed downloaded extent")
+            if not data_bbox.contains_bbox(self.stations_bbox):
+                logger.error(msg)
+                raise ValueError(msg)
             else:
                 logger.info("Stations within bounding box of dataset")
-        except Exception:
+        
+        except ValueError:
+            raise ValueError(msg)
+        
+        except KeyError:
             logger.error("Could not verify whether stations are within downloaded netcdf")
+
+    def process(self):
+        self._preprocess()
+
+        if not self.__skip_sa:
+            self._process_sa()
+        else:
+            logger.info("skipping interpolation of _sa file")
+
+        if not self.__skip_sf:
+            self._process_sf()
+        else:
+            logger.info("skipping interpolation of _sf file")
+
+        if not self.__skip_pl:
+            self._process_pl()
+        else:
+            logger.info("skipping interpolation of _pl file")
+
+    def _preprocess(self):
+        pass
+
+    def _process_sa(self):
+        pass
+
+    def _process_sf(self):
+        pass
+
+    def _process_pl(self):
+        pass
 
     def _set_input_directory(self, name):
         self.input_dir = path.join(self.par.get('project_directory'), name)
@@ -94,6 +138,8 @@ class GenericInterpolate:
         return(varlist)
 
     def interp2D(self,  ncf_in, points, tmask_chunk: "np.ndarray",
+                 sgrid: "ESMF.Grid",
+                 lon_subset:slice, lat_subset:slice,
                  variables=None, date=None):
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
@@ -111,7 +157,7 @@ class GenericInterpolate:
             points: A dictionary of locations. See method StationListRead in
                     common_utils.py for more details.
 
-            tmask_chunk:
+            tmask_chunk: boolean array of which indices along the time axis to include
 
             variables:  List of variable(s) to interpolate such as
                         ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
@@ -129,8 +175,9 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-
-        logger.debug(f"Starting 2d interpolation for chunks {np.min(np.where(tmask_chunk == True))} to {np.max(np.where(tmask_chunk == True))} of {len(tmask_chunk)} ")
+        tbeg = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][0]], ncf_in['time'].units, 'standard')
+        tend = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][-1]], ncf_in['time'].units, 'standard')
+        logger.debug(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.dimensions.keys()
@@ -163,8 +210,6 @@ class GenericInterpolate:
         if (set(variables) < set(varlist) == 0):
             raise ValueError('One or more variables not in netCDF file.')
 
-        sgrid = self.create_source_grid(ncf_in)
-
         # create source field(s) on source grid
         if ens:
             sfield = []
@@ -182,8 +227,7 @@ class GenericInterpolate:
             else:  # 2D files
                 sfield = create_field(sgrid, variables, nt)
             
-            #self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
-            self.nc_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
+            self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl, lon_subset, lat_subset)
 
         locstream = self.create_loc_stream(points)
 
@@ -201,7 +245,7 @@ class GenericInterpolate:
         else:
             if pl:  # only for pressure level files
                 dfield = ESMF.Field(locstream, name='dfield',
-                                    ndbounds=[len(variables), nt, nlev])
+                                    ndbounds=[len(variables), nt, nlev])  # TODO: we can just get this from sfield.ndbounds
             else:
                 dfield = ESMF.Field(locstream, name='dfield',
                                     ndbounds=[len(variables), nt])
@@ -239,13 +283,21 @@ class GenericInterpolate:
     def create_source_grid(self, ncf_in: "nc.MFDataset") -> "ESMF.Grid":
         # Create source grid from a SCRIP formatted file. As ESMF needs one
         # file rather than an MFDataset, give first file in directory.
-        #flist = np.sort(fnmatch_filter(listdir(self.input_dir),
+        # flist = np.sort(fnmatch_filter(listdir(self.input_dir),
         #                               path.basename(ncfile_in)))
-        #ncsingle = path.join(self.input_dir, flist[0])
+        # ncsingle = path.join(self.input_dir, flist[0])
         ncsingle = ncf_in._files[0]
         sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+        
         return sgrid
 
+    def create_subset_source_grid(self, sgrid: "ESMF.Grid", bbox: BoundingBox) -> "tuple[ESMF.Grid, slice, slice]":
+        lon_subset, lat_subset = clipped_grid_indices(sgrid, bbox)
+        lon_slice, lat_slice = get_buffered_slices(sgrid, lon_subset, lat_subset)
+        subset_grid = clip_grid_to_indices(sgrid, lon_subset, lat_subset)
+        
+        return subset_grid, lon_slice, lat_slice
+    
     def create_loc_stream(self, points) -> "ESMF.LocStream":
         # CANNOT have third dimension!!!
         locstream = ESMF.LocStream(len(points),
@@ -285,6 +337,7 @@ class GenericInterpolate:
                     sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
 
                 else:
+
                     vi = ncf_in[var][tmask_chunk,ni,:,:]
                     sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
 
@@ -308,34 +361,41 @@ class GenericInterpolate:
             logger.debug(f"Wrote {var} data to source field for regridding")
 
     def nc_data_subset_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
-                                       tmask_chunk, pl: bool):
+                                       tmask_chunk, pl: bool, lon_slice, lat_slice):
         """ assign data from ncdf: (time, [level], latitude, longitude)
                          to sfield (longitude, latitude, variable, time, [level])
         """
-
-        # get indices of lat/lon
-        lat = ncf_in.get_variables_by_attributes(standard_name='latitude', axis='Y')[0][:]
-        lon = ncf_in.get_variables_by_attributes(standard_name='longitude', axis='X')[0][:]
-
-        lat_ix = np.where((lat >= self.stations_bbox.ymin) & (lat <= self.stations_bbox.ymax))[0]
-        lon_ix = np.where((lon >= self.stations_bbox.xmin) & (lon <= self.stations_bbox.xmax))[0]
-
-        lat_slice = slice(min(lat_ix), max(lat_ix) + 1)
-        lon_slice = slice(min(lon_ix), max(lon_ix) + 1)
-
         tmin = np.min(np.where(tmask_chunk))
         tmax = np.max(np.where(tmask_chunk))
         time_slice = slice(tmin, tmax + 1)
+        dlon, dlat, dtime = [x.stop - x.start for x in [lon_slice, lat_slice, time_slice]]
 
-        for n, var in enumerate(variables):
+        logger.info("Reading source data from netcdf file")
+        t0 = datetime.now()
+
+        for n, v in enumerate(variables):
+            var = ncf_in[v]
+
             if pl:
-                vi = ncf_in[var][time_slice, :, lat_slice, lon_slice]
-                sfield.data[lon_slice, lat_slice, n, :, :] = vi.transpose((3,2,0,1))
-            else:
-                vi = ncf_in[var][time_slice, lat_slice, lon_slice]
-                sfield.data[lon_slice, lat_slice, n, :] = vi.transpose((2,1,0))
+                logger.debug(f"Reading {v} data from source.")  # NB: writing is almost instantaneous
+                if self._plarray.shape[0] == dtime:
+                    self._plarray[:] = var[time_slice, :, lat_slice, lon_slice]
+                else:
+                    self._plarray = var[time_slice, :, lat_slice, lon_slice]
+                # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
+                sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
 
-            logger.debug(f"Wrote {var} data to source field for regridding")
+            else:
+                logger.debug(f"Reading {v} data from source")
+                if self._array.shape == (dtime, dlat, dlon):
+                    self._array[:] = var[time_slice, lat_slice, lon_slice]
+                else:
+                    self._array = var[time_slice, lat_slice, lon_slice]
+                # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
+                sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
+
+        filltime = (datetime.now() - t0).total_seconds()
+        logger.info(f"Finished reading source data for chunk ({filltime} seconds)")
 
     @staticmethod
     def remove_select_variables(varlist: list, pl: bool, ens: bool = False):

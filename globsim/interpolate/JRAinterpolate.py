@@ -52,8 +52,8 @@ class JRAinterpolate(GenericInterpolate):
     
     GEOPOTENTIAL = "Geopotential height"
 
-    def __init__(self, ifile):
-        super().__init__(ifile)
+    def __init__(self, ifile, **kwargs):
+        super().__init__(ifile, **kwargs)
         par = self.par
 
         self.input_dir = path.join(par['project_directory'], self.REANALYSIS)
@@ -68,7 +68,6 @@ class JRAinterpolate(GenericInterpolate):
         self.mf_pl = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_pl_*.nc'), 'r', aggdim="time")
 
         # Check dataset integrity
-        #import pdb;pdb.set_trace()
         logger.info("Check data integrity (sa)")
         self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
         logger.info("Check data integrity (sf)")
@@ -157,6 +156,10 @@ class JRAinterpolate(GenericInterpolate):
         niter = len(time_in) // self.cs
         niter += ((len(time_in) % self.cs) > 0)
 
+        # Create source grid
+        sgrid = self.create_source_grid(ncf_in)
+        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
+
         # loop over chunks
         for n in range(niter):
             # indices
@@ -185,6 +188,7 @@ class JRAinterpolate(GenericInterpolate):
             # get the interpolated variables
             dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
+                                              subset_grid, lon_slice, lat_slice,
                                               variables=None, date=None)
 
             # append time

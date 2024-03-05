@@ -10,7 +10,10 @@ from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 
+
+
 logger = logging.getLogger('globsim.interpolate')
+
 
 urllib3.disable_warnings()
 
@@ -21,8 +24,8 @@ class ERA5interpolate(GenericInterpolate):
     coordinates. All variables retain their original units and time stepping.
     """
 
-    def __init__(self, ifile, era5type='reanalysis'):
-        super().__init__(ifile)
+    def __init__(self, ifile, era5type='reanalysis', **kwargs):
+        super().__init__(ifile=ifile, **kwargs)
         self.era5type = era5type
 
         if self.era5type == 'reanalysis':
@@ -114,6 +117,11 @@ class ERA5interpolate(GenericInterpolate):
         pl = 'level' in ncf_in.dimensions.keys()
         ens = 'number' in ncf_in.dimensions.keys()
 
+        # reduce chunk size for pressure-level interpolation
+        cs = self.cs
+        if pl:
+            cs = cs // len(ncf_in.variables['level'][:])  # get actual number of levels
+
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units='hours since 1900-01-01 00:00:0.0')
@@ -149,17 +157,24 @@ class ERA5interpolate(GenericInterpolate):
         # get time vector for output
         time_in = nctime[tmask]
 
+        # write time
+        ncf_out.variables['time'][:] = time_in
+
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter = len(time_in) // self.cs
-        niter += ((len(time_in) % self.cs) > 0)
+        niter = len(time_in) // cs
+        niter += ((len(time_in) % cs) > 0)
+
+        # Create source grid
+        sgrid = self.create_source_grid(ncf_in)
+        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
 
         # loop over chunks
         for n in range(niter):
             # indices (relative to index of the output file)
-            beg = n * self.cs
+            beg = n * cs
             # restrict last chunk to lenght of tmask plus one (to get last time)
-            end = min(n * self.cs + self.cs, len(time_in)) - 1
+            end = min(n * cs + cs, len(time_in)) - 1
 
             # time to make tmask for chunk
             beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
@@ -179,10 +194,11 @@ class ERA5interpolate(GenericInterpolate):
             # get the interpolated variables
             dfield, variables = self.interp2D(ncf_in,
                                               self.stations, tmask_chunk,
+                                              subset_grid, lon_slice, lat_slice,
                                               variables=None, date=None)
             # append time
-            ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
-                                                     time_in[beg:end+1])
+            # ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
+                                                     # time_in[beg:end+1])
 
             # append variables
             for i, var in enumerate(variables):
@@ -324,18 +340,14 @@ class ERA5interpolate(GenericInterpolate):
         ncf.close()
         # closed file ==========================================================
 
-    def process(self):
-        """
-        Interpolate point time series from downloaded data. Provides access to
-        the more generically ERA-like interpolation functions.
-        """
-
+    def _preprocess(self):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
         self.ERA2station(self.mf_to, self.getOutFile('to'),
                          self.stations, ['z', 'lsm'], date=None)
-
+        
+    def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
@@ -350,21 +362,8 @@ class ERA5interpolate(GenericInterpolate):
         with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
             self.ERA2station(sa, self.getOutFile('sa'),
                              self.stations, varlist, date=self.date)
-
-        # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
-        # dictionary to translate CF Standard Names into ERA5
-        # pressure level variable keys.
-        # [m] total precipitation
-        # [J m-2] short-wave downward
-        # [J m-2] long-wave downward
-        dpar = {'precipitation_amount'              : ['tp'],
-                'downwelling_shortwave_flux_in_air' : ['ssrd'],
-                'downwelling_longwave_flux_in_air'  : ['strd']}
-        varlist = self.TranslateCF2short(dpar)
-        with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
-            self.ERA2station(sf, self.getOutFile('sf'),
-                            self.stations, varlist, date=self.date)
-
+    
+    def _process_pl(self):
         # === 2D Interpolation for Pressure Level Data ===
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
@@ -383,3 +382,18 @@ class ERA5interpolate(GenericInterpolate):
             outf = 'era5_pl_'
         outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
         self.levels2elevation(self.getOutFile('pl'), outf)
+    
+    def _process_sf(self):
+        # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
+        # dictionary to translate CF Standard Names into ERA5
+        # pressure level variable keys.
+        # [m] total precipitation
+        # [J m-2] short-wave downward
+        # [J m-2] long-wave downward
+        dpar = {'precipitation_amount'              : ['tp'],
+                'downwelling_shortwave_flux_in_air' : ['ssrd'],
+                'downwelling_longwave_flux_in_air'  : ['strd']}
+        varlist = self.TranslateCF2short(dpar)
+        with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
+            self.ERA2station(sf, self.getOutFile('sf'),
+                            self.stations, varlist, date=self.date)
