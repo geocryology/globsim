@@ -75,7 +75,7 @@ class ERAIscale(GenericScale):
         par = self.par
 
         # input file handles
-        self.nc_pl = nc.Dataset(path.join(self.intpdir, 'erai_pl_' +
+        self.nc_pl_sur = nc.Dataset(path.join(self.intpdir, 'erai_pl_' +
                                           self.list_name + '_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir,'erai_sa_' +
                                           self.list_name + '.nc'), 'r')
@@ -106,7 +106,7 @@ class ERAIscale(GenericScale):
         """
         if path.isfile(self.output_file):
             print("Warning, output file already exists. This may cause problems")
-        self.rg = new_scaled_netcdf(self.output_file, self.nc_pl,
+        self.rg = new_scaled_netcdf(self.output_file, self.nc_pl_sur,
                                  self.times_out_nc,
                                  t_unit = self.scaled_t_units,
                                  station_names = self.stations['station_name'])
@@ -119,7 +119,7 @@ class ERAIscale(GenericScale):
 
         # close netCDF files
         self.rg.close()
-        self.nc_pl.close()
+        self.nc_pl_sur.close()
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_to.close()
@@ -136,8 +136,8 @@ class ERAIscale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl.variables['air_pressure'][:]
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values  = self.nc_pl_sur.variables['air_pressure'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             #scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
@@ -151,11 +151,11 @@ class ERAIscale(GenericScale):
         vn = 'AIRT_pl' # variable name
         var           = self.rg.createVariable(vn,'f4',('time','station'))
         var.long_name = 'air_temperature {} pressure levels only'.format(self.NAME)
-        var.units     = self.nc_pl.variables['t'].units.encode('UTF8')
+        var.units     = self.nc_pl_sur.variables['t'].units.encode('UTF8')
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl.variables['t'][:]
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values  = self.nc_pl_sur.variables['t'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                         time_in*3600, values[:, n]-273.15)

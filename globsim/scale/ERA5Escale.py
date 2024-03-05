@@ -82,7 +82,7 @@ class ERA5Escale(ERA5scale):
             src = '{}_{}'.format(self.src, ni)
             self.output_file = self.getOutNCF(self.par, src)
             self.rg = new_scaled_netcdf(self.output_file,
-                                        self.nc_pl, self.times_out_nc,
+                                        self.nc_pl_sur, self.times_out_nc,
                                         t_unit=self.scaled_t_units,
                                         station_names=stations)
             self.indProcess()
@@ -90,7 +90,7 @@ class ERA5Escale(ERA5scale):
 
         # close netCDF files
         self.rg.close()
-        self.nc_pl.close()
+        self.nc_pl_sur.close()
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_to.close()

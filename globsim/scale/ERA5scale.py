@@ -62,18 +62,19 @@ class ERA5scale(GenericScale):
         par = self.par
 
         # input file handles
-        self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}_surface.nc"), 'r')
+        self.nc_pl_sur = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}_surface.nc"), 'r')
+        self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.src}_pl_{self.list_name}.nc"), 'r')
         self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.src}_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.src}_sf_{self.list_name}.nc'), 'r')
         self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.src}_to_{self.list_name}.nc'), 'r')
 
         # Check data integrity
-        _check_timestep_length(self.nc_pl.variables['time'], "pl")
+        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl")
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
-        if not (self.nc_sf['time'].shape == self.nc_pl['time'].shape == self.nc_sa['time'].shape):
-            logger.critical(f"Different number of time steps in input data: sf ({self.nc_sf['time'].shape[0]}) pl ({self.nc_pl['time'].shape[0]}) sa ({self.nc_sa['time'].shape[0]})")
+        if not (self.nc_sf['time'].shape == self.nc_pl_sur['time'].shape == self.nc_sa['time'].shape):
+            logger.critical(f"Different number of time steps in input data: sf ({self.nc_sf['time'].shape[0]}) pl ({self.nc_pl_sur['time'].shape[0]}) sa ({self.nc_sa['time'].shape[0]})")
 
         try:
             self.nc_to.set_auto_scale(True)
@@ -84,7 +85,7 @@ class ERA5scale(GenericScale):
 
         # time vector for output data
         # get time and convert to datetime object
-        self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
+        self.set_time_scale(self.nc_pl_sur.variables['time'], par['time_step'])
         self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
 
         self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
@@ -116,7 +117,7 @@ class ERA5scale(GenericScale):
 
         self.output_file = self.getOutNCF(self.par, self.src)
         self.rg = new_scaled_netcdf(self.output_file,
-                                    self.nc_pl, self.times_out_nc,
+                                    self.nc_pl_sur, self.times_out_nc,
                                     t_unit=self.scaled_t_units,
                                     station_names=stations)
         self.indProcess()
@@ -124,7 +125,7 @@ class ERA5scale(GenericScale):
         logger.info(f"Created scaled output file {self.output_file}")
         # close netCDF files
         self.rg.close()
-        self.nc_pl.close()
+        self.nc_pl_sur.close()
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_to.close()
@@ -141,8 +142,8 @@ class ERA5scale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_pl, 'air_pressure')
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values  = self.getValues(self.nc_pl_sur, 'air_pressure')
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
@@ -161,8 +162,8 @@ class ERA5scale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.getValues(self.nc_pl, 't')  # self.nc_pl.variables['t'][:]
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values  = self.getValues(self.nc_pl_sur, 't')  # self.nc_pl_sur.variables['t'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600, values[:, n] - 273.15)
@@ -246,9 +247,9 @@ class ERA5scale(GenericScale):
         """
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
 
-        values  = self.getValues(self.nc_pl, 'r')
+        values  = self.getValues(self.nc_pl_sur, 'r')
 
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             rh[:, n] = series_interpolate(self.times_out_nc,
@@ -353,11 +354,11 @@ class ERA5scale(GenericScale):
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        lat = self.getValues(self.nc_pl, 'latitude')
-        lon = self.getValues(self.nc_pl, 'longitude')
+        lat = self.getValues(self.nc_pl_sur, 'latitude')
+        lon = self.getValues(self.nc_pl_sur, 'longitude')
         sw = self.getValues(self.nc_sf, 'ssrd') / self.interval_in  # [J m-2] --> [W m-2]
         grid_elev = self.getValues(self.nc_to, 'z')[0,:] / 9.80665  # z has 2 dimensions from the scaling step
-        station_elev = self.getValues(self.nc_pl, 'height')
+        station_elev = self.getValues(self.nc_pl_sur, 'height')
 
         svf = self.get_sky_view()
         slope = self.get_slope()
@@ -426,8 +427,8 @@ class ERA5scale(GenericScale):
 
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        t_sub = self.getValues(self.nc_pl, 't')  # [K]
-        rh_sub = self.getValues(self.nc_pl, 'r')  # [%]
+        t_sub = self.getValues(self.nc_pl_sur, 't')  # [K]
+        rh_sub = self.getValues(self.nc_pl_sur, 'r')  # [%]
         t_grid = self.getValues(self.nc_sa, 't2m')  # [K]
         dewp_grid = self.getValues(self.nc_sa, 'd2m')  # [K]
         lw_grid  = self.getValues(self.nc_sf, 'strd') / self.interval_in  # [w m-2 s-1]

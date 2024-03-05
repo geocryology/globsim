@@ -136,27 +136,27 @@ class MERRAscale(GenericScale):
         par = self.par
 
         # input file names
-        self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_pl_sur = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
         self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
 
         # Check data integrity
-        _check_timestep_length(self.nc_pl.variables['time'], "pl")
+        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl")
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +
         #                        self.list_name + '.nc'), 'r')
-        self.nstation = len(self.nc_pl.variables['station'][:])
+        self.nstation = len(self.nc_pl_sur.variables['station'][:])
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'merra2')
 
         # time vector for output data
         # get time and convert to datetime object
-        self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
+        self.set_time_scale(self.nc_pl_sur.variables['time'], par['time_step'])
         self.scaled_t_units = 'seconds since 1980-01-01 00:00:00'
 
         self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
@@ -175,7 +175,7 @@ class MERRAscale(GenericScale):
             makedirs(path.dirname(self.outfile))
 
         self.rg = new_scaled_netcdf(self.output_file,
-                                    self.nc_pl,
+                                    self.nc_pl_sur,
                                     self.times_out_nc,
                                     t_unit=self.scaled_t_units)
 
@@ -198,7 +198,7 @@ class MERRAscale(GenericScale):
 
         # close netCDF files
         self.rg.close()
-        self.nc_pl.close()
+        self.nc_pl_sur.close()
         self.nc_sf.close()
         self.nc_sa.close()
         # self.nc_sc.close()
@@ -215,8 +215,8 @@ class MERRAscale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl.variables['air_pressure'][:]
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values  = self.nc_pl_sur.variables['air_pressure'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
@@ -234,8 +234,8 @@ class MERRAscale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl.variables['T'][:]
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values  = self.nc_pl_sur.variables['T'][:]
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
@@ -268,8 +268,8 @@ class MERRAscale(GenericScale):
         """
 
         # temporary variable,  interpolate station by station
-        time_in = self.nc_pl.variables['time'][:].astype(np.int64)
-        values = self.nc_pl.variables['RH'][:]
+        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        values = self.nc_pl_sur.variables['RH'][:]
 
         # add variable to ncdf file
         vn = 'RH_pl'  # variable name
@@ -396,11 +396,11 @@ class MERRAscale(GenericScale):
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        lat = self.nc_pl['latitude'][:]
-        lon = self.nc_pl['longitude'][:]
+        lat = self.nc_pl_sur['latitude'][:]
+        lon = self.nc_pl_sur['longitude'][:]
         sw = self.nc_sf['SWGDN'][:]  # [W m-2]
         grid_elev = self.nc_sc["PHIS"][0, :] / 9.80665  # [m]
-        station_elev = self.nc_pl["height"][:]  # [m]
+        station_elev = self.nc_pl_sur["height"][:]  # [m]
 
         svf = self.get_sky_view()
         slope = self.get_slope()
@@ -468,8 +468,8 @@ class MERRAscale(GenericScale):
         # interpolate station by station
         time_in = self.nc_sf.variables['time'][:].astype(np.int64)
         """ I'm cutting corners here by repeating variables with longer timesteps. This should be improved [NB]"""
-        t_sub = np.repeat(self.nc_pl['T'][:], 6, axis=0)  # [K]
-        rh_sub = np.repeat(self.nc_pl['RH'][:], 6, axis=0) * 100  # [%]
+        t_sub = np.repeat(self.nc_pl_sur['T'][:], 6, axis=0)  # [K]
+        rh_sub = np.repeat(self.nc_pl_sur['RH'][:], 6, axis=0) * 100  # [%]
         t_grid = self.nc_sa['T2M'][:]  # [K]
         dewp_grid = self.nc_sf['T2MDEW'][:]  # [K]
         lw_grid  = self.nc_sf["LWGDN"]  # [w m-2 s-1]

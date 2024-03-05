@@ -46,7 +46,7 @@ class JRAscale(GenericScale):
         par = self.par
 
         # input file names
-        self.nc_pl = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_pl_sur = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_pl_{self.list_name}_surface.nc'), 'r')
         self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
         try:
@@ -55,7 +55,7 @@ class JRAscale(GenericScale):
             logger.error("Missing invariant ('*_to') file. Some scaling kernels may fail. ")
 
         # Check data integrity
-        _check_timestep_length(self.nc_pl.variables['time'], "pl")
+        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl")
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
@@ -64,7 +64,7 @@ class JRAscale(GenericScale):
 
         # time vector for output data
         # get time and convert to datetime object
-        self.set_time_scale(self.nc_pl.variables['time'], par['time_step'])
+        self.set_time_scale(self.nc_pl_sur.variables['time'], par['time_step'])
 
         self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
                                                       timestep_in_hours=self.time_step,
@@ -77,8 +77,8 @@ class JRAscale(GenericScale):
         Run all relevant processes and save data. Each kernel processes one
         variable and adds it to the netCDF file.
         """
-        self.rg = new_scaled_netcdf(self.output_file, self.nc_pl,
-                                    self.times_out_nc, self.nc_pl['time'].units)
+        self.rg = new_scaled_netcdf(self.output_file, self.nc_pl_sur,
+                                    self.times_out_nc, self.nc_pl_sur['time'].units)
 
         # add station names to netcdf
         # first convert to character array
@@ -99,7 +99,7 @@ class JRAscale(GenericScale):
 
         # close netCDF files
         self.rg.close()
-        self.nc_pl.close()
+        self.nc_pl_sur.close()
         self.nc_sf.close()
         self.nc_sa.close()
 
@@ -109,7 +109,7 @@ class JRAscale(GenericScale):
         elif file == "sf":
             f = self.nc_sf
         elif file == "pl":
-            f = self.nc_pl
+            f = self.nc_pl_sur
         elif file == "to":
             f = self.nc_to
         else:
