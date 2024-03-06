@@ -17,6 +17,7 @@ from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
                                      solar_zenith)
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+import globsim.constants as const
 
 logger = logging.getLogger('globsim.scale')
 
@@ -342,7 +343,7 @@ class JRAscale(GenericScale):
         lat = self.get_values("pl","latitude")
         lon = self.get_values("pl","longitude")
         sw = self.get_values("sf","Downward solar radiation flux")  # [W m-2]
-        grid_elev = self.get_values("to", "Geopotential", (0, slice(None,None,1))) / 9.80665  # [m]
+        grid_elev = self.get_values("to", "Geopotential", (0, slice(None,None,1))) / const.G  # [m]
         station_elev = self.get_values("pl","height")  # [m]
 
         svf = self.get_sky_view()

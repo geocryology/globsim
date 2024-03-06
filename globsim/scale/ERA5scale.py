@@ -36,6 +36,8 @@ from globsim.meteorology import spec_hum_kgkg
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+from globsim.interp import interpolate_level_data
+import globsim.constants as const
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -357,7 +359,7 @@ class ERA5scale(GenericScale):
         lat = self.getValues(self.nc_pl_sur, 'latitude')
         lon = self.getValues(self.nc_pl_sur, 'longitude')
         sw = self.getValues(self.nc_sf, 'ssrd') / self.interval_in  # [J m-2] --> [W m-2]
-        grid_elev = self.getValues(self.nc_to, 'z')[0,:] / 9.80665  # z has 2 dimensions from the scaling step
+        grid_elev = self.getValues(self.nc_to, 'z')[0,:] / const.G  # z has 2 dimensions from the scaling step
         station_elev = self.getValues(self.nc_pl_sur, 'height')
 
         svf = self.get_sky_view()

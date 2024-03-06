@@ -109,6 +109,7 @@ from globsim.common_utils import series_interpolate
 from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+import globsim.constants as const
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
@@ -399,7 +400,7 @@ class MERRAscale(GenericScale):
         lat = self.nc_pl_sur['latitude'][:]
         lon = self.nc_pl_sur['longitude'][:]
         sw = self.nc_sf['SWGDN'][:]  # [W m-2]
-        grid_elev = self.nc_sc["PHIS"][0, :] / 9.80665  # [m]
+        grid_elev = self.nc_sc["PHIS"][0, :] / const.G  # [m]
         station_elev = self.nc_pl_sur["height"][:]  # [m]
 
         svf = self.get_sky_view()
