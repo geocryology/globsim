@@ -36,8 +36,8 @@ from globsim.meteorology import spec_hum_kgkg
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
-from globsim.interp import interpolate_level_data
 import globsim.constants as const
+import globsim.redcapp as redcapp
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -197,11 +197,7 @@ class ERA5scale(GenericScale):
         logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
 
         # add variable to ncdf file
-        vn  = 'AIRT_redcapp_DeltaT'  # variable name
-        var = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Land-surface influences on surface air temperature at elevation of coarse scale'
-        var.comment = 'Cao et al. (2017) 10.5194/gmd-10-2905-2017'
-        var.units     = 'degree_C'
+        var = redcapp.add_var_delta_T(self.rg)
 
         # get T from surface level
         T_sa  = self.getValues(self.nc_sa, 't2m')  
@@ -211,15 +207,16 @@ class ERA5scale(GenericScale):
         airT_pl = self.getValues(self.nc_pl, 't')
         # get pressure-level elevations from geopotential
         elevation = self.getValues(self.nc_pl, 'z') / const.G  # [m]
-        
-        T_pl_c = interpolate_level_data(airT_pl, elevation, h_sur)
 
-        Delta_T_c = T_sa - T_pl_c  # eq. (4)   
+        Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
+                                      airT_pl=airT_pl, 
+                                      elevation=elevation,
+                                      h_sur=h_sur)  
 
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
         values  = Delta_T_c
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
+            var[:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n])
 
