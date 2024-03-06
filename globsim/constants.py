@@ -1,0 +1,1 @@
+G = 9.80665  # Gravitational Constant [m s^2]
