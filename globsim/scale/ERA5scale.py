@@ -179,6 +179,7 @@ class ERA5scale(GenericScale):
         var           = self.rg.createVariable(vn, 'f4', ('time', 'station'))
         var.long_name = '2_metre_temperature ERA-5 surface only'
         var.units     = self.nc_sa.variables['t2m'].units.encode('UTF8')
+        var.standard_name = 'air_temperature' 
 
         # interpolate station by station
         time_in = self.nc_sa.variables['time'][:].astype(np.int64)
@@ -191,9 +192,36 @@ class ERA5scale(GenericScale):
     def AIRT_redcapp(self):
         """
         Air temperature derived from surface data and pressure level data as
-        shown by the method REDCAPP.
+        shown by the method REDCAPP Cao et al. (2017) 10.5194/gmd-10-2905-2017
         """
-        print("AIRT_redcapp")
+        logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
+
+        # add variable to ncdf file
+        vn  = 'AIRT_redcapp_DeltaT'  # variable name
+        var = self.rg.createVariable(vn,'f4',('time', 'station'))
+        var.long_name = 'Land-surface influences on surface air temperature at elevation of coarse scale'
+        var.comment = 'Cao et al. (2017) 10.5194/gmd-10-2905-2017'
+        var.units     = 'degree_C'
+
+        # get T from surface level
+        T_sa  = self.getValues(self.nc_sa, 't2m')  
+        # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)
+        h_sur = self.getValues(self.nc_to, 'z')[0, :] / const.G  # [m]
+        # get pressure-level temperatures
+        airT_pl = self.getValues(self.nc_pl, 't')
+        # get pressure-level elevations from geopotential
+        elevation = self.getValues(self.nc_pl, 'z') / const.G  # [m]
+        
+        T_pl_c = interpolate_level_data(airT_pl, elevation, h_sur)
+
+        Delta_T_c = T_sa - T_pl_c  # eq. (4)   
+
+        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
+        values  = Delta_T_c
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
+                                                             time_in * 3600,
+                                                             values[:, n])
 
     def PREC_mm_sur(self):
         """

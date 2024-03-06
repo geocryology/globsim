@@ -106,7 +106,6 @@ def interpolate_level_data(data: np.ndarray, elevation: np.ndarray, h: Union[flo
     nl = data.shape[1]
 
     if (data.ndim == 3) and isinstance(h, np.ndarray):
-       # import pdb;pdb.set_trace()
         interp = np.zeros(shape=data.shape[slice(0,None,2)])  # type: np.ndarray
         for i, h_i in enumerate(h):
             interp[:, i] = interpolate_level_data(data[:, :, i], elevation[:, :, i], h_i)
