@@ -1,5 +1,20 @@
-import ESMF
 import numpy as np
+import re
+
+try:
+    import ESMF
+
+    # Check ESMF version.  7.0.1 behaves differently than 7.1.0r
+    ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
+    ESMFnew = ESMFv > 701
+
+except ModuleNotFoundError:
+        print("*** ESMF not imported, trying esmpy. ***")
+        try:
+            import esmpy as ESMF
+        except ImportError:
+            print('Could not import ESMF or esmpy')
+            pass
 
 from globsim.boundingbox import BoundingBox
 

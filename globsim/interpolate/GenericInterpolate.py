@@ -26,10 +26,13 @@ try:
     ESMFv = int(re.sub("[^0-9]", "", ESMF.__version__))
     ESMFnew = ESMFv > 701
 
-except ImportError:
-    print("*** ESMF not imported, interpolation not possible. ***")
-    pass
-
+except ModuleNotFoundError:
+        print("*** ESMF not imported, trying esmpy. ***")
+        try:
+            import esmpy as ESMF
+        except ImportError:
+            print('Could not import ESMF or esmpy')
+            pass
 
 class GenericInterpolate:
 
