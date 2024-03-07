@@ -18,6 +18,7 @@ from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 import globsim.constants as const
+import globsim.redcapp as redcapp
 
 logger = logging.getLogger('globsim.scale')
 
@@ -40,7 +41,9 @@ class JRAscale(GenericScale):
     REANALYSIS = "jra55"
     SCALING = {"sf": {"Total precipitation": (1 / (24 * 3600), 0)},
                "sa": {},
-               "pl": {}}
+               "pl": {},
+               "to": {},
+               "pl_sur": {}}
 
     def __init__(self, sfile):
         super().__init__(sfile)
@@ -48,6 +51,7 @@ class JRAscale(GenericScale):
 
         # input file names
         self.nc_pl_sur = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_pl = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_pl_{self.list_name}.nc'), 'r')
         self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
         try:
@@ -56,7 +60,8 @@ class JRAscale(GenericScale):
             logger.error("Missing invariant ('*_to') file. Some scaling kernels may fail. ")
 
         # Check data integrity
-        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl")
+        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl_sur")
+        _check_timestep_length(self.nc_pl.variables['time'], "pl")
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
@@ -101,6 +106,7 @@ class JRAscale(GenericScale):
         # close netCDF files
         self.rg.close()
         self.nc_pl_sur.close()
+        self.nc_pl.close()
         self.nc_sf.close()
         self.nc_sa.close()
 
@@ -109,12 +115,14 @@ class JRAscale(GenericScale):
             f = self.nc_sa
         elif file == "sf":
             f = self.nc_sf
-        elif file == "pl":
+        elif file == "pl_sur":
             f = self.nc_pl_sur
+        elif file == "pl":
+            f = self.nc_pl
         elif file == "to":
             f = self.nc_to
         else:
-            raise ValueError("sa, sf, to, or pl")
+            raise ValueError("sa, sf, to, or pl_sur")
         
         return f
     
@@ -157,8 +165,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.get_values("pl","time").astype(np.int64)
-        values  = self.get_values("pl", "air_pressure")
+        time_in = self.get_values("pl_sur","time").astype(np.int64)
+        values  = self.get_values("pl_sur", "air_pressure")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
@@ -176,8 +184,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.get_values("pl","time")
-        values  = self.get_values("pl","Temperature")
+        time_in = self.get_values("pl_sur","time")
+        values  = self.get_values("pl_sur","Temperature")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n]) - 273.15
@@ -201,6 +209,37 @@ class JRAscale(GenericScale):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n]) - 273.15
 
+    def AIRT_redcapp(self):
+        """
+        Air temperature derived from surface data and pressure level data as
+        shown by the method REDCAPP Cao et al. (2017) 10.5194/gmd-10-2905-2017
+        """
+        logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
+
+        # add variable to ncdf file
+        var = redcapp.add_var_delta_T(self.rg)
+       # import pdb;pdb.set_trace()
+        # get T from surface level
+        T_sa  = self.get_values("sa", "Temperature")
+        # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)
+        h_sur = self.get_values("to", "Geopotential", (0, slice(None,None,1))) / const.G  # [m]
+        # get pressure-level temperatures
+        airT_pl = self.get_values("pl","Temperature")
+        # get pressure-level elevations from geopotential
+        elevation = self.get_values("pl","Geopotential height")  # JRA units say [gpm] but range [-10 to 4600] suggests its already [m]
+        # [m] but we need to convert to [m] from [gpm] (geopotential meters)
+
+        Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
+                                      airT_pl=airT_pl, 
+                                      elevation=elevation,
+                                      h_sur=h_sur)  
+
+        time_in = time_in = self.get_values("sa","time")
+        values  = Delta_T_c
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            var[:, n] = np.interp(self.times_out_nc, time_in, values[:, n]) 
+            
     def RH_per_sur(self):
         """
         Relative Humidity derived from surface data, exclusively.
@@ -231,8 +270,8 @@ class JRAscale(GenericScale):
         var.standard_name = 'relative_humidity'
 
         # interpolate station by station
-        time_in = self.get_values("pl","time")
-        values  = self.get_values("pl", "Relative humidity")
+        time_in = self.get_values("pl_sur","time")
+        values  = self.get_values("pl_sur", "Relative humidity")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
                                                     time_in, values[:, n])
@@ -340,11 +379,11 @@ class JRAscale(GenericScale):
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        lat = self.get_values("pl","latitude")
-        lon = self.get_values("pl","longitude")
+        lat = self.get_values("pl_sur","latitude")
+        lon = self.get_values("pl_sur","longitude")
         sw = self.get_values("sf","Downward solar radiation flux")  # [W m-2]
         grid_elev = self.get_values("to", "Geopotential", (0, slice(None,None,1))) / const.G  # [m]
-        station_elev = self.get_values("pl","height")  # [m]
+        station_elev = self.get_values("pl_sur","height")  # [m]
 
         svf = self.get_sky_view()
         slope = self.get_slope()
@@ -411,8 +450,8 @@ class JRAscale(GenericScale):
         # interpolate station by station
         time_in = self.get_values("sf","time").astype(np.int64)
         
-        t_sub = self.get_values("pl","Temperature")  # [K]
-        rh_sub = self.get_values("pl","Relative humidity")  # [%]
+        t_sub = self.get_values("pl_sur","Temperature")  # [K]
+        rh_sub = self.get_values("pl_sur","Relative humidity")  # [%]
         t_grid = self.get_values("sa","Temperature")  # [K]
         rh_grid = self.get_values("sa","Relative humidity")  # [%]
         lw_grid  = self.nc_sf["Downward longwave radiation flux"]  # [w m-2 s-1]
