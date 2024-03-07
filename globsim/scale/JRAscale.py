@@ -218,7 +218,6 @@ class JRAscale(GenericScale):
 
         # add variable to ncdf file
         var = redcapp.add_var_delta_T(self.rg)
-       # import pdb;pdb.set_trace()
         # get T from surface level
         T_sa  = self.get_values("sa", "Temperature")
         # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)

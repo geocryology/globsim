@@ -67,7 +67,7 @@ class JRAinterpolate(GenericInterpolate):
         self.mf_sa = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_sa_*.nc'), 'r', aggdim="time")
         self.mf_sf = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_sf_*.nc'), 'r', aggdim="time")
         self.mf_pl = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_pl_*.nc'), 'r', aggdim="time")
-
+        
         # Check dataset integrity
         logger.info("Check data integrity (sa)")
         self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
@@ -160,7 +160,7 @@ class JRAinterpolate(GenericInterpolate):
         # Create source grid
         sgrid = self.create_source_grid(ncf_in)
         subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
-
+        
         # loop over chunks
         for n in range(niter):
             # indices
