@@ -139,12 +139,14 @@ class MERRAscale(GenericScale):
 
         # input file names
         self.nc_pl_sur = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}.nc'), 'r')
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
         self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
 
         # Check data integrity
-        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl")
+        _check_timestep_length(self.nc_pl_sur.variables['time'], "pl_sur")
+        _check_timestep_length(self.nc_pl.variables['time'], "pl")
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
@@ -203,7 +205,7 @@ class MERRAscale(GenericScale):
         self.nc_pl_sur.close()
         self.nc_sf.close()
         self.nc_sa.close()
-        # self.nc_sc.close()
+        self.nc_pl.close()
 
     def PRESS_Pa_pl(self):
         """
