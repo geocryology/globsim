@@ -9,8 +9,8 @@ from os import path
 from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
-
-
+from globsim.interp import ele_interpolate, calculate_weights
+import globsim.constants as const
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -303,9 +303,9 @@ class ERA5interpolate(GenericInterpolate):
             if self.ens:
                 num = ncf.variables['number'][:]
                 for ni in num:
-                    elevation = ncf.variables['z'][:,ni,:,n] / 9.80665
-                    elev_diff, va, vb = self.ele_interpolate(elevation, h, nl)
-                    wa, wb = self.calculate_weights(elev_diff, va, vb)
+                    elevation = ncf.variables['z'][:,ni,:,n] / const.G
+                    elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+                    wa, wb = calculate_weights(elev_diff, va, vb)
                     for v, var in enumerate(varlist):
                         if var == 'air_pressure':
                             # pressure [Pa] variable from levels, shape: (time, level)
@@ -319,9 +319,9 @@ class ERA5interpolate(GenericInterpolate):
                         rootgrp.variables[var][:,ni,n] = ipol  # assign to file
             else:
                 # convert geopotential [mbar] to height [m], shape: (time, level)
-                elevation = ncf.variables['z'][:,:,n] / 9.80665
-                elev_diff, va, vb = self.ele_interpolate(elevation, h, nl)
-                wa, wb = self.calculate_weights(elev_diff, va, vb)
+                elevation = ncf.variables['z'][:,:,n] / const.G
+                elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+                wa, wb = calculate_weights(elev_diff, va, vb)
 
                 # loop over variables and apply interpolation weights
                 for v, var in enumerate(varlist):

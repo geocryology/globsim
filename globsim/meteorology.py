@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+import globsim.constants as const
 
 boltzmann = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
 
@@ -92,7 +92,7 @@ def emissivity_clear_sky(RH,T):
 
 def pressure_from_elevation(elevation):
     """Convert elevation into air pressure using barometric formula"""
-    g = 9.80665    # Gravitational acceleration [m/s2]
+    g = const.G    # Gravitational acceleration [m/s2]
     R = 8.31432    # Universal gas constant for air [N·m /(mol·K)]
     M = 0.0289644  # Molar mass of Earth's air [kg/mol]
     P0 = 101325    # Pressure at sea level [Pa]

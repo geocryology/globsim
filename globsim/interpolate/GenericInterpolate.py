@@ -420,33 +420,6 @@ class GenericInterpolate:
         if ens:
             varlist.remove('number')
 
-    @staticmethod
-    def ele_interpolate(elevation, h, nl):
-        # difference in elevation, level directly above will be >= 0
-        elev_diff = elevation - h
-        # vector of level indices that fall directly above station.
-        # Apply after ravel() of data.
-        va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1)
-        # mask for situations where station is below lowest level
-        mask = va < (nl - 1)
-        va += np.arange(elevation.shape[0]) * elevation.shape[1]
-
-        # Vector level indices that fall directly below station.
-        # Apply after ravel() of data.
-        vb = va + mask  # +1 when OK, +0 when below lowest level
-
-        return elev_diff, va, vb
-
-    @staticmethod
-    def calculate_weights(elev_diff, va, vb):
-        wa = np.absolute(elev_diff.ravel()[vb])
-        wb = np.absolute(elev_diff.ravel()[va])
-        wt = wa + wb
-        wa /= wt  # Apply after ravel() of data.
-        wb /= wt  # Apply after ravel() of data.
-
-        return wa, wb
-
     @check
     def ensure_datset_integrity(self, time: "nc.Variable", interval: float):
         """ Perform basic pre-flight checks on (downloaded) input datasets before running interpolate"""

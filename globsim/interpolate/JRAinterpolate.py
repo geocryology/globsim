@@ -9,6 +9,7 @@ from os import path
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
+from globsim.interp import calculate_weights, ele_interpolate
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -276,21 +277,8 @@ class JRAinterpolate(GenericInterpolate):
             # shape: (time, level)
             elevation = ncf.variables[self.GEOPOTENTIAL][:,:,n]
 
-            # difference in elevation.
-            # level directly above will be >= 0
-            elev_diff = elevation - h
-            # vector of level indices that fall directly above station.
-            # Apply after ravel() of data.
-            va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1)
-            # mask for situations where station is below lowest level
-            mask = va < (nl - 1)
-            va += np.arange(elevation.shape[0]) * elevation.shape[1]
-
-            # Vector level indices that fall directly below station.
-            # Apply after ravel() of data.
-            vb = va + mask  # +1 when OK, +0 when below lowest level
-
-            wa, wb = self.calculate_weights(elev_diff, va, vb)
+            elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+            wa, wb = calculate_weights(elev_diff, va, vb)
 
             # loop over variables and apply interpolation weights
             for v, var in enumerate(varlist):
