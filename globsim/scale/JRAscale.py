@@ -87,6 +87,10 @@ class JRAscale(GenericScale):
                                     self.times_out_nc, self.nc_pl_sur['time'].units)
 
         # add station names to netcdf
+        self.add_grid_elevation(self.rg, self.get_values("to", "Geopotential", 
+                                                         (0, slice(None,None,1))) / const.G)  # [m]
+
+        # add station names to netcdf
         # first convert to character array
         names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))
 
