@@ -153,9 +153,9 @@ def get_buffered_slices(grid: "ESMF.Grid",
     # Buffer by 'b' grid cells to ensure enough room for interpolation
     # But ensure data boundaries are not exceeded
     x_start = max(0, lon_indices[0] - b)
-    x_end = min(len(grid.coords[0][0]), lon_indices[1] + b + 1)
+    x_end = min(len(grid.coords[0][0]), lon_indices[-1] + b + 1)
     y_start = max(0, lat_indices[0] - b)
-    y_end = min(len(grid.coords[0][1]), lat_indices[1] + b + 1)
+    y_end = min(len(grid.coords[0][1]), lat_indices[-1] + b + 1)
 
     lon_slice = slice(x_start, x_end)
     lat_slice = slice(y_start, y_end)
@@ -182,10 +182,9 @@ def clipped_grid_indices(grid: "ESMF.Grid", bbox: "BoundingBox") -> tuple:
 
     latitudes = grid.coords[0][1]
     longitudes = grid.coords[0][0]
-    
     # Consider cases where all points within a single grid cell
-    new_bbox = BoundingBox(max(longitudes[longitudes <= bbox.xmin]),
-                           min(longitudes[longitudes >= bbox.xmax]),
+    new_bbox = BoundingBox(max(longitudes[longitudes % 360 <= bbox.xmin % 360]),
+                           min(longitudes[longitudes % 360 >= bbox.xmax % 360]),
                            max(latitudes[latitudes <= bbox.ymin]),
                            min(latitudes[latitudes >= bbox.ymax]))
 

@@ -110,6 +110,7 @@ from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_c
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 import globsim.constants as const
+import globsim.redcapp as redcapp
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
@@ -261,6 +262,41 @@ class MERRAscale(GenericScale):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in * 3600,
                                                              values[:, n] - 273.15)
+    
+    def AIRT_redcapp(self):
+        """
+        Air temperature derived from surface data and pressure level data as
+        shown by the method REDCAPP Cao et al. (2017) 10.5194/gmd-10-2905-2017
+        """
+        logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
+
+        # add variable to ncdf file
+        var = redcapp.add_var_delta_T(self.rg)
+
+        # get T from surface level
+        T_sa  = self.nc_sa.variables['T2M'][::6, :]  # every 6th hour to match pl data 
+        # TODO: interpolate pl data to 24h instead of downsampling sa data.
+
+        # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)
+        h_sur = self.nc_sc['PHIS'][0, :] / const.G  # remove time dimension. Time-invariant.
+        
+        # get pressure-level temperatures
+        airT_pl = self.nc_pl.variables['T'][:]
+        # get pressure-level elevations from geopotential
+        elevation = self.nc_pl['H'][:]  # 
+
+        Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
+                                      airT_pl=airT_pl, 
+                                      elevation=elevation,
+                                      h_sur=h_sur)  
+
+        time_in = time_in = self.nc_pl.variables['time'][:].astype(np.int64)
+        values  = Delta_T_c
+        
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            var[:, n] = series_interpolate(self.times_out_nc, 
+                                           time_in * 3600,
+                                           values[:, n])
 
     def RH_per_pl(self):
         """
