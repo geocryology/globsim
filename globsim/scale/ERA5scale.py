@@ -122,6 +122,9 @@ class ERA5scale(GenericScale):
                                     self.nc_pl_sur, self.times_out_nc,
                                     t_unit=self.scaled_t_units,
                                     station_names=stations)
+        # add surface height
+        self.add_grid_elevation(self.rg, self.getValues(self.nc_to, 'z')[0, :] / const.G)
+
         self.indProcess()
 
         logger.info(f"Created scaled output file {self.output_file}")

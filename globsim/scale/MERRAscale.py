@@ -182,7 +182,10 @@ class MERRAscale(GenericScale):
                                     self.nc_pl_sur,
                                     self.times_out_nc,
                                     t_unit=self.scaled_t_units)
-
+        
+        # add grid elevation to netCDF
+        self.add_grid_elevation(self.rg, self.nc_sc['PHIS'][0, :] / const.G)
+        
         # add station names to netcdf
         # first convert to character array
         names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))

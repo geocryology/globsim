@@ -201,6 +201,25 @@ class GenericScale:
     def _rh(self) -> Callable:
         rh_function = getattr(met, self._rh_function_name)
         return rh_function
+    
+    def add_grid_elevation(self, ncf: "nc.Dataset", data: np.ndarray) -> None:
+        """Add station elevation to the netCDF file"""
+        elev_var = ncf.createVariable('grid_elevation', 'f4', ('station',))
+        elev_var.units = 'm'
+        elev_var.long_name = 'grid elevation'
+        elev_var.comment = 'Elevation of the grid cell at the station location'
+        elev_var[:] = data
+
+        self.warn_station_elevation(data)
+
+    def warn_station_elevation(self, data: "np.ndarray") -> None:
+        """Warn if there are stations with elevation below grid level"""
+        stn_elev = self.stations['elevation_m']
+        stn_name = self.stations['station_name']
+
+        for i, (stn, grid) in enumerate(zip(stn_elev, data)):
+            if stn < grid:
+                logger.warning(f" {stn_name[i]} site elevation ({stn} m) is below reanalysis grid elevation ({grid} m). Results may be unreliable.")
 
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:
