@@ -210,6 +210,17 @@ class GenericScale:
         elev_var.comment = 'Elevation of the grid cell at the station location'
         elev_var[:] = data
 
+        self.warn_station_elevation(data)
+
+    def warn_station_elevation(self, data: "np.ndarray") -> None:
+        """Warn if there are stations with elevation below grid level"""
+        stn_elev = self.stations['elevation_m']
+        stn_name = self.stations['station_name']
+
+        for i, (stn, grid) in enumerate(zip(stn_elev, data)):
+            if stn < grid:
+                logger.warning(f" {stn_name[i]} site elevation ({stn} m) is below reanalysis grid elevation ({grid} m). Results may be unreliable.")
+
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:
     """ Ensure that input data has a consistent timestep
