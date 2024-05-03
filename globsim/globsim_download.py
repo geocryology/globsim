@@ -40,7 +40,7 @@ def main(args):
 
     if r_max <= 1:
         GlobsimDownload(pfile, ERAI=ERAI, ERA5=ERA5, ERA5ENS=ERA5ENS, 
-                        JRA=JRA, MERRA=MERRA, multithread=args.multi)
+                        JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q, multithread=args.multi)
     else:
         while i < r_max:
             try:

@@ -83,7 +83,9 @@ class RDA(object):
                             'RDA username and password invalid, or you are'
                             'not authorized to access this dataset. Please verify your login information at http://rda.ucar.edu')
                         sys.exit()
-
+            else:
+                logger.error(f"Received response: '{e}' when opening url {theurl}")
+                sys.exit()
         return url
 
     def add_http_cookie(self, url, authstring):

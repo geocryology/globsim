@@ -450,7 +450,7 @@ class MERRAdownload(GenericDownload):
 
         self.date = self.update_time_bounds(init_date)
 
-        if self.mode == 'download':  # could possibly exclude links as well?
+        if self.mode in ['download', 'links']:
             # start connection session
             self.credential = path.join(par['credentials_directory'], ".merrarc")
             self.account = open(self.credential, "r")
