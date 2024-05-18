@@ -703,7 +703,7 @@ class MERRAdownload(GenericDownload):
                 self.download_links(date_range, str(url_file))
                 
                 logger.info(f"Created OPeNDAP links file: {url_file}")
-                logger.info(f"To download the files, use the command 'cat {url_file} | xargs -n 1 -P 16 wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --auth-no-challenge=on --keep-session-cookies --content-disposition'")
+                logger.info(f"To download the files, use the command 'cat {url_file} | xargs -n 1 -P 6 wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --auth-no-challenge=on --keep-session-cookies --content-disposition'")
                 logger.info("For more information, visit https://disc.gsfc.nasa.gov/data-access#mac_linux_wget")
             
             elif self.mode == "combine":
