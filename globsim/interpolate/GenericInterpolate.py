@@ -67,6 +67,14 @@ class GenericInterpolate:
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
 
+    @property
+    def vn_time(self):
+        return 'time'
+
+    @property
+    def vn_level(self):
+        return 'level'
+    
     def find_stations_csv(self, par):
         if Path(par.get('station_list')).is_file():
             return Path(par.get('station_list'))
@@ -96,7 +104,7 @@ class GenericInterpolate:
 
     def process(self):
         self._preprocess()
-        
+
         if not self._skip_sa:
             self._process_sa()
         else:

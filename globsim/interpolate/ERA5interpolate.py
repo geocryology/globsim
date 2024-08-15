@@ -57,6 +57,14 @@ class ERA5interpolate(GenericInterpolate):
 
             logger.info("Data integrity ok")
 
+    @property
+    def vn_time(self):
+        return 'valid_time'
+    
+    @property
+    def vn_level(self):
+        return 'pressure_level'
+    
     def getInFile(self, levStr):
         # edited naming conventions for simplicity and to avoid errors
         if self.ens:
