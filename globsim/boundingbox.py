@@ -62,9 +62,51 @@ def stations_bbox(stations) -> BoundingBox:
 
 
 def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
+
     if isinstance(ncf, str):
         ncf = nc.Dataset(ncf)
+    if isinstance(ncf, nc.Dataset):
+        x,y = _nc_get_lat_lon(ncf)
+        xval = x[:]
+        yval = y[:]
+    
+    else:  # XARRAY
+        x,y = _xr_get_lat_lon(ncf)
+        xval = x.values
+        yval = y.values
 
+    bbx = BoundingBox(np.min(xval), np.max(xval), np.min(yval), np.max(yval))
+
+    return bbx
+
+
+def _xr_get_lat_lon(xrf):
+    # TODO: implement this
+    return xrf['longitude'], xrf['latitude']
+
+    x = xrf.filter_by_attrs(axis='X')
+    if not x:
+        x = xrf.filter_by_attrs(standard_name='longitude')
+    if not x:
+        x = xrf.filter_by_attrs(long_name='longitude')
+    if not x:
+        x = xrf['longitude'] if 'longitude' in xrf.coords else None
+    if not x:
+        raise KeyError("Could not find x-coordinate")
+
+    y = xrf.filter_by_attrs(axis='Y')
+    if not y:
+        y = xrf.filter_by_attrs(standard_name='latitude')
+    if not y:
+        y = xrf.filter_by_attrs(long_name='latitude')
+    if not y:
+        y = xrf['latitude'] if 'latitude' in xrf.coords else None
+    if not y:
+        raise KeyError("Could not find y-coordinate")
+
+    return x, y
+
+def _nc_get_lat_lon(ncf):
     x = ncf.get_variables_by_attributes(axis='X')
     if not x:
         x = ncf.get_variables_by_attributes(standard_name='longitude')
@@ -84,15 +126,8 @@ def netcdf_bbox(ncf: "Union[str, nc.Dataset]") -> BoundingBox:
         y = ncf['latitude'] if 'latitude' in ncf.variables else None
     if not y:
         raise KeyError("Could not find y-coordinate")
-
-    xval = x[:]
-    yval = y[:]
-
-    bbx = BoundingBox(np.min(xval), np.max(xval), np.min(yval), np.max(yval))
-
-    return bbx
-
-
+    
+    return x,y
 """
 
 from collections import namedtuple

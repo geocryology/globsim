@@ -63,9 +63,9 @@ class GenericInterpolate:
         self._array = np.array([])  # recycled numpy array
         self._plarray = np.array([])
 
-        self.__skip_sa = kwargs.get('skip_sa', False)
-        self.__skip_sf = kwargs.get('skip_sf', False)
-        self.__skip_pl = kwargs.get('skip_pl', False)
+        self._skip_sa = kwargs.get('skip_sa', False)
+        self._skip_sf = kwargs.get('skip_sf', False)
+        self._skip_pl = kwargs.get('skip_pl', False)
 
     def find_stations_csv(self, par):
         if Path(par.get('station_list')).is_file():
@@ -96,18 +96,18 @@ class GenericInterpolate:
 
     def process(self):
         self._preprocess()
-
-        if not self.__skip_sa:
+        
+        if not self._skip_sa:
             self._process_sa()
         else:
             logger.info("skipping interpolation of _sa file")
 
-        if not self.__skip_sf:
+        if not self._skip_sf:
             self._process_sf()
         else:
             logger.info("skipping interpolation of _sf file")
 
-        if not self.__skip_pl:
+        if not self._skip_pl:
             self._process_pl()
         else:
             logger.info("skipping interpolation of _pl file")
@@ -178,13 +178,13 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-        tbeg = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][0]], ncf_in['time'].units, 'standard')
-        tend = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][-1]], ncf_in['time'].units, 'standard')
+        tbeg = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][0]], ncf_in['time'].units, ncf_in['time'].calendar)
+        tend = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][-1]],  ncf_in['time'].units, ncf_in['time'].calendar)
         logger.debug(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
-        ens = 'number' in ncf_in.dimensions.keys()
+        pl = 'level' in ncf_in.dims.keys()
+        ens = 'number' in ncf_in.dims.keys()
 
         # get spatial dimensions
         if pl:  # only for pressure level files
@@ -289,9 +289,25 @@ class GenericInterpolate:
         # flist = np.sort(fnmatch_filter(listdir(self.input_dir),
         #                               path.basename(ncfile_in)))
         # ncsingle = path.join(self.input_dir, flist[0])
-        ncsingle = ncf_in._files[0]
-        sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
+        ncsingle = None
+        for v in ncf_in.variables:
+            if ncsingle is not None:
+                break
+            try:
+                ncsingle = ncf_in[v].encoding["source"]
+            except Exception: 
+                pass
+            #ncf_in._files[0]
+       # import pdb;pdb.set_trace()
+        #sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         
+        # sg = ESMF.Grid(max_index = np.array([205,45]), num_peri_dims=1, periodic_dim=0,staggerloc=ESMF.StaggerLoc.CENTER)
+        if True:  # single-level
+            template = nc.Dataset(ncsingle)
+            lat = template.variables['latitude'][:]
+            lon = template.variables['longitude'][:]
+
+        sgrid = grid_create_from_coordinates_periodic(lon, lat)
         return sgrid
 
     def create_subset_source_grid(self, sgrid: "ESMF.Grid", bbox: BoundingBox) -> "tuple[ESMF.Grid, slice, slice]":
@@ -382,19 +398,23 @@ class GenericInterpolate:
             if pl:
                 logger.debug(f"Reading {v} data from source.")  # NB: writing is almost instantaneous
                 if self._plarray.shape[0] == dtime:
-                    self._plarray[:] = var[time_slice, :, lat_slice, lon_slice]
+                    self._plarray[:] = var[time_slice, :, lat_slice, lon_slice].values
                 else:
-                    self._plarray = var[time_slice, :, lat_slice, lon_slice]
+                    self._plarray = var[time_slice, :, lat_slice, lon_slice].values
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
 
             else:
                 logger.debug(f"Reading {v} data from source")
-                if self._array.shape == (dtime, dlat, dlon):
-                    self._array[:] = var[time_slice, lat_slice, lon_slice]
-                else:
-                    self._array = var[time_slice, lat_slice, lon_slice]
+                try:
+                    if self._array.shape == (dtime, dlat, dlon):
+                        self._array[:] = var[time_slice, lat_slice, lon_slice].values
+                    else:
+                        self._array = var[time_slice, lat_slice, lon_slice].values
+                except IndexError as e:
+                    import pdb;pdb.set_trace()
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
+                
                 sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
 
         filltime = (datetime.now() - t0).total_seconds()
@@ -417,8 +437,10 @@ class GenericInterpolate:
             pass
         if pl:  # only for pressure level files
             varlist.remove('level')
-        if ens:
+        if 'number' in varlist:
             varlist.remove('number')
+        if 'expver' in varlist:
+            varlist.remove('expver')
 
     @check
     def ensure_datset_integrity(self, time: "nc.Variable", interval: float):
@@ -426,6 +448,7 @@ class GenericInterpolate:
         # Check coverage
         interpolate_start = self.date['beg']
         interpolate_end = self.date['end'] - timedelta(days=1)  # take off last day added in __init__
+
         data_start = nc.num2date(time[0], time.units, time.calendar)
         data_end = nc.num2date(time[-1], time.units, time.calendar)
 
@@ -437,6 +460,7 @@ class GenericInterpolate:
 
         # Check gaps
         critical = False
+
         for gap_i, gap_start, gap_end in zip(*check_time_integrity(time, interval)):
             message = f"Data gap found at index {gap_i}. Missing data from {gap_start} to {gap_end}."
             
@@ -496,3 +520,57 @@ def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> 
         raise Exception(msg).with_traceback(e.__traceback__)
 
     return field
+
+import esmpy
+def grid_create_from_coordinates_periodic(longitudes, latitudes, lon_corners=False, lat_corners=False, corners=False, domask=False):
+    """
+    Create a 2 dimensional periodic Grid using the 'longitudes' and 'latitudes'.
+    :param longitudes: longitude coordinate values at cell centers
+    :param latitudes: latitude coordinate values at cell centers
+    :param lon_corners: longitude coordinate values at cell corners
+    :param lat_corners: latitude coordinate values at cell corners
+    :param corners: boolean to determine whether or not to add corner coordinates to this grid
+    :param domask: boolean to determine whether to set an arbitrary mask or not
+    :return: grid
+    """
+    [lon, lat] = [0, 1]
+
+    # create a grid given the number of grid cells in each dimension the center stagger location is allocated
+    max_index = np.array([len(longitudes), len(latitudes)])
+    grid = esmpy.Grid(max_index, num_peri_dims=1, staggerloc=[esmpy.StaggerLoc.CENTER])
+
+    # set the grid coordinates using numpy arrays, parallel case is handled using grid bounds
+    gridXCenter = grid.get_coords(lon)
+    lon_par = longitudes[grid.lower_bounds[esmpy.StaggerLoc.CENTER][lon]:grid.upper_bounds[esmpy.StaggerLoc.CENTER][lon]]
+    gridXCenter[...] = lon_par.reshape((lon_par.size, 1))
+
+    gridYCenter = grid.get_coords(lat)
+    lat_par = latitudes[grid.lower_bounds[esmpy.StaggerLoc.CENTER][lat]:grid.upper_bounds[esmpy.StaggerLoc.CENTER][lat]]
+    gridYCenter[...] = lat_par.reshape((1, lat_par.size))
+
+    # create grid corners in a slightly different manner to account for the bounds format common in CF-like files
+    if corners:
+        grid.add_coords([esmpy.StaggerLoc.CORNER])
+        lbx = grid.lower_bounds[esmpy.StaggerLoc.CORNER][lon]
+        ubx = grid.upper_bounds[esmpy.StaggerLoc.CORNER][lon]
+        lby = grid.lower_bounds[esmpy.StaggerLoc.CORNER][lat]
+        uby = grid.upper_bounds[esmpy.StaggerLoc.CORNER][lat]
+
+        gridXCorner = grid.get_coords(lon, staggerloc=esmpy.StaggerLoc.CORNER)
+        for i0 in range(ubx - lbx - 1):
+            gridXCorner[i0, :] = lon_corners[i0+lbx, 0]
+        gridXCorner[i0 + 1, :] = lon_corners[i0+lbx, 1]
+
+        gridYCorner = grid.get_coords(lat, staggerloc=esmpy.StaggerLoc.CORNER)
+        for i1 in range(uby - lby - 1):
+            gridYCorner[:, i1] = lat_corners[i1+lby, 0]
+        gridYCorner[:, i1 + 1] = lat_corners[i1+lby, 1]
+
+    # add an arbitrary mask
+    if domask:
+        mask = grid.add_item(esmpy.GridItem.MASK)
+        mask[:] = 1
+        mask[np.where((1.75 <= gridXCenter.any() < 2.25) &
+                      (1.75 <= gridYCenter.any() < 2.25))] = 0
+
+    return grid

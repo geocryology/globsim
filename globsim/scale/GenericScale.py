@@ -168,7 +168,7 @@ class GenericScale:
         t1 = nc.num2date(nctime[1], units=self.t_unit, calendar=self.t_cal)
         t0 = nc.num2date(nctime[0], units=self.t_unit, calendar=self.t_cal)
         self.interval_in = (t1 - t0).seconds
-
+        
         # number of time steps
         self.nt = floor((self.max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
         logger.debug(f"Output time array has {self.nt} elements between "

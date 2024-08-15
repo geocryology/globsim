@@ -15,10 +15,10 @@ from globsim.download.ERA5download import ERA5generic
 class Era5RequestParameters(MutableMapping):
     """ Request dictionary """
     VALID_KEYS = ['product_type','format','year',
-                  'month','day','time','area','variable',
+                  'month','day','time','area','variable','data_format','download_format',
                   'pressure_level']
 
-    REQUIRED_KEYS = ['product_type','format','year',
+    REQUIRED_KEYS = ['product_type','data_format','year',
                      'month','day','time','variable']
 
     """A dictionary that applies an arbitrary key-altering
@@ -41,7 +41,7 @@ class Era5RequestParameters(MutableMapping):
         if key in self.VALID_KEYS:
             self.store[key] = value
         else:
-            raise KeyError(f"{value} is not a valid ERA5 request parameter")
+            raise KeyError(f"{key}:{value} is not a valid ERA5 request parameter")
 
     def __delitem__(self, key):
         del self.store[key]

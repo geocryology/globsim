@@ -1,4 +1,5 @@
 import netCDF4 as nc
+import xarray as xr
 import numpy as np
 import urllib3
 import logging
@@ -38,21 +39,21 @@ class ERA5interpolate(GenericInterpolate):
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
-        self.mf_to = nc.MFDataset(self.getInFile('to'), 'r', aggdim='time')
+        self.mf_to = xr.open_mfdataset(self.getInFile('to'), decode_times=False)
         
         # Check dataset integrity
         if not self.skip_checks:
-            with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
+            with xr.open_mfdataset(self.getInFile('sa'), decode_times=False) as sa:
                 logger.info("Check data integrity (sa)")
-                self.ensure_datset_integrity(sa['time'], 1)
+                self.ensure_datset_integrity(sa['time'], 3600)
             
-            with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
+            with xr.open_mfdataset(self.getInFile('sf'), decode_times=False) as sf:
                 logger.info("Check data integrity (sf)")
-                self.ensure_datset_integrity(sf['time'], 1)
+                self.ensure_datset_integrity(sf['time'], 3600)
 
-            with nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time') as pl:
+            with xr.open_mfdataset(self.getInFile('pl'), decode_times=False) as pl:
                 logger.info("Check data integrity (pl)")
-                self.ensure_datset_integrity(pl['time'], 1)
+                self.ensure_datset_integrity(pl['time'], 3600)
 
             logger.info("Data integrity ok")
 
@@ -114,8 +115,8 @@ class ERA5interpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
-        ens = 'number' in ncf_in.dimensions.keys()
+        pl = 'level' in ncf_in.dims.keys()
+        ens = 'number' in ncf_in.dims.keys()
 
         # reduce chunk size for pressure-level interpolation
         cs = self.cs
@@ -124,7 +125,8 @@ class ERA5interpolate(GenericInterpolate):
 
         # build the output of empty netCDF file
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                          time_units='hours since 1900-01-01 00:00:0.0')
+                                          time_units=ncf_in['time'].units,  # 'hours since 1900-01-01 00:00:0.0'
+                                          calendar=ncf_in['time'].calendar)
         if self.ens:
             rootgrp.source = 'ERA5 10-member ensemble, interpolated bilinearly to stations'
         else:
@@ -137,10 +139,10 @@ class ERA5interpolate(GenericInterpolate):
 
         # get time and convert to datetime object
         nctime = ncf_in.variables['time'][:]
-        # "hours since 1900-01-01 00:00:0.0"
-        t_unit = ncf_in.variables['time'].units
+        
+        t_unit = ncf_in.variables['time'].attrs['units']
         try:
-            t_cal = ncf_in.variables['time'].calendar
+            t_cal = ncf_in.variables['time'].attrs['calendar']
         except AttributeError:  # attribute doesn't exist
             t_cal = u"gregorian"  # standard
         time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
@@ -238,7 +240,7 @@ class ERA5interpolate(GenericInterpolate):
         """
         # open file
         # TODO: check the aggdim does not work
-        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
+        ncf = xr.open_mfdataset(ncfile_in, decode_times=False)
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
@@ -246,7 +248,7 @@ class ERA5interpolate(GenericInterpolate):
         # list variables
         varlist = [str_encode(x) for x in ncf.variables.keys()]
         for V in ['time', 'station', 'latitude', 'longitude',
-                  'level','height','z']:
+                  'level','height','z','expver']:
             varlist.remove(V)
         if self.ens:
             varlist.remove('number')
@@ -258,7 +260,9 @@ class ERA5interpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                              'hours since 1900-01-01 00:00:0.0', ncf)
+                              time_units=ncf['time'].units,
+                              nc_in=ncf,
+                              calendar=ncf['time'].calendar)
         if self.ens:
             rootgrp.source = 'ERA5 10-member ensemble, interpolated (bi)linearly to stations'
         else:
@@ -284,8 +288,11 @@ class ERA5interpolate(GenericInterpolate):
                                              'f4',('time','number','station'))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time', 'station'))
-            tmp.long_name = str_encode(ncf.variables[var].long_name)
-            tmp.units     = str_encode(ncf.variables[var].units)
+            try:
+                tmp.long_name = ncf[var].long_name
+                tmp.units     = ncf[var].units
+            except AttributeError:
+                import pdb;pdb.set_trace()
 
         # add air pressure as new variable
         var = 'air_pressure'
@@ -303,23 +310,23 @@ class ERA5interpolate(GenericInterpolate):
             if self.ens:
                 num = ncf.variables['number'][:]
                 for ni in num:
-                    elevation = ncf.variables['z'][:,ni,:,n] / const.G
+                    elevation = ncf.variables['z'][:,ni,:,n].values / const.G
                     elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                     wa, wb = calculate_weights(elev_diff, va, vb)
                     for v, var in enumerate(varlist):
                         if var == 'air_pressure':
                             # pressure [Pa] variable from levels, shape: (time, level)
-                            data = np.repeat([ncf.variables['level'][:]],
+                            data = np.repeat([ncf.variables['level'][:].values],
                                              len(time),axis=0).ravel()
                         else:
                             # read data from netCDF
-                            data = ncf.variables[var][:,ni,:,n].ravel()
+                            data = ncf.variables[var][:,ni,:,n].values.ravel()
 
                         ipol = data[va] * wa + data[vb] * wb   # interpolated value
                         rootgrp.variables[var][:,ni,n] = ipol  # assign to file
             else:
                 # convert geopotential [mbar] to height [m], shape: (time, level)
-                elevation = ncf.variables['z'][:,:,n] / const.G
+                elevation = ncf.variables['z'][:,:,n].values / const.G
                 elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                 wa, wb = calculate_weights(elev_diff, va, vb)
 
@@ -327,11 +334,11 @@ class ERA5interpolate(GenericInterpolate):
                 for v, var in enumerate(varlist):
                     if var == 'air_pressure':
                         # pressure [Pa] variable from levels, shape: (time, level)
-                        data = np.repeat([ncf.variables['level'][:]],
+                        data = np.repeat([ncf.variables['level'][:].values],
                                          len(time),axis=0).ravel()
                     else:
                         # read data from netCDF
-                        data = ncf.variables[var][:,:,n].ravel()
+                        data = ncf.variables[var][:,:,n].values.ravel()
 
                     ipol = data[va] * wa + data[vb] * wb   # interpolated value
                     rootgrp.variables[var][:,n] = ipol  # assign to file
@@ -359,7 +366,7 @@ class ERA5interpolate(GenericInterpolate):
                 'wind_speed': ['u10', 'v10']}   # [m s-1] 10m values
         varlist = self.TranslateCF2short(dpar)
 
-        with nc.MFDataset(self.getInFile('sa'), 'r', aggdim='time') as sa:
+        with xr.open_mfdataset(self.getInFile('sa'), decode_times=False) as sa:
             self.ERA2station(sa, self.getOutFile('sa'),
                              self.stations, varlist, date=self.date)
     
@@ -371,7 +378,7 @@ class ERA5interpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        with nc.MFDataset(self.getInFile('pl'), 'r', aggdim='time') as pl:
+        with xr.open_mfdataset(self.getInFile('pl'), decode_times=False) as pl:
             self.ERA2station(pl, self.getOutFile('pl'),
                              self.stations, varlist, date=self.date)
 
@@ -394,6 +401,6 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        with nc.MFDataset(self.getInFile('sf'), 'r', aggdim='time') as sf:
+        with xr.open_mfdataset(self.getInFile('sf'), decode_times=False) as sf:
             self.ERA2station(sf, self.getOutFile('sf'),
                             self.stations, varlist, date=self.date)
