@@ -38,11 +38,12 @@ setuptools.setup(
         ]},
 
     install_requires=['lxml',
-                      'numpy',
+                      'numpy==1.26.4',
                       'pandas',
                       'netCDF4',
                       'scipy',
-                      'pydap==3.2.2',  # TODO: resolve the change to open_dods_url and make sure it works
+                      'xarray',
+                      'pydap>=3.2.2',  # TODO: resolve the change to open_dods_url and make sure it works
                       'tomlkit',
                       'ecmwf-api-client',
                       'cdsapi',
