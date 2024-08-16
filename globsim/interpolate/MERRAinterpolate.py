@@ -1,5 +1,6 @@
 import netCDF4 as nc
 import numpy as np
+import xarray as xr
 import sys
 import logging
 
@@ -32,10 +33,10 @@ class MERRAinterpolate(GenericInterpolate):
         self.input_dir = path.join(par['project_directory'],'merra2')
 
         # Load MF Datasets
-        self.mf_sc = nc.MFDataset(path.join(self.input_dir,'merra_sc.nc'), 'r', aggdim="time")
-        self.mf_sa = nc.MFDataset(path.join(self.input_dir,'merra_sa_*.nc'), 'r', aggdim="time")
-        self.mf_sf = nc.MFDataset(path.join(self.input_dir,'merra_sf_*.nc'), 'r', aggdim="time")
-        self.mf_pl = nc.MFDataset(path.join(self.input_dir,'merra_pl_*.nc'), 'r', aggdim="time")
+        self.mf_sc = xr.open_mfdataset(path.join(self.input_dir,'merra_sc.nc'), decode_times=False)
+        self.mf_sa = xr.open_mfdataset(self.prefilter_mf_paths(path.join(self.input_dir,'merra_sa_*.nc')), decode_times=False)
+        self.mf_sf = xr.open_mfdataset(self.prefilter_mf_paths(path.join(self.input_dir,'merra_sf_*.nc')), decode_times=False)
+        self.mf_pl = xr.open_mfdataset(self.prefilter_mf_paths(path.join(self.input_dir,'merra_pl_*.nc')), decode_times=False)
 
         # Check dataset integrity
         logger.info("Check data integrity (sa)")
@@ -86,7 +87,7 @@ class MERRAinterpolate(GenericInterpolate):
             lev = []
 
         # remove extra variables
-        varlist_merra = [str_encode(x) for x in nc_in.variables.keys()]
+        varlist_merra = [x for x in nc_in.variables.keys()]
 
         # create and assign variables based on input file
         for n, var in enumerate(varlist_merra):
@@ -98,8 +99,9 @@ class MERRAinterpolate(GenericInterpolate):
                 tmp = rootgrp.createVariable(var,'f4', ('time', 'level', 'station'))
             else:
                 tmp = rootgrp.createVariable(var,'f4', ('time', 'station'))
-            tmp.long_name = str_encode(nc_in.variables[var].long_name)  # for merra2
-            tmp.units     = str_encode(nc_in.variables[var].units)
+            
+            tmp.long_name = nc_in[var].long_name  # for merra2
+            tmp.units     = nc_in[var].units
 
         # close the file
         rootgrp.close()
@@ -136,7 +138,7 @@ class MERRAinterpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
+        pl = 'level' in ncf_in.dims.keys()
 
         # build the output of empty netCDF file
         self.netCDF_empty(ncfile_out, self.stations, ncf_in)
@@ -243,7 +245,7 @@ class MERRAinterpolate(GenericInterpolate):
         """
         # open file
 
-        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
+        ncf = nc.Dataset(ncfile_in, 'r', aggdim='time')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
