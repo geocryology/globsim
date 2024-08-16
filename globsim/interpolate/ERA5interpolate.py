@@ -1,8 +1,9 @@
 import netCDF4 as nc
 import xarray as xr
-import numpy as np
-import urllib3
 import logging
+import numpy as np
+import re
+import urllib3
 
 from datetime import datetime
 from os import path
@@ -39,21 +40,21 @@ class ERA5interpolate(GenericInterpolate):
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
-        self.mf_to = xr.open_mfdataset(self.getInFile('to'), decode_times=False)
+        self.mf_to = xr.open_mfdataset(self.get_input_file_glob('to'), decode_times=False)
         
         # Check dataset integrity
         if not self.skip_checks:
-            with xr.open_mfdataset(self.getInFile('sa'), decode_times=False) as sa:
+            with xr.open_mfdataset(self.get_input_file_paths('sa'), decode_times=False) as sa:
                 logger.info("Check data integrity (sa)")
-                self.ensure_datset_integrity(sa['time'], 3600)
+                self.ensure_datset_integrity(sa[self.vn_time], 3600)
             
-            with xr.open_mfdataset(self.getInFile('sf'), decode_times=False) as sf:
+            with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
                 logger.info("Check data integrity (sf)")
-                self.ensure_datset_integrity(sf['time'], 3600)
+                self.ensure_datset_integrity(sf[self.vn_time], 3600)
 
-            with xr.open_mfdataset(self.getInFile('pl'), decode_times=False) as pl:
+            with xr.open_mfdataset(self.get_input_file_paths('pl'), decode_times=False) as pl:
                 logger.info("Check data integrity (pl)")
-                self.ensure_datset_integrity(pl['time'], 3600)
+                self.ensure_datset_integrity(pl[self.vn_time], 3600)
 
             logger.info("Data integrity ok")
 
@@ -65,22 +66,28 @@ class ERA5interpolate(GenericInterpolate):
     def vn_level(self):
         return 'pressure_level'
     
-    def getInFile(self, levStr):
+    def get_input_file_glob(self, levStr):
+        """ Return the input file(s) for the interpolation. """
         # edited naming conventions for simplicity and to avoid errors
         if self.ens:
             typeStr = '_ens'
         else:
             typeStr = ''
 
-        nome = 'era5{}_{}_*.nc'
+        f_glob = 'era5{}_{}_*.nc'
 
         if levStr == 'to':
             infile = path.join(self.input_dir, 'era5{}_to.nc'.format(typeStr))
         else:
-            infile = path.join(self.input_dir, nome.format(typeStr, levStr))
+            infile = path.join(self.input_dir, f_glob.format(typeStr, levStr))
 
         return infile
 
+    def get_input_file_paths(self, levStr):
+        glob = self.get_input_file_glob(levStr)
+        infiles = self.prefilter_mf_paths(glob)
+        return infiles
+    
     def getOutFile(self, levStr):
         if self.ens:
             nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
@@ -123,18 +130,20 @@ class ERA5interpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dims.keys()
+        pl = self.vn_level in ncf_in.dims.keys()
         ens = 'number' in ncf_in.dims.keys()
 
         # reduce chunk size for pressure-level interpolation
         cs = self.cs
         if pl:
-            cs = cs // len(ncf_in.variables['level'][:])  # get actual number of levels
+            cs = cs // len(ncf_in.variables[self.vn_level][:])  # get actual number of levels
 
         # build the output of empty netCDF file
+        level_var = self.vn_level if pl else None
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                          time_units=ncf_in['time'].units,  # 'hours since 1900-01-01 00:00:0.0'
-                                          calendar=ncf_in['time'].calendar)
+                                          time_units=ncf_in[self.vn_time].units,  # 'hours since 1900-01-01 00:00:0.0'
+                                          calendar=ncf_in[self.vn_time].calendar,
+                                          level_var=level_var)
         if self.ens:
             rootgrp.source = 'ERA5 10-member ensemble, interpolated bilinearly to stations'
         else:
@@ -146,11 +155,11 @@ class ERA5interpolate(GenericInterpolate):
         ncf_out = nc.Dataset(ncfile_out, 'a')
 
         # get time and convert to datetime object
-        nctime = ncf_in.variables['time'][:]
+        nctime = ncf_in.variables[self.vn_time][:]
         
-        t_unit = ncf_in.variables['time'].attrs['units']
+        t_unit = ncf_in.variables[self.vn_time].attrs['units']
         try:
-            t_cal = ncf_in.variables['time'].attrs['calendar']
+            t_cal = ncf_in.variables[self.vn_time].attrs['calendar']
         except AttributeError:  # attribute doesn't exist
             t_cal = u"gregorian"  # standard
         time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
@@ -209,7 +218,7 @@ class ERA5interpolate(GenericInterpolate):
             # append time
             # ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
                                                      # time_in[beg:end+1])
-
+            
             # append variables
             for i, var in enumerate(variables):
                 if variables_skip(var):
@@ -238,8 +247,10 @@ class ERA5interpolate(GenericInterpolate):
 
     def levels2elevation(self, ncfile_in, ncfile_out):
         """
-        ncf : nc.Dataset
-            netcdf Dataset or MFDataset
+        ncfile_in : nc.Dataset
+            2-d Interpolated ERA5 file on pressure-levels
+        ncfile_out : str
+            output file name
         Linear 1D interpolation of pressure level data available for individual
         stations to station elevation. Where and when stations are below the
         lowest pressure level, they are assigned the value of the lowest
@@ -247,17 +258,18 @@ class ERA5interpolate(GenericInterpolate):
 
         """
         # open file
-        # TODO: check the aggdim does not work
         ncf = xr.open_mfdataset(ncfile_in, decode_times=False)
         height = ncf.variables['height'][:]
-        nt = len(ncf.variables['time'][:])
+
+        nt = len(ncf.variables['time'][:])  # these are reading from a globsim file, not an ERA5 file
         nl = len(ncf.variables['level'][:])
 
         # list variables
-        varlist = [str_encode(x) for x in ncf.variables.keys()]
+        varlist = [key for key in ncf.variables.keys()]
         for V in ['time', 'station', 'latitude', 'longitude',
                   'level','height','z','expver']:
-            varlist.remove(V)
+            if V in varlist:
+                varlist.remove(V)
         if self.ens:
             varlist.remove('number')
 
@@ -374,7 +386,7 @@ class ERA5interpolate(GenericInterpolate):
                 'wind_speed': ['u10', 'v10']}   # [m s-1] 10m values
         varlist = self.TranslateCF2short(dpar)
 
-        with xr.open_mfdataset(self.getInFile('sa'), decode_times=False) as sa:
+        with xr.open_mfdataset(self.get_input_file_paths('sa'), decode_times=False) as sa:
             self.ERA2station(sa, self.getOutFile('sa'),
                              self.stations, varlist, date=self.date)
     
@@ -386,7 +398,8 @@ class ERA5interpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        with xr.open_mfdataset(self.getInFile('pl'), decode_times=False) as pl:
+
+        with xr.open_mfdataset(self.get_input_file_paths('pl'), decode_times=False) as pl:
             self.ERA2station(pl, self.getOutFile('pl'),
                              self.stations, varlist, date=self.date)
 
@@ -409,6 +422,8 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        with xr.open_mfdataset(self.getInFile('sf'), decode_times=False) as sf:
+        with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
             self.ERA2station(sf, self.getOutFile('sf'),
                             self.stations, varlist, date=self.date)
+
+

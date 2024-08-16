@@ -1,3 +1,4 @@
+import esmpy
 import numpy as np
 import netCDF4 as nc
 import re
@@ -186,17 +187,17 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-        tbeg = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][0]], ncf_in['time'].units, ncf_in['time'].calendar)
-        tend = nc.num2date(ncf_in['time'][np.where(tmask_chunk)[0][-1]],  ncf_in['time'].units, ncf_in['time'].calendar)
+        tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+        tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
         logger.debug(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dims.keys()
+        pl = self.vn_level in ncf_in.dims.keys()
         ens = 'number' in ncf_in.dims.keys()
 
         # get spatial dimensions
         if pl:  # only for pressure level files
-            nlev = len(ncf_in.variables['level'][:])
+            nlev = len(ncf_in.variables[self.vn_level][:])
         else:
             nlev = 1
         
@@ -306,7 +307,7 @@ class GenericInterpolate:
             except Exception: 
                 pass
             #ncf_in._files[0]
-       # import pdb;pdb.set_trace()
+
         #sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         
         # sg = ESMF.Grid(max_index = np.array([205,45]), num_peri_dims=1, periodic_dim=0,staggerloc=ESMF.StaggerLoc.CENTER)
@@ -414,13 +415,11 @@ class GenericInterpolate:
 
             else:
                 logger.debug(f"Reading {v} data from source")
-                try:
-                    if self._array.shape == (dtime, dlat, dlon):
-                        self._array[:] = var[time_slice, lat_slice, lon_slice].values
-                    else:
-                        self._array = var[time_slice, lat_slice, lon_slice].values
-                except IndexError as e:
-                    import pdb;pdb.set_trace()
+                if self._array.shape == (dtime, dlat, dlon):
+                    self._array[:] = var[time_slice, lat_slice, lon_slice].values
+                else:
+                    self._array = var[time_slice, lat_slice, lon_slice].values
+                
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 
                 sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
@@ -428,9 +427,8 @@ class GenericInterpolate:
         filltime = (datetime.now() - t0).total_seconds()
         logger.info(f"Finished reading source data for chunk ({filltime} seconds)")
 
-    @staticmethod
-    def remove_select_variables(varlist: list, pl: bool, ens: bool = False):
-        varlist.remove('time')
+    def remove_select_variables(self, varlist: list, pl: bool, ens: bool = False):
+        varlist.remove(self.vn_time)
         try:
             varlist.remove('latitude')
         except ValueError as e:
@@ -444,7 +442,7 @@ class GenericInterpolate:
             print('continue')
             pass
         if pl:  # only for pressure level files
-            varlist.remove('level')
+            varlist.remove(self.vn_level)
         if 'number' in varlist:
             varlist.remove('number')
         if 'expver' in varlist:
@@ -481,6 +479,37 @@ class GenericInterpolate:
         if critical:
             raise ValueError("Data gaps found within interpolation bounds.")
 
+    def prefilter_mf_paths(self, pattern):
+        return prefilter_mf_paths(pattern, self.date['beg'], self.date['end'])
+
+
+def prefilter_mf_paths(pattern:str, beg: "datetime", end: "datetime") -> list:
+    """ Filter out files that do not fall within date range """ 
+    pattern = Path(pattern)
+    files = list(Path(pattern.parent).glob(pattern.name))
+    dates = [re.search(r'(\d{8})_to_(\d{8})', str(f)).groups() for f in files]
+    filtered_files = []
+    for file, (b, e) in zip(files, dates):
+        filebeg = datetime.strptime(b, '%Y%m%d')
+
+        try:
+            fileend = datetime.strptime(e, '%Y%m%d')
+        except ValueError:  # end on 31st
+            try: 
+                fileend = datetime.strptime(e[:-2] + "30", '%Y%m%d')
+            except ValueError:
+                try:
+                    fileend = datetime.strptime(e[:-2] + "29", '%Y%m%d')
+                except ValueError:
+                    fileend = datetime.strptime(e[:-2] + "28", '%Y%m%d')
+
+
+        if fileend < beg or filebeg > end:
+            pass
+        else:
+            filtered_files.append(file)
+
+    return sorted(filtered_files)
 
 def create_stations_bbox(stations) -> BoundingBox:
     # get max/min of points lat/lon from self.stations
@@ -529,7 +558,7 @@ def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> 
 
     return field
 
-import esmpy
+
 def grid_create_from_coordinates_periodic(longitudes, latitudes, lon_corners=False, lat_corners=False, corners=False, domask=False):
     """
     Create a 2 dimensional periodic Grid using the 'longitudes' and 'latitudes'.
@@ -582,3 +611,7 @@ def grid_create_from_coordinates_periodic(longitudes, latitudes, lon_corners=Fal
                       (1.75 <= gridYCenter.any() < 2.25))] = 0
 
     return grid
+
+
+
+

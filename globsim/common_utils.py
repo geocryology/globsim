@@ -36,7 +36,7 @@ def variables_skip(variable_name):
     Which variable names to use? Drop the ones that are dimensions.
     """
     skip = 0
-    dims = ('time', 'number', 'level',
+    dims = ('time', 'number', 'level','valid_time', 'pressure_level','expver',
             'latitude', 'longitude', 'station', 'height')
     if variable_name in dims:
         skip = 1
@@ -204,3 +204,4 @@ def get_begin_date(par, data_folder, match_strings):
 
     print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d")))
     return(begin_date)
+

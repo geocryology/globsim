@@ -143,7 +143,7 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     return rootgrp
 
 
-def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units, calendar=None):
+def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units, calendar=None, level_var=None):
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
@@ -151,6 +151,7 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units, calendar=No
 
     ncfile_out: full name of the file to be created
     stations:   station list read with common_utils.StationListRead()
+    nc_in: 
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
@@ -170,15 +171,15 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units, calendar=No
     height[:]    = list(stations['elevation_m'])
 
     # extra treatment for pressure level files
-    try:
-        lev = nc_in.variables['level'][:]
+    if level_var is not None:
+        lev = nc_in.variables[level_var][:]
         logger.info(f"Source dataset is 3D (has pressure levels)")
         level           = rootgrp.createDimension('level', len(lev))
         level           = rootgrp.createVariable('level', 'i4', ('level'))
         level.long_name = 'pressure_level'
         level.units     = 'hPa'
         level[:] = lev
-    except Exception:
+    else:
         logger.info(f"Source dataset is 2D (without pressure levels)")
         lev = []
 

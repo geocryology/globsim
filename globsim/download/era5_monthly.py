@@ -156,9 +156,6 @@ def rename_pl_file(f, overwrite=True):
         print(f"Skipping {new_file}")
         return
     print(new_file)
-    cmd0 = f"ncrename -v valid_time,time -d .valid_time,time {f}"
-    p0 = subprocess.Popen(cmd0.split(" "))
-    p0.wait()
     rename(f, new_file)
 
 
@@ -180,13 +177,8 @@ def split_sl(f, overwrite=False):
     if not overwrite and Path(sa).exists():
         print(f"Skipping {sa}")
         return
-    #import pdb;pdb.set_trace()
-    cmd0 = f"ncrename -v .valid_time,time -d .valid_time,time {f}"
     cmd1 = f"nccopy -V time,latitude,longitude,ssrd,strd,tp {f} {sf}"
     cmd2 = f"nccopy -V time,latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
-    logger.debug(cmd0)
-    p0 = subprocess.Popen(cmd0.split(" "))
-    p0.wait()
     logger.debug(cmd1)
     p1 = subprocess.Popen(cmd1.split(" "))
     p1.wait()
