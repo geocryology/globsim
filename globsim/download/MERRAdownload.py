@@ -13,7 +13,7 @@ from datetime          import datetime, timedelta
 from netCDF4           import Dataset
 from os                import path
 from pathlib           import Path
-from pydap.client      import open_url, open_dods
+from pydap.client      import open_url, open_dods_url
 from pydap.cas.urs     import setup_session
 from scipy.interpolate import interp1d
 from typing            import Optional
@@ -688,6 +688,9 @@ class MERRAdownload(GenericDownload):
 
         # build chunks
         all_dates = pd.date_range(self.date['beg'], self.date['end'])
+        if len(all_dates) < chunk_size:
+            raise ValueError("The date range is too small for the chunk size. Please increase the date range or decrease the chunk size.")
+        
         chunks = [{'beg': x, 'end': y} for (x,y) in zip(all_dates[0::chunk_size], all_dates[chunk_size - 1::chunk_size])]
 
         if not chunks[-1]['end'] == self.date['end']:  # if chunks not an even multiple
@@ -941,7 +944,7 @@ class MERRASubsetter:
         dods_url = self.create_dods_url(url)
 
         logger.debug(f"Downloading subset from {dods_url}")
-        ds = open_dods(dods_url, session=self.session, metadata=metadata)
+        ds = open_dods_url(dods_url, session=self.session, metadata=metadata)
 
         return ds
 
