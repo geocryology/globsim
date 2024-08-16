@@ -3,6 +3,7 @@
 import netCDF4 as nc
 import numpy as np
 import logging
+import xarray as xr
 from datetime import datetime
 from os import path
 
@@ -63,10 +64,12 @@ class JRAinterpolate(GenericInterpolate):
         self.cs *= 200
 
         # Load MF Datasets
-        self.mf_to = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_to_*.nc'), 'r', aggdim="time")
-        self.mf_sa = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_sa_*.nc'), 'r', aggdim="time")
-        self.mf_sf = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_sf_*.nc'), 'r', aggdim="time")
-        self.mf_pl = nc.MFDataset(path.join(self.input_dir, f'{self.REANALYSIS}_pl_*.nc'), 'r', aggdim="time")
+        p = path.join(self.input_dir, f'{self.REANALYSIS}' + '{}')
+
+        self.mf_to = xr.open_mfdataset(p.format('_to_*.nc'), decode_times=False)
+        self.mf_sa = xr.open_mfdataset(self.prefilter_mf_paths(p.format('_sa_*.nc')), decode_times=False)
+        self.mf_sf = xr.open_mfdataset(self.prefilter_mf_paths(p.format('_sf_*.nc')), decode_times=False)
+        self.mf_pl = xr.open_mfdataset(self.prefilter_mf_paths(p.format('_pl_*.nc')), decode_times=False)
         
         # Check dataset integrity
         logger.info("Check data integrity (sa)")
@@ -119,11 +122,13 @@ class JRAinterpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dimensions.keys()
+        pl = 'level' in ncf_in.dims.keys()
 
         # build the output of empty netCDF file
+        level_var = 'level' if pl else None
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                          time_units=self.T_UNITS)
+                                          time_units=self.T_UNITS,
+                                          level_var=level_var)
         rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
         rootgrp.close()
 
@@ -131,11 +136,11 @@ class JRAinterpolate(GenericInterpolate):
         ncf_out = nc.Dataset(ncfile_out, 'a')
 
         # get time and convert to datetime object
-        nctime = ncf_in.variables['time'][:]
+        nctime = ncf_in['time'][:]
         # "hours since 1900-01-01 00:00:0.0"
-        t_unit = ncf_in.variables['time'].units
+        t_unit = ncf_in['time'].units
         try:
-            t_cal = ncf_in.variables['time'].calendar
+            t_cal = ncf_in['time'].calendar
         except AttributeError:  # attribute doesn't exist
             t_cal = u"gregorian"  # standard
         time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
