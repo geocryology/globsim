@@ -47,7 +47,7 @@ scale = LazyLoader('globsim.scale')
 
 
 def GlobsimDownload(pfile, multithread=True, 
-                    ERAI=True, ERA5=True, 
+                    ERA5=True, 
                     ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
     """
     Download data from multiple reanalyses. Each reanalysis is run as one 
@@ -55,12 +55,7 @@ def GlobsimDownload(pfile, multithread=True,
     download is run sequentially. This is easier for interpreting the output.
     """
     # make list of objects to execute
-    objects = [] 
-    
-    # === ERA-Interim ===
-    if ERAI:
-        ERAIdownl = download.ERAIdownload(pfile)
-        objects.append(ERAIdownl)
+    objects = []
     
     # === ERA5 ===
     if ERA5:
@@ -102,7 +97,7 @@ def GlobsimDownload(pfile, multithread=True,
         print('Serial download finished')
     
 
-def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
+def GlobsimInterpolateStation(ifile, ERA5=True, ERA5ENS=True,
                               MERRA=True, JRA=True, JRA3Q=True, **kwargs):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
@@ -110,11 +105,6 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
     The resulting data is saved in netCDF format. THis is not parallelised to
     differing processors as memory may be a limiting factor.
     """
-    
-    # === ERA-Interim ===
-    if ERAI:
-        ERAIinterp = interpolate.ERAIinterpolate(ifile, **kwargs)
-        ERAIinterp.process()
     
     # === ERA5 ===
     if ERA5:
@@ -140,17 +130,13 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
         JRA3Qinterp = interpolate.J3QI(ifile)
         JRA3Qinterp.process()
             
-def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
+def GlobsimScale(sfile, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
     """
     Use re-analysis data that has been interpolated to station locations to 
     derive fluxes scaled / converted / adjusted to drive point-scale 
     near-surface models. The resulting data has coherent variables for all 
     reanalyses, optionally coherent temporal granularity, and is saved as netCDF.
     """
-    # === ERA-Interim ===
-    if ERAI:
-        ERAIsc = scale.ERAIscale(sfile)
-        ERAIsc.process()
     
     # === ERA5 ===
     if ERA5:

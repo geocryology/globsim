@@ -153,7 +153,6 @@ def create_globsim_directory(target_dir, name):
     mkdir(TL)
 
     # create subdirectories
-    mkdir(path.join(TL, "eraint"))
     mkdir(path.join(TL, "Grib"))
     mkdir(path.join(TL, "jra55"))
     mkdir(path.join(TL, "merra2"))

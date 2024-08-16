@@ -28,17 +28,15 @@ from globsim.globsim_main import GlobsimInterpolateStation
 def main(args):
     pfile = args.f
 
-    ERAI     = bool(args.d is None or "ERAI"  in args.d)
     ERA5     =  bool(args.d is None or "ERA5"  in args.d)
     ERA5ENS =  bool(args.d is None or "ERA5ENS"  in args.d)
     JRA     =  bool(args.d is None or "JRA"   in args.d)
     JRA3Q   = bool(args.d is None or "JRA3Q"   in args.d)
     MERRA     = bool(args.d is None or "MERRA" in args.d)
 
-    if sum([ERAI, ERA5, ERA5ENS, JRA, MERRA, JRA3Q]) > 0:
+    if sum([ERA5, ERA5ENS, JRA, MERRA, JRA3Q]) > 0:
 
         GlobsimInterpolateStation(pfile,
-                                  ERAI=ERAI,
                                   ERA5=ERA5,
                                   ERA5ENS=ERA5ENS,
                                   JRA=JRA,
@@ -46,7 +44,7 @@ def main(args):
                                   JRA3Q=JRA3Q,
                                   **vars(args))
 
-    else: print("Failed! Reanalysis source should be ERAI, ERA5, MERRA, JRA, JRA3Q, please check")
+    else: print("Failed! Reanalysis source should be  ERA5, MERRA, JRA, JRA3Q, please check")
 
 
 # ===interpolate the variables from multiple re-analysis data to individual stations===
@@ -56,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('-f',    default=None, type=str, 
                         help="file path to download parameter file")
     parser.add_argument('-d',    default=None, nargs="*", type=str, 
-                        help="What data sources should run? ERAI, ERA5, MERRA, JRA, JRA3Q")
+                        help="What data sources should run?  ERA5, MERRA, JRA, JRA3Q")
 
     args = parser.parse_args()
 
