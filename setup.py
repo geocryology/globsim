@@ -43,7 +43,7 @@ setuptools.setup(
                       'netCDF4',
                       'scipy',
                       'xarray',
-                      'pydap>=3.2.2',  # TODO: resolve the change to open_dods_url and make sure it works
+                      'pydap>=3.4.1',  # TODO: resolve the change to open_dods_url and make sure it works
                       'tomlkit',
                       'ecmwf-api-client',
                       'cdsapi',
