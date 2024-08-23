@@ -167,7 +167,7 @@ def rename_sl_dir(dir):
         split_sl(f)
 
 
-def split_sl(f, overwrite=False):
+def split_sl(f, overwrite=False, time_var='valid_time'):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
     sf = orig.sub(r'era5_sf_\1.nc', f)
     sa = orig.sub(r'era5_sa_\1.nc', f)
@@ -177,8 +177,8 @@ def split_sl(f, overwrite=False):
     if not overwrite and Path(sa).exists():
         print(f"Skipping {sa}")
         return
-    cmd1 = f"nccopy -V time,latitude,longitude,ssrd,strd,tp {f} {sf}"
-    cmd2 = f"nccopy -V time,latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
+    cmd1 = f"nccopy -V {time_var},latitude,longitude,ssrd,strd,tp {f} {sf}"
+    cmd2 = f"nccopy -V {time_var},latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
     logger.debug(cmd1)
     p1 = subprocess.Popen(cmd1.split(" "))
     p1.wait()
@@ -196,8 +196,9 @@ if __name__ == "__main__":
 
     # add parser for download
     split = subparsers.add_parser('split', help="Download ERA5 data")
-    split.add_argument('-S', '--sl', type=str, default=None, help="Single-level file")
-    split.add_argument('-P', '--pl', type=str, default=None, help="Pressure-level file")
+    split.add_argument('-s', '--sl', type=str, default=None, help="Single-level file")
+    split.add_argument('-S', '--sl-dir', type=str, dest="sldir", default=None, help="Single-level file")
+    split.add_argument('-p', '--pl', type=str, default=None, help="Pressure-level file")
     split.add_argument('-o', '--overwrite', action='store_true', help="Overwrite existing files")
 
     args = parser.parse_args()
@@ -207,3 +208,5 @@ if __name__ == "__main__":
             split_sl(args.sl, overwrite=args.overwrite)
         if args.pl:
             rename_pl_file(args.pl, overwrite=args.overwrite)
+        if args.sldir:
+            rename_sl_dir(args.sldir)

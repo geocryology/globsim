@@ -37,7 +37,7 @@ def variables_skip(variable_name):
     """
     skip = 0
     dims = ('time', 'number', 'level','valid_time', 'pressure_level','expver',
-            'latitude', 'longitude', 'station', 'height')
+            'latitude', 'longitude', 'station', 'height', 'skip')
     if variable_name in dims:
         skip = 1
     return skip
