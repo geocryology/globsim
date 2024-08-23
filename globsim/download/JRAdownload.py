@@ -1,25 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import glob
-import http.cookiejar
-import json
+
 import netCDF4 as nc
 import numpy as np
 import re
-import sys
 import tarfile
 import time
-import urllib.error
-import urllib.request
 import logging
+
+
 
 from datetime import datetime, timedelta
 from math import floor
-from os import path, remove, makedirs
+from os import path, remove
+from pathlib import Path
+from . import rdams_client as rc
 
 from globsim.common_utils import variables_skip
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
+from globsim.download.RDA import Rdams 
+from globsim.download.jra_dict_formatters import J55DictFormatter
 
 logger = logging.getLogger('globsim.download')
 
@@ -27,517 +29,24 @@ def get_userinfo():
     return None, None
 
 
-class RDA(object):
-
-    def __init__(self, username, password):
-        '''Return an object for RDA data sets, to submit subset requests
-        on select gridded data sets, and to check on the processing status of
-        any subset requests. Details could be found:
-            https://www2.cisl.ucar.edu/data-portals/research-data-archive/command-line-subset-requests-%E2%80%93-rdams'''
-
-        self.base = 'https://rda.ucar.edu/apps/'
-        self.loginurl = 'https://rda.ucar.edu/cgi-bin/login'
-        self.cookie_file = 'auth.rda_ucar_edu'
-        self.username = username
-        self.password = password
-
-    def makeOpener(self, theurl):
-        '''make the opener based on username and password'''
-
-        passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-        passman.add_password(None, theurl, self.username, self.password)
-        authhandler = urllib.request.HTTPBasicAuthHandler(passman)
-        opener = urllib.request.build_opener(authhandler)
-        urllib.request.install_opener(opener)
-
-        return opener
-
-    def tarExtract(self, tarf, directory):
-        '''extract the tar file'''
-
-        filename, file_extension = path.splitext(tarf)
-
-        if file_extension == '.tar':
-            tar = tarfile.open(tarf)
-            tar.extractall(path=directory)
-            tar.close()
-            remove(tarf)
-
-    def urlOpen(self, theurl):
-        '''open the url'''
-
-        opener = self.makeOpener(theurl)
-        request = urllib.request.Request(theurl)
-
-        try:
-            url = opener.open(request)
-        except urllib.error.HTTPError as e:
-            if e.code == 401:
-                logger.error('RDA username and password invalid. Please try again\n')
-                opener = self.makeOpener(theurl)
-                try:
-                    url = opener.open(request)
-                except urllib.error.HTTPError as e:
-                    if e.code == 401:
-                        logger.error(
-                            'RDA username and password invalid, or you are'
-                            'not authorized to access this dataset. Please verify your login information at http://rda.ucar.edu')
-                        sys.exit()
-            else:
-                logger.error(f"Received response: '{e}' when opening url {theurl}")
-                sys.exit()
-        return url
-
-    def add_http_cookie(self, url, authstring):
-        '''add_http_cookie(url,authstring): Get and add authentication cookie
-        to http file download handler'''
-
-        cj = http.cookiejar.MozillaCookieJar(self.cookie_file)
-        openrf = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(cj))
-        frequest = urllib.request.Request(url, authstring)
-        cj.add_cookie_header(frequest)
-        _ = openrf.open(frequest)
-        openerf = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(cj))
-        urllib.request.install_opener(openerf)
-
-    def getHelp(self):
-        '''get the help information'''
-
-        theurl = self.base + 'help'
-        url = self.urlOpen(theurl)
-
-        logger.debug(url.read().decode())
-
-    def getSummary(self, dsID=None):
-        '''get the summary of given dataset'''
-
-        logger.info('Getting summary information. Please wait as this may take a while.')
-
-        theurl = theurl = self.base + 'summary/' + dsID
-        url = self.urlOpen(theurl)
-
-        logger.info(url.read().decode())
-
-    def getMeta(self, dsID):
-        '''get the metadata of gieven dataset'''
-
-        theurl = self.base + 'metadata/' + dsID
-        url = self.urlOpen(theurl)
-
-        logger.info(url.read().decode())
-
-    def getParaSummary(self, dsID):
-        '''submit a subset request control file.
-           Subset request control files are built from the parameters dumped
-           out by the '-get_metadata <dsnnn.n>' option.'''
-
-        logger.info('Getting parameter summary. Please wait as this may take a while.')
-
-        theurl = self.base + 'paramsummary/' + dsID
-        url = self.urlOpen(theurl)
-
-        logger.info(url.read().decode())
-
-    def getStatus(self):
-        '''get the status of requests'''
-
-        theurl = self.base + 'request'
-        url = self.urlOpen(theurl)
-
-        logger.info(url.read().decode())
-
-    def submit(self, controlparms):
-        '''submit JRA55 dataset request based on predescribed control
-        parameters'''
-
-        theurl = self.base + 'request'
-
-        jsondata = '{'
-        for k in list(controlparms.keys()):
-            jsondata += '"' + k + '"' + ":" + '"' + controlparms[k] + '",'
-        jsondata = jsondata[:-1]
-        jsondata += '}'
-        logger.info('Submitting request')
-
-        if len(jsondata) > 1:
-            request = urllib.request.Request(
-                theurl, jsondata.encode(), {'Content-type':'application/json'})
-        else:
-            request = urllib.request.Request(theurl)
-
-        opener = self.makeOpener(theurl)
-        try:
-            url = opener.open(request)
-        except urllib.error.HTTPError as e:
-            if e.code == 401:
-                logger.error('RDA username and password invalid.  Please try again\n')
-                (username, password) = get_userinfo()
-                opener = self.makeOpener(theurl)
-                try:
-                    url = opener.open(request)
-                except urllib.error.HTTPError as e:
-                    if e.code == 401:
-                        logger.error('RDA username and password invalid, or you are not authorized to access this dataset.')
-                        logger.error('Please verify your login information at http://rda.ucar.edu.')
-                        sys.exit()
-
-        logger.info(url.read().decode())
-
-    def downloadSinglefile(self, remfile, outfile):
-        '''download_file(remfile,outfile) : download a file from a remote
-         server (remfile) to a local location (outfile)'''
-
-        _ = urllib.request.Request(remfile)
-        fresponse = urllib.request.urlopen(remfile)
-        with open(outfile, 'wb') as handle:
-            handle.write(fresponse.read())
-
-    def downloadFile(self, filelist, directory):
-        '''download_files(filelist,directory): Download multiple files from the
-        rda server and save them to a local directory'''
-
-        backslash = '/'
-        filecount = 0
-        percentcomplete = 0
-        localsize = ''
-        length = 0
-        length = len(filelist)
-        if not path.exists(directory):
-            makedirs(directory)
-        for key, value in filelist.items():
-            downloadpath, localfile = key.rsplit("/", 1)
-            outpath = directory + backslash + localfile
-            percentcomplete = (float(filecount) / float(length))
-            self.update_progress(percentcomplete, directory)
-            if path.isfile(outpath):
-                localsize = path.getsize(outpath)
-                if(str(localsize) != value):
-                    self.downloadSinglefile(key, outpath)
-            elif(not path.isfile(outpath)):
-                self.downloadSinglefile(key, outpath)
-            self.tarExtract(outpath, directory)
-
-            filecount = filecount + 1
-            percentcomplete = (float(filecount) / float(length))
-        self.update_progress(percentcomplete, directory)
-
-    def update_progress(self, progress, outdir):
-
-        barLength = 20  # Modify this to change the length of the progress bar
-        status = ""
-        if isinstance(progress, int):
-            progress = float(progress)
-        if not isinstance(progress, float):
-            progress = 0
-            status = "error: progress var must be float\r\n\n"
-        if progress < 0:
-            progress = 0
-            status = "Halt...\r\n\n"
-        if progress >= 1:
-            progress = 1
-            status = "Done...\r\n\n"
-        block = int(round(barLength * progress))
-        text = "\r ====== Downloading Request ======\n "
-        sys.stdout.write(text)
-        sys.stdout.flush()
-
-    def getDSindex(self):
-        '''get the index of submitted dataset index'''
-
-        theurl = self.base + 'request/'
-        url = self.urlOpen(theurl)
-
-        authdata = 'email=' + self.username + '&password=' + self.password + '&action=login'
-        authdata = authdata.encode()
-
-        responses = url.read().decode()
-        responses = responses.split('\n')
-        responses = [item for item in responses if item.startswith("RequestIndex")]
-
-        status = [item.split('- ')[1] for item in responses]
-        status = np.where(np.asarray(status) == 'Online')[0]
-        dsIndex = [item.split(':  ')[1] for item in responses]
-        dsIndex = [item.split(', ')[0] for item in dsIndex]
-        dsIndex = np.asarray(dsIndex)[status]
-
-        return dsIndex
-
-    def download(self, directory, ds):
-        '''download all the data completed from the NCAR server'''
-
-        if not isinstance(ds, str):
-            ds = str(ds)
-
-        theurl = self.base + 'request/' + ds + '/filelist'
-        url = self.urlOpen(theurl)
-
-        authdata = 'email=' + self.username + '&password=' + self.password + '&action=login'
-        authdata = authdata.encode()
-
-        jsonfilelist = url.read().decode()
-
-        if not jsonfilelist[0] != "{":
-
-            filelist = json.loads(jsonfilelist)
-
-            # get cookie required to download data files
-            self.add_http_cookie(self.loginurl, authdata)
-
-            logger.info("Starting Download.")
-
-            self.downloadFile(filelist, directory)
-
-    def purge(self, dsIndex):
-        '''delete dataset from NCAR server based on given dsIndex'''
-
-        for ds in dsIndex:
-            if not isinstance(ds, str):
-                ds = str(ds)
-            theurl = self.base + 'request/' + ds
-
-            opener = self.makeOpener(theurl)
-            request = urllib.request.Request(theurl)
-            request.get_method = lambda: 'DELETE'
-
-            try:
-                url = opener.open(request)
-            except urllib.error.HTTPError as e:
-                if e.code == 401:
-                    logger.error('RDA username and password invalid. Please try again')
-                    opener = self.makeOpener(theurl)
-                    try:
-                        url = opener.open(request)
-                    except urllib.error.HTTPError as e:
-                        if e.code == 401:
-                            logger.error('RDA username and password invalid, or you are not authorized to access this dataset.')
-                            logger.error('Please verify your login information at http://rda.ucar.edu.')
-                            sys.exit()
-
-            logger.info(url.read().decode())
-
-
-class JRApl(object):
-    VALID_LEVELS = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500, 550,
-                    600, 650, 700, 750, 775, 800, 825, 850, 875, 900,
-                    925, 950, 975, 1000]
-    
-    def __init__(self, date, area, elevation, variables, rda):
-        '''Returns an object for JRA55 data that has methods for querying the
-        NCAR server for pressure level variables (prec, swin, lwin). '''
-
-        self.date = date
-        self.area = area
-        self.elevation = elevation
-
-        dpar = {'air_temperature'   : ['Temperature'],
-                'relative_humidity' : ['Relative humidity'],
-                'wind_speed'        : ['u-component of wind',
-                                       'v-component of wind']}
-
-        self.param = self.getParam(dpar, variables)
-
-    def getParam(self, dpar, variables):
-
-        varlist = []
-        for var in variables:
-            varlist.append(dpar.get(var))
-
-        varlist = [item for item in varlist if item is not None]
-        varlist = [item for sublist in varlist for item in sublist]
-
-        if len(varlist) > 0:
-            varlist += ['Geopotential height', 'level', 'pressure']
-
-        return varlist
-
-    def makeDate(self):
-        '''convert data format to NCAR RDA request'''
-
-        beg = self.date['beg'].strftime('%Y%m%d%H%M')
-        end = self.date['end'].strftime('%Y%m%d%H%M')
-        dateRange = beg + '/to/' + end
-
-        return dateRange
-
-    def getDictionary(self):
-        levels = getPressureLevels(self.VALID_LEVELS, self.elevation['min'], self.elevation['max'])
-        elevation = [str(ele) for ele in levels]
-        elevation = '/'.join(elevation)
-
-        self.dictionary = {
-                'dataset': 'ds628.0',
-                'date': self.makeDate(),
-                'param': '/'.join(self.param),
-                'level': 'Isobaric surface:' + elevation,
-                'oformat': 'netCDF',
-                'nlat': str(self.area['north']),
-                'slat': str(self.area['south']),
-                'wlon': str(self.area['west']),
-                'elon': str(self.area['east']),
-                'product': 'Analysis',
-                'compression': 'NN',
-                'gridproj': 'latLon',
-                'griddef': '288:145:90N:0E:90S:1.25W:1.25:1.25'}
-
-        return self.dictionary
-
-
-class JRAsa(object):
-
-    def __init__(self, date, area, variables, rda):
-        '''Returns an object for JRA55 data that has methods for querying the
-        NCAR server for surface forecast variables (prec, swin, lwin). '''
-
-        self.date = date
-        self.area = area
-
-        dpar = {'air_temperature'  : ['Temperature'],
-                'relative_humidity': ['Relative humidity'],
-                'specific_humidity': ['Specific humidity'],
-                'wind_speed'       : ['u-component of wind',
-                                      'v-component of wind']}
-
-        self.param = self.getParam(dpar, variables)
-
-    def getParam(self, dpar, variables):
-
-        varlist = []
-        for var in variables:
-            varlist.append(dpar.get(var))
-
-        varlist = [item for item in varlist if item is not None]
-        varlist = [item for sublist in varlist for item in sublist]
-
-        return varlist
-
-    def makeDate(self):
-        '''convert data format to NCAR RDA request'''
-
-        beg = self.date['beg'].strftime('%Y%m%d%H%M')
-        end = self.date['end'].strftime('%Y%m%d%H%M')
-        dateRange = beg + '/to/' + end
-
-        return dateRange
-
-    def getDictionary(self):
-        self.dictionary = {
-                'dataset': 'ds628.0',
-                'date': self.makeDate(),
-                'param': '/'.join(self.param),
-                'level': 'Specified height above ground:2/10',
-                'oformat': 'netCDF',
-                'nlat': str(self.area['north']),
-                'slat': str(self.area['south']),
-                'wlon': str(self.area['west']),
-                'elon': str(self.area['east']),
-                'product': 'Analysis',
-                'compression': 'NN',
-                'gridproj': 'latLon',
-                'griddef': '288:145:90N:0E:90S:1.25W:1.25:1.25'}
-
-        return self.dictionary
-
-
-class JRAto:
-
-    def __init__(self, area, rda):
-        self.area=area
-        self.param=["Geopotential"]
-    
-    def getDictionary(self):
-        self.dictionary = {
-                'dataset': 'ds628.0',
-                'date': "198101010000/to/198101010000",
-                'param': 'Geopotential',
-                'level': 'Ground or water surface:0',
-                'oformat': 'netCDF',
-                'nlat': str(self.area['north']),
-                'slat': str(self.area['south']),
-                'wlon': str(self.area['west']),
-                'elon': str(self.area['east']),
-                'product': 'Analysis',
-                'compression': 'NN',
-                'gridproj': 'latLon',
-                'griddef': '288:145:90N:0E:90S:1.25W:1.25:1.25'}
-
-        return self.dictionary
-
-
-class JRAsf(object):
-
-    def __init__(self, date, area, variables, rda):
-        '''Returns an object for JRA55 data that has methods for querying the
-        NCAR server for surface forecast variables (prec, swin, lwin). '''
-
-        self.date = date
-        self.area = area
-
-        dpar = {'precipitation_amount':
-                    ['Total precipitation'],
-                'downwelling_shortwave_flux_in_air':
-                    ['Downward solar radiation flux'],
-                'downwelling_longwave_flux_in_air':
-                    ['Downward longwave radiation flux'],
-                'downwelling_shortwave_flux_in_air_assuming_clear_sky':
-                    ['Clear sky downward solar radiation flux'],
-                'downwelling_longwave_flux_in_air_assuming_clear_sky':
-                    ['Clear sky downward longwave radiation flux']}
-
-        self.param = self.getParam(dpar, variables)
-
-    def getParam(self, dpar, variables):
-
-        varlist = []
-        for var in variables:
-            varlist.append(dpar.get(var))
-
-        varlist = [item for item in varlist if item is not None]
-        varlist = [item for sublist in varlist for item in sublist]
-        varlist.append('Pressure')
-
-        return varlist
-
-    def makeDate(self):
-        '''convert data format to NCAR RDA request'''
-
-        beg = self.date['beg'].strftime('%Y%m%d%H%M')
-        end = self.date['end'].strftime('%Y%m%d%H%M')
-        dateRange = beg + '/to/' + end
-
-        return dateRange
-
-    def getDictionary(self):
-        self.dictionary = {
-                'dataset': 'ds628.0',
-                'date': self.makeDate(),
-                'param': '/'.join(self.param),
-                'level': 'Ground or water surface:0',
-                'oformat': 'netCDF',
-                'nlat': str(self.area['north']),
-                'slat': str(self.area['south']),
-                'wlon': str(self.area['west']),
-                'elon': str(self.area['east']),
-                'product': '3-hour Average (initial+0 to initial+3)',
-                'compression': 'NN',
-                'gridproj': 'latLon',
-                'griddef': '288:145:90N:0E:90S:1.25W:1.25:1.25'}
-
-        return self.dictionary
-
 
 class JRAdownload(GenericDownload):
     '''Return an objet to download JRA55 dataset client based on RDA'''
+    JRA_VERSION = 'jra55'
+    API = Rdams
+    DICT_FORMATTER = J55DictFormatter
+    dsID = 'ds628.0'
+    timeName = 'initial_time0_hours'
+    levName = 'lv_ISBL1'
+    
 
-    # TODO: add credential
     def __init__(self, pfile):
         super().__init__(pfile)
         self.retry_delay_min = 1
         par = self.par
-        self._set_input_directory("jra55")
-
-        self.dsID = 'ds628.0'
+        self._set_input_directory(self.JRA_VERSION)
+        
+        self.api = self.get_accessor()
 
         self.__varCheck(par)
 
@@ -553,7 +62,9 @@ class JRAdownload(GenericDownload):
         # chunk size for downloading and storing data [days]
         self.chunk_size = par['chunk_size'] * 2000
 
-        self.ncfVar  = {
+    @property
+    def ncVar(self):
+        return  {
                 'initial_time0_hours':   'time',
                 'initial_time0':         'time',
                 'initial_time0_encoded': 'time',
@@ -578,8 +89,13 @@ class JRAdownload(GenericDownload):
                 'CSDSF_GDS0_SFC_ave3h':  'Clear sky downward solar radiation flux',
                 'CSDLF_GDS0_SFC_ave3h':  'Clear sky downward longwave radiation flux',
                 'DSWRF_GDS0_SFC_ave3h':  'Downward solar radiation flux',
-                'DLWRF_GDS0_SFC_ave3h':  'Downward longwave radiation flux'}
-
+                'DLWRF_GDS0_SFC_ave3h':  'Downward longwave radiation flux',
+                'DSWRF_GDS0_NTAT_ave3h':  'skip',}
+        
+    def get_accessor(self):
+        cred = path.join(self.par['credentials_directory'], "rdams_token.txt")
+        return self.API(cred)
+    
     def __varCheck(self, par):
         '''convert one variable to a list'''
 
@@ -630,7 +146,7 @@ class JRAdownload(GenericDownload):
         begStr = np.min(times).strftime('%Y%m%d')
         endStr = np.max(times).strftime('%Y%m%d')
 
-        fileName = ['jra55', dataLev, begStr, 'to', endStr]
+        fileName = [self.JRA_VERSION, dataLev, begStr, 'to', endStr]
         fileName = '_'.join(fileName) + '.nc'
         fileName = path.join(self.directory, fileName)
 
@@ -640,9 +156,6 @@ class JRAdownload(GenericDownload):
         '''get the dimension [time, level, latitude, longitude] name in the
         original JRA55 ncf'''
 
-        self.timeName = 'initial_time0_hours'
-        self.levName = 'lv_ISBL1'
-
         if dataLev == 'pl':
             self.lonName = 'g0_lon_3'
             self.latName = 'g0_lat_2'
@@ -650,15 +163,33 @@ class JRAdownload(GenericDownload):
             self.lonName = 'g0_lon_2'
             self.latName = 'g0_lat_1'
 
+    def extract_downloaded_tar_files(self, dsi):
+        '''find downloaded tar files'''
+
+        tarf = np.sort(list(Path(self.directory).glob(f"*{dsi}*.tar")))
+        for f in tarf:
+            if Path(f).suffix == '.tar':
+                tar = tarfile.open(f)
+                tar.extractall(path=self.directory, filter='fully_trusted')
+                tar.close()
+                remove(f)
+        return tarf
+    
+    def get_nc_files(self, variable, dsi):
+        return np.sort(list(Path(self.directory).glob(f"*{variable}*{dsi}*.nc")))
+    
     def makeNCF(self, dsi):
 
         variables = self.getVars(dsi)
         dataLev = self.getDataLev(dsi)
         self.getDimName(dataLev)
-
-        varf = np.sort(glob.glob(path.join(self.directory,
-                                           f'*{variables[0]}*')))
-        ncf = nc.MFDataset(varf.tolist(), aggdim='initial_time0_hours')
+        
+        self.extract_downloaded_tar_files(dsi)
+        import pdb;pdb.set_trace()
+        
+        nc_template_files = self.get_nc_files(variables[0], dsi)
+        
+        ncf = nc.MFDataset(nc_template_files.tolist(), aggdim='initial_time0_hours')
 
         if dataLev == 'pl':
             Levs = ncf['lv_ISBL1'][:].data
@@ -705,7 +236,8 @@ class JRAdownload(GenericDownload):
         latitudes[:] = Lats
 
         for vari in variables:
-            flist = np.sort(glob.glob(path.join(self.directory, f'*{vari}*')))
+            
+            flist = np.sort(list(Path(self.directory).glob(f"*_p125*{vari}*{dsi}*.nc")))
             ncf = nc.MFDataset(flist.tolist(), aggdim=self.timeName)
             for n, var in enumerate(ncf.variables.keys()):
                 if variables_skip(self.ncfVar[var]):
@@ -721,7 +253,6 @@ class JRAdownload(GenericDownload):
                                               ('time',
                                                'latitude', 'longitude'))
                     vari[:,:,:] = ncf[var][:,:,:]
-
                 vari.long_name = ncf[var].long_name
                 vari.units     = ncf[var].units
 
@@ -731,23 +262,24 @@ class JRAdownload(GenericDownload):
 
         ncn.close()
 
-    def requestClear(self, rda):
+    def requestClear(self):
         '''clear online datasets before downloading'''
 
         logger.info('Clear Online Datasets From NCAR Server')
-        dsIndex = rda.getDSindex()
+        dsIndex = self.api.get_status()['data']
         if len(dsIndex) > 1:
-            rda.purge(dsIndex)
-        logger.info('Online Dateset Cleared')
+            for req in dsIndex:
+                i = req['request_index']
+                self.api.purge_request(str(i))
+                logger.info(f'Cleared request {i}')
 
-    def requestSubmit(self, rda):
+    def requestSubmit(self):
 
         logger.info('Submit Request')
 
         slices = floor(float((self.date['end'] - self.date['beg']).days) /
                        self.chunk_size) + 1
-
-        dsN = 0
+        request_list = []
         for ind in range(0, int(slices)):
             date_i = {}
             # prepare time slices
@@ -757,43 +289,124 @@ class JRAdownload(GenericDownload):
                              + timedelta(days=self.chunk_size * (ind + 1) - 1))
             if ind == (slices - 1):
                 date_i['end'] = self.date['end']
+            
+            Formatter = self.DICT_FORMATTER
+            self.formatter = Formatter(date=date_i,
+                                       area=self.area,
+                                       elevation=self.elevation,
+                                       variables=self.variables)
+            
 
-            pl = JRApl(date_i, self.area, self.elevation,
-                       self.variables, rda)
-            sa = JRAsa(date_i, self.area, self.variables, rda)
-            sf = JRAsf(date_i, self.area, self.variables, rda)
-            to = JRAto(self.area, rda)
-
-            # get download data level
-            JRAli = []
-            for jrai in [to, sa, sf, pl]:
-                if len(jrai.param) > 0:
-                    JRAli.append(jrai)
-
-            for jrai in JRAli:
-                rda.submit(jrai.getDictionary())
-                dsN += 1
+            pl = self.formatter.get_pl_dict(self.variables) 
+            sa = self.formatter.get_sa_dict(self.variables) 
+            sf = self.formatter.get_sf_dict(self.variables) 
+            to = self.formatter.get_to_dict()
+            
+            for request_dict in [to, sa, sf, pl]:
+                if len(request_dict['param']) == 0:
+                    continue
+                
+                summary = self.api.get_param_summary(self.dsID)['data']['data']
+                request_dict['param'] = self.formatter.param_descriptions_to_name(request_dict['param'], summary)
+                logger.debug("Requesting data for: " + str(request_dict))
+                req = self.api.submit_json(request_dict)
+        
+                if req['http_response'] != 200:
+                    logger.error(f"Error in request {request_dict}")
+                else:
+                    logger.info(f"Request {req['data']['request_id']} submitted")
+                
+                # append request ID
+                try:
+                    request_list.append(req['data']['request_id'])
+                except KeyError:
+                    import pdb;pdb.set_trace()
+                    print("WHATAS THIS ERRORRR")
+                    print(req)
+                    print(req['data'])
+                    print(req['data']['request_id'])
+        
         logger.info('Request submitted')
 
-        return dsN
+        return set(request_list)
 
-    def requestDownload(self, rda, dsN):
-        '''download all the request'''
+    def update_status(self, request_list, failed=None, done=None):
+        done = done if done is not None else []
+        failed = failed if failed is not None else []
+        to_get = []
+        logger.info('Geting Active Requets from NCAR Server')
+        active_requests = self.api.get_status()['data']
+        
+        if request_list is None:
+            request_list = [str(r['request_index']) for r in active_requests]
+                            
+        for rid in request_list:
+            if (rid in done) or (rid in failed):
+                continue
+            if rid not in [str(r['request_index']) for r in active_requests]:
+                logger.error(f"Request {rid} not found in active requests")
+                failed.append(rid)
 
-        doneI = []
-        while len(doneI) < dsN:
+        for r in active_requests:
+            ix = str(r['request_index'])
+            if (ix in done) or (ix in failed):
+                continue
+            elif str(r['request_index']) in request_list:
+                to_get.append(r)
+        
+        return to_get, failed, done
 
-            logger.info('Geting Available Dataset')
-            dsIndex = rda.getDSindex()
-            dsIndex = [item for item in dsIndex if item not in doneI]
-            if len(dsIndex) > 0:
-                for ds in dsIndex:
-                    rda.download(self.directory, ds)
-                    self.makeNCF(ds)
-                doneI += dsIndex
+    def requestDownload(self, request_list=None):
+        '''download all the requests'''
+        failed=None
+        done=None
+        to_get = [None]
 
-            if self.retry_delay_min < 10:
-                self.retry_delay_min *= 1.6
+        while len(to_get) > 0:
+            to_get, failed, done = self.update_status(request_list, failed=failed, done=done)
+
+            print(f"remaining requests :{[r['request_id'] for r in to_get]}")
+
+            for ds in to_get:
+                if (ds['request_index'] in done) or(ds['request_index'] in failed):
+                    continue
+
+                if ds['status'] == 'Error':
+                    logger.error(f"Error in request {ds['request_index']}")
+                    done.append(ds['request_index'])
+                    
+                elif ds['status'] == 'Queued for Processing':
+                    logger.info(f"Request {ds['request_index']} Queued for Processing")
+                    continue
+                
+                elif ds['status'] == 'Processing':
+                    logger.info(f"Request {ds['request_index']} Processing")
+                    continue
+
+                elif ds['status'] == 'Set for Purge':
+                    logger.info(f"Request {ds['request_index']} Set for Purge")
+                    done.append(ds['request_index'])
+
+                elif ds['status'] == 'Completed':
+                    logger.info(f"Request {ds['request_index']} Complete")
+                    res = self.api.download(ds['request_index'], path.join(self.directory, self.JRA_VERSION))
+                    
+                    # untar / extract
+                    files = [file['wfile'] for file in res['data']['web_files']]
+                    self.makeNCF(str(ds['request_index']))
+                    done.append(ds['request_index'])
+
+                else:
+                    logger.error(f"Unknown status {ds['status']} for request {ds['request_index']}")
+                    done.append(ds['request_index'])
+                    continue
+            
+            if len(done) + len(failed) == len(to_get):
+                break
+            #if self.retry_delay_min < 10:
+            #    self.retry_delay_min *= 1.6
+            self.retry_delay_min = (1/6)
+            logger.info(f"Waiting {self.retry_delay_min} minutes before checking again")
 
             time.sleep(60 * self.retry_delay_min)  # check available data every 10 mins
 
@@ -802,14 +415,14 @@ class JRAdownload(GenericDownload):
     def retrieve(self):
         '''submit and download all the dataset'''
 
-        logger.info('''Starting JRA-55''')
+        logger.info(f'''Starting {self.JRA_VERSION} download''')
 
-        rda = RDA(self.username, self.password)  # initialize RDA server
-        self.requestClear(rda)  # clear online request
-        dsN = self.requestSubmit(rda)  # submit request
-        self.requestDownload(rda, dsN)  # download dataset
+        #self.requestClear()  # clear online request
+        request_list = self.requestSubmit()  # submit request
+        request_list = None
+        self.requestDownload(request_list)  # download dataset
 
-        logger.info('''JRA-55 Complete''')
+        logger.info(f'''{self.JRA_VERSION} Complete''')
 
 
 def getDate(par):
@@ -822,26 +435,4 @@ def getDate(par):
     return dateRange
 
 
-def getPressureLevels(levels: list, min_elev: float, max_elev: float) -> "list[float]":
-    # flip max and min because 1000 is the bottom and 0 is the top
-    elevationMax = pressure_from_elevation(min_elev)
-    elevationMin = pressure_from_elevation(max_elev)
 
-    minNum = min(levels, key=lambda x:abs(x - elevationMin))
-    maxNum = min(levels, key=lambda x:abs(x - elevationMax))
-
-    if (minNum > elevationMin and levels.index(minNum) > 0):
-        elevationMinRange = levels.index(minNum) - 1
-    else:
-        elevationMinRange = levels.index(minNum)
-
-    if (maxNum < elevationMin and levels.index(maxNum) < 36):
-        elevationMaxRange = levels.index(maxNum) - 1
-    else:
-        elevationMaxRange = levels.index(maxNum)
-
-    elevation = []
-    for e in range(elevationMinRange, elevationMaxRange + 1):
-        elevation.append(levels[e])
-
-    return elevation
