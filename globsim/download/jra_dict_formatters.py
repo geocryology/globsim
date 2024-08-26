@@ -1,5 +1,10 @@
+import re
+
+from typing import Optional
+
 from globsim.meteorology import pressure_from_elevation
 from globsim.download.rdams import get_metadata
+
 
 def getPressureLevels(levels: list, min_elev: float, max_elev: float) -> "list[float]":
     # flip max and min because 1000 is the bottom and 0 is the top
@@ -25,7 +30,6 @@ def getPressureLevels(levels: list, min_elev: float, max_elev: float) -> "list[f
 
     return elevation
 
-    
 
 class JRAformatter:
 
@@ -56,7 +60,7 @@ class JRAformatter:
         varlist = []
         for var in variables:
             varlist.append(dpar.get(var))
-
+        
         varlist = [item for item in varlist if item is not None]
         varlist = [item for sublist in varlist for item in sublist]
 
@@ -194,7 +198,7 @@ class J3QDictFormatter(JRAformatter):
         self.metadata = get_metadata(self.DATASET)['data']['data']
         
     def lookup_param(self, param, returns='param_description'):
-        return list(filter(lambda x: x['param'] == param, self.metadata))[0][returns]
+        return lookup_param(self.metadata, param, returns)
     
     @property
     def pl_dict(self):
@@ -220,7 +224,7 @@ class J3QDictFormatter(JRAformatter):
         levels = getPressureLevels(self.VALID_LEVELS, self.elevation['min'], self.elevation['max'])
         elevation = [str(ele) for ele in levels]
         temp = self.get_dict_template()
-        param = self.getParam(self.pl_dict, variables, add=['hgt-pres-an-ll125'])
+        param = self.getParam(self.pl_dict, variables, add=[f'hgt-pres-an-{self.grid}'])
         temp['param'] = '/'.join(param)
         temp['level'] = 'pressure (isobaric) level:' + '/'.join(elevation)
 
@@ -228,7 +232,7 @@ class J3QDictFormatter(JRAformatter):
 
     def get_sf_dict(self, variables):
         temp = self.get_dict_template()
-        param = self.getParam(self.sf_dict, variables, add=['pres-sfc-an-ll125'])
+        param = self.getParam(self.sf_dict, variables, add=[f'pres-sfc-fcst-{self.grid}'])
         temp['param'] = '/'.join(param)
         temp['level'] = 'Surface:0'
         
@@ -245,8 +249,13 @@ class J3QDictFormatter(JRAformatter):
 
     def get_to_dict(self, *args, **kwargs):
         temp = self.get_dict_template()
-        param = self.getParam(self.to_dict, 'geopotential')
-        temp['date'] = "198101010000/to/198101010000"
+        param = self.getParam(self.to_dict, ['geopotential'])
+        metadata = find_param(self.metadata, level_description_pattern=None, 
+                              name_pattern=None, 
+                              param_pattern=f'.*-sfc-cn-{self.grid}',
+                              names_only=False, drop_levels=False)
+
+        temp['date'] = f"{metadata[0]['start_date']}/to/{metadata[0]['end_date']}"
         temp['param'] = '/'.join(param)
         temp['level'] = 'Surface:0'
         
@@ -289,13 +298,11 @@ class J3QDictFormatter(JRAformatter):
         return shortpar
 
 
-def find_param(md, name_pattern='wind', 
-               level_description_pattern='isobaric',
-                 param_pattern='ll125', 
-                 names_only=False,
-                 drop_levels=True):
-    import re
-
+def find_param(md:dict, name_pattern:Optional[str]='wind', 
+               level_description_pattern:Optional[str]='isobaric',
+               param_pattern:Optional[str]='ll125', 
+               names_only:bool=False,
+               drop_levels:bool=True) -> list:
     param = md.copy()
     if name_pattern is not None:
         param = filter(lambda x: re.search(name_pattern, x['param_description']), md)
@@ -313,15 +320,25 @@ def find_param(md, name_pattern='wind',
             param = [{k:v for k,v in p.items() if k != 'levels'} for p in param]
         
         return list(param)
+    
+
+def lookup_param(param, metadata=None, dsid=None, returns='param_description'):
+    if metadata is None:
+        if dsid is not None:
+            metadata = get_metadata(dsid)['data']['data']
+        else:
+            raise ValueError('metadata or dsid must be provided')
+    
+    return list(filter(lambda x: x['param'] == param, metadata))[0][returns]
+
 
 if __name__ =="__main__":
-
     
     md = get_metadata('d640000')['data']['data']
-    q = find_param(md, 
+    a = find_param(md, 
                 level_description_pattern=None, 
                 name_pattern=None, 
-                param_pattern='dlwrf1have-sfc-fc-ll125',
+                param_pattern=f'.*-sfc-cn',
                 names_only=False, drop_levels=False)
-    
-    [print(p['param_description'], p['param']) for p in q]
+    print(a)
+    # [print(p['param_description'], p['param']) for p in q]
