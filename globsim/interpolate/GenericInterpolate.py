@@ -179,8 +179,8 @@ class GenericInterpolate:
         logger.debug(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
-        pl = self.vn_level in ncf_in.dims.keys()
-        ens = 'number' in ncf_in.dims.keys()
+        pl = self.vn_level in ncf_in.sizes.keys()
+        ens = 'number' in ncf_in.sizes.keys()
 
         # get spatial dimensions
         if pl:  # only for pressure level files

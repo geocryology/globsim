@@ -130,8 +130,8 @@ class ERA5interpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = self.vn_level in ncf_in.dims.keys()
-        ens = 'number' in ncf_in.dims.keys()
+        pl = self.vn_level in ncf_in.sizes.keys()
+        ens = 'number' in ncf_in.sizes.keys()
 
         # reduce chunk size for pressure-level interpolation
         cs = self.cs
@@ -308,11 +308,9 @@ class ERA5interpolate(GenericInterpolate):
                                              'f4',('time','number','station'))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time', 'station'))
-            try:
-                tmp.long_name = ncf[var].long_name
-                tmp.units     = ncf[var].units
-            except AttributeError:
-                import pdb;pdb.set_trace()
+
+            tmp.long_name = ncf[var].long_name
+            tmp.units     = ncf[var].units
 
         # add air pressure as new variable
         var = 'air_pressure'

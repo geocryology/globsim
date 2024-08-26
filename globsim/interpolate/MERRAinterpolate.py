@@ -138,7 +138,7 @@ class MERRAinterpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.dims.keys()
+        pl = 'level' in ncf_in.sizes.keys()
 
         # build the output of empty netCDF file
         self.netCDF_empty(ncfile_out, self.stations, ncf_in)
