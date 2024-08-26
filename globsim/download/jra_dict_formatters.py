@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 from globsim.meteorology import pressure_from_elevation
-from globsim.download.rdams import get_metadata
+from globsim.download.RDA import Rdams
 
 
 def getPressureLevels(levels: list, min_elev: float, max_elev: float) -> "list[float]":
@@ -192,10 +192,11 @@ class J3QDictFormatter(JRAformatter):
         'downwelling_longwave_flux_in_air_assuming_clear_sky':
             ['dlwrfcs1have-sfc-fc-{grid}']}
     
-    def __init__(self, grid='ll125', *args, **kwargs):
+    def __init__(self, grid='ll125', metadata=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.set_grid(grid)
-        self.metadata = get_metadata(self.DATASET)['data']['data']
+        rda = Rdams(metadata)
+        self.metadata = rda.get_metadata(self.DATASET)['data']['data']
         
     def lookup_param(self, param, returns='param_description'):
         return lookup_param(self.metadata, param, returns)
@@ -325,7 +326,8 @@ def find_param(md:dict, name_pattern:Optional[str]='wind',
 def lookup_param(param, metadata=None, dsid=None, returns='param_description'):
     if metadata is None:
         if dsid is not None:
-            metadata = get_metadata(dsid)['data']['data']
+            rda = Rdams(None)
+            metadata = rda.get_metadata(dsid)['data']['data']
         else:
             raise ValueError('metadata or dsid must be provided')
     
@@ -334,7 +336,8 @@ def lookup_param(param, metadata=None, dsid=None, returns='param_description'):
 
 if __name__ =="__main__":
     
-    md = get_metadata('d640000')['data']['data']
+    rda = Rdams(None)
+    md = rda.get_metadata('d640000')['data']['data']
     a = find_param(md, 
                 level_description_pattern=None, 
                 name_pattern=None, 

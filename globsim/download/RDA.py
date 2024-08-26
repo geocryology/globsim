@@ -21,19 +21,35 @@ __author__ = 'Doug Schuster (schuster@ucar.edu), Riley Conroy (rpconroy@ucar.edu
 import sys
 import os
 import requests
-import getpass
 import json
 import argparse
-import codecs
+
+from pathlib import Path
 
 
 class Rdams(object):
     BASE_URL = 'https://rda.ucar.edu/api/'
+    ENVAUTHFILE = 'GLOBSIM_RDA_AUTH_FILE'
 
     def __init__(self, auth_file):
-        
+        if auth_file is None:
+            auth_file = self.look_for_auth_file()
+
         self.DEFAULT_AUTH_FILE = auth_file
-    
+        
+    def look_for_auth_file(self):
+        env_auth = os.environ.get(self.ENVAUTHFILE, None)
+        if env_auth is not None:
+            return env_auth
+
+        default_auth = Path("~", 'rdams_token.txt').expanduser()
+        if default_auth.exists():
+            return str(default_auth)
+        
+        else:
+            print(f"Could not find an authentication for RDAMS file. Please set the environment variable {self.ENVAUTHFILE} or create a file at {default_auth}")
+            print("See 'https://rda.ucar.edu/accounts/profile/' to get a token.")
+            sys.exit(1)
 
     def query(self, args=None):
         """Perform a query based on command line like arguments.
