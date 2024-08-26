@@ -18,8 +18,8 @@ class NcarDownloadHandler:
     def __init__(self):
         pass
 
-    def format_output_filename(self, beg, end, dataLev):
-        return f"{self.REANALYSIS}_{dataLev}_{beg.strftime(r'%Y%m%d')}_to_{end.strftime(r'%Y%m%d')}.nc"
+    def format_output_filename(self, beg, end, filetype):
+        return f"{self.REANALYSIS}_{filetype}_{beg.strftime(r'%Y%m%d')}_to_{end.strftime(r'%Y%m%d')}.nc"
 
 
 class J3QDownloadHandler(NcarDownloadHandler):
@@ -85,12 +85,13 @@ class J3QDownloadHandler(NcarDownloadHandler):
 
         return list(valid_files)
     
-    def make_globsim_dataset(self, directory:str, request_id:str):
+    def make_globsim_dataset(self, directory:str, request_id:str, filetype:Optional[str]=None):
         '''make a globsim dataset from JRA-3Q dataset'''
 
         # extract the downloaded tar files
         # get all variables associated with the dataset
         # return the extracted tar files   
+        logger.debug(f"Creating {filetype if filetype is not None else ''} dataset from requeset {request_id}")
         
         extract_downloaded_tar_files(directory, request_id)
         
@@ -99,7 +100,8 @@ class J3QDownloadHandler(NcarDownloadHandler):
         if len(variables) == 0:
             raise ValueError(f"No variables found in dataset {request_id}")
         
-        dataLev = determine_output_file_type(directory, request_id)
+        if filetype is None:
+            filetype = determine_output_file_type(directory, request_id)
         
         dims = self.get_dim_names(directory, request_id)
         
@@ -108,7 +110,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
         Times, Lats, Lons, Levs = self.extract_dimensions(nc_template_files)
         
         beg, end = nc.num2date(Times.values[[0,-1]], units=Times.units, calendar=Times.calendar)
-        file_new = self.format_output_filename(beg, end, dataLev)
+        file_new = self.format_output_filename(beg, end, filetype)
 
         ncn = new_jra_download_file(str(Path(directory,file_new)),
                                      Times, Lats, Lons, Levs)
@@ -126,9 +128,9 @@ class J3QDownloadHandler(NcarDownloadHandler):
                 logger.warning(f"Variable {varname} not found in lookup table")
                 continue
 
-            logger.info(f"Creating variable: {varname}")
+            logger.debug(f"Creating variable: {varname}")
             
-            if dataLev == 'pl':
+            if filetype == 'pl':
                 vari = ncn.createVariable(output_name, 'f4',
                                             ('time', 'level',
                                             'latitude', 'longitude',))
@@ -187,12 +189,12 @@ class J55DownloadHandler(J3QDownloadHandler):
                 'DLWRF_GDS0_SFC_ave3h':  'Downward longwave radiation flux',
                 'DSWRF_GDS0_NTAT_ave3h':  'skip',}[varname]
     
-    def get_dim_names(self, dataLev, *args, **kwargs) -> dict:
+    def get_dim_names(self, filetype, *args, **kwargs) -> dict:
     
-        if dataLev == 'pl':
+        if filetype == 'pl':
             lon = 'g0_lon_3'
             lat = 'g0_lat_2'
-        elif dataLev in ['sa', 'sf', 'to']:
+        elif filetype in ['sa', 'sf', 'to']:
             lon = 'g0_lon_2'
             lat = 'g0_lat_1'
         
@@ -266,7 +268,7 @@ def new_jra_download_file(filename:str,
     return output_file
    
 
-def extract_downloaded_tar_files(directory:str, request_id:str, remove_when_completed:bool=False) -> list[Path]:
+def extract_downloaded_tar_files(directory:str, request_id:str, remove_when_completed:bool=True) -> list[Path]:
     '''find downloaded tar files for a given dataset id and extract them'''
 
     tarf = list(Path(directory).glob(f"*{request_id}*.tar"))

@@ -169,7 +169,7 @@ class JRAscale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.get_values("pl_sur","time").astype(np.int64)
+        time_in = self.get_values("pl_sur", "time").astype(np.int64)
         values  = self.get_values("pl_sur", "air_pressure")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
@@ -207,7 +207,7 @@ class JRAscale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.get_values("sa","time")
+        time_in = self.get_values("sa", "time")
         values  = self.get_values("sa", "Temperature")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,

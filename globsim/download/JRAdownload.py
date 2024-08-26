@@ -6,6 +6,9 @@ import logging
 from datetime import datetime, timedelta
 from math import floor
 from os import path, remove
+from typing import Optional
+from pathlib import Path
+from requests import exceptions as req_exceptions
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.RDA import Rdams 
@@ -70,21 +73,30 @@ class JRAdownload(GenericDownload):
                 self.api.purge_request(str(i))
                 logger.info(f'Cleared request {i}')
 
-    def requestSubmit(self):
+    def requestSubmit(self) -> dict:
+        """submit request to the server
+        
+        Returns
+        -------
+        dict
+            dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
+            for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
+        """
 
         logger.info('Submit Request')
 
         slices = floor(float((self.date['end'] - self.date['beg']).days) /
                        self.chunk_size) + 1
-        request_list = []
-        for ind in range(0, int(slices)):
+        submitted_requests = dict()
+        
+        for chunk_index in range(0, int(slices)):
             date_i = {}
             # prepare time slices
             date_i['beg'] = (self.date['beg']
-                             + timedelta(days=self.chunk_size * ind))
+                             + timedelta(days=self.chunk_size * chunk_index))
             date_i['end'] = (self.date['beg']
-                             + timedelta(days=self.chunk_size * (ind + 1) - 1))
-            if ind == (slices - 1):
+                             + timedelta(days=self.chunk_size * (chunk_index + 1) - 1))
+            if chunk_index == (slices - 1):
                 date_i['end'] = self.date['end']
             
             Formatter = self.DICT_FORMATTER
@@ -98,64 +110,82 @@ class JRAdownload(GenericDownload):
             sf = self.formatter.get_sf_dict(self.variables) 
             to = self.formatter.get_to_dict()
             
-            for request_dict in [to, sa, sf, pl]:
+            for (request_dict, filetype) in zip([to, sa, sf, pl], ['to','sa','sf','pl']):
                 if len(request_dict['param']) == 0:
                     continue
                 
+                if (chunk_index > 0) and (filetype == 'to'):
+                    continue  # only request constant data once
+                
+                # check if file already exists
+                output_file = Path(self.directory,
+                                   f"{self.JRA_VERSION}_{filetype}_{request_dict['date'][:8]}_to_{request_dict['date'][-12:-4]}.nc")
+                if output_file.exists():
+                    logger.info(f"File {output_file.name} already exists. Skipping")
+                    continue
+
                 summary = self.api.get_param_summary(self.dsID)['data']['data']
                 request_dict['param'] = self.formatter.param_descriptions_to_name(request_dict['param'], summary)
                 logger.debug("Requesting data for: " + str(request_dict))
-                req = self.api.submit_json(request_dict)
-        
+                try:
+                    req = self.api.submit_json(request_dict)
+                except req_exceptions.JSONDecodeError as e:
+                    logger.error(f"Error in request {request_dict}")
+                    logger.error(e)
+                    continue
+
                 if req['http_response'] != 200:
                     logger.error(f"Error in request {request_dict}")
                 else:
                     logger.info(f"Request {req['data']['request_id']} submitted")
                 
                 # append request ID
-                request_list.append(req['data']['request_id'])
+                rid = str(req['data']['request_id'])
+                submitted_requests[rid] = filetype
         
         logger.info('Request submitted')
 
-        return set(request_list)
+        return submitted_requests
 
-    def update_status(self, request_list, failed=None, done=None):
+    def update_status(self, submitted_requests:Optional[dict], failed=None, done=None):
         done = done if done is not None else []
         failed = failed if failed is not None else []
         to_get = []
         logger.info('Geting Active Requets from NCAR Server')
-        active_requests = self.api.get_status()['data']
+        active_requests = self.api.get_status()['data']  # type: dict
         
-        if request_list is None:
-            request_list = [str(r['request_index']) for r in active_requests]
-                            
-        for rid in request_list:
+        if submitted_requests is None:
+            submitted_requests = {str(r['request_index']):None for r in active_requests}
+
+        for rid in submitted_requests.keys():  # Omit requests that 
             if (rid in done) or (rid in failed):
                 continue
             if rid not in [str(r['request_index']) for r in active_requests]:
                 logger.error(f"Request {rid} not found in active requests")
                 failed.append(rid)
 
-        for r in active_requests:
-            ix = str(r['request_index'])
+        for r in active_requests:  # Omit requests that are already done or failed
+            ix = r['request_index']
             if (ix in done) or (ix in failed):
                 continue
-            elif str(r['request_index']) in request_list:
+            elif str(r['request_index']) in submitted_requests.keys():
                 to_get.append(r)
         
         return to_get, failed, done
 
-    def requestDownload(self, request_list=None):
+    def requestDownload(self, submitted_requests:Optional[dict]=None):
         '''download all the requests'''
         failed=None
         done=None
         to_get = [None]
 
         while len(to_get) > 0:
-            to_get, failed, done = self.update_status(request_list, failed=failed, done=done)
+            to_get, failed, done = self.update_status(submitted_requests, failed=failed, done=done)
 
             remaining = {r['request_id']: r['status'] for r in to_get}
-            print(f"remaining requests :{remaining}")
+            logger.info(f"remaining requests :{remaining}")
+            logger.debug(f"done: {done} ")
+            logger.debug(f"failed: {failed} ")
             
             for ds in to_get:
                 if (ds['request_index'] in done) or(ds['request_index'] in failed):
@@ -163,7 +193,8 @@ class JRAdownload(GenericDownload):
 
                 if ds['status'] == 'Error':
                     logger.error(f"Error in request {ds['request_index']}")
-                    done.append(ds['request_index'])
+                    failed.append(ds['request_index'])
+                    continue
                     
                 elif ds['status'] == 'Queued for Processing':
                     logger.info(f"Request {ds['request_index']} Queued for Processing")
@@ -176,6 +207,7 @@ class JRAdownload(GenericDownload):
                 elif ds['status'] == 'Set for Purge':
                     logger.info(f"Request {ds['request_index']} Set for Purge")
                     done.append(ds['request_index'])
+                    continue
 
                 elif ds['status'] == 'Completed':
                     logger.info(f"Request {ds['request_index']} Complete")
@@ -184,25 +216,37 @@ class JRAdownload(GenericDownload):
                     # untar / extract
                     Handler = self.FILE_HANDLER
                     handler = Handler()
-                    handler.make_globsim_dataset(self.directory, str(ds['request_index']))
-                    
+                    if submitted_requests is not None:
+                        filetype = submitted_requests[str(ds['request_index'])]
+                    else:
+                        filetype = None
+                    handler.make_globsim_dataset(self.directory, str(ds['request_index']), filetype=filetype)
                     done.append(ds['request_index'])
 
                 else:
                     logger.error(f"Unknown status {ds['status']} for request {ds['request_index']}")
-                    done.append(ds['request_index'])
+                    failed.append(ds['request_index'])
                     continue
-            
-            if len(done) + len(failed) == len(to_get):
-                break
+                
+            if (len(to_get) == 1):
+                last_ri = to_get[0]['request_index']
+                if (last_ri in done) or (last_ri in failed):
+                    break
 
             if self.retry_delay_min < 10:
                 self.retry_delay_min *= 1.2
             
-            logger.info(f"Waiting {self.retry_delay_min:0.2f} minutes before next check")
-
+            logger.debug(f"Waiting {self.retry_delay_min:0.2f} minutes before next check")
             time.sleep(60 * self.retry_delay_min)  # check available data every 10 mins
 
+        logger.info("All requests processed")
+        if done is not None:
+            for rid in done:
+                logger.info(f"{rid}: Done")
+        if failed is not None:
+            for rid in failed:
+                logger.error(f"{rid}: Failed ()")
+            
         logger.info('''Download Completed''')
 
     def retrieve(self):
@@ -210,9 +254,9 @@ class JRAdownload(GenericDownload):
 
         logger.info(f'''Starting {self.JRA_VERSION} download''')
 
-        self.requestClear()  # clear online request
-        request_list = self.requestSubmit()  # submit request
-        self.requestDownload(request_list)  # download dataset
+        # self.requestClear()  # don't clear online requests
+        submitted_requests = self.requestSubmit()  # submit request
+        self.requestDownload(submitted_requests)  # download dataset
 
         logger.info(f'''{self.JRA_VERSION} Complete''')
 

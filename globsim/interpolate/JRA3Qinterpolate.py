@@ -15,5 +15,4 @@ class J3QI(JRAinterpolate):
 
     T_UNITS = "hours since 1900-01-01 00:00:00"
 
-    GEOPOTENTIAL = "gh"
 

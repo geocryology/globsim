@@ -233,7 +233,7 @@ class JRAinterpolate(GenericInterpolate):
         nl = len(ncf.variables['level'][:])
 
         # list variables
-        varlist = [str_encode(x) for x in ncf.variables.keys()]
+        varlist = [x for x in ncf.variables.keys()]
         for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height']:
             varlist.remove(V)
 
@@ -263,17 +263,17 @@ class JRAinterpolate(GenericInterpolate):
 
         # create and assign variables from input file
         for var in varlist:
-            vname = str_encode(ncf.variables[var].long_name)
-            tmp   = rootgrp.createVariable(vname,'f4',('time', 'station'))
-            tmp.long_name = str_encode(ncf.variables[var].long_name)
-            tmp.units     = str_encode(ncf.variables[var].units)
+            vname = var  # ncf.variables[var].long_name
+            tmp   = rootgrp.createVariable(vname, 'f4',('time', 'station'))
+            tmp.long_name = ncf.variables[var].long_name
+            tmp.units     = ncf.variables[var].units
 
         # add air pressure as new variable
         var = 'air_pressure'
         varlist.append(var)
         tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
-        tmp.long_name = str_encode(var)
-        tmp.units     = str_encode('hPa')
+        tmp.long_name = "Air pressure"
+        tmp.units     = 'hPa'
         # end file preparation ================================================
 
         # loop over stations

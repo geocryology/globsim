@@ -135,7 +135,6 @@ class J55DictFormatter(JRAformatter):
         param = self.getParam(self.pl_dict, variables, add=['Geopotential height', 'Pressure'])
         temp['param'] = '/'.join(param)
         temp['level'] = 'Isobaric surface:' + '/'.join(elevation)
-
         return temp
 
     def get_sf_dict(self, variables):
@@ -157,7 +156,7 @@ class J55DictFormatter(JRAformatter):
 
     def get_to_dict(self):
         temp = self.get_dict_template()
-        temp['date'] = "198101010000/to/198101010000"
+        temp['date'] = "194709010000/to/194709010000"
         temp['param'] = 'Geopotential'
         temp['level'] = 'Ground or water surface:0'
         
@@ -166,6 +165,7 @@ class J55DictFormatter(JRAformatter):
 
 class J3QDictFormatter(JRAformatter):
     DATASET = 'd640000'
+    REANALYSIS = 'jra3q'
 
     _pl_dict = {'air_temperature'   : ['tmp-pres-an-{grid}'],
                 'relative_humidity' : ['rh-pres-an-{grid}'],
