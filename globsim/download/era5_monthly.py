@@ -112,34 +112,57 @@ class ERA5MonthlyDownload(GenericDownload):
         logger.info(f"Starting ERA5 multi-threaded download with {workers} workers")
         incomplete_requests = list()
         for request in cds_requests:
-            if request.exists():
-                logger.warning(f"Found {request.output_file}. Will not re-download.")
-            elif request.is_downloaded():
-                logger.warning(f"Found {request.renamed_files}. Will not re-download.")
+            if request.is_downloaded():
+                logger.warning(f"Found {[file.name for file in request.renamed_files]}. Will not re-download.")
+            elif request.exists():
+                logger.warning(f"Found {request.output_file.name}. Will not re-download.")
             else:
                 incomplete_requests.append(request)
 
-        download_threadded(incomplete_requests, workers)
+        failed_downloads = download_threadded(incomplete_requests, workers)
         logger.info(f"Finished ERA5 multi-threaded download with {workers} workers")
         
+        logger.info(f"Renaming files in {self.directory}")
         rename_pl_dir(self.directory)
         rename_sl_dir(self.directory)
 
+        failfile_path = Path(self.directory, "failed_downloads.txt")
+        
+        if len(failed_downloads) > 0:
+            logger.warning(f"Failed to download {len(failed_downloads)} files. See {failfile_path} for more information")
+        
+            with open(failfile_path, 'w') as f:
+                for failed in failed_downloads:
+                    f.write(f"{failed.output_file}\n")
+        
+        else:
+            logger.info("All files downloaded successfully")
+            failfile_path.unlink()
+
     def retrieve(self, workers=6):
         requests = self.list_requests()
-        self.download_threadded(requests, workers)
+        failed_downloads = self.download_threadded(requests, workers)
+        return failed_downloads
 
 
 def download_threadded(cds_requests, workers=6):
     def download_request(request):
-        if not request.exists():
+        if not request.is_downloaded():
             request.download()
-        else:
-            print("skipping request")
+        
+        if not request.exists():
+            logger.error(f"Failed to download {request.output_file}")
+            return request
 
+    failed_downloads = []
+    
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        executor.map(download_request, cds_requests)
+        for result in executor.map(download_request, cds_requests):
+            if result is not None:
+                failed_downloads.append(result)
         executor.shutdown()
+    
+    return failed_downloads
 
 
 def rename_pl_dir(dir):
@@ -155,6 +178,7 @@ def rename_pl_file(f, overwrite=True):
     if not overwrite and Path(new_file).exists():
         print(f"Skipping {new_file}")
         return
+    logger.debug(f"Renaming {Path(f).name}")
     print(new_file)
     rename(f, new_file)
 
@@ -177,6 +201,7 @@ def split_sl(f, overwrite=False, time_var='valid_time'):
     if not overwrite and Path(sa).exists():
         print(f"Skipping {sa}")
         return
+    logger.debug(f"Splitting {Path(f).name}")
     cmd1 = f"nccopy -V {time_var},latitude,longitude,ssrd,strd,tp {f} {sf}"
     cmd2 = f"nccopy -V {time_var},latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
     logger.debug(cmd1)
@@ -184,6 +209,9 @@ def split_sl(f, overwrite=False, time_var='valid_time'):
     p1.wait()
     logger.debug(cmd2)
     subprocess.Popen(cmd2.split(" "))
+    if Path(sf).exists() and Path(sa).exists():
+        logger.debug(f"Removing {f}")
+        # Path(f).unlink()
 
 
 if __name__ == "__main__":
