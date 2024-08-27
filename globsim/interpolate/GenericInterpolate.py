@@ -1,10 +1,13 @@
 import esmpy
+import gc
 import numpy as np
 import netCDF4 as nc
 import re
 import tomlkit
 import warnings
 import logging
+import sys
+import psutil
 
 from datetime import datetime, timedelta
 from os import path, makedirs, listdir
@@ -23,6 +26,8 @@ logger = logging.getLogger('globsim.interpolate')
 import esmpy as ESMF
 
 class GenericInterpolate:
+    REANALYSIS = ''
+    SAFE_MEM_LIMIT_PERCENT = 90
 
     def __init__(self, ifile: str, **kwargs):
         # read parameter file
@@ -92,6 +97,12 @@ class GenericInterpolate:
         except KeyError:
             logger.error("Could not verify whether stations are within downloaded netcdf")
 
+    def getOutFile(self, kind):
+        """
+        Get the output file name for the given kind of interpolation.
+        """
+        return path.join(self.output_dir, f'{self.REANALYSIS}_{kind}_{self.list_name}.nc')
+    
     def process(self):
         self._preprocess()
 
@@ -141,7 +152,7 @@ class GenericInterpolate:
     def interp2D(self,  ncf_in, points, tmask_chunk: "np.ndarray",
                  sgrid: "ESMF.Grid",
                  lon_subset:slice, lat_subset:slice,
-                 variables=None, date=None):
+                 variables=None, date=None) -> "tuple[ESMF.Field, list[str]]":
         """
         Bilinear interpolation from fields on regular grid (latitude, longitude)
         to individual point stations (latitude, longitude). This works for
@@ -253,6 +264,10 @@ class GenericInterpolate:
 
             dfield = self.regrid(sfield, dfield)
         
+        # clean up and GC
+        del sfield, locstream, ncf_in
+        gc.collect()
+
         logger.debug("Created destination field")
 
         return dfield, variables
@@ -300,10 +315,10 @@ class GenericInterpolate:
         #sgrid = ESMF.Grid(filename=ncsingle, filetype=ESMF.FileFormat.GRIDSPEC)
         
         # sg = ESMF.Grid(max_index = np.array([205,45]), num_peri_dims=1, periodic_dim=0,staggerloc=ESMF.StaggerLoc.CENTER)
-        if True:  # single-level
-            template = nc.Dataset(ncsingle)
-            lat = template.variables['latitude'][:]
-            lon = template.variables['longitude'][:]
+
+        template = nc.Dataset(ncsingle)
+        lat = template.variables['latitude'][:]
+        lon = template.variables['longitude'][:]
 
         sgrid = grid_create_from_coordinates_periodic(lon, lat)
         return sgrid
@@ -470,7 +485,61 @@ class GenericInterpolate:
 
     def prefilter_mf_paths(self, pattern):
         return prefilter_mf_paths(pattern, self.date['beg'], self.date['end'])
+    
+    def completed_successfully(self, file:str) -> bool:
+        """ Check if interpolation was successful """
+        if not Path(file).is_file():
+            return False
+        with nc.Dataset(file) as ncfile:
+            if 'globsim_interpolate_success' in ncfile.ncattrs():
+                return bool(int(ncfile.getncattr('globsim_interpolate_success')))
+            else:
+                return False
+            
+    def require_safe_mem_usage(self):
+        """ Check if memory usage is safe. Kill globsim if not """
+        mem = psutil.virtual_memory()
+        logger.info(f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
+        safe = mem.percent < self.SAFE_MEM_LIMIT_PERCENT
+        if not safe:
+            logger.critical(f"Memory use exceeds safe limit of {self.SAFE_MEM_LIMIT_PERCENT}%. Exiting safely")
+            sys.exit(1)
 
+    def file_can_be_resumed(self, file:str):
+        ''' check if file can be resumed '''
+        errmsgs = []
+        with nc.Dataset(file) as ncfile:
+            if not 'globsim_last_chunk_written' in ncfile.ncattrs():
+                errmsgs.append("No 'globsim_last_chunk_written' attribute found in file.")
+            if not 'globsim_chunk_size' in ncfile.ncattrs():
+                errmsgs.append("No 'globsim_chunk_size' attribute found in file.")
+            else:
+                if ncfile.getncattr('globsim_chunk_size') != self.cs:
+                    errmsgs.append(f"Chunk size in file ({ncfile.getncattr('globsim_chunk_size')}) does not match configuration ({self.cs}).")
+            if not 'globsim_interpolate_start' in ncfile.ncattrs():
+                errmsgs.append("No 'globsim_interpolate_start' attribute found in file.")
+            else:
+                if ncfile.getncattr('globsim_interpolate_start') != self.par['beg']:
+                    errmsgs.append(f"Interpolation start in file ({ncfile.getncattr('globsim_interpolate_start')}) does not match configuration ({self.date['beg']}).")
+            if not 'globsim_interpolate_end' in ncfile.ncattrs():
+                errmsgs.append("No globsim_interpolate_end attribute found in file.")
+            else:
+                if ncfile.getncattr('globsim_interpolate_end') != self.par['end']:
+                    errmsgs.append(f"Interpolation end in file ({ncfile.getncattr('globsim_interpolate_end')}) does not match configuration ({self.date['end']}).")
+        
+        if errmsgs:
+            logger.error(f"Cannot resume interpolation from file {file}:")
+            for msg in errmsgs:
+                logger.error(msg)
+            return False
+        else:
+            return True
+    
+    def require_file_can_be_resumed(self, file:str):
+        if not self.file_can_be_resumed(file):
+            logger.critical(f"Cannot resume interpolation from file {file}. Exiting safely.")
+            sys.exit(1)
+        
 
 def prefilter_mf_paths(pattern:str, beg: "datetime", end: "datetime") -> list:
     """ Filter out files that do not fall within date range """ 
@@ -601,6 +670,7 @@ def grid_create_from_coordinates_periodic(longitudes, latitudes, lon_corners=Fal
 
     return grid
 
+    
 
 
 

@@ -36,7 +36,7 @@ def main(args):
         JRA3QG   = True if args.d is None or "JRA3QG"    in args.d else False
         MERRA   = True if args.d is None or "MERRA"    in args.d else False
         
-        if sum([ ERA5, ERA5ENS, JRA, MERRA, JRA3Q]) > 0:
+        if sum([ ERA5, ERA5ENS, JRA, MERRA, JRA3Q, JRA3QG]) > 0:
             GlobsimScale(sfile, ERA5=ERA5, ERA5ENS=ERA5ENS, 
                         JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q, JRA3QG=JRA3QG)
 

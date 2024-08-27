@@ -3,9 +3,11 @@
 import netCDF4 as nc
 import numpy as np
 import logging
+import gc
 import xarray as xr
 from datetime import datetime
 from os import path
+from pathlib import Path
 
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
@@ -126,96 +128,115 @@ class JRAinterpolate(GenericInterpolate):
 
         # build the output of empty netCDF file
         level_var = 'level' if pl else None
-        rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                          time_units=self.T_UNITS,
-                                          level_var=level_var)
-        rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
-        rootgrp.close()
+
+        if self.resume:
+            self.require_file_can_be_resumed(ncfile_out)
+        
+        if not (self.resume and Path(ncfile_out).exists()):
+            rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
+                                                time_units=self.T_UNITS,
+                                                level_var=level_var)
+            rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
+            rootgrp.globsim_interpolate_start = self.par['beg']
+            rootgrp.globsim_interpolate_end = self.par['end']
+            rootgrp.globsim_chunk_size = self.cs
+            rootgrp.globsim_interpolate_success = 0
+            rootgrp.globsim_last_chunk_written = -1
+            rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
-        ncf_out = nc.Dataset(ncfile_out, 'a')
+        with nc.Dataset(ncfile_out, 'a') as ncf_out:
+            # get time and convert to datetime object
+            nctime = ncf_in['time'][:]
+            # "hours since 1900-01-01 00:00:0.0"
+            t_unit = ncf_in['time'].units
+            try:
+                t_cal = ncf_in['time'].calendar
+            except AttributeError:  # attribute doesn't exist
+                t_cal = u"gregorian"  # standard
+            time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
 
-        # get time and convert to datetime object
-        nctime = ncf_in['time'][:]
-        # "hours since 1900-01-01 00:00:0.0"
-        t_unit = ncf_in['time'].units
-        try:
-            t_cal = ncf_in['time'].calendar
-        except AttributeError:  # attribute doesn't exist
-            t_cal = u"gregorian"  # standard
-        time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
+            # detect invariant files (topography etc.)
+            invariant = True if len(np.unique(time)) == 1 else False
 
-        # detect invariant files (topography etc.)
-        invariant = True if len(np.unique(time)) == 1 else False
-
-        # restrict to date/time range if given
-        if date is None:
-            tmask = time < datetime(3000, 1, 1)
-        else:
-            tmask = (time < date['end']) * (time >= date['beg'])
-
-        # get time indices
-        time_in = nctime[tmask]
-
-        # ensure that chunk sizes cover entire period even if
-        # len(time_in) is not an integer multiple of cs
-        niter = len(time_in) // self.cs
-        niter += ((len(time_in) % self.cs) > 0)
-
-        # Create source grid
-        sgrid = self.create_source_grid(ncf_in)
-        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
-        
-        # loop over chunks
-        for n in range(niter):
-            # indices
-            beg = n * self.cs
-            # restrict last chunk to lenght of tmask plus one (to get last time)
-            if invariant:
-                end = beg
+            # restrict to date/time range if given
+            if date is None:
+                tmask = time < datetime(3000, 1, 1)
             else:
-                end = min(n * self.cs + self.cs, len(time_in)) - 1
+                tmask = (time < date['end']) * (time >= date['beg'])
 
-            # time to make tmask for chunk
-            beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
-            if invariant:
-                # allow topography to work in same code, len(nctime) = 1
-                end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-                # end = 1
-            else:
-                end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
+            # get time vector for output
+            time_in = nctime[tmask]
 
-            # '<= end_time', would damage appending
-            tmask_chunk = (time <= end_time) * (time >= beg_time)
-            if invariant:
-                # allow topography to work in same code
-                tmask_chunk = np.array([True])
+            # write time
+            ncf_out.variables['time'][:] = time_in
 
-            # get the interpolated variables
-            dfield, variables = self.interp2D(ncf_in,
-                                              self.stations, tmask_chunk,
-                                              subset_grid, lon_slice, lat_slice,
-                                              variables=None, date=None)
+            # ensure that chunk sizes cover entire period even if
+            # len(time_in) is not an integer multiple of cs
+            niter = len(time_in) // self.cs
+            niter += ((len(time_in) % self.cs) > 0)
 
-            # append time
-            ncf_out.variables['time'][:] = np.append(ncf_out.variables['time'][:],
-                                                     time_in[beg:end + 1])
-
-            # append variables
-            for i, var in enumerate(variables):
-                if variables_skip(var):
+            # Create source grid
+            sgrid = self.create_source_grid(ncf_in)
+            subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
+            
+            # loop over chunks
+            for n in range(niter):
+                if self.resume and n <= ncf_out.globsim_last_chunk_written:
+                    if n == ncf_out.globsim_last_chunk_written:
+                        logger.info(f"Resuming interpolation at chunk {n+1}")
                     continue
 
-                if pl:
-                    lev = ncf_in.variables['level'][:]
+                self.require_safe_mem_usage()
 
-                    ncf_out.variables[var][beg:end + 1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
+                # indices
+                beg = n * self.cs
+                # restrict last chunk to lenght of tmask plus one (to get last time)
+                if invariant:
+                    end = beg
                 else:
-                    ncf_out.variables[var][beg:end + 1,:] = dfield.data[:,i,:].transpose((1,0))
+                    end = min(n * self.cs + self.cs, len(time_in)) - 1
 
+                # time to make tmask for chunk
+                beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
+                if invariant:
+                    # allow topography to work in same code, len(nctime) = 1
+                    end_time = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+                    # end = 1
+                else:
+                    end_time = nc.num2date(time_in[end], units=t_unit, calendar=t_cal)
+
+                # '<= end_time', would damage appending
+                tmask_chunk = (time <= end_time) * (time >= beg_time)
+                if invariant:
+                    # allow topography to work in same code
+                    tmask_chunk = np.array([True])
+
+                # get the interpolated variables
+                dfield, variables = self.interp2D(ncf_in,
+                                                self.stations, tmask_chunk,
+                                                subset_grid, lon_slice, lat_slice,
+                                                variables=None, date=None)
+
+                # append variables
+                for i, var in enumerate(variables):
+                    if variables_skip(var):
+                        continue
+
+                    if pl:
+                        lev = ncf_in.variables['level'][:]
+
+                        ncf_out.variables[var][beg:end + 1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
+                    else:
+                        ncf_out.variables[var][beg:end + 1,:] = dfield.data[:,i,:].transpose((1,0))
+
+                ncf_out.globsim_last_chunk_written = n
+                del dfield, tmask_chunk
+                gc.collect()
+
+            ncf_out.globsim_interpolate_success = 1
         # close the file
         ncf_in.close()
-        ncf_out.close()
 
     def levels2elevation(self, ncfile_in, ncfile_out):
         """
@@ -304,11 +325,7 @@ class JRAinterpolate(GenericInterpolate):
         ncf.close()
         # closed file =========================================================
 
-    def process(self):
-        """
-        Interpolate point time series from downloaded data. Provides access to
-        the more generically JRA-like interpolation functions.
-        """
+    def _preprocess(self):
         try:
             self.JRA2station(self.mf_to,
                              path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
@@ -317,32 +334,44 @@ class JRAinterpolate(GenericInterpolate):
             logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
                          "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
 
+    def _process_sa(self):
         # === 2D Interpolation for Surface  Data ===
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
         varlist = self.TranslateCF2short(self.dpar_sa)
-        self.JRA2station(self.mf_sa,
-                         path.join(self.output_dir,f'{self.REANALYSIS}_sa_' + self.list_name + '.nc'),
-                         self.stations,
-                         varlist, date=self.date)
-
+        if self.resume and self.completed_successfully(self.getOutFile('sa')):
+            logger.info("Skipping surface analysis interpolation")
+        else:
+            self.JRA2station(self.mf_sa,
+                            self.getOutFile('sa'),
+                            self.stations,
+                            varlist, date=self.date)
+    
+    def _process_sf(self):
         # 2D Interpolation for Radiation Data
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
         varlist = self.TranslateCF2short(self.dpar_sf)
-        self.JRA2station(self.mf_sf,
-                         path.join(self.output_dir,f'{self.REANALYSIS}_sf_' + self.list_name + '.nc'),
-                         self.stations,
-                         varlist,
-                         date=self.date)
-        
+        if self.resume and self.completed_successfully(self.getOutFile('sf')):
+            logger.info("Skipping surface analysis interpolation")
+        else:
+            self.JRA2station(self.mf_sf,
+                            self.getOutFile('sf'),
+                            self.stations,
+                            varlist,
+                            date=self.date)
+    
+    def _process_pl(self):
         varlist = self.TranslateCF2short(self.dpar_pl).append('geopotential_height')
-        self.JRA2station(self.mf_pl,
-                         path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '.nc'),
-                         self.stations,
-                         varlist,
-                         date=self.date)
+        if self.resume and self.completed_successfully(self.getOutFile('pl')):
+            logger.info("Skipping surface analysis interpolation")
+        else:
+            self.JRA2station(self.mf_pl,
+                            self.getOutFile('pl'),
+                            self.stations,
+                            varlist,
+                            date=self.date)
 
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '.nc'),
+        self.levels2elevation(self.getOutFile('pl'),
                               path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '_surface.nc'))

@@ -76,6 +76,7 @@ def main():
     interpolate.add_argument('--skip-sa', dest='skip_sa', action='store_true', help='skip creation of "sa" file')
     interpolate.add_argument('--skip-sf', dest='skip_sf', action='store_true', help='skip creation of "sf" file')
     interpolate.add_argument('--skip-pl', dest='skip_pl', action='store_true', help='skip creation of "pl" file')
+    interpolate.add_argument('--resume', dest='resume', action='store_true', help='pick up interpolation where it left off')
     interpolate.add_argument('--skip-checks', dest='skip_checks', action='store_true', help='skip data integrity checks')
     
     download.set_defaults(func=globsim_download.main)
