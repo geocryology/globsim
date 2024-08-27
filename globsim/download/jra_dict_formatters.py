@@ -334,6 +334,13 @@ def lookup_param(param, metadata=None, dsid=None, returns='param_description'):
     return list(filter(lambda x: x['param'] == param, metadata))[0][returns]
 
 
+class J3QGDictFormatter(J3QDictFormatter):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_grid('gauss')
+
+
 if __name__ =="__main__":
     
     rda = Rdams(None)

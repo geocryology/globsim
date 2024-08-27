@@ -32,9 +32,10 @@ def main(args):
     ERA5ENS =  bool(args.d is None or "ERA5ENS"  in args.d)
     JRA     =  bool(args.d is None or "JRA"   in args.d)
     JRA3Q   = bool(args.d is None or "JRA3Q"   in args.d)
+    JRA3QG   = bool(args.d is None or "JRA3QG"   in args.d)
     MERRA     = bool(args.d is None or "MERRA" in args.d)
 
-    if sum([ERA5, ERA5ENS, JRA, MERRA, JRA3Q]) > 0:
+    if sum([ERA5, ERA5ENS, JRA, MERRA, JRA3Q, JRA3QG]) > 0:
 
         GlobsimInterpolateStation(pfile,
                                   ERA5=ERA5,
@@ -42,6 +43,7 @@ def main(args):
                                   JRA=JRA,
                                   MERRA=MERRA,
                                   JRA3Q=JRA3Q,
+                                  JRA3QG=JRA3QG,
                                   **vars(args))
 
     else: print("Failed! Reanalysis source should be  ERA5, MERRA, JRA, JRA3Q, please check")
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('-f',    default=None, type=str, 
                         help="file path to download parameter file")
     parser.add_argument('-d',    default=None, nargs="*", type=str, 
-                        help="What data sources should run?  ERA5, MERRA, JRA, JRA3Q")
+                        help="What data sources should run?  ERA5, MERRA, JRA, JRA3Q, JRA3QG")
 
     args = parser.parse_args()
 

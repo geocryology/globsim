@@ -33,11 +33,12 @@ def main(args):
         ERA5ENS = True if args.d is None or "ERA5ENS"  in args.d else False
         JRA     = True if args.d is None or "JRA"      in args.d else False
         JRA3Q   = True if args.d is None or "JRA3Q"    in args.d else False
+        JRA3QG   = True if args.d is None or "JRA3QG"    in args.d else False
         MERRA   = True if args.d is None or "MERRA"    in args.d else False
         
         if sum([ ERA5, ERA5ENS, JRA, MERRA, JRA3Q]) > 0:
             GlobsimScale(sfile, ERA5=ERA5, ERA5ENS=ERA5ENS, 
-                        JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q)
+                        JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q, JRA3QG=JRA3QG)
 
         
         else: print("Failed! Reanalysis source should be ERA5, MERRA, JRA, JRA3Q please check")
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument('-f', default=None, type=str, 
                         help="file path to download parameter file")
     parser.add_argument('-d', default=None, nargs="*", type=str, 
-                        help="What data sources should run?  ERA5, ERA5ENS, MERRA, JRA, JRA3Q")
+                        help="What data sources should run?  ERA5, ERA5ENS, MERRA, JRA, JRA3Q, JRA3QG")
     
     
     args = parser.parse_args()

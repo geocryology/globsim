@@ -30,3 +30,9 @@ class J3QS(JRAscale):
     NAME = "JRA-3Q"
     REANALYSIS = "jra3q"
 
+
+
+class J3QgS(JRAscale):
+    NAME = "JRA-3QG"
+    REANALYSIS = "jra3qg"
+

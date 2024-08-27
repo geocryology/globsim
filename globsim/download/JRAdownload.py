@@ -141,7 +141,12 @@ class JRAdownload(GenericDownload):
                 
                 # append request ID
                 rid = str(req['data']['request_id'])
-                submitted_requests[rid] = filetype
+                try:
+                    submitted_requests[rid] = filetype
+                except KeyError:
+                    logger.error(f"Error in request {request_dict}")
+                    logger.error(f"Error messages: {req.get('error_messages')}")
+                    continue
         
         logger.info('Request submitted')
 
@@ -254,7 +259,11 @@ class JRAdownload(GenericDownload):
 
         logger.info(f'''Starting {self.JRA_VERSION} download''')
 
-        # self.requestClear()  # don't clear online requests
+        active_requests = self.api.get_status()['data']
+        if len(active_requests) > 5:
+            logger.error(f"Found {len(active_requests)} active requests (>5). Will clear them before proceeding")
+            self.requestClear()  # don't clear online requests
+            time.sleep(10)  # allow time for purge to register
         submitted_requests = self.requestSubmit()  # submit request
         self.requestDownload(submitted_requests)  # download dataset
 

@@ -7,6 +7,7 @@ import urllib3
 
 from datetime import datetime
 from os import path
+from pathlib import Path
 
 from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
@@ -140,10 +141,16 @@ class ERA5interpolate(GenericInterpolate):
 
         # build the output of empty netCDF file
         level_var = self.vn_level if pl else None
+        
         rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                           time_units=ncf_in[self.vn_time].units,  # 'hours since 1900-01-01 00:00:0.0'
                                           calendar=ncf_in[self.vn_time].calendar,
                                           level_var=level_var)
+        
+        rootgrp.globsim_interpolate_start = self.date['beg']
+        rootgrp.globsim_interpolate_end = self.date['end']
+        rootgrp.globsim_chunk_size = cs
+        
         if self.ens:
             rootgrp.source = 'ERA5 10-member ensemble, interpolated bilinearly to stations'
         else:

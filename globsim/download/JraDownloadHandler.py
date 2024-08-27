@@ -228,6 +228,10 @@ def determine_output_file_type(directory:str, request_id:str) -> str:
     return file_type
 
 
+class J3QgDownloadHandler(J3QDownloadHandler):
+    REANALYSIS = 'jra3q'
+
+
 def new_jra_download_file(filename:str,
                           Times:xr.DataArray,
                           Lats:xr.DataArray,

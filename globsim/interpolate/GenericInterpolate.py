@@ -34,6 +34,7 @@ class GenericInterpolate:
         self.variables = par.get('variables')
         self.skip_checks = kwargs.get('skip_checks', bool(par.get("skip_checks", False)))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
+        
 
         # read station points
         self.stations_csv = self.find_stations_csv(par)
@@ -54,7 +55,8 @@ class GenericInterpolate:
         self._skip_sa = kwargs.get('skip_sa', False)
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
-
+        self.resume = kwargs.get('resume', False)
+        
     @property
     def vn_time(self):
         return 'time'

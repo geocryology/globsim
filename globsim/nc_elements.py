@@ -5,6 +5,7 @@ import logging
 import netCDF4 as nc
 import numpy as np
 from os import path
+from typing import Optional
 import xarray as xr
 
 from globsim.common_utils import variables_skip, str_encode
@@ -143,7 +144,10 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     return rootgrp
 
 
-def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units, calendar=None, level_var=None):
+def new_interpolated_netcdf(ncfile_out:str, stations, 
+                            nc_in:xr.Dataset, time_units:str, 
+                            calendar:Optional[str]=None,
+                            level_var:Optional[list]=None) -> nc.Dataset:
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
