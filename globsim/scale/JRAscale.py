@@ -330,13 +330,9 @@ class JRAscale(GenericScale):
         V = self.rg.variables['10 metre V wind component'][:]
         U = self.rg.variables['10 metre U wind component'][:]
         
-        
         WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
-
-        #for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-         #   WD = [atan2(V[i, n], U[i, n]) * (180 / pi) +
-          #        180 for i in np.arange(V.shape[0])]
+        WD = np.mod(WD, 360)
 
         self.rg.variables['WSPD_sur'][:] = WS
         self.rg.variables['WDIR_sur'][:] = WD

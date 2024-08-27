@@ -337,6 +337,7 @@ class ERA5scale(GenericScale):
         # convert to "clockwise from north" from "anti-clockwise from x-axis" : 90 - angle
         # convert "from direction" : + 180
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
+        WD = np.mod(WD, 360)
         self.rg.variables[vn_dir][:, :] = WD
 
     def SW_Wm2_sur(self):
