@@ -505,9 +505,13 @@ class GenericInterpolate:
             logger.critical(f"Memory use exceeds safe limit of {self.SAFE_MEM_LIMIT_PERCENT}%. Exiting safely")
             sys.exit(1)
 
-    def file_can_be_resumed(self, file:str):
+    def file_can_be_resumed(self, file:str, fail_on_missing=False):
         ''' check if file can be resumed '''
         errmsgs = []
+    
+        if not (Path(file).is_file() or fail_on_missing):
+            return True
+        
         with nc.Dataset(file) as ncfile:
             if not 'globsim_last_chunk_written' in ncfile.ncattrs():
                 errmsgs.append("No 'globsim_last_chunk_written' attribute found in file.")
@@ -535,8 +539,9 @@ class GenericInterpolate:
         else:
             return True
     
-    def require_file_can_be_resumed(self, file:str):
-        if not self.file_can_be_resumed(file):
+    def require_file_can_be_resumed(self, file:str, fail_on_missing:bool = False):
+
+        if not self.file_can_be_resumed(file, fail_on_missing=fail_on_missing):
             logger.critical(f"Cannot resume interpolation from file {file}. Exiting safely.")
             sys.exit(1)
         
