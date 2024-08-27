@@ -42,6 +42,7 @@ setuptools.setup(
                       'pandas',
                       'netCDF4',
                       'scipy',
+                      'dask',
                       'xarray',
                       'pydap>=3.4.1',  # TODO: resolve the change to open_dods_url and make sure it works
                       'tomlkit',
