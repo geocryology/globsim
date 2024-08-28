@@ -5,6 +5,8 @@ import logging
 import netCDF4 as nc
 import numpy as np
 from os import path
+from typing import Optional
+import xarray as xr
 
 from globsim.common_utils import variables_skip, str_encode
 from globsim import __version__ as globsim_version
@@ -142,7 +144,10 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     return rootgrp
 
 
-def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
+def new_interpolated_netcdf(ncfile_out:str, stations, 
+                            nc_in:xr.Dataset, time_units:str, 
+                            calendar:Optional[str]=None,
+                            level_var:Optional[list]=None) -> nc.Dataset:
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
@@ -150,12 +155,13 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
 
     ncfile_out: full name of the file to be created
     stations:   station list read with common_utils.StationListRead()
+    nc_in: 
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
     logger.info(f"Creating new file {ncfile_out} from ")
 
-    rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units, nc_in)
+    rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units, nc_in, calendar)
 
     station = rootgrp['station']
     latitude = rootgrp['latitude']
@@ -169,15 +175,15 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
     height[:]    = list(stations['elevation_m'])
 
     # extra treatment for pressure level files
-    try:
-        lev = nc_in.variables['level'][:]
+    if level_var is not None:
+        lev = nc_in.variables[level_var][:]
         logger.info(f"Source dataset is 3D (has pressure levels)")
         level           = rootgrp.createDimension('level', len(lev))
         level           = rootgrp.createVariable('level', 'i4', ('level'))
         level.long_name = 'pressure_level'
         level.units     = 'hPa'
         level[:] = lev
-    except Exception:
+    else:
         logger.info(f"Source dataset is 2D (without pressure levels)")
         lev = []
 
@@ -208,17 +214,24 @@ def new_interpolated_netcdf(ncfile_out, stations, nc_in, time_units):
 
         # copy attributes
         input_var = nc_in.variables[var]
-        for key in input_var.ncattrs():
-            if key in ['_FillValue']:
-                continue
-            tmp.setncattr(key, getattr(input_var, key))
-        
-        logger.info(f"Created new empty variable: {str_encode(var)} [{tmp.units}]")
+
+        if isinstance(input_var, xr.Variable):  # XARRAY
+            for key, val in input_var.attrs.items():
+                if key in ['_FillValue']:
+                    continue
+                tmp.setncattr(key, val)
+        else:
+            for key in input_var.ncattrs():  # NETCDF4
+                if key in ['_FillValue']:
+                    continue
+                tmp.setncattr(key, getattr(input_var, key))
+        units = tmp.units if hasattr(tmp, 'units') else '??'
+        logger.info(f"Created new empty variable: {str_encode(var)} [{units}]")
     
     return rootgrp
 
 
-def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None):
+def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None, calendar=None):
     # Build the netCDF file
     rootgrp = nc_new_file(ncfile_out)
 
@@ -227,8 +240,10 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None):
     _ = rootgrp.createDimension('time', None)
 
     # base variables
+    if calendar is None:
+        calendar = 'gregorian'
     _ = ncvar_add_time(rootgrp, units=time_units,
-                       calendar='gregorian', dimensions=('time'))
+                       calendar=calendar, dimensions=('time'))
     _ = ncvar_add_station(rootgrp)
     _ = ncvar_add_latitude(rootgrp)
     _ = ncvar_add_longitude(rootgrp)

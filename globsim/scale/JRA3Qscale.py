@@ -1,9 +1,9 @@
 from globsim.scale.JRAscale import JRAscale
 
 
-class J3QS(JRAscale):
-    NAME = "JRA-3Q"
-    REANALYSIS = "jra3q"
+class J3QSjma(JRAscale):
+    NAME = "JRA-3Q-JMA"
+    REANALYSIS = "jra3q-jma"
 
     # translator for JRA-55 names
     J55T = {"sa":{"Temperature": "2t",
@@ -15,15 +15,24 @@ class J3QS(JRAscale):
                   'Downward solar radiation flux': "dswrf",
                   'Downward longwave radiation flux': "dswrf",},
             "pl":{"Temperature": "t",
-                  }}
+                  },
+            "pl_sur":{},
+            "to":{}}
 
     SCALING = {"sa": {},
                "sf": {},
-               "pl": {}}
-    
-    def get_name(self, file:str, jra55name:str) -> str:
-        n = self.J55T[file].get(jra55name)
-        if n is None:
-            return jra55name
-        else:
-            return n
+               "pl": {},
+               "pl_sur": {},
+               "to": {}}
+
+
+class J3QS(JRAscale):
+    NAME = "JRA-3Q"
+    REANALYSIS = "jra3q"
+
+
+
+class J3QgS(JRAscale):
+    NAME = "JRA-3QG"
+    REANALYSIS = "jra3qg"
+

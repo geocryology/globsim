@@ -391,7 +391,7 @@ class MERRAscale(GenericScale):
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             WS = np.sqrt(np.power(V[:, n], 2) + np.power(U[:, n], 2))
             WD = [atan2(V[i, n], U[i, n]) * (180 / pi) + 180 for i in np.arange(V.shape[0])]
-
+            WD = np.mod(WD, 360)
             self.rg.variables['WSPD_sur'][:, n] = WS
             self.rg.variables['WDIR_sur'][:,n] = WD
 

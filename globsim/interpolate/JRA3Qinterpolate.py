@@ -13,7 +13,12 @@ class J3QI(JRAinterpolate):
     PL_INTERVAL = 6
     SF_INTERVAL = 1
 
-    T_UNITS = J3QD._tunits
+    T_UNITS = "hours since 1900-01-01 00:00:00"
 
-    GEOPOTENTIAL = "gh"
+
+class J3QgI(J3QI):
+
+    REANALYSIS = "jra3qg"
+
+
 

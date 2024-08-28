@@ -47,20 +47,15 @@ scale = LazyLoader('globsim.scale')
 
 
 def GlobsimDownload(pfile, multithread=True, 
-                    ERAI=True, ERA5=True, 
-                    ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
+                    ERA5=True, 
+                    ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True, JRA3QG=True):
     """
     Download data from multiple reanalyses. Each reanalysis is run as one 
     separate thread if 'multithread = True'. If 'multithread = False', each
     download is run sequentially. This is easier for interpreting the output.
     """
     # make list of objects to execute
-    objects = [] 
-    
-    # === ERA-Interim ===
-    if ERAI:
-        ERAIdownl = download.ERAIdownload(pfile)
-        objects.append(ERAIdownl)
+    objects = []
     
     # === ERA5 ===
     if ERA5:
@@ -87,6 +82,10 @@ def GlobsimDownload(pfile, multithread=True,
         JRA3Qdownl = download.J3QD(pfile)
         objects.append(JRA3Qdownl)
 
+    if JRA3QG:
+        JRA3QGdownl = download.J3QgD(pfile)
+        objects.append(JRA3QGdownl)
+
     # serial of parallel execution
     if multithread:
         # Make the Pool of workers and run as lambda functions
@@ -102,19 +101,14 @@ def GlobsimDownload(pfile, multithread=True,
         print('Serial download finished')
     
 
-def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
-                              MERRA=True, JRA=True, JRA3Q=True, **kwargs):
+def GlobsimInterpolateStation(ifile, ERA5=True, ERA5ENS=True,
+                              MERRA=True, JRA=True, JRA3Q=True,JRA3QG=True, **kwargs):
     """
     Interpolate re-analysis data to individual stations (points: lat, lon, ele).
     The temporal granularity and variables of each re-analysis are preserved.
     The resulting data is saved in netCDF format. THis is not parallelised to
     differing processors as memory may be a limiting factor.
     """
-    
-    # === ERA-Interim ===
-    if ERAI:
-        ERAIinterp = interpolate.ERAIinterpolate(ifile, **kwargs)
-        ERAIinterp.process()
     
     # === ERA5 ===
     if ERA5:
@@ -139,18 +133,18 @@ def GlobsimInterpolateStation(ifile, ERAI=True, ERA5=True, ERA5ENS=True,
     if JRA3Q:
         JRA3Qinterp = interpolate.J3QI(ifile)
         JRA3Qinterp.process()
+
+    if JRA3QG:
+        JRA3QGinterp = interpolate.J3QgI(ifile)
+        JRA3QGinterp.process()
             
-def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True):
+def GlobsimScale(sfile, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True,JRA3QG=True):
     """
     Use re-analysis data that has been interpolated to station locations to 
     derive fluxes scaled / converted / adjusted to drive point-scale 
     near-surface models. The resulting data has coherent variables for all 
     reanalyses, optionally coherent temporal granularity, and is saved as netCDF.
     """
-    # === ERA-Interim ===
-    if ERAI:
-        ERAIsc = scale.ERAIscale(sfile)
-        ERAIsc.process()
     
     # === ERA5 ===
     if ERA5:
@@ -176,4 +170,8 @@ def GlobsimScale(sfile, ERAI=True, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True
     if JRA3Q:
         JRA3Qsc = scale.J3QS(sfile)
         JRA3Qsc.process()
+
+    if JRA3QG:
+        JRA3QGsc = scale.J3QgS(sfile)
+        JRA3QGsc.process()
                   

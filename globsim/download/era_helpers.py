@@ -1,4 +1,5 @@
 import cdsapi
+import re
 
 import numpy as np
 
@@ -15,10 +16,10 @@ from globsim.download.ERA5download import ERA5generic
 class Era5RequestParameters(MutableMapping):
     """ Request dictionary """
     VALID_KEYS = ['product_type','format','year',
-                  'month','day','time','area','variable',
+                  'month','day','time','area','variable','data_format','download_format',
                   'pressure_level']
 
-    REQUIRED_KEYS = ['product_type','format','year',
+    REQUIRED_KEYS = ['product_type','data_format','year',
                      'month','day','time','variable']
 
     """A dictionary that applies an arbitrary key-altering
@@ -41,7 +42,7 @@ class Era5RequestParameters(MutableMapping):
         if key in self.VALID_KEYS:
             self.store[key] = value
         else:
-            raise KeyError(f"{value} is not a valid ERA5 request parameter")
+            raise KeyError(f"{key}:{value} is not a valid ERA5 request parameter")
 
     def __delitem__(self, key):
         del self.store[key]
@@ -123,6 +124,12 @@ class Era5Request(ERA5generic):
         self.dataset = dataset
         self._output_file = None
 
+    def __repr__(self):
+        return f"ERA5 Request: {self.dataset} {self.params}"
+
+    def __str__(self):
+        return f"{self.dataset} request for {len(self.params)} variables at {self.params['area']}"
+    
     def download(self, target=None):
         ''' download '''
         server = cdsapi.Client()
@@ -208,6 +215,23 @@ class Era5Request(ERA5generic):
             file = Path(self.directory, f"era5_{era_type}_{dataset}_{time}.nc")
 
         return file
+    
+    @property
+    def globsim_outputs(self) -> "list[Path]":
+        if self.dataset == "reanalysis-era5-single-levels": 
+            orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
+            sf = orig.sub(r'era5_sf_\1.nc', self.output_file.name)
+            sa = orig.sub(r'era5_sa_\1.nc', self.output_file.name)
+            
+            files = [self.output_file.with_name(n) for n in [sa, sf]]
+
+        elif self.dataset == "reanalysis-era5-pressure-levels":
+            pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
+            pl = pl_pattern.sub(r"era5_pl_\1.nc", self.output_file.name)
+            
+            files = [self.output_file.with_name(pl)]
+
+        return files
 
 
 def era5_pressure_levels(elev_min: float, elev_max: float) -> "list[str]":

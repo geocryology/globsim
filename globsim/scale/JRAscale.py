@@ -169,7 +169,7 @@ class JRAscale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.get_values("pl_sur","time").astype(np.int64)
+        time_in = self.get_values("pl_sur", "time").astype(np.int64)
         values  = self.get_values("pl_sur", "air_pressure")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
@@ -207,7 +207,7 @@ class JRAscale(GenericScale):
         var.standard_name = 'air_temperature'
 
         # interpolate station by station
-        time_in = self.get_values("sa","time")
+        time_in = self.get_values("sa", "time")
         values  = self.get_values("sa", "Temperature")
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             self.rg.variables[vn][:, n] = np.interp(self.times_out_nc,
@@ -330,13 +330,9 @@ class JRAscale(GenericScale):
         V = self.rg.variables['10 metre V wind component'][:]
         U = self.rg.variables['10 metre U wind component'][:]
         
-        
         WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
-
-        #for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-         #   WD = [atan2(V[i, n], U[i, n]) * (180 / pi) +
-          #        180 for i in np.arange(V.shape[0])]
+        WD = np.mod(WD, 360)
 
         self.rg.variables['WSPD_sur'][:] = WS
         self.rg.variables['WDIR_sur'][:] = WD

@@ -39,10 +39,6 @@ class ERA5MonthlyDownload(GenericDownload):
             self._set_input_directory("era5")
             self.product_type = 'reanalysis'
             self.topo_file = 'era5_to.nc'
-
-    def retrieve(self):
-        requests = self.list_requests()
-        self.download_threadded(requests, 12)
         
     def list_requests(self):
         variables = self.par.get('variables')
@@ -62,7 +58,9 @@ class ERA5MonthlyDownload(GenericDownload):
                                          day="01",
                                          time="00:00",
                                          area=area,
-                                         format='netcdf')
+                                         format='netcdf',
+                                         data_format= 'netcdf',
+                                         download_format = 'unarchived')
 
         request_to = Era5Request('reanalysis-era5-single-levels', self.directory, to_param)
         request_to.set_output_file(self.topo_file)
@@ -80,7 +78,9 @@ class ERA5MonthlyDownload(GenericDownload):
                                        time=Era5RequestParameters.all_times(),
                                        area=area,
                                        pressure_level=self.levels,
-                                       format='netcdf')
+                                       format='netcdf',
+                                       data_format= 'netcdf',
+                                       download_format = 'unarchived')
             rpl = Era5Request('reanalysis-era5-pressure-levels', self.directory, pl)
             requests_pl.append(rpl)
 
@@ -91,7 +91,9 @@ class ERA5MonthlyDownload(GenericDownload):
                                        day=day,
                                        time=Era5RequestParameters.all_times(),
                                        area=area,
-                                       format='netcdf')
+                                       format='netcdf',
+                                       data_format= 'netcdf',
+                                       download_format = 'unarchived')
 
             rsl = Era5Request('reanalysis-era5-single-levels', self.directory, sl)
             requests_sl.append(rsl)
@@ -99,61 +101,136 @@ class ERA5MonthlyDownload(GenericDownload):
         return [request_to] + requests_pl + requests_sl
 
     def rename_files(self):
-        rename_pl(self.directory)
-        rename_sl(self.directory)
+        rename_pl_dir(self.directory)
+        rename_sl_dir(self.directory)
 
     def download_threadded(self, cds_requests, workers=6):
         logger.info(f"Starting ERA5 multi-threaded download with {workers} workers")
         incomplete_requests = list()
         for request in cds_requests:
-            if request.exists():
-                logger.warning(f"Found {request.output_file}. Will not re-download.")
-            elif request.is_downloaded():
-                logger.warning(f"Found {request.renamed_files}. Will not re-download.")
+            if request.is_downloaded():
+                logger.warning(f"Found {[file.name for file in request.renamed_files]}. Will not re-download.")
+            elif request.exists():
+                logger.warning(f"Found {request.output_file.name}. Will not re-download.")
             else:
                 incomplete_requests.append(request)
 
-        download_threadded(incomplete_requests, workers)
+        failed_downloads = download_threadded(incomplete_requests, workers)
         logger.info(f"Finished ERA5 multi-threaded download with {workers} workers")
-        rename_pl(self.directory)
-        rename_sl(self.directory)
+        
+        logger.info(f"Renaming files in {self.directory}")
+        rename_pl_dir(self.directory)
+        rename_sl_dir(self.directory)
+
+        failfile_path = Path(self.directory, "failed_downloads.txt")
+        
+        if len(failed_downloads) > 0:
+            logger.warning(f"Failed to download {len(failed_downloads)} files. See {failfile_path} for more information")
+        
+            with open(failfile_path, 'w') as f:
+                for failed in failed_downloads:
+                    f.write(f"{failed.output_file}\n")
+        
+        else:
+            logger.info("All files downloaded successfully")
+            failfile_path.unlink()
 
     def retrieve(self, workers=6):
         requests = self.list_requests()
-        self.download_threadded(requests, workers)
+        failed_downloads = self.download_threadded(requests, workers)
+        return failed_downloads
 
 
 def download_threadded(cds_requests, workers=6):
     def download_request(request):
-        if not request.exists():
+        if not request.is_downloaded():
             request.download()
-        else:
-            print("skipping request")
+        
+        if not request.exists():
+            logger.error(f"Failed to download {request.output_file}")
+            return request
 
+    failed_downloads = []
+    
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        executor.map(download_request, cds_requests)
+        for result in executor.map(download_request, cds_requests):
+            if result is not None:
+                failed_downloads.append(result)
         executor.shutdown()
+    
+    return failed_downloads
 
 
-def rename_pl(dir):
+def rename_pl_dir(dir):
     pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
     files = [str(f) for f in Path(dir).iterdir() if pl_pattern.search(str(f))]
-    new_files = [pl_pattern.sub(r"era5_pl_\1.nc", f) for f in files]
-    
-    for old, new in zip(files, new_files):
-        rename(old, new)
+    for f in files:
+        rename_pl_file(f)
 
 
-def rename_sl(dir):
+def rename_pl_file(f, overwrite=True):
+    pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
+    new_file = pl_pattern.sub(r"era5_pl_\1.nc", f)
+    if not overwrite and Path(new_file).exists():
+        print(f"Skipping {new_file}")
+        return
+    logger.debug(f"Renaming {Path(f).name}")
+    print(new_file)
+    rename(f, new_file)
+
+
+def rename_sl_dir(dir):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
     files = [str(f) for f in Path(dir).iterdir()]
     matched_files = [f for f in files if orig.search(f)]
     for f in matched_files:
-        sf = orig.sub(r'era5_sf_\1.nc', f)
-        sa = orig.sub(r'era5_sa_\1.nc', f)
-        cmd1 = f"nccopy -V time,latitude,longitude,ssrd,strd,tp {f} {sf}"
-        cmd2 = f"nccopy -V time,latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
-        logger.debug(cmd1)
-        subprocess.Popen(cmd1.split(" "))
-        logger.debug(cmd2)
-        subprocess.Popen(cmd2.split(" "))
+        split_sl(f)
+
+
+def split_sl(f, overwrite=False, time_var='valid_time'):
+    orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
+    sf = orig.sub(r'era5_sf_\1.nc', f)
+    sa = orig.sub(r'era5_sa_\1.nc', f)
+    if not overwrite and Path(sf).exists():
+        print(f"Skipping {sf}")
+        return
+    if not overwrite and Path(sa).exists():
+        print(f"Skipping {sa}")
+        return
+    logger.debug(f"Splitting {Path(f).name}")
+    cmd1 = f"nccopy -V {time_var},latitude,longitude,ssrd,strd,tp {f} {sf}"
+    cmd2 = f"nccopy -V {time_var},latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
+    logger.debug(cmd1)
+    p1 = subprocess.Popen(cmd1.split(" "))
+    p1.wait()
+    logger.debug(cmd2)
+    subprocess.Popen(cmd2.split(" "))
+    if Path(sf).exists() and Path(sa).exists():
+        logger.debug(f"Removing {f}")
+        # Path(f).unlink()
+
+
+if __name__ == "__main__":
+    import argparse
+    logger.setLevel(logging.DEBUG)
+    parser = argparse.ArgumentParser(description="Download ERA5 data")
+    
+    # add subparser for splitting
+    subparsers = parser.add_subparsers(dest='command')
+
+    # add parser for download
+    split = subparsers.add_parser('split', help="Download ERA5 data")
+    split.add_argument('-s', '--sl', type=str, default=None, help="Single-level file")
+    split.add_argument('-S', '--sl-dir', type=str, dest="sldir", default=None, help="Single-level file")
+    split.add_argument('-p', '--pl', type=str, default=None, help="Pressure-level file")
+    split.add_argument('-o', '--overwrite', action='store_true', help="Overwrite existing files")
+
+    args = parser.parse_args()
+    
+    if args.command == 'split':
+        if args.sl:
+            split_sl(args.sl, overwrite=args.overwrite)
+        if args.pl:
+            rename_pl_file(args.pl, overwrite=args.overwrite)
+        if args.sldir:
+            rename_sl_dir(args.sldir)

@@ -36,8 +36,8 @@ def variables_skip(variable_name):
     Which variable names to use? Drop the ones that are dimensions.
     """
     skip = 0
-    dims = ('time', 'number', 'level',
-            'latitude', 'longitude', 'station', 'height')
+    dims = ('time', 'number', 'level','valid_time', 'pressure_level','expver',
+            'latitude', 'longitude', 'station', 'height', 'skip')
     if variable_name in dims:
         skip = 1
     return skip
@@ -153,7 +153,6 @@ def create_globsim_directory(target_dir, name):
     mkdir(TL)
 
     # create subdirectories
-    mkdir(path.join(TL, "eraint"))
     mkdir(path.join(TL, "Grib"))
     mkdir(path.join(TL, "jra55"))
     mkdir(path.join(TL, "merra2"))
@@ -204,3 +203,4 @@ def get_begin_date(par, data_folder, match_strings):
 
     print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d")))
     return(begin_date)
+
