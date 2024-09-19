@@ -6,13 +6,14 @@ from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from os import rename
+from requests.exceptions import ChunkedEncodingError
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.era_helpers import make_monthly_chunks, Era5Request, Era5RequestParameters, era5_pressure_levels, cf_to_cds_pressure, cf_to_cds_single
 
 
 logger = logging.getLogger("globsim.download")
-
+    
 
 class ERA5MonthlyDownload(GenericDownload):
 
@@ -141,19 +142,32 @@ class ERA5MonthlyDownload(GenericDownload):
         return failed_downloads
 
 
-def download_threadded(cds_requests, workers=6):
-    def download_request(request):
-        if not request.is_downloaded():
+def _download_request(request: Era5Request):
+    max_retries = 5
+    current_retries = 0
+    
+    while (not request.exists()) and (current_retries < max_retries):
+        try:
             request.download()
-        
-        if not request.exists():
-            logger.error(f"Failed to download {request.output_file}")
-            return request
+        except ChunkedEncodingError as e:
+            logger.warning(f"ChunkedEncodingError on download attempt #{current_retries}")
+        except Exception as e:
+            logger.warning(f"Unknown error on download attempt #{current_retries}: {e}")
+        finally:
+            current_retries += 1
+    
+    if not request.exists():
+        logger.error(f"Failed to download {request.output_file}")
+        return request
+    else:
+        return None
 
+
+def download_threadded(cds_requests, workers=6):
     failed_downloads = []
     
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        for result in executor.map(download_request, cds_requests):
+        for result in executor.map(_download_request, cds_requests):
             if result is not None:
                 failed_downloads.append(result)
         executor.shutdown()

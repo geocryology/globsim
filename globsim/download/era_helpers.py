@@ -159,9 +159,11 @@ class Era5Request(ERA5generic):
             raise KeyError(f"Not a valid dataset. Must be in {self.DATASETS.keys()}")
 
     def exists(self) -> bool:
+        """ check whether the file originally downloaded from the server is present"""
         return self.output_file.is_file()
 
     def is_downloaded(self) -> bool:
+        """ checks for presence of either the original or renamed file """
         exists = self.exists()
         renamed = all([p.is_file() for p in self.renamed_files])
 
