@@ -151,8 +151,10 @@ def _download_request(request: Era5Request):
             request.download()
         except ChunkedEncodingError as e:
             logger.warning(f"ChunkedEncodingError on download attempt #{current_retries}")
+            request.purge()
         except Exception as e:
             logger.warning(f"Unknown error on download attempt #{current_retries}: {e}")
+            request.purge()
         finally:
             current_retries += 1
     

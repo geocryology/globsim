@@ -158,8 +158,28 @@ class Era5Request(ERA5generic):
         else:
             raise KeyError(f"Not a valid dataset. Must be in {self.DATASETS.keys()}")
 
+    def purge(self) -> bool:
+        """ Delete the downloaded file.
+        
+        Returns
+        -------
+        bool
+            Whether the file was deleted succesfully
+
+        This can be used for instance if the file is incompletely downloaded.
+        """
+        if self.exists():
+            self.output_file.unlink()
+            if not self.exists():
+                return True
+
+        return False
+
     def exists(self) -> bool:
-        """ check whether the file originally downloaded from the server is present"""
+        """ check whether the file originally downloaded from the server is present
+        
+        This does not include renamed files (e.g. 'era5_pl*')
+        """
         return self.output_file.is_file()
 
     def is_downloaded(self) -> bool:
