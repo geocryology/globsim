@@ -50,7 +50,7 @@ class JRAdownload(GenericDownload):
         self.password = ''.join(self.inf[1].split())
 
         # chunk size for downloading and storing data [days]
-        self.chunk_size = par['chunk_size'] * 2000
+        self.chunk_size = par['chunk_size'] * 365
         
     def get_accessor(self):
         cred = path.join(self.par['credentials_directory'], "rdams_token.txt")
