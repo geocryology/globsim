@@ -53,6 +53,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
     def variable_to_globsim_name(self, param):
         varname = param.split('-')[0]
         d = {'rh2m': 'Relative humidity',
+             'spfh2m': 'Specific humidity',
             'tmp2m': 'Temperature',
             'ugrd10m': 'u-component of wind',
             'vgrd10m': 'v-component of wind',
@@ -229,7 +230,7 @@ def determine_output_file_type(directory:str, request_id:str) -> str:
 
 
 class J3QgDownloadHandler(J3QDownloadHandler):
-    REANALYSIS = 'jra3q'
+    REANALYSIS = 'jra3qg'
 
 
 def new_jra_download_file(filename:str,
