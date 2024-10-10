@@ -137,7 +137,7 @@ class JRAdownload(GenericDownload):
                 request_dict['param'] = self.formatter.param_descriptions_to_name(request_dict['param'], summary)
                 logger.debug("Requesting data for: " + str(request_dict))
                 try:
-                    req = self._submit_request(request_dict)
+                    req = self.requestSubmit(request_dict)
                 except req_exceptions.JSONDecodeError as e:
                     logger.error(f"Error in request {request_dict}")
                     logger.error(e)
@@ -161,7 +161,7 @@ class JRAdownload(GenericDownload):
 
         return submitted_requests
     
-    def requestSubmit(self) -> dict:
+    def requestSubmit(self, request_dict:dict) -> dict:
         """submit request to the server
         
         Returns
@@ -170,12 +170,17 @@ class JRAdownload(GenericDownload):
             dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
             for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
         """
-        pass
+        return self._submit_request(request_dict)
 
     def _submit_request(self, request_dict:dict) -> dict:
+        """ Actual server request """
+        req = self.api.submit_json(request_dict)
+        return req
+    
+    def _submit_request_test(self, request_dict:dict) -> dict:
+        """ Dummy request for testing """
         req = {'http_response':200, 'data':{'request_id':time.monotonic()}}  
         print("temporary dummy request", request_dict)
-        # req = self.api.submit_json(request_dict)
         return req
     
     def update_status(self, submitted_requests:Optional[dict], failed=None, done=None):
@@ -204,7 +209,7 @@ class JRAdownload(GenericDownload):
         
         return to_get, failed, done
 
-    def requestDownload(self, submitted_requests:Optional[dict]=None):
+    def _request_download(self, submitted_requests:Optional[dict]=None):
         '''download all the requests'''
         failed=None
         done=None
@@ -280,12 +285,19 @@ class JRAdownload(GenericDownload):
             
         logger.info('''Download Completed''')
 
-    def requestDownload(self, submitted_requests:Optional[dict]=None):
+    def _request_download_test(self, submitted_requests:Optional[dict]=None):
+        """ Dummy request function for testing """
+        if not submitted_requests:
+            return
         print("temporary request download")
         for r in submitted_requests.keys():
             print(f"downloaded {r}")
             time.sleep(1)
         print("downloaded all requests")
+
+    def requestDownload(self, submitted_requests:Optional[dict]=None):
+        """ """
+        self._request_download(submitted_requests) # append _test for testing
 
     def ensure_requests_fewer_than(self, N=7, timeout=600):
         """ Make sure there are fewer than N requests on the server """
@@ -318,7 +330,6 @@ class JRAdownload(GenericDownload):
 
             while chunked_requests:
                 for i in range(concurrent_chunks):
-                    print(len(chunked_requests), len(submitted_requests), concurrent_chunks)
                     chunk = chunked_requests.pop(0)
                     submitted_requests.update(self.submit_chunk(chunk))
             
