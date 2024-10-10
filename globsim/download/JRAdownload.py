@@ -100,7 +100,7 @@ class JRAdownload(GenericDownload):
             sf = self.formatter.get_sf_dict(self.variables) 
             to = self.formatter.get_to_dict()
 
-            if len(request_chunks) == []:
+            if len(request_chunks) == 0:
                 r = zip([to, sa, sf, pl], ['to','sa','sf','pl'])
             else:
                 r = zip([sa, sf, pl], ['sa','sf','pl'])
@@ -109,7 +109,7 @@ class JRAdownload(GenericDownload):
         
         return request_chunks        
 
-    def requestSubmit(self) -> dict:
+    def submit_chunk(self, chunk) -> dict:
         """submit request to the server
         
         Returns
@@ -118,14 +118,11 @@ class JRAdownload(GenericDownload):
             dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
             for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
         """
-
-        logger.info('Submit Request')
+        logger.info('Submitting Requests')
 
         submitted_requests = dict()
-        request_chunks = self._prepare_requests()
 
-        for chunk in request_chunks:
-            for (request_dict, filetype) in chunk:
+        for (request_dict, filetype) in chunk:
                 if len(request_dict['param']) == 0:
                     continue
 
@@ -163,9 +160,20 @@ class JRAdownload(GenericDownload):
         logger.info('Request submitted')
 
         return submitted_requests
+    
+    def requestSubmit(self) -> dict:
+        """submit request to the server
+        
+        Returns
+        -------
+        dict
+            dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
+            for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
+        """
+        pass
 
     def _submit_request(self, request_dict:dict) -> dict:
-        req = {'http_response':200, 'data':{'request_id':'909'}}  
+        req = {'http_response':200, 'data':{'request_id':time.monotonic()}}  
         print("temporary dummy request", request_dict)
         # req = self.api.submit_json(request_dict)
         return req
@@ -274,22 +282,47 @@ class JRAdownload(GenericDownload):
 
     def requestDownload(self, submitted_requests:Optional[dict]=None):
         print("temporary request download")
-        import time
-        time.sleep(1)
+        for r in submitted_requests.keys():
+            print(f"downloaded {r}")
+            time.sleep(1)
         print("downloaded all requests")
+
+    def ensure_requests_fewer_than(self, N=7, timeout=600):
+        """ Make sure there are fewer than N requests on the server """
+        active_requests = self.api.get_status()['data']
+
+        if len(active_requests) > N:
+            logger.error(f"Found {len(active_requests)} active requests (>7). Will clear them before proceeding")
+            self.requestClear()  
+            
+        while len(active_requests) > N: # allow time for purge to register
+            S = 60
+            time.sleep(S)  
+            active_requests = self.api.get_status()['data']
+            timeout -= S
+            if timeout < 0:
+                logger.error(f"Max timeout reached")
+                return
 
     def retrieve(self):
         '''submit and download all the dataset'''
 
         logger.info(f'''Starting {self.JRA_VERSION} download''')
+        chunked_requests = self._prepare_requests()
+        
+        concurrent_chunks = 2
 
-        active_requests = self.api.get_status()['data']
-        if len(active_requests) > 5:
-            logger.error(f"Found {len(active_requests)} active requests (>5). Will clear them before proceeding")
-            self.requestClear()  # don't clear online requests
-            time.sleep(10)  # allow time for purge to register
-        submitted_requests = self.requestSubmit()  # submit request
-        self.requestDownload(submitted_requests)  # download dataset
+        while chunked_requests:
+            submitted_requests = {}
+            self.ensure_requests_fewer_than(7)
+
+            while chunked_requests:
+                for i in range(concurrent_chunks):
+                    print(len(chunked_requests), len(submitted_requests), concurrent_chunks)
+                    chunk = chunked_requests.pop(0)
+                    submitted_requests.update(self.submit_chunk(chunk))
+            
+                self.requestDownload(submitted_requests)
 
         logger.info(f'''{self.JRA_VERSION} Complete''')
 
