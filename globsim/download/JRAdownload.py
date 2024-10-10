@@ -73,22 +73,12 @@ class JRAdownload(GenericDownload):
                 self.api.purge_request(str(i))
                 logger.info(f'Cleared request {i}')
 
-    def requestSubmit(self) -> dict:
-        """submit request to the server
-        
-        Returns
-        -------
-        dict
-            dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
-            for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
-        """
-
-        logger.info('Submit Request')
-
+    def _prepare_requests(self) -> list:
         slices = floor(float((self.date['end'] - self.date['beg']).days) /
                        self.chunk_size) + 1
-        submitted_requests = dict()
         
+        request_chunks = []
+
         for chunk_index in range(0, int(slices)):
             date_i = {}
             # prepare time slices
@@ -109,17 +99,39 @@ class JRAdownload(GenericDownload):
             sa = self.formatter.get_sa_dict(self.variables) 
             sf = self.formatter.get_sf_dict(self.variables) 
             to = self.formatter.get_to_dict()
+
+            if len(request_chunks) == []:
+                r = zip([to, sa, sf, pl], ['to','sa','sf','pl'])
+            else:
+                r = zip([sa, sf, pl], ['sa','sf','pl'])
             
-            for (request_dict, filetype) in zip([to, sa, sf, pl], ['to','sa','sf','pl']):
+            request_chunks.append(r)
+        
+        return request_chunks        
+
+    def requestSubmit(self) -> dict:
+        """submit request to the server
+        
+        Returns
+        -------
+        dict
+            dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
+            for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
+        """
+
+        logger.info('Submit Request')
+
+        submitted_requests = dict()
+        request_chunks = self._prepare_requests()
+
+        for chunk in request_chunks:
+            for (request_dict, filetype) in chunk:
                 if len(request_dict['param']) == 0:
                     continue
-                
-                if (chunk_index > 0) and (filetype == 'to'):
-                    continue  # only request constant data once
-                
+
                 # check if file already exists
                 output_file = Path(self.directory,
-                                   f"{self.JRA_VERSION}_{filetype}_{request_dict['date'][:8]}_to_{request_dict['date'][-12:-4]}.nc")
+                                    f"{self.JRA_VERSION}_{filetype}_{request_dict['date'][:8]}_to_{request_dict['date'][-12:-4]}.nc")
                 if output_file.exists():
                     logger.info(f"File {output_file.name} already exists. Skipping")
                     continue
@@ -128,7 +140,7 @@ class JRAdownload(GenericDownload):
                 request_dict['param'] = self.formatter.param_descriptions_to_name(request_dict['param'], summary)
                 logger.debug("Requesting data for: " + str(request_dict))
                 try:
-                    req = self.api.submit_json(request_dict)
+                    req = self._submit_request(request_dict)
                 except req_exceptions.JSONDecodeError as e:
                     logger.error(f"Error in request {request_dict}")
                     logger.error(e)
@@ -152,6 +164,12 @@ class JRAdownload(GenericDownload):
 
         return submitted_requests
 
+    def _submit_request(self, request_dict:dict) -> dict:
+        req = {'http_response':200, 'data':{'request_id':'909'}}  
+        print("temporary dummy request", request_dict)
+        # req = self.api.submit_json(request_dict)
+        return req
+    
     def update_status(self, submitted_requests:Optional[dict], failed=None, done=None):
         done = done if done is not None else []
         failed = failed if failed is not None else []
@@ -253,6 +271,12 @@ class JRAdownload(GenericDownload):
                 logger.error(f"{rid}: Failed ()")
             
         logger.info('''Download Completed''')
+
+    def requestDownload(self, submitted_requests:Optional[dict]=None):
+        print("temporary request download")
+        import time
+        time.sleep(1)
+        print("downloaded all requests")
 
     def retrieve(self):
         '''submit and download all the dataset'''
