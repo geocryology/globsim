@@ -130,9 +130,17 @@ class Era5Request(ERA5generic):
     def __str__(self):
         return f"{self.dataset} request for {len(self.params)} variables at {self.params['area']}"
     
-    def download(self, target=None):
+    def download(self, target=None, dotrc=None):
         ''' download '''
-        server = cdsapi.Client()
+        if dotrc:
+            cfg = cdsapi.api.read_config(dotrc)
+            key = cfg.get('key', None)
+            url = cfg.get('url', None)
+        else:
+            key = None
+            url = None
+        
+        server = cdsapi.Client(key=key, url=url)
 
         query = self.params.as_dict()
 
