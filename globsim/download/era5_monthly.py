@@ -3,6 +3,7 @@ import re
 import subprocess
 
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from os import rename
@@ -105,6 +106,13 @@ class ERA5MonthlyDownload(GenericDownload):
         rename_pl_dir(self.directory)
         rename_sl_dir(self.directory)
 
+    def get_dotrc(self):
+        credentials_dir = self.par.get('credentials_directory', None)
+        if credentials_dir is not None:
+            dotrc = Path(credentials_dir, ".cdsapirc") 
+            if dotrc.is_file():
+                return dotrc
+
     def download_threadded(self, cds_requests, workers=6):
         logger.info(f"Starting ERA5 multi-threaded download with {workers} workers")
         incomplete_requests = list()
@@ -116,7 +124,8 @@ class ERA5MonthlyDownload(GenericDownload):
             else:
                 incomplete_requests.append(request)
 
-        failed_downloads = download_threadded(incomplete_requests, workers)
+        dotrc = self.get_dotrc()
+        failed_downloads = download_threadded(incomplete_requests, workers, dotrc=dotrc)
         logger.info(f"Finished ERA5 multi-threaded download with {workers} workers")
         
         logger.info(f"Renaming files in {self.directory}")
@@ -142,13 +151,13 @@ class ERA5MonthlyDownload(GenericDownload):
         return failed_downloads
 
 
-def _download_request(request: Era5Request):
+def _download_request(request: Era5Request, dotrc=None):
     max_retries = 5
     current_retries = 0
     
     while (not request.exists()) and (current_retries < max_retries):
         try:
-            request.download()
+            request.download(dotrc=dotrc)
         except ChunkedEncodingError as e:
             logger.warning(f"ChunkedEncodingError on download attempt #{current_retries}")
             request.purge()
@@ -165,11 +174,11 @@ def _download_request(request: Era5Request):
         return None
 
 
-def download_threadded(cds_requests, workers=6):
+def download_threadded(cds_requests, workers=6, dotrc=None):
     failed_downloads = []
     
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        for result in executor.map(_download_request, cds_requests):
+        for result in executor.map(partial(_download_request,dotrc=dotrc), cds_requests):
             if result is not None:
                 failed_downloads.append(result)
         executor.shutdown()
