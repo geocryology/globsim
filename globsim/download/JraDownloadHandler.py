@@ -324,7 +324,7 @@ def copy_variable_in_chunks(src_var, dst_var, max_mem_gb = 4):
     
     size_in_gb = src_var.data.nbytes * 1e-9
     n_time = src_var.shape[0]
-    n_chunks = int(size_in_gb / max_mem_gb)
+    n_chunks = min(1, int(size_in_gb / max_mem_gb))
     chunk_size = int(n_time / n_chunks)
     chunk_dims = list(src_var.shape)
     chunk_dims[0] = chunk_size
