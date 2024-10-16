@@ -1,5 +1,6 @@
 import logging
 import netCDF4 as nc
+import numpy as np
 import tarfile
 import xarray as xr
 
@@ -54,6 +55,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
         varname = param.split('-')[0]
         d = {'rh2m': 'Relative humidity',
              'spfh2m': 'Specific humidity',
+             'spfh': 'Specific humidity',
             'tmp2m': 'Temperature',
             'ugrd10m': 'u-component of wind',
             'vgrd10m': 'v-component of wind',
@@ -111,10 +113,13 @@ class J3QDownloadHandler(NcarDownloadHandler):
         Times, Lats, Lons, Levs = self.extract_dimensions(nc_template_files)
         
         beg, end = nc.num2date(Times.values[[0,-1]], units=Times.units, calendar=Times.calendar)
-        file_new = self.format_output_filename(beg, end, filetype)
+        file_new = Path(directory, self.format_output_filename(beg, end, filetype))
 
-        ncn = new_jra_download_file(str(Path(directory,file_new)),
-                                     Times, Lats, Lons, Levs)
+        if file_new.is_file():
+            logger.warning(f"Partially completed file {file_new} already exists. ")
+            ncn = nc.Dataset(file_new, 'a')
+        else:
+            ncn = new_jra_download_file(str(file_new), Times, Lats, Lons, Levs)
         
         for varname in variables:
             if variables_skip(varname):
@@ -126,21 +131,26 @@ class J3QDownloadHandler(NcarDownloadHandler):
             output_name = self.variable_to_globsim_name(varname)
 
             if output_name is None:
-                logger.warning(f"Variable {varname} not found in lookup table")
-                continue
+                output_name = ''.join(ch for ch in varname if ch.isalnum())
+                logger.warning(f"Variable {varname} not found in lookup table.  Using {varname}")
 
             logger.debug(f"Creating variable: {varname}")
             
             if filetype == 'pl':
-                vari = ncn.createVariable(output_name, 'f4',
-                                            ('time', 'level',
-                                            'latitude', 'longitude',))
-                vari[:,:,:,:] = ncf[varname][:,:,:,:]
+                try:
+                    vari = ncn.createVariable(output_name, 'f4',
+                                                ('time', 'level',
+                                                'latitude', 'longitude',))
+                    copy_variable_in_chunks(ncf[varname], vari, 4)
+                except RuntimeError:
+                    logger.error(f"Variable {varname} already exists.")
+                    vari = ncn[output_name]
+                
             else:
                 vari = ncn.createVariable(output_name,'f4',
                                             ('time',
                                             'latitude', 'longitude'))
-                vari[:,:,:] = ncf[varname][:,:,:]
+                copy_variable_in_chunks(ncf[varname], vari, 4)
             
             vari.long_name = ncf[varname].long_name
             vari.units     = ncf[varname].units
@@ -310,9 +320,56 @@ def get_downloaded_variable_names(directory:str, request_id:str) -> list[str]:
 
     return unique_variables
 
+def copy_variable_in_chunks(src_var, dst_var, max_mem_gb = 4):
+    
+    size_in_gb = src_var.data.nbytes * 1e-9
+    n_time = src_var.shape[0]
+    n_chunks = int(size_in_gb / max_mem_gb)
+    chunk_size = int(n_time / n_chunks)
+    chunk_dims = list(src_var.shape)
+    chunk_dims[0] = chunk_size
+    
+    # arr = np.empty(shape=chunk_dims, dtype=src_var.dtype.str)
+    for i in range(n_chunks):
+        start = i * chunk_size
+        end = (i+1) * chunk_size
+        print(f"Compiling data {start} to {end - 1}", end='\r')
+        S = slice(start, end)
+        if len(dst_var.shape) == 4:
+            dst_var[S,:,:,:] = src_var[S,:,:,:]
+        else:   
+            dst_var[S,:,:] = src_var[S,:,:]
+
+    if n_chunks * chunk_size < n_time:
+        start = n_chunks * chunk_size
+        print(f"Compiling data {start} to {n_time}")
+        if len(dst_var.shape) == 4:
+            src_var[start:,:,:,:] = dst_var[start:,:,:,:]
+        else:
+            src_var[start:,:,:] = dst_var[start:,:,:]
+
+
 if __name__ == "__main__":
-    import sys
-    dir = sys.argv[1]
-    ds = str(sys.argv[2])
-    j = J3QDownloadHandler()
-    j.make_globsim_dataset(dir, ds)
+    import argparse
+    import logging
+
+    L = logging.getLogger()
+    L.setLevel(logging.DEBUG)
+
+    parser = argparse.ArgumentParser(epilog="Example usage:\npython JraDownloadHandler.py /path/to/directory -I 194323 -t pl --gauss")
+
+    parser.add_argument('dir')
+    parser.add_argument('-I', '--request-id', dest='rid', type=str)
+    parser.add_argument('-t', '--type', choices=["to", "pl", "sa", "sf"], default='pl', dest='type')
+    parser.add_argument('--gauss', action='store_true')
+    args, _ = parser.parse_known_args()
+
+    if args.gauss:
+        j = J3QgDownloadHandler()
+    else:
+        j = J3QDownloadHandler()
+
+    print("Starting dataset conversion")
+    j.make_globsim_dataset(directory=args.dir, request_id=args.rid, filetype=args.type )
+
+    # python JraDownloadHandler.py /path/to/dir -I 524213 

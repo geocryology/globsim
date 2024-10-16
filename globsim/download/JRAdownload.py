@@ -196,7 +196,12 @@ class JRAdownload(GenericDownload):
                     logger.info(f"Request {req['data']['request_id']} submitted successfully")
             
             # append request ID
-            rix = str(req['data']['request_id'])
+            try:
+                rix = str(req['data']['request_id'])
+            except KeyError as e:
+                print("!!! ERROR !!! not successful submission")
+                import pdb;pdb.set_trace()
+
             try:
                 submitted_requests[rix] = filetype
             except KeyError:
@@ -245,7 +250,6 @@ class JRAdownload(GenericDownload):
             if (str(rix) in done) or (str(rix) in failed):
                 continue
             if str(rix) not in [str(r['request_index']) for r in active_requests]:
-                import pdb;pdb.set_trace()
                 logger.error(f"Request {rix} not found in active requests")
                 failed.append(str(rix))
 
@@ -271,9 +275,6 @@ class JRAdownload(GenericDownload):
             to_get, failed, done = self.update_status(submitted_requests, failed=failed, done=done)
 
             remaining = {r['request_id']: r['status'] for r in to_get}
-            logger.info(f"remaining requests :{remaining}")
-            logger.debug(f"done: {done} ")
-            logger.debug(f"failed: {failed} ")
             
             for ds in to_get:
                 rix = str(ds['request_index'])
@@ -305,7 +306,7 @@ class JRAdownload(GenericDownload):
                     # untar / extract
                     Handler = self.FILE_HANDLER
                     handler = Handler()
-                    if submitted_requests is not None:
+                    if (submitted_requests is not None) and (submitted_requests.get(rix, None) is None):
                         filetype = submitted_requests[rix]
                     else:
                         filetype = None
@@ -318,7 +319,11 @@ class JRAdownload(GenericDownload):
                     failed.append(rix)
                     self.api.purge_request(str(ds['request_index']))
                     continue
-                
+            
+            logger.info(f"remaining requests :{remaining}")
+            logger.debug(f"done: {done} ")
+            logger.debug(f"failed: {failed} ")
+
             if (len(to_get) == 1):
                 last_ri = str(to_get[0]['request_index'])
                 if (last_ri in done) or (last_ri in failed):
@@ -397,7 +402,7 @@ class JRAdownload(GenericDownload):
         chunked_requests = self._prepare_requests()
         
         concurrent_chunks = 1
-
+        
         while chunked_requests:
             submitted_requests = {}
             self.ensure_requests_fewer_than(7)
@@ -406,8 +411,9 @@ class JRAdownload(GenericDownload):
                 for i in range(concurrent_chunks):
                     chunk = chunked_requests.pop(0)
                     submitted_requests.update(self.submit_chunk(chunk))
-            
-                self.requestDownload(submitted_requests)
+
+                if submitted_requests != {}:
+                    self.requestDownload(submitted_requests)
 
         logger.info(f'''{self.JRA_VERSION} Complete''')
 
