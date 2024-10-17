@@ -32,6 +32,7 @@ class Rdams(object):
     ENVAUTHFILE = 'GLOBSIM_RDA_AUTH_FILE'
 
     def __init__(self, auth_file):
+        self.token = None
         if auth_file is None:
             auth_file = self.look_for_auth_file()
 
@@ -296,10 +297,19 @@ class Rdams(object):
             (tuple): token
         """
         token_file=self.DEFAULT_AUTH_FILE
-        if os.path.isfile(token_file) and os.path.getsize(token_file) > 0:
-            return self.read_token_file(token_file)
+
+        if self.token is not None:
+            return self.token
+        
+        elif os.path.isfile(token_file) and os.path.getsize(token_file) > 0:
+            token = self.read_token_file(token_file)
+            self.token = token
+        
         else:
-            return self.get_userinfo()
+            token = self.get_userinfo()
+            self.token = token
+        
+        return token
 
 
     def get_summary(self, ds):
