@@ -234,7 +234,7 @@ def determine_output_file_type(directory:str, request_id:str) -> str:
         file_type = 'sf'
         
     else:
-        raise KeyError(f"File type unknown for data request {request_id}")
+        raise KeyError(f"File type unknown for data request {request_id} ({product})")
 
     return file_type
 

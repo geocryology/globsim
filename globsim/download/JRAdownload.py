@@ -106,8 +106,10 @@ class JRAdownload(GenericDownload):
             # prepare time slices
             date_i['beg'] = (self.date['beg']
                              + timedelta(days=self.chunk_size * chunk_index))
-            date_i['end'] = (self.date['beg']
-                             + timedelta(days=self.chunk_size * (chunk_index + 1) - 1))
+            date_i['end'] = (self.date['beg']  
+                             + timedelta(days=self.chunk_size * (chunk_index + 1) - 1,
+                                         hours=23,  # make sure you get everything on that day
+                                         minutes=59))
             if chunk_index == (slices - 1):
                 date_i['end'] = self.date['end']
             
@@ -193,7 +195,7 @@ class JRAdownload(GenericDownload):
                     continue
                 else:
                     successful=True
-                    logger.info(f"Request {req['data']['request_id']} submitted successfully")
+                    logger.info(f"Request {req['data']['request_id']} ({filetype}) submitted successfully")
             
             # append request ID
             try:
@@ -244,6 +246,7 @@ class JRAdownload(GenericDownload):
         active_requests = self.api.get_status()['data']  # type: dict
         
         if submitted_requests is None:
+            logger.warning("no submitted requests found")
             submitted_requests = {str(r['request_index']):None for r in active_requests}
 
         for rix in submitted_requests.keys():  # Omit requests that 
@@ -266,6 +269,7 @@ class JRAdownload(GenericDownload):
         '''download all the requests
         request_id = 'USER14123'
         request_index = 14123
+        submitted requests
         '''
         failed=None
         done=None
@@ -306,8 +310,8 @@ class JRAdownload(GenericDownload):
                     # untar / extract
                     Handler = self.FILE_HANDLER
                     handler = Handler()
-                    if (submitted_requests is not None) and (submitted_requests.get(rix, None) is None):
-                        filetype = submitted_requests[rix]
+                    if (submitted_requests is not None):
+                        filetype = submitted_requests.get(rix, None)
                     else:
                         filetype = None
                     handler.make_globsim_dataset(self.directory, rix, filetype=filetype)
