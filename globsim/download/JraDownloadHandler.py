@@ -94,7 +94,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
         # extract the downloaded tar files
         # get all variables associated with the dataset
         # return the extracted tar files   
-        logger.debug(f"Creating {filetype if filetype is not None else ''} dataset from requeset {request_id}")
+        logger.debug(f"Creating {filetype if filetype is not None else '(unknown type)'} dataset from requeset {request_id}")
         
         extract_downloaded_tar_files(directory, request_id)
         
@@ -104,8 +104,12 @@ class J3QDownloadHandler(NcarDownloadHandler):
             raise ValueError(f"No variables found in dataset {request_id}")
         
         if filetype is None:
-            filetype = determine_output_file_type(directory, request_id)
-        
+            try:
+                filetype = determine_output_file_type(directory, request_id)
+            except KeyError:
+                logger.error(f"Dataset type not provided and not able to guess.  Create data from {request_id} manually.")
+                return
+            
         dims = self.get_dim_names(directory, request_id)
         
         nc_template_files = self.get_nc_files(directory, variables[0], request_id)
