@@ -44,17 +44,17 @@ class JRAdownload(GenericDownload):
         # time bounds
         self.date  = getDate(par)
 
-        self.credential = path.join(par['credentials_directory'], ".jrarc")
-        self.account = open(self.credential, "r")
-        self.inf = self.account.readlines()
-        self.username = ''.join(self.inf[0].split())
-        self.password = ''.join(self.inf[1].split())
-
         # chunk size for downloading and storing data [days]
         self.chunk_size = par['chunk_size'] * 365
         
     def get_accessor(self):
-        cred = path.join(self.par['credentials_directory'], "rdams_token.txt")
+        credentials_directory = self.par.get('credentials_directory', None)
+        
+        if credentials_directory is not None:
+            cred = path.join(credentials_directory, "rdams_token.txt")
+        else:
+            cred = None
+
         return self.API(cred)
     
     def __varCheck(self, par):

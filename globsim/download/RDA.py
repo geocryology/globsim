@@ -23,8 +23,11 @@ import os
 import requests
 import json
 import argparse
+import logging
 
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class Rdams(object):
@@ -35,7 +38,8 @@ class Rdams(object):
         self.token = None
         if auth_file is None:
             auth_file = self.look_for_auth_file()
-
+        
+        logger.info(f"Using credential file {auth_file}")
         self.DEFAULT_AUTH_FILE = auth_file
         
     def look_for_auth_file(self):
