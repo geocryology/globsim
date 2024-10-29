@@ -83,7 +83,7 @@ def get_userinfo():
     """Get token from command line."""
     print('Please visit https://rda.ucar.edu/accounts/profile/ to access token.')
     token = input("Paste that token here: ")
-    write_token_file(token)
+    write_token_file(token, Defaults.AUTH_FILE)
     return token
 
 def write_token_file(token, token_file=None):
