@@ -37,7 +37,7 @@ class GenericInterpolate:
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
-        self.skip_checks = kwargs.get('skip_checks', bool(par.get("skip_checks", False)))
+        self.skip_checks = kwargs.get('skip_checks', par.get("skip_checks", False))
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
 
@@ -61,7 +61,7 @@ class GenericInterpolate:
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
         self.resume = kwargs.get('resume', False)
-        
+
     @property
     def vn_time(self):
         return 'time'
@@ -342,7 +342,6 @@ class GenericInterpolate:
     @staticmethod
     def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
         # regridding function, consider ESMF.UnmappedAction.ERROR
-        
         regrid2D = ESMF.Regrid(sfield, dfield,
                                regrid_method=ESMF.RegridMethod.BILINEAR,
                                unmapped_action=ESMF.UnmappedAction.IGNORE,
