@@ -17,7 +17,10 @@ class NcarDownloadHandler:
     REANALYSIS = ''
 
     def __init__(self):
-        pass
+        self._keep_raw_files = False
+
+    def keep_raw_files(self):
+        self._keep_raw_files = True
 
     def format_output_filename(self, beg, end, filetype):
         return f"{self.REANALYSIS}_{filetype}_{beg.strftime(r'%Y%m%d')}_to_{end.strftime(r'%Y%m%d')}.nc"
@@ -96,7 +99,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
         # return the extracted tar files   
         logger.debug(f"Creating {filetype if filetype is not None else '(unknown type)'} dataset from requeset {request_id}")
         
-        extract_downloaded_tar_files(directory, request_id)
+        extract_downloaded_tar_files(directory, request_id, (not self._keep_raw_files))
         
         variables = get_downloaded_variable_names(directory, request_id)
         
@@ -161,8 +164,9 @@ class J3QDownloadHandler(NcarDownloadHandler):
             vari.orig_name = varname
 
             ncf.close()
-            for f in flist:
-                f.unlink()
+            if not self._keep_raw_files:
+                for f in flist:
+                    f.unlink()
 
         ncn.close()
 
@@ -348,10 +352,9 @@ def copy_variable_in_chunks(src_var, dst_var, max_mem_gb = 4):
         start = n_chunks * chunk_size
         print(f"Compiling data {start} to {n_time}")
         if len(dst_var.shape) == 4:
-            src_var[start:,:,:,:] = dst_var[start:,:,:,:]
+            dst_var[start:,:,:,:] = src_var[start:,:,:,:]
         else:
-            src_var[start:,:,:] = dst_var[start:,:,:]
-
+            dst_var[start:,:,:] = src_var[start:,:,:]
 
 if __name__ == "__main__":
     import argparse
@@ -365,6 +368,7 @@ if __name__ == "__main__":
     parser.add_argument('dir')
     parser.add_argument('-I', '--request-id', dest='rid', type=str)
     parser.add_argument('-t', '--type', choices=["to", "pl", "sa", "sf"], default='pl', dest='type')
+    parser.add_argument('-K', '--keep-files', action='store_true', dest='keep_files')
     parser.add_argument('--gauss', action='store_true')
     args, _ = parser.parse_known_args()
 
@@ -373,7 +377,10 @@ if __name__ == "__main__":
     else:
         j = J3QDownloadHandler()
 
+    if args.keep_files:
+        j.keep_raw_files()
+
     print("Starting dataset conversion")
     j.make_globsim_dataset(directory=args.dir, request_id=args.rid, filetype=args.type )
 
-    # python JraDownloadHandler.py /path/to/dir -I 524213 
+    # python JraDownloadHandler.py /path/to/dir -I 524213 -t pl --gauss
