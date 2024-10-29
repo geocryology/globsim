@@ -28,8 +28,14 @@ class GenericScale:
 
     @staticmethod
     def upscale(time_in, values:np.ndarray, times_out):
-        fv = [values[0], values[-1]]
-        f = interp1d(time_in, values, kind='linear', bounds_error=False, fill_value=fv)
+        axis = [i for i,v in enumerate(values.shape) if v == time_in.shape[0]][0]
+        if not axis:
+            axis=0
+        fv = (values.take(indices=0, axis=axis), values.take(indices=-1, axis=axis))
+        f = interp1d(time_in, values, kind='linear', bounds_error=False, fill_value=fv, axis=axis)
+        # handle masked array
+        if np.ma.isMaskedArray(times_out):
+            times_out = times_out.data
         return f(times_out)
 
     def set_parameters(self, par):

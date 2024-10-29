@@ -449,12 +449,12 @@ class JRAscale(GenericScale):
         # interpolate station by station
         time_sf = self.get_values("sf", "time").astype(np.int64)
         time_pl = self.get_values("pl", "time").astype(np.int64)
-
+        
         t_sub = self.upscale(time_pl, self.get_values("pl_sur", "Temperature"), time_sf)  # [K]
         rh_sub = self.upscale(time_pl, self.get_values("pl_sur", "Relative humidity"), time_sf)  # [%]
         t_grid = self.upscale(time_pl, self.get_values("sa", "Temperature"), time_sf)  # [K]
         rh_grid = self.upscale(time_pl, self.get_values("sa", "Relative humidity"), time_sf)  # [%]
-        lw_grid  = self.upscale(time_pl, self.nc_sf["Downward longwave radiation flux"], time_sf)  # [w m-2 s-1]
+        lw_grid  = self.get_values("sf", "Downward longwave radiation flux")  # [w m-2 s-1]
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
         
