@@ -8,6 +8,7 @@ from os import path, makedirs
 from pathlib import Path
 from math import floor
 from typing import Callable
+from scipy.interpolate import interp1d
 
 from globsim.common_utils import StationListRead
 import globsim.meteorology as met
@@ -24,6 +25,12 @@ class GenericScale:
             config = tomlkit.parse(FILE.read())
             self.par = config['scale']
         self.set_parameters(self.par)
+
+    @staticmethod
+    def upscale(time_in, values:np.ndarray, times_out):
+        fv = [values[0], values[-1]]
+        f = interp1d(time_in, values, kind='linear', bounds_error=False, fill_value=fv)
+        return f(times_out)
 
     def set_parameters(self, par):
         self.intpdir = path.join(par['project_directory'], 'interpolated')
