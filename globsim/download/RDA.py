@@ -262,7 +262,7 @@ class Rdams(object):
         sys.stdout.write('%.3f %s' % (percent_complete, '% Completed'))
         sys.stdout.flush()
 
-    def download_files(self, filelist, out_dir='./', cookie_file=None):
+    def download_files(self, filelist, out_dir='./', retries=3, cookie_file=None):
         """Download files in a list.
 
         Args:
@@ -273,20 +273,28 @@ class Rdams(object):
             None
         """
         for _file in filelist:
-            file_base = os.path.basename(_file)
-            out_file = out_dir + file_base
-            print('Downloading',file_base)
-            header = requests.head(_file, allow_redirects=True, stream=True)
-            filesize = int(header.headers['Content-Length'])
-            req = requests.get(_file, allow_redirects=True, stream=True)
-            with open(out_file, 'wb') as outfile:
-                chunk_size=1048576
-                for chunk in req.iter_content(chunk_size=chunk_size):
-                    outfile.write(chunk)
-                    if chunk_size < filesize:
-                        self.check_file_status(out_file, filesize)
-            self.check_file_status(out_file, filesize)
-            print()
+            tries = 0
+            while tries < retries:
+                tries += 1
+                try:
+                    self._download_file(_file, out_dir)
+                except Exception as e:
+                    logger.error("Problem downloading file (attempt {tries}): {e}")
+            
+    def _download_file(self, _file, out_dir):
+        file_base = os.path.basename(_file)
+        out_file = out_dir + file_base
+        print('Downloading',file_base)
+        header = requests.head(_file, allow_redirects=True, stream=True)
+        filesize = int(header.headers['Content-Length'])
+        req = requests.get(_file, allow_redirects=True, stream=True)
+        with open(out_file, 'wb') as outfile:
+            chunk_size=1048576
+            for chunk in req.iter_content(chunk_size=chunk_size):
+                outfile.write(chunk)
+                if chunk_size < filesize:
+                    self.check_file_status(out_file, filesize)
+        self.check_file_status(out_file, filesize)
 
     def encode_url(self, url, token):
         return url + '?token=' + token
