@@ -127,15 +127,15 @@ def GlobsimInterpolateStation(ifile, ERA5=True, ERA5ENS=True,
 
     # === JRA-55 ===
     if JRA:
-        JRAinterp = interpolate.JRAinterpolate(ifile)
+        JRAinterp = interpolate.JRAinterpolate(ifile, **kwargs)
         JRAinterp.process()
   
     if JRA3Q:
-        JRA3Qinterp = interpolate.J3QI(ifile)
+        JRA3Qinterp = interpolate.J3QI(ifile, **kwargs)
         JRA3Qinterp.process()
 
     if JRA3QG:
-        JRA3QGinterp = interpolate.J3QgI(ifile)
+        JRA3QGinterp = interpolate.J3QgI(ifile, **kwargs)
         JRA3QGinterp.process()
             
 def GlobsimScale(sfile, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True,JRA3QG=True):

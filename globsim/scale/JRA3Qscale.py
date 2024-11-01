@@ -29,10 +29,20 @@ class J3QSjma(JRAscale):
 class J3QS(JRAscale):
     NAME = "JRA-3Q"
     REANALYSIS = "jra3q"
+    SCALING = {"sa": {},
+            "sf": {},
+            "pl": {},
+            "pl_sur": {},
+            "to": {}}
 
 
 
 class J3QgS(JRAscale):
     NAME = "JRA-3QG"
     REANALYSIS = "jra3qg"
+    SCALING = {"sa": {},
+            "sf": {},
+            "pl": {},
+            "pl_sur": {},
+            "to": {}}
 

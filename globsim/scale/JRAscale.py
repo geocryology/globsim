@@ -447,13 +447,14 @@ class JRAscale(GenericScale):
         var.units     = 'W m-2'
 
         # interpolate station by station
-        time_in = self.get_values("sf","time").astype(np.int64)
+        time_sf = self.get_values("sf", "time").astype(np.int64)
+        time_pl = self.get_values("pl", "time").astype(np.int64)
         
-        t_sub = self.get_values("pl_sur","Temperature")  # [K]
-        rh_sub = self.get_values("pl_sur","Relative humidity")  # [%]
-        t_grid = self.get_values("sa","Temperature")  # [K]
-        rh_grid = self.get_values("sa","Relative humidity")  # [%]
-        lw_grid  = self.nc_sf["Downward longwave radiation flux"]  # [w m-2 s-1]
+        t_sub = self.upscale(time_pl, self.get_values("pl_sur", "Temperature"), time_sf)  # [K]
+        rh_sub = self.upscale(time_pl, self.get_values("pl_sur", "Relative humidity"), time_sf)  # [%]
+        t_grid = self.upscale(time_pl, self.get_values("sa", "Temperature"), time_sf)  # [K]
+        rh_grid = self.upscale(time_pl, self.get_values("sa", "Relative humidity"), time_sf)  # [%]
+        lw_grid  = self.get_values("sf", "Downward longwave radiation flux")  # [w m-2 s-1]
 
         lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
         
@@ -461,8 +462,8 @@ class JRAscale(GenericScale):
 
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             values = lw_sub[:, n] * svf[n]
-            f = interp1d(time_in, values, kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc)
+            f = interp1d(time_sf, values, kind='linear')
+            self.rg.variables[vn][:, n] = self.upscale(time_sf, values, self.times_out_nc)
 
     def PREC_mm_sur(self):
         """

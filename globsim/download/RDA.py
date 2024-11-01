@@ -23,8 +23,11 @@ import os
 import requests
 import json
 import argparse
+import logging
 
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class Rdams(object):
@@ -32,9 +35,11 @@ class Rdams(object):
     ENVAUTHFILE = 'GLOBSIM_RDA_AUTH_FILE'
 
     def __init__(self, auth_file):
+        self.token = None
         if auth_file is None:
             auth_file = self.look_for_auth_file()
-
+        
+        logger.info(f"Using credential file {auth_file}")
         self.DEFAULT_AUTH_FILE = auth_file
         
     def look_for_auth_file(self):
@@ -257,7 +262,7 @@ class Rdams(object):
         sys.stdout.write('%.3f %s' % (percent_complete, '% Completed'))
         sys.stdout.flush()
 
-    def download_files(self, filelist, out_dir='./', cookie_file=None):
+    def download_files(self, filelist, out_dir='./', retries=3, cookie_file=None):
         """Download files in a list.
 
         Args:
@@ -268,20 +273,28 @@ class Rdams(object):
             None
         """
         for _file in filelist:
-            file_base = os.path.basename(_file)
-            out_file = out_dir + file_base
-            print('Downloading',file_base)
-            header = requests.head(_file, allow_redirects=True, stream=True)
-            filesize = int(header.headers['Content-Length'])
-            req = requests.get(_file, allow_redirects=True, stream=True)
-            with open(out_file, 'wb') as outfile:
-                chunk_size=1048576
-                for chunk in req.iter_content(chunk_size=chunk_size):
-                    outfile.write(chunk)
-                    if chunk_size < filesize:
-                        self.check_file_status(out_file, filesize)
-            self.check_file_status(out_file, filesize)
-            print()
+            tries = 0
+            while tries < retries:
+                tries += 1
+                try:
+                    self._download_file(_file, out_dir)
+                except Exception as e:
+                    logger.error("Problem downloading file (attempt {tries}): {e}")
+            
+    def _download_file(self, _file, out_dir):
+        file_base = os.path.basename(_file)
+        out_file = out_dir + file_base
+        print('Downloading',file_base)
+        header = requests.head(_file, allow_redirects=True, stream=True)
+        filesize = int(header.headers['Content-Length'])
+        req = requests.get(_file, allow_redirects=True, stream=True)
+        with open(out_file, 'wb') as outfile:
+            chunk_size=1048576
+            for chunk in req.iter_content(chunk_size=chunk_size):
+                outfile.write(chunk)
+                if chunk_size < filesize:
+                    self.check_file_status(out_file, filesize)
+        self.check_file_status(out_file, filesize)
 
     def encode_url(self, url, token):
         return url + '?token=' + token
@@ -296,10 +309,19 @@ class Rdams(object):
             (tuple): token
         """
         token_file=self.DEFAULT_AUTH_FILE
-        if os.path.isfile(token_file) and os.path.getsize(token_file) > 0:
-            return self.read_token_file(token_file)
+
+        if self.token is not None:
+            return self.token
+        
+        elif os.path.isfile(token_file) and os.path.getsize(token_file) > 0:
+            token = self.read_token_file(token_file)
+            self.token = token
+        
         else:
-            return self.get_userinfo()
+            token = self.get_userinfo()
+            self.token = token
+        
+        return token
 
 
     def get_summary(self, ds):
