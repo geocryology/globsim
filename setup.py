@@ -38,7 +38,7 @@ setuptools.setup(
         ]},
 
     install_requires=['lxml',
-                      'numpy==1.26.4',
+                      'numpy>=2',
                       'pandas',
                       'netCDF4',
                       'scipy',
@@ -46,7 +46,7 @@ setuptools.setup(
                       'xarray',
                       'pydap>=3.4.1',  # TODO: resolve the change to open_dods_url and make sure it works
                       'tomlkit',
-                      'cdsapi',
+                      'cdsapi>=0.7.3',
                       'psutil',
                       'pysolar',
                       'pytz']
