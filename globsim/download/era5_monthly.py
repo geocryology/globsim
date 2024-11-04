@@ -143,7 +143,8 @@ class ERA5MonthlyDownload(GenericDownload):
         
         else:
             logger.info("All files downloaded successfully")
-            failfile_path.unlink()
+            if failfile_path.is_file():
+                failfile_path.unlink()
 
     def retrieve(self, workers=6):
         requests = self.list_requests()
@@ -182,6 +183,16 @@ def download_threadded(cds_requests, workers=6, dotrc=None):
             if result is not None:
                 failed_downloads.append(result)
         executor.shutdown()
+    
+    return failed_downloads
+
+def download_serial(cds_requests, dotrc=None):
+    failed_downloads = []
+    
+    for r in cds_requests:
+        result = _download_request(r, dotrc=dotrc)
+        if result is not None:
+                failed_downloads.append(result)
     
     return failed_downloads
 
