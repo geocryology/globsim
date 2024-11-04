@@ -248,7 +248,7 @@ class JRAinterpolate(GenericInterpolate):
         """
         # open file
 
-        ncf = nc.MFDataset(ncfile_in, 'r', aggdim='time')
+        ncf = nc.Dataset(ncfile_in, 'r')
         height = ncf.variables['height'][:]
         nt = len(ncf.variables['time'][:])
         nl = len(ncf.variables['level'][:])
@@ -264,66 +264,90 @@ class JRAinterpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                              self.T_UNITS)
-        rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
+        if not (self.resume and Path(ncfile_out).exists()):
+            rootgrp = netcdf_base(ncfile_out, len(height), nt,
+                                self.T_UNITS)
+            rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
 
-        # access variables
-        time = rootgrp['time']
-        station = rootgrp['station']
-        latitude = rootgrp['latitude']
-        longitude = rootgrp['longitude']
-        height = rootgrp['height']
+            # access variables
+            time = rootgrp['time']
+            station = rootgrp['station']
+            latitude = rootgrp['latitude']
+            longitude = rootgrp['longitude']
+            height = rootgrp['height']
 
-        # assign base variables
-        time[:]      = ncf.variables['time'][:]
-        station[:]   = ncf.variables['station'][:]
-        latitude[:]  = ncf.variables['latitude'][:]
-        longitude[:] = ncf.variables['longitude'][:]
-        height[:]    = ncf.variables['height'][:]
+            # assign base variables
+            time[:]      = ncf.variables['time'][:]
+            station[:]   = ncf.variables['station'][:]
+            latitude[:]  = ncf.variables['latitude'][:]
+            longitude[:] = ncf.variables['longitude'][:]
+            height[:]    = ncf.variables['height'][:]
 
-        # create and assign variables from input file
-        for var in varlist:
-            vname = var  # ncf.variables[var].long_name
-            tmp   = rootgrp.createVariable(vname, 'f4',('time', 'station'))
-            tmp.long_name = ncf.variables[var].long_name
-            tmp.units     = ncf.variables[var].units
+            rootgrp.globsim_interpolate_success = 0
+            rootgrp.last_station_written = -1
+            rootgrp.vars_written = ""
 
-        # add air pressure as new variable
-        var = 'air_pressure'
-        varlist.append(var)
-        tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
-        tmp.long_name = "Air pressure"
-        tmp.units     = 'hPa'
+            # create and assign variables from input file
+            for var in varlist:
+                vname = var  # ncf.variables[var].long_name
+                tmp   = rootgrp.createVariable(vname, 'f4',('time', 'station'))
+                tmp.long_name = ncf.variables[var].long_name
+                tmp.units     = ncf.variables[var].units
+
+            # add air pressure as new variable
+            var = 'air_pressure'
+            varlist.append(var)
+            tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
+            tmp.long_name = "Air pressure"
+            tmp.units     = 'hPa'
+
+            rootgrp.close()
         # end file preparation ================================================
+        
+        with nc.Dataset(ncfile_out, 'a') as rootgrp:
+            # loop over stations
+            for n, h in enumerate(height):
+                
+                if self.resume and n <= rootgrp.last_station_written:
+                    if n == rootgrp.last_station_written:
+                        logger.info(f"Resuming interpolation at station {n+1}")
+                    continue
 
-        # loop over stations
-        for n, h in enumerate(height):
-            # convert geopotential [millibar] to height [m]
-            # shape: (time, level)
-            elevation = ncf.variables[self.GEOPOTENTIAL][:,:,n]
+                self.require_safe_mem_usage()
+                logger.debug(f"Interpolating station {n+1} to station elevation using pressure-level data")
+                # convert geopotential [millibar] to height [m]
+                # shape: (time, level)
+                elevation = ncf.variables[self.GEOPOTENTIAL][:,:,n]
 
-            elev_diff, va, vb = ele_interpolate(elevation, h, nl)
-            wa, wb = calculate_weights(elev_diff, va, vb)
+                elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+                wa, wb = calculate_weights(elev_diff, va, vb)
 
-            # loop over variables and apply interpolation weights
-            for v, var in enumerate(varlist):
-                if var == 'air_pressure':
-                    # pressure [Pa] variable from levels, shape: (time, level)
-                    data = np.repeat([ncf.variables['level'][:]],
-                                     len(time),axis=0).ravel()
-                else:
-                    # read data from netCDF
-                    data = ncf.variables[var][:,:,n].ravel()
+                # loop over variables and apply interpolation weights
+                for v, var in enumerate(varlist):
+                    if var in str(rootgrp.vars_written).split(" "):
+                            logger.debug(f"Skipping {var}")
+                            continue
+                    
+                    if var == 'air_pressure':
+                        # pressure [Pa] variable from levels, shape: (time, level)
+                        data = np.repeat([ncf.variables['level'][:]],
+                                        len(time),axis=0).ravel()
+                    else:
+                        # read data from netCDF
+                        data = ncf.variables[var][:,:,n].ravel()
 
-                multvawa = np.multiply(data[va], wa)
-                multvbwb = np.multiply(data[vb], wb)
-                ipol = multvawa + multvbwb
-                rootgrp.variables[var][:,n] = ipol  # assign to file
+                    multvawa = np.multiply(data[va], wa)
+                    multvbwb = np.multiply(data[vb], wb)
+                    ipol = multvawa + multvbwb
+                    rootgrp.variables[var][:,n] = ipol  # assign to file
+                    rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
+                
+                rootgrp.vars_written = ""
+                rootgrp.last_station_written = n
+                
+            rootgrp.globsim_interpolate_success = 1
 
-        rootgrp.close()
-        ncf.close()
-        # closed file =========================================================
+        ncf.close()  # close input file
 
     def _preprocess(self):
         try:
