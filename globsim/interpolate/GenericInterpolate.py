@@ -24,6 +24,8 @@ from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped
 logger = logging.getLogger('globsim.interpolate')
 
 import esmpy as ESMF
+if logger.level < 10:  # (DEBUG)
+    ESMF.Manager(debug=True)
 
 class GenericInterpolate:
     REANALYSIS = ''
