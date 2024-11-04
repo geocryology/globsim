@@ -123,7 +123,7 @@ class ERA5interpolate(GenericInterpolate):
                     ['r', 't', 'u','v', 't2m', 'u10', 'v10', 'ssrd', 'strd', 'tp'].
                     Defaults to using all variables available.
 
-        date: Directory to specify begin and end time for the derived time
+        date: Dictionary to specify begin and end time for the derived time
                 series. Defaluts to using all times available in ncfile_in.
         """
 
@@ -282,7 +282,7 @@ class ERA5interpolate(GenericInterpolate):
 
         """
         # open file
-        ncf = xr.open_mfdataset(ncfile_in, decode_times=False)
+        ncf = nc.Dataset(ncfile_in)
         height = ncf.variables['height'][:]
 
         nt = len(ncf.variables['time'][:])  # these are reading from a globsim file, not an ERA5 file
@@ -303,34 +303,33 @@ class ERA5interpolate(GenericInterpolate):
         #            others: ...(time, station)
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
-        rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                              time_units=ncf['time'].units,
-                              nc_in=ncf,
-                              calendar=ncf['time'].calendar)
-        if self.ens:
-            rootgrp.source = 'ERA5 10-member ensemble, interpolated (bi)linearly to stations'
-        else:
-            rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
+        if not (self.resume and Path(ncfile_out).exists()):
+            rootgrp = netcdf_base(ncfile_out, len(height), nt,
+                                time_units=ncf['time'].units,
+                                nc_in=ncf,
+                                calendar=ncf['time'].calendar)
+            if self.ens:
+                rootgrp.source = 'ERA5 10-member ensemble, interpolated (bi)linearly to stations'
+            else:
+                rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
 
-        time = rootgrp['time']
-        station = rootgrp['station']
-        latitude = rootgrp['latitude']
-        longitude = rootgrp['longitude']
-        height = rootgrp['height']
+            time = rootgrp['time']
+            station = rootgrp['station']
+            latitude = rootgrp['latitude']
+            longitude = rootgrp['longitude']
+            height = rootgrp['height']
 
-        # assign base variables
-        time[:]      = ncf.variables['time'][:]
-        station[:]   = ncf.variables['station'][:]
-        latitude[:]  = ncf.variables['latitude'][:]
-        longitude[:] = ncf.variables['longitude'][:]
-        height[:]    = ncf.variables['height'][:]
+            # assign base variables
+            time[:]      = ncf.variables['time'][:]
+            station[:]   = ncf.variables['station'][:]
+            latitude[:]  = ncf.variables['latitude'][:]
+            longitude[:] = ncf.variables['longitude'][:]
+            height[:]    = ncf.variables['height'][:]
 
-        rootgrp.globsim_interpolate_success = 0
-        rootgrp.last_station_written = -1
-        rootgrp.vars_written = ""
+            rootgrp.globsim_interpolate_success = 0
+            rootgrp.last_station_written = -1
+            rootgrp.vars_written = ""
 
-        rootgrp.close()
-        with nc.Dataset(ncfile_out, 'a') as rootgrp:
             # create and assign variables from input file
             for var in varlist:
                 if self.ens:
@@ -351,8 +350,11 @@ class ERA5interpolate(GenericInterpolate):
                 tmp = rootgrp.createVariable(var,'f4',('time','station'))
             tmp.long_name = var.encode('UTF8')
             tmp.units = 'hPa'.encode('UTF8')
+
+            rootgrp.close()
             # end file prepation ===================================================
 
+        with nc.Dataset(ncfile_out, 'a') as rootgrp:
             # loop over stations
             for n, h in enumerate(height):
                 if self.resume and n <= rootgrp.last_station_written:
@@ -366,23 +368,23 @@ class ERA5interpolate(GenericInterpolate):
                 if self.ens:
                     num = ncf.variables['number'][:]
                     for ni in num:
-                        elevation = ncf.variables['z'][:,ni,:,n].values / const.G
+                        elevation = ncf.variables['z'][:,ni,:,n] / const.G
                         elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                         wa, wb = calculate_weights(elev_diff, va, vb)
                         for v, var in enumerate(varlist):
                             if var == 'air_pressure':
                                 # pressure [Pa] variable from levels, shape: (time, level)
-                                data = np.repeat([ncf.variables['level'][:].values],
+                                data = np.repeat([ncf.variables['level'][:]],
                                                 len(time),axis=0).ravel()
                             else:
                                 # read data from netCDF
-                                data = ncf.variables[var][:,ni,:,n].values.ravel()
+                                data = ncf.variables[var][:,ni,:,n].ravel()
 
                             ipol = data[va] * wa + data[vb] * wb   # interpolated value
                             rootgrp.variables[var][:,ni,n] = ipol  # assign to file
                 else:
                     # convert geopotential [mbar] to height [m], shape: (time, level)
-                    elevation = ncf.variables['z'][:,:,n].values / const.G
+                    elevation = ncf.variables['z'][:,:,n] / const.G
                     elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                     wa, wb = calculate_weights(elev_diff, va, vb)
 
@@ -394,11 +396,12 @@ class ERA5interpolate(GenericInterpolate):
                         
                         if var == 'air_pressure':
                             # pressure [Pa] variable from levels, shape: (time, level)
-                            data = np.repeat([ncf.variables['level'][:].values],
+                            data = np.repeat([ncf.variables['level'][:]],
                                             len(time),axis=0).ravel()
                         else:
                             # read data from netCDF
-                            data = ncf.variables[var][:,:,n].values.ravel()
+                            logger.debug(f"Reading {var}")
+                            data = ncf.variables[var][:,:,n].ravel()
 
                         ipol = data[va] * wa + data[vb] * wb   # interpolated value
                         rootgrp.variables[var][:,n] = ipol  # write to file
