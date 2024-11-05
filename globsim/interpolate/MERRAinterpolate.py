@@ -11,7 +11,7 @@ from pathlib import Path
 
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
-from globsim.nc_elements import netcdf_base
+from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 from globsim.interp import calculate_weights, ele_interpolate
 
 import warnings
@@ -51,65 +51,6 @@ class MERRAinterpolate(GenericInterpolate):
             self.ensure_datset_integrity(self.mf_pl['time'], 6)
             logger.info("Data integrity ok")
 
-    def netCDF_empty(self, ncfile_out, stations, nc_in):
-        # TODO: change date type from f4 to f8 for lat and lon
-        '''
-        Creates an empty station file to hold interpolated reults. The number of
-        stations is defined by the variable stations, variables are determined by
-        the variable list passed from the gridded original netCDF.
-
-        ncfile_out: full name of the file to be created
-        stations:   station list read with common_utils.StationListRead()
-        variables:  variables read from netCDF handle
-        lev:        list of pressure levels, empty is [] (default)
-        '''
-        rootgrp = netcdf_base(ncfile_out, len(stations), None,
-                              'hours since 1980-01-01 00:00:00')
-
-        station = rootgrp["station"]
-        latitude = rootgrp["latitude"]
-        longitude = rootgrp["longitude"]
-        height = rootgrp["height"]
-
-        # assign station characteristics
-        station[:]   = list(stations['station_number'])
-        latitude[:]  = list(stations['latitude_dd'])
-        longitude[:] = list(stations['longitude_dd'])
-        height[:]    = list(stations['elevation_m'])
-
-        # extra treatment for pressure level files
-        try:
-            lev = nc_in.variables['level'][:]
-            logger.info("Creating empty 3D file (has pressure levels)")
-            level           = rootgrp.createDimension('level', len(lev))
-            level           = rootgrp.createVariable('level','i4',('level'))
-            level.long_name = 'pressure_level'
-            level.units     = 'hPa'
-            level[:] = lev
-        except Exception:
-            logger.info("Creating empty 2D file (without pressure levels)")
-            lev = []
-
-        # remove extra variables
-        varlist_merra = [x for x in nc_in.variables.keys()]
-
-        # create and assign variables based on input file
-        for n, var in enumerate(varlist_merra):
-            if variables_skip(var):
-                continue
-            logger.debug(f"Add empty variable: {var}")
-            # extra treatment for pressure level files
-            if len(lev):
-                tmp = rootgrp.createVariable(var,'f4', ('time', 'level', 'station'))
-            else:
-                tmp = rootgrp.createVariable(var,'f4', ('time', 'station'))
-            
-            tmp.long_name = nc_in[var].long_name  # for merra2
-            tmp.units     = nc_in[var].units
-
-        logger.debug(f"Created empty netcdf file {ncfile_out}")
-        return rootgrp
-
     def MERRA2station(self, ncf_in, ncfile_out, points,
                       variables=None, date=None):
         """
@@ -142,13 +83,56 @@ class MERRAinterpolate(GenericInterpolate):
 
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.sizes.keys()
+        
+        level_var = 'level' if pl else None
+        
+        # get time and convert to datetime object
+        nctime = ncf_in.variables['time'][:]
+        t_unit = "hours since 1980-01-01 00:00:00"  # ncf_in.variables['time'].units
+        try :
+            t_cal = ncf_in.variables['time'].calendar
+        except AttributeError :  # Attribute doesn't exist
+            t_cal = u"gregorian"  # or standard
+        # TODO: rm time = [nc.num2date(timei, units=t_unit, calendar=t_cal) for timei in nctime]
+        # TODO: rm time = np.asarray(time)
 
+        # detect invariant files (topography etc.)
+        invariant = True if len(np.unique(nctime)) <= 2 else False
+
+        # restrict to date/time range if given
+        if date is None:
+            tmask = nctime < nc.date2num(datetime(3000, 1, 1), units=t_unit, calendar=t_cal)
+        else:
+            beg_num = nc.date2num(date['beg'], units=t_unit, calendar=t_cal)
+            end_num = nc.date2num(date['end'], units=t_unit, calendar=t_cal)
+            tmask = (nctime < end_num) * (nctime >= beg_num)
+
+        if not any(tmask):
+            sys.exit('''\n ERROR: No downloaded data exist within date range specified by interpolation control file.
+                    Download new data or change 'beg' / 'end' in interpolation control file''')
+
+        # get time indices
+        time_in = nctime[tmask]
+        
+        # ensure that chunk sizes cover entire period even if
+        # len(time_in) is not an integer multiple of cs
+        niter  = len(time_in) // self.cs
+        niter += ((len(time_in) % self.cs) > 0)
+
+        # Create source grid
+        sgrid = self.create_source_grid(ncf_in)
+        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
         # build the output of empty netCDF file
         if self.resume:
             self.require_file_can_be_resumed(ncfile_out)
             
         if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = self.netCDF_empty(ncfile_out, self.stations, ncf_in)
+            #rootgrp = self.netCDF_empty(ncfile_out, self.stations, ncf_in)
+            rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
+                                              time_units=t_unit,
+                                              level_var=level_var,
+                                              n_time = len(time_in))
+            rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
             rootgrp.globsim_chunk_size = self.cs
@@ -158,46 +142,8 @@ class MERRAinterpolate(GenericInterpolate):
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:
-            # get time and convert to datetime object
-            nctime = ncf_in.variables['time'][:]
-            # "hours since 1980-01-01 00:00:00"
-            t_unit = "hours since 1980-01-01 00:00:00"  # ncf_in.variables['time'].units
-            try :
-                t_cal = ncf_in.variables['time'].calendar
-            except AttributeError :  # Attribute doesn't exist
-                t_cal = u"gregorian"  # or standard
-            # TODO: rm time = [nc.num2date(timei, units=t_unit, calendar=t_cal) for timei in nctime]
-            # TODO: rm time = np.asarray(time)
-
-            # detect invariant files (topography etc.)
-            invariant = True if len(np.unique(nctime)) <= 2 else False
-
-            # restrict to date/time range if given
-            if date is None:
-                tmask = nctime < nc.date2num(datetime(3000, 1, 1), units=t_unit, calendar=t_cal)
-            else:
-                beg_num = nc.date2num(date['beg'], units=t_unit, calendar=t_cal)
-                end_num = nc.date2num(date['end'], units=t_unit, calendar=t_cal)
-                tmask = (nctime < end_num) * (nctime >= beg_num)
-
-            if not any(tmask):
-                sys.exit('''\n ERROR: No downloaded data exist within date range specified by interpolation control file.
-                        Download new data or change 'beg' / 'end' in interpolation control file''')
-
-            # get time indices
-            time_in = nctime[tmask]
-
             # write time
             ncf_out.variables['time'][:] = time_in
-
-            # ensure that chunk sizes cover entire period even if
-            # len(time_in) is not an integer multiple of cs
-            niter  = len(time_in) // self.cs
-            niter += ((len(time_in) % self.cs) > 0)
-
-            # Create source grid
-            sgrid = self.create_source_grid(ncf_in)
-            subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
 
             # loop in chunk size cs
             for n in range(niter):
@@ -259,7 +205,6 @@ class MERRAinterpolate(GenericInterpolate):
             ncf_out.globsim_interpolate_success = 1
         
         ncf_in.close()
-
 
     def levels2elevation(self, ncfile_in, ncfile_out):
         """

@@ -139,17 +139,49 @@ class ERA5interpolate(GenericInterpolate):
         if pl:
             cs = cs // len(ncf_in.variables[self.vn_level][:])  # get actual number of levels
 
+        # get time and convert to datetime object
+        nctime = ncf_in.variables[self.vn_time][:]
+        
+        t_unit = ncf_in.variables[self.vn_time].attrs['units']
+        try:
+            t_cal = ncf_in.variables[self.vn_time].attrs['calendar']
+        except AttributeError:  # attribute doesn't exist
+            t_cal = u"gregorian"  # standard
+        time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
+
+        # detect invariant files (topography etc.)
+        invariant = True if len(time) == 1 else False
+
+        # restrict to date/time range if given
+        if date is None:
+            tmask = np.array([True])
+        else:
+            tmask = (time < date['end']) * (time >= date['beg'])
+
+        # get time vector for output
+        time_in = nctime[tmask]
+        
+        # ensure that chunk sizes cover entire period even if
+        # len(time_in) is not an integer multiple of cs
+        niter = len(time_in) // cs
+        niter += ((len(time_in) % cs) > 0)
+        
+        # Create source grid
+        sgrid = self.create_source_grid(ncf_in)
+        subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
+
         # build the output of empty netCDF file
         level_var = self.vn_level if pl else None
         
         if self.resume:
             self.require_file_can_be_resumed(ncfile_out)
-
+        
         if not (self.resume and Path(ncfile_out).exists()):
             rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                             time_units=ncf_in[self.vn_time].units,  # 'hours since 1900-01-01 00:00:0.0'
                                             calendar=ncf_in[self.vn_time].calendar,
-                                            level_var=level_var)
+                                            level_var=level_var,
+                                            n_time = len(time_in))
             
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
@@ -166,40 +198,8 @@ class ERA5interpolate(GenericInterpolate):
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:
-
-            # get time and convert to datetime object
-            nctime = ncf_in.variables[self.vn_time][:]
-            
-            t_unit = ncf_in.variables[self.vn_time].attrs['units']
-            try:
-                t_cal = ncf_in.variables[self.vn_time].attrs['calendar']
-            except AttributeError:  # attribute doesn't exist
-                t_cal = u"gregorian"  # standard
-            time = nc.num2date(nctime, units=t_unit, calendar=t_cal)
-
-            # detect invariant files (topography etc.)
-            invariant = True if len(time) == 1 else False
-
-            # restrict to date/time range if given
-            if date is None:
-                tmask = np.array([True])
-            else:
-                tmask = (time < date['end']) * (time >= date['beg'])
-
-            # get time vector for output
-            time_in = nctime[tmask]
-
             # write time
             ncf_out.variables['time'][:] = time_in
-
-            # ensure that chunk sizes cover entire period even if
-            # len(time_in) is not an integer multiple of cs
-            niter = len(time_in) // cs
-            niter += ((len(time_in) % cs) > 0)
-
-            # Create source grid
-            sgrid = self.create_source_grid(ncf_in)
-            subset_grid, lon_slice, lat_slice = self.create_subset_source_grid(sgrid, self.stations_bbox)
 
             # loop over chunks
             for n in range(niter):
