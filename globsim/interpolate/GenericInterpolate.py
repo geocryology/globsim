@@ -10,12 +10,10 @@ import sys
 import psutil
 
 from datetime import datetime, timedelta
-from os import path, makedirs, listdir
+from os import path, makedirs
 from pathlib import Path
-from fnmatch import filter as fnmatch_filter
-from typing import Union
 
-from globsim.common_utils import StationListRead, str_encode
+from globsim.common_utils import StationListRead, variables_skip
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 from globsim.gap_checker import check_time_integrity
 from globsim.decorators import check
@@ -231,7 +229,7 @@ class GenericInterpolate:
             raise ValueError('No time steps from netCDF file selected.')
 
         # get variables
-        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
+        varlist = [x for x in ncf_in.variables.keys()]
         self.remove_select_variables(varlist, pl, ens=False)
 
         # list variables that should be interpolated
@@ -290,6 +288,7 @@ class GenericInterpolate:
         logger.debug("Created destination field")
 
         return dfield, variables
+
 
     def make_output_directory(self, par) -> str:
         """make directory to hold outputs"""
@@ -357,6 +356,26 @@ class GenericInterpolate:
         locstream["ESMF:Lat"] = list(points['latitude_dd'])
 
         return locstream
+    
+    def write_dfield_to_file(self, 
+                             dfield, 
+                             variables:list,
+                             ncf_out,
+                             beg:int,
+                             end:int,
+                             pl:bool):
+
+        for i, var in enumerate(variables):
+            if variables_skip(var):
+                continue
+                        
+            else:
+                if pl:
+                    vi = dfield.data[:,i,:,:].transpose((1,2,0))
+                    ncf_out.variables[var][beg:end + 1,:,:] = vi
+                else:
+                    vi = dfield.data[:,i,:].transpose((1,0))
+                    ncf_out.variables[var][beg:end + 1,:] = vi
 
     @staticmethod
     def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":

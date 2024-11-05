@@ -9,7 +9,7 @@ from datetime import datetime
 from os import path
 from pathlib import Path
 
-from globsim.common_utils import str_encode, variables_skip
+from globsim.common_utils import variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
@@ -220,23 +220,14 @@ class JRAinterpolate(GenericInterpolate):
                                                 variables=None, date=None)
 
                 # append variables
-                for i, var in enumerate(variables):
-                    if variables_skip(var):
-                        continue
-
-                    if pl:
-                        lev = ncf_in.variables['level'][:]
-
-                        ncf_out.variables[var][beg:end + 1,:,:] = dfield.data[:,i,:,:].transpose((1,2,0))
-                    else:
-                        ncf_out.variables[var][beg:end + 1,:] = dfield.data[:,i,:].transpose((1,0))
-
+                self.write_dfield_to_file(dfield, variables, ncf_out, beg, end, pl)
                 ncf_out.globsim_last_chunk_written = n
+
                 del dfield, tmask_chunk
                 gc.collect()
 
             ncf_out.globsim_interpolate_success = 1
-        # close the file
+
         ncf_in.close()
 
     def levels2elevation(self, ncfile_in, ncfile_out):
@@ -266,8 +257,10 @@ class JRAinterpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                                self.T_UNITS)
+            rootgrp = netcdf_base(ncfile_out, 
+                                  len(height), 
+                                  nt,
+                                  self.T_UNITS)
             rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
 
             # access variables

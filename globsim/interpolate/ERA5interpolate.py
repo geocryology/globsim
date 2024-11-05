@@ -26,6 +26,7 @@ class ERA5interpolate(GenericInterpolate):
     Collection of methods to interpolate ERA5 netCDF files to station
     coordinates. All variables retain their original units and time stepping.
     """
+    REANALYSIS = 'era5'
 
     def __init__(self, ifile, era5type='reanalysis', **kwargs):
         super().__init__(ifile=ifile, **kwargs)
@@ -70,17 +71,13 @@ class ERA5interpolate(GenericInterpolate):
     def get_input_file_glob(self, levStr):
         """ Return the input file(s) for the interpolation. """
         # edited naming conventions for simplicity and to avoid errors
-        if self.ens:
-            typeStr = '_ens'
-        else:
-            typeStr = ''
 
-        f_glob = 'era5{}_{}_*.nc'
+        f_glob = 'era5_{}_*.nc'
 
         if levStr == 'to':
-            infile = path.join(self.input_dir, 'era5{}_to.nc'.format(typeStr))
+            infile = path.join(self.input_dir, 'era5_to.nc')
         else:
-            infile = path.join(self.input_dir, f_glob.format(typeStr, levStr))
+            infile = path.join(self.input_dir, f_glob.format(levStr))
 
         return infile
 
@@ -90,10 +87,7 @@ class ERA5interpolate(GenericInterpolate):
         return infiles
     
     def getOutFile(self, levStr):
-        if self.ens:
-            nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
-        else:
-            nome = 'era5_{}_'.format(levStr) + self.list_name + '.nc'
+        nome = 'era5_{}_'.format(levStr) + self.list_name + '.nc'
         outfile = path.join(self.output_dir, nome)
         return outfile
 
@@ -178,21 +172,17 @@ class ERA5interpolate(GenericInterpolate):
         
         if not (self.resume and Path(ncfile_out).exists()):
             rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
-                                            time_units=ncf_in[self.vn_time].units,  # 'hours since 1900-01-01 00:00:0.0'
-                                            calendar=ncf_in[self.vn_time].calendar,
-                                            level_var=level_var,
-                                            n_time = len(time_in))
+                                              time_units=ncf_in[self.vn_time].units,  # 'hours since 1900-01-01 00:00:0.0'
+                                              calendar=ncf_in[self.vn_time].calendar,
+                                              level_var=level_var,
+                                              n_time = len(time_in))
             
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
             rootgrp.globsim_chunk_size = self.cs
             rootgrp.globsim_interpolate_success = 0
             rootgrp.globsim_last_chunk_written = -1
-
-            if self.ens:
-                rootgrp.source = 'ERA5 10-member ensemble, interpolated bilinearly to stations'
-            else:
-                rootgrp.source = 'ERA5, interpolated bilinearly to stations'
+            rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
 
             rootgrp.close()  # close the file to write the header (needed for appending?)
 
@@ -232,41 +222,20 @@ class ERA5interpolate(GenericInterpolate):
 
                 # get the interpolated variables
                 dfield, variables = self.interp2D(ncf_in,
-                                                self.stations, tmask_chunk,
-                                                subset_grid, lon_slice, lat_slice,
-                                                variables=None, date=None)
+                                                  self.stations, tmask_chunk,
+                                                  subset_grid, lon_slice, lat_slice,
+                                                  variables=None, date=None)
                 
                 # append variables
-                for i, var in enumerate(variables):
-                    if variables_skip(var):
-                        continue
-
-                    if ens:
-                        num = ncf_in.variables['number'][:]
-                        for ni in num:
-                            if pl:
-                                # dfield [station, variables, time, levels, number]
-                                vi = dfield[ni].data[:,i,:,:].transpose((1,2,0))
-                                ncf_out.variables[var][beg:end+1,ni,:,:] = vi
-                            else:
-                                vi = dfield[ni].data[:,i,:].transpose((1,0))
-                                ncf_out.variables[var][beg:end+1,ni,:] = vi
-                    else:
-                        if pl:
-                            vi = dfield.data[:,i,:,:].transpose((1,2,0))
-                            ncf_out.variables[var][beg:end+1,:,:] = vi
-                        else:
-                            vi = dfield.data[:,i,:].transpose((1,0))
-                            ncf_out.variables[var][beg:end+1,:] = vi
-
-                # delete objects and free memory
-                del dfield, vi, tmask_chunk
-                gc.collect()
-
+                self.write_dfield_to_file(dfield, variables, ncf_out, beg, end, pl)
                 ncf_out.globsim_last_chunk_written = n
+
+                del dfield, tmask_chunk
+                gc.collect()
 
             # Write success flag
             ncf_out.globsim_interpolate_success = 1
+
         ncf_in.close()
 
     def levels2elevation(self, ncfile_in, ncfile_out):
@@ -291,11 +260,9 @@ class ERA5interpolate(GenericInterpolate):
         # list variables
         varlist = [key for key in ncf.variables.keys()]
         for V in ['time', 'station', 'latitude', 'longitude',
-                  'level','height','z','expver']:
+                  'level','height','z','expver', 'number']:
             if V in varlist:
                 varlist.remove(V)
-        if self.ens:
-            varlist.remove('number')
 
         # === open and prepare output netCDF file ==============================
         # dimensions: station, time
@@ -308,10 +275,8 @@ class ERA5interpolate(GenericInterpolate):
                                 time_units=ncf['time'].units,
                                 nc_in=ncf,
                                 calendar=ncf['time'].calendar)
-            if self.ens:
-                rootgrp.source = 'ERA5 10-member ensemble, interpolated (bi)linearly to stations'
-            else:
-                rootgrp.source = 'ERA5, interpolated (bi)linearly to stations'
+            
+            rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
 
             time = rootgrp['time']
             station = rootgrp['station']
@@ -464,12 +429,8 @@ class ERA5interpolate(GenericInterpolate):
                                 self.stations, varlist, date=self.date)
 
         # 1D Interpolation for Pressure Level Data
-        if self.ens:
-            outf = 'era5_ens_pl_'
-        else:
-            outf = 'era5_pl_'
-        outf = path.join(self.output_dir, outf + self.list_name + '_surface.nc')
-        
+        outf = self.getOutFile('pl')[:-3] + "_surface.nc"
+  
         if self.resume and self.completed_successfully(outf):
             logger.info("Skipping pl surface interpolation")
         else:
@@ -492,3 +453,47 @@ class ERA5interpolate(GenericInterpolate):
             with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
                 self.ERA2station(sf, self.getOutFile('sf'),
                                 self.stations, varlist, date=self.date)
+
+
+class ERA5EnsembleInterpolate(ERA5interpolate):
+
+    REANALYSIS = 'era5ens'
+
+    def __init__(self, ifile, **kwargs):
+        super().__init__(ifile=ifile, **kwargs)
+
+        self._set_input_directory("era5ens")
+        self.ens = True
+
+    def get_input_file_glob(self, levStr):
+        """ Return the input file(s) for the interpolation. """
+        # edited naming conventions for simplicity and to avoid errors
+        base = super(ERA5EnsembleInterpolate, self).get_input_file_glob(levStr)
+        return base.replace('era5', 'era5_ens')
+    
+    def getOutFile(self, levStr):
+        nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
+        outfile = path.join(self.output_dir, nome)
+        return outfile
+
+    def write_dfield_to_file(self, 
+                            dfield, 
+                            variables:list,
+                            ncf_out,
+                            beg:int,
+                            end:int,
+                            pl:bool):
+
+        for i, var in enumerate(variables):
+            if variables_skip(var):
+                continue
+                        
+            else:
+                for j, _dfield in enumerate(dfield):
+                    if pl:
+                        # dfield [station, variables, time, levels, number]
+                        vi = _dfield.data[:,i,:,:].transpose((1,2,0))
+                        ncf_out.variables[var][beg:end+1,j,:,:] = vi
+                    else:
+                        vi = _dfield.data[:,i,:].transpose((1,0))
+                        ncf_out.variables[var][beg:end+1,j,:] = vi
