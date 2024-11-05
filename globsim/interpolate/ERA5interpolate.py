@@ -28,17 +28,11 @@ class ERA5interpolate(GenericInterpolate):
     """
     REANALYSIS = 'era5'
 
-    def __init__(self, ifile, era5type='reanalysis', **kwargs):
+    def __init__(self, ifile,  **kwargs):
         super().__init__(ifile=ifile, **kwargs)
-        self.era5type = era5type
+        self._set_input_directory("era5")
+        self.ens = False
 
-        if self.era5type == 'reanalysis':
-            self._set_input_directory("era5")
-            self.ens = False
-        elif self.era5type == 'ensemble_members':
-            self._set_input_directory("era5ens")
-            self.ens = True
-            
         # convert longitude to ERA notation if using negative numbers
         self.stations['longitude_dd'] = self.stations['longitude_dd'] % 360
 
@@ -492,3 +486,5 @@ class ERA5EnsembleInterpolate(ERA5interpolate):
                     else:
                         vi = _dfield.data[:,i,:].transpose((1,0))
                         ncf_out.variables[var][beg:end+1,j,:] = vi
+    
+    
