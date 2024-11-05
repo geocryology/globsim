@@ -82,9 +82,9 @@ class MERRAinterpolate(GenericInterpolate):
         self.validate_stations_extent(ncf_in)
 
         # is it a file with pressure levels?
-        pl = 'level' in ncf_in.sizes.keys()
+        pl = self.vn_level in ncf_in.sizes.keys()
         
-        level_var = 'level' if pl else None
+        level_var = self.vn_level if pl else None
         
         # get time and convert to datetime object
         nctime = ncf_in.variables['time'][:]
@@ -186,21 +186,12 @@ class MERRAinterpolate(GenericInterpolate):
                                                 variables=None, date=None)
 
                 # append variables
-                for i, var in enumerate(variables):
-                    if variables_skip(var):
-                        continue
-
-                    # extra treatment for pressure level files
-                    if pl:
-                        # lev = ncf_in.variables['level'][:]
-                        ncf_out.variables[var][beg:end + 1, :, :] = dfield.data[:, i, :, :].transpose(1,2,0)
-                    else:
-                        ncf_out.variables[var][beg:end + 1, :] = dfield.data[:, i, :].transpose(1,0)
-                # delete objects and free memory
-                del dfield, tmask_chunk
-                gc.collect()
+                self.write_dfield_to_file(dfield, variables, ncf_out, beg, end, pl)
                 ncf_out.globsim_last_chunk_written = n
 
+                del dfield, tmask_chunk
+                gc.collect()
+                
             # Write success flag
             ncf_out.globsim_interpolate_success = 1
         
@@ -233,8 +224,10 @@ class MERRAinterpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                                'hours since 1980-01-01 00:00:00')
+            rootgrp = netcdf_base(ncfile_out, 
+                                  len(height),
+                                  nt,
+                                  'hours since 1980-01-01 00:00:00')
             rootgrp.source  = 'MERRA-2, interpolated (bi)linearly to stations'
 
             time = rootgrp["time"]
