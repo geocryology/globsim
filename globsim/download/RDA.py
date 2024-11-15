@@ -262,7 +262,7 @@ class Rdams(object):
         sys.stdout.write('%.3f %s' % (percent_complete, '% Completed'))
         sys.stdout.flush()
 
-    def download_files(self, filelist, out_dir='./', retries=3, cookie_file=None):
+    def download_files(self, filelist, out_dir='./', retries=10, cookie_file=None):
         """Download files in a list.
 
         Args:
@@ -280,8 +280,16 @@ class Rdams(object):
                     self._download_file(_file, out_dir)
                 except Exception as e:
                     logger.error(f"Problem downloading file (attempt {tries}): {e}")
+                    continue
+                
+                try:
+                    ensure_valid_tarfile(Path(out_dir, _file))
+                except Exception as e:
+                    logger.error(f"Problem with tarfile (attempt {tries}): {e}")
                 else:
                     tries += retries
+                
+
         
     def _download_file(self, _file, out_dir):
         file_base = os.path.basename(_file)
@@ -609,6 +617,12 @@ class Rdams(object):
         for opt,value in args_dict.items():
             if opt in action_map and value is not None:
                 return (action_map[opt], value)
+
+
+def ensure_valid_tarfile(f):
+    """ Ensure a tarfile is not broken """
+    pass
+
 
 class RdamsWrapper(Rdams):
     

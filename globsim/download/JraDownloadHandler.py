@@ -99,7 +99,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
         # return the extracted tar files   
         logger.debug(f"Creating {filetype if filetype is not None else '(unknown type)'} dataset from requeset {request_id}")
         
-        extract_downloaded_tar_files(directory, request_id, (not self._keep_raw_files))
+        extract_downloaded_tar_files(directory, request_id)
         
         variables = get_downloaded_variable_names(directory, request_id)
         
@@ -164,11 +164,13 @@ class J3QDownloadHandler(NcarDownloadHandler):
             vari.orig_name = varname
 
             ncf.close()
-            if not self._keep_raw_files:
-                for f in flist:
-                    f.unlink()
+            for f in flist:
+                f.unlink()
 
         ncn.close()
+        
+        if not self._keep_raw_files:
+            clear_request_files(directory=directory, request_id=request_id)
 
 
 class J55DownloadHandler(J3QDownloadHandler):
@@ -291,7 +293,7 @@ def new_jra_download_file(filename:str,
     return output_file
    
 
-def extract_downloaded_tar_files(directory:str, request_id:str, remove_when_completed:bool=True) -> list[Path]:
+def extract_downloaded_tar_files(directory:str, request_id:str) -> list[Path]:
     '''find downloaded tar files for a given dataset id and extract them'''
 
     tarf = list(Path(directory).glob(f"*{request_id}*.tar"))
@@ -301,11 +303,21 @@ def extract_downloaded_tar_files(directory:str, request_id:str, remove_when_comp
             tar = tarfile.open(f)
             tar.extractall(path=directory, filter='fully_trusted')
             tar.close()
-            
-            if remove_when_completed:
-                f.unlink()
     
     return tarf
+
+
+def clear_request_files(directory:str, request_id:str, tarfiles=True, ncfiles=True):
+    "Deletes netcdf and tarfiles associated with particular request id"
+    if ncfiles:
+        nclist = list(Path(directory).glob(f'{request_id}*nc'))
+        logger.info(f"Removing *.nc files for request {request_id}")
+        _ = [p.unlink() for p in nclist]
+
+    if tarfiles:
+        tarlist = list(Path(directory).glob(f'{request_id}*tar'))
+        logger.info(f"Removing *.tar files for request {request_id}")
+        _ = [p.unlink() for p in tarlist]
 
 
 def get_downloaded_variable_names(directory:str, request_id:str) -> list[str]:
