@@ -279,8 +279,10 @@ class Rdams(object):
                 try:
                     self._download_file(_file, out_dir)
                 except Exception as e:
-                    logger.error("Problem downloading file (attempt {tries}): {e}")
-            
+                    logger.error(f"Problem downloading file (attempt {tries}): {e}")
+                else:
+                    tries += retries
+        
     def _download_file(self, _file, out_dir):
         file_base = os.path.basename(_file)
         out_file = out_dir + file_base
