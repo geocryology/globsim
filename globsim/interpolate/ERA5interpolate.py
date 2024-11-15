@@ -10,7 +10,7 @@ from os import path
 from pathlib import Path
 
 from globsim.common_utils import variables_skip, str_encode
-from globsim.interpolate.GenericInterpolate import GenericInterpolate
+from globsim.interpolate.GenericInterpolate import GenericInterpolate, create_field
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 import globsim.constants as const
@@ -491,5 +491,38 @@ class ERA5EnsembleInterpolate(ERA5interpolate):
                     else:
                         vi = _dfield.data[:,i,:].transpose((1,0))
                         ncf_out.variables[var][beg:end+1,j,:] = vi
+
+    def create_source_field(self,
+                            sgrid, 
+                            variables, 
+                            nt,
+                            ncf_in, 
+                            pl:bool):
+            
+        num = ncf_in.variables['number'][:]
+        sfield = []
+        for ni in num:
+            f = super(ERA5EnsembleInterpolate, self).create_source_field(sgrid, variables, nt, nlev, ncf_in, pl)
+            sfield.append(f)
+
+        return sfield
+    
+    @staticmethod
+    def nc_data_subset_to_source_field(variables, sfield_list: "list[ESMF.Field]", ncf_in,
+                                         tmask_chunk, pl: bool, lon_subset, lat_subset):
+        for n, var in enumerate(variables):
+            for ni in ncf_in['number'][:]:
+                if pl:
+                    # sfield.data [lon, lat, var, time, number, level]
+                    # vi [time, number, level, lat, lon]
+                    vi = ncf_in[var][tmask_chunk,ni,:,:,:]
+                    sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
+
+                else:
+
+                    vi = ncf_in[var][tmask_chunk,ni,:,:]
+                    sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
+
+            logger.debug(f"Wrote {var} data to source field for regridding")
     
     

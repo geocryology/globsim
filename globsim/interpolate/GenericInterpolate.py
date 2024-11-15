@@ -240,23 +240,9 @@ class GenericInterpolate:
             raise ValueError('One or more variables not in netCDF file.')
 
         # create source field(s) on source grid
-        if ens:
-            sfield = []
-            for ni in num:
-                if pl:  # only for pressure level files
-                    sfield.append(create_field(sgrid, variables, nt, nlev))
-                else:  # 2D files
-                    sfield.append(create_field(sgrid, variables, nt))
-
-            self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
-
-        else:
-            if pl:  # only for pressure level files
-                sfield = create_field(sgrid, variables, nt, nlev)
-            else:  # 2D files
-                sfield = create_field(sgrid, variables, nt)
-            
-            self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl, lon_subset, lat_subset)
+        sfield = self.create_source_field(sgrid, variables, nt, ncf_in, pl)
+        self.nc_data_subset_to_source_field(variables, sfield, ncf_in, 
+                                            tmask_chunk, pl, lon_subset, lat_subset)
 
         locstream = self.create_loc_stream(points)
 
@@ -289,6 +275,21 @@ class GenericInterpolate:
 
         return dfield, variables
 
+    def create_source_field(self,
+                            sgrid: ESMF.Grid, 
+                            variables, 
+                            nt,
+                            ncf_in,
+                            pl:bool):
+        
+        nlev = ncf_in.variables[self.vn_level].shape[0]
+
+        if pl:  # only for pressure level files
+            sfield = create_field(sgrid, variables, nt, nlev)
+        else:  # 2D files
+            sfield = create_field(sgrid, variables, nt)
+
+        return sfield
 
     def make_output_directory(self, par) -> str:
         """make directory to hold outputs"""
