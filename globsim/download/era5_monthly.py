@@ -260,7 +260,7 @@ def split_resl_zip(zipf:zipfile.ZipFile, sa:str, sf:str):
     logger.debug(cmd2)
     subprocess.Popen(cmd2.split(" "))
     if Path(sf).exists() and Path(sa).exists():
-        logger.debug(f"Removing {f}")
+        logger.debug(f"Removing {zipf}")
         # Path(f).unlink()
 
 def split_resl_nc(f, sa, sf, time_var):
