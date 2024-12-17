@@ -1,6 +1,7 @@
 import logging
 import re
 import subprocess
+import zipfile
 
 from datetime import datetime
 from functools import partial
@@ -8,6 +9,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from os import rename
 from requests.exceptions import ChunkedEncodingError
+
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.era_helpers import make_monthly_chunks, Era5Request, Era5RequestParameters, era5_pressure_levels, cf_to_cds_pressure, cf_to_cds_single
@@ -225,6 +227,11 @@ def rename_sl_dir(dir):
 
 def split_sl(f, overwrite=False, time_var='valid_time'):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
+    try:
+        zipf = zipfile.ZipFile(f)
+        zipped=True
+    except zipfile.BadZipFile:
+        zipped = False
     sf = orig.sub(r'era5_sf_\1.nc', f)
     sa = orig.sub(r'era5_sa_\1.nc', f)
     if not overwrite and Path(sf).exists():
@@ -234,6 +241,29 @@ def split_sl(f, overwrite=False, time_var='valid_time'):
         print(f"Skipping {sa}")
         return
     logger.debug(f"Splitting {Path(f).name}")
+    if zipped:
+        split_resl_zip(zipf, sa, sf)
+    else:
+        split_resl_nc(f, sa, sf, time_var)
+
+
+def split_resl_zip(zipf:zipfile.ZipFile, sa:str, sf:str):
+    zname = zipf.filename
+    zipf.extractall(Path(zname).parent)
+    f_acc = Path(zname).with_name("data_stream-oper_stepType-accum.nc")
+    f_ins = Path(zname).with_name("data_stream-oper_stepType-instant.nc")
+    cmd1 = f"ncks -C -O -x -v number,expver {f_acc} {sf}"
+    cmd2 = f"ncks -C -O -x -v number,expver {f_ins} {sa}"
+    logger.debug(cmd1)
+    p1 = subprocess.Popen(cmd1.split(" "))
+    p1.wait()
+    logger.debug(cmd2)
+    subprocess.Popen(cmd2.split(" "))
+    if Path(sf).exists() and Path(sa).exists():
+        logger.debug(f"Removing {f}")
+        # Path(f).unlink()
+
+def split_resl_nc(f, sa, sf, time_var):
     cmd1 = f"nccopy -V {time_var},latitude,longitude,ssrd,strd,tp {f} {sf}"
     cmd2 = f"nccopy -V {time_var},latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
     logger.debug(cmd1)
