@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from os import rename
 from requests.exceptions import ChunkedEncodingError
 
+
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.era_helpers import make_monthly_chunks, Era5Request, Era5RequestParameters, era5_pressure_levels, cf_to_cds_pressure, cf_to_cds_single
 
@@ -228,6 +229,11 @@ def rename_sl_dir(dir):
 
 def split_sl(f, overwrite=True, time_var='valid_time'):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
+    try:
+        zipf = zipfile.ZipFile(f)
+        zipped=True
+    except zipfile.BadZipFile:
+        zipped = False
     sf = orig.sub(r'era5_sf_\1.nc', f)
     sa = orig.sub(r'era5_sa_\1.nc', f)
     if not overwrite and Path(sf).exists():
