@@ -1,6 +1,9 @@
 import logging
+from os import scandir
 import re
 import subprocess
+import time
+import zipfile
 
 from datetime import datetime
 from functools import partial
@@ -223,7 +226,7 @@ def rename_sl_dir(dir):
         split_sl(f)
 
 
-def split_sl(f, overwrite=False, time_var='valid_time'):
+def split_sl(f, overwrite=True, time_var='valid_time'):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
     sf = orig.sub(r'era5_sf_\1.nc', f)
     sa = orig.sub(r'era5_sa_\1.nc', f)
@@ -234,6 +237,36 @@ def split_sl(f, overwrite=False, time_var='valid_time'):
         print(f"Skipping {sa}")
         return
     logger.debug(f"Splitting {Path(f).name}")
+    if zipped:
+        split_resl_zip(zipf, sa, sf)
+    else:
+        split_resl_nc(f, sa, sf, time_var)
+
+
+def split_resl_zip(zipf:zipfile.ZipFile, sa:str, sf:str):
+    zname = zipf.filename
+    parent_dir = Path(zname).parent
+    zipf.extractall(parent_dir)
+    f_acc = Path(zname).with_name("data_stream-oper_stepType-accum.nc")
+    f_ins = Path(zname).with_name("data_stream-oper_stepType-instant.nc")
+    cmd1 = f'ncks -C -O -x -v number,expver {f_acc} {sf}'
+    cmd2 = f'ncks -C -O -x -v number,expver {f_ins} {sa}'
+    logger.debug(cmd1)
+    p1 = subprocess.Popen(cmd1.split(" "))
+    p1.wait()
+    if not wait_for_file_scandir(parent_dir, f"{sf}$", 360, 1):
+        logger.error(f"Timed out waiting for {sf}")
+    logger.debug(cmd2)
+    subprocess.Popen(cmd2.split(" "))
+    if not wait_for_file_scandir(parent_dir, f"{sa}$", 360, 1):
+        logger.error(f"Timed out waiting for {sa}")
+    if Path(sf).exists() and Path(sa).exists():
+        logger.debug(f"Removing {zipf.filename}")
+        # Path(f).unlink()
+    for f in [f_acc, f_ins]:
+        f.unlink()
+
+def split_resl_nc(f, sa, sf, time_var):
     cmd1 = f"nccopy -V {time_var},latitude,longitude,ssrd,strd,tp {f} {sf}"
     cmd2 = f"nccopy -V {time_var},latitude,longitude,d2m,t2m,tco3,tcwv,u10,v10 {f} {sa}"
     logger.debug(cmd1)
@@ -246,9 +279,26 @@ def split_sl(f, overwrite=False, time_var='valid_time'):
         # Path(f).unlink()
 
 
+def wait_for_file_scandir(directory, pattern, timeout=60, check_interval=1):
+    regex = re.compile(pattern)
+    elapsed_time = 0
+
+    while elapsed_time < timeout:
+        with scandir(directory) as entries:
+            if any(regex.match(entry.name) for entry in entries if entry.is_file()):
+                return True  #  matching files exist
+        time.sleep(check_interval)
+        elapsed_time += check_interval
+
+    return False  # Timed out waiting for file 
+
 if __name__ == "__main__":
     import argparse
     logger.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    logger.addHandler(console_handler)
+
     parser = argparse.ArgumentParser(description="Download ERA5 data")
     
     # add subparser for splitting
