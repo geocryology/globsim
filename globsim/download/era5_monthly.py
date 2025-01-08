@@ -260,17 +260,18 @@ def split_resl_zip(zipf:zipfile.ZipFile, sa:str, sf:str):
     logger.debug(cmd1)
     p1 = subprocess.Popen(cmd1.split(" "))
     p1.wait()
-    if not wait_for_file_scandir(parent_dir, f"{sf}$", 360, 1):
-        logger.error(f"Timed out waiting for {sf}")
+    if not wait_for_file_scandir(parent_dir, f"{Path(sf).name}$", 360, 1):
+        logger.error(f"Timed out waiting for {Path(sf).name}")
     logger.debug(cmd2)
     subprocess.Popen(cmd2.split(" "))
-    if not wait_for_file_scandir(parent_dir, f"{sa}$", 360, 1):
-        logger.error(f"Timed out waiting for {sa}")
+    if not wait_for_file_scandir(parent_dir, f"{Path(sa).name}$", 360, 1):
+        logger.error(f"Timed out waiting for {Path(sa).name}")
     if Path(sf).exists() and Path(sa).exists():
         logger.debug(f"Removing {zipf.filename}")
         # Path(f).unlink()
     for f in [f_acc, f_ins]:
         f.unlink()
+
 
 def split_resl_nc(f, sa, sf, time_var):
     cmd1 = f"nccopy -V {time_var},latitude,longitude,ssrd,strd,tp {f} {sf}"
@@ -288,11 +289,10 @@ def split_resl_nc(f, sa, sf, time_var):
 def wait_for_file_scandir(directory, pattern, timeout=60, check_interval=1):
     regex = re.compile(pattern)
     elapsed_time = 0
-
     while elapsed_time < timeout:
         with scandir(directory) as entries:
             if any(regex.match(entry.name) for entry in entries if entry.is_file()):
-                return True  #  matching files exist
+                return True  #  matching file exists
         time.sleep(check_interval)
         elapsed_time += check_interval
 
