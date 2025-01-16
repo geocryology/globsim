@@ -227,7 +227,7 @@ def rename_sl_dir(dir):
         split_sl(f)
 
 
-def split_sl(f, overwrite=True, time_var='valid_time'):
+def split_sl(f, overwrite=False, time_var='valid_time'):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
     try:
         zipf = zipfile.ZipFile(f)
