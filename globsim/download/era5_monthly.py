@@ -227,7 +227,7 @@ def rename_sl_dir(dir):
         split_sl(f)
 
 
-def split_sl(f, overwrite=True, time_var='valid_time'):
+def split_sl(f, overwrite=False, time_var='valid_time'):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
     try:
         zipf = zipfile.ZipFile(f)
@@ -236,11 +236,8 @@ def split_sl(f, overwrite=True, time_var='valid_time'):
         zipped = False
     sf = orig.sub(r'era5_sf_\1.nc', f)
     sa = orig.sub(r'era5_sa_\1.nc', f)
-    if not overwrite and Path(sf).exists():
-        print(f"Skipping {sf}")
-        return
-    if not overwrite and Path(sa).exists():
-        print(f"Skipping {sa}")
+    if not overwrite and Path(sf).exists() and Path(sa).exists():
+        print(f"Skipping {f}")
         return
     logger.debug(f"Splitting {Path(f).name}")
     if zipped:
