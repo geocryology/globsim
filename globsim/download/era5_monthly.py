@@ -236,11 +236,8 @@ def split_sl(f, overwrite=False, time_var='valid_time'):
         zipped = False
     sf = orig.sub(r'era5_sf_\1.nc', f)
     sa = orig.sub(r'era5_sa_\1.nc', f)
-    if not overwrite and Path(sf).exists():
-        print(f"Skipping {sf}")
-        return
-    if not overwrite and Path(sa).exists():
-        print(f"Skipping {sa}")
+    if not overwrite and Path(sf).exists() and Path(sa).exists():
+        print(f"Skipping {f}")
         return
     logger.debug(f"Splitting {Path(f).name}")
     if zipped:
