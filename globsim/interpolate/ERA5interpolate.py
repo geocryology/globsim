@@ -481,7 +481,7 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        if self.resume and self.completed_successfully(self.getOutFile('sa')):
+        if self.resume and self.completed_successfully(self.getOutFile('sf')):
             logger.info("Skipping surface forecast interpolation")
         else:
             with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
