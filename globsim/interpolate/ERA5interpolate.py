@@ -487,7 +487,3 @@ class ERA5interpolate(GenericInterpolate):
             with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
                 self.ERA2station(sf, self.getOutFile('sf'),
                                 self.stations, varlist, date=self.date)
-
-
-# vv = nc.Dataset(self.getOutFile('pl'))
-# xx = xr.open_dataset(self.getOutFile('sa'))
