@@ -147,7 +147,8 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
 def new_interpolated_netcdf(ncfile_out:str, stations, 
                             nc_in:xr.Dataset, time_units:str, 
                             calendar:Optional[str]=None,
-                            level_var:Optional[list]=None) -> nc.Dataset:
+                            level_var:Optional[str]=None,
+                            n_time=None) -> nc.Dataset:
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
@@ -155,13 +156,13 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
 
     ncfile_out: full name of the file to be created
     stations:   station list read with common_utils.StationListRead()
-    nc_in: 
+    nc_in:      
     variables:  variables read from netCDF handle
     lev:        list of pressure levels, empty is [] (default)
     """
     logger.info(f"Creating new file {ncfile_out} from ")
 
-    rootgrp = netcdf_base(ncfile_out, len(stations), None, time_units, nc_in, calendar)
+    rootgrp = netcdf_base(ncfile_out, len(stations), n_time, time_units, nc_in, calendar)
 
     station = rootgrp['station']
     latitude = rootgrp['latitude']
@@ -173,7 +174,7 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
     latitude[:]  = list(stations['latitude_dd'])
     longitude[:] = list(stations['longitude_dd'])
     height[:]    = list(stations['elevation_m'])
-
+    
     # extra treatment for pressure level files
     if level_var is not None:
         lev = nc_in.variables[level_var][:]
@@ -237,7 +238,7 @@ def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None, calendar
 
     # dimensions
     _ = rootgrp.createDimension('station', n_stations)
-    _ = rootgrp.createDimension('time', None)
+    _ = rootgrp.createDimension('time', n_time)
 
     # base variables
     if calendar is None:

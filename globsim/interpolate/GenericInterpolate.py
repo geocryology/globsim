@@ -10,12 +10,10 @@ import sys
 import psutil
 
 from datetime import datetime, timedelta
-from os import path, makedirs, listdir
+from os import path, makedirs
 from pathlib import Path
-from fnmatch import filter as fnmatch_filter
-from typing import Union
 
-from globsim.common_utils import StationListRead, str_encode
+from globsim.common_utils import StationListRead, variables_skip
 from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 from globsim.gap_checker import check_time_integrity
 from globsim.decorators import check
@@ -231,7 +229,7 @@ class GenericInterpolate:
             raise ValueError('No time steps from netCDF file selected.')
 
         # get variables
-        varlist = [str_encode(x) for x in ncf_in.variables.keys()]
+        varlist = [x for x in ncf_in.variables.keys()]
         self.remove_select_variables(varlist, pl, ens=False)
 
         # list variables that should be interpolated
@@ -242,23 +240,9 @@ class GenericInterpolate:
             raise ValueError('One or more variables not in netCDF file.')
 
         # create source field(s) on source grid
-        if ens:
-            sfield = []
-            for ni in num:
-                if pl:  # only for pressure level files
-                    sfield.append(create_field(sgrid, variables, nt, nlev))
-                else:  # 2D files
-                    sfield.append(create_field(sgrid, variables, nt))
-
-            self.nc_ensemble_data_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl)
-
-        else:
-            if pl:  # only for pressure level files
-                sfield = create_field(sgrid, variables, nt, nlev)
-            else:  # 2D files
-                sfield = create_field(sgrid, variables, nt)
-            
-            self.nc_data_subset_to_source_field(variables, sfield, ncf_in, tmask_chunk, pl, lon_subset, lat_subset)
+        sfield = self.create_source_field(sgrid, variables, nt, ncf_in, pl)
+        self.nc_data_subset_to_source_field(variables, sfield, ncf_in, 
+                                            tmask_chunk, pl, lon_subset, lat_subset)
 
         locstream = self.create_loc_stream(points)
 
@@ -290,6 +274,21 @@ class GenericInterpolate:
         logger.debug("Created destination field")
 
         return dfield, variables
+
+    def create_source_field(self,
+                            sgrid: ESMF.Grid, 
+                            variables, 
+                            nt,
+                            ncf_in,
+                            pl:bool):
+
+        if pl:  # only for pressure level files
+            nlev = ncf_in.variables[self.vn_level].shape[0]
+            sfield = create_field(sgrid, variables, nt, nlev)
+        else:  # 2D files
+            sfield = create_field(sgrid, variables, nt)
+
+        return sfield
 
     def make_output_directory(self, par) -> str:
         """make directory to hold outputs"""
@@ -357,6 +356,26 @@ class GenericInterpolate:
         locstream["ESMF:Lat"] = list(points['latitude_dd'])
 
         return locstream
+    
+    def write_dfield_to_file(self, 
+                             dfield, 
+                             variables:list,
+                             ncf_out,
+                             beg:int,
+                             end:int,
+                             pl:bool):
+
+        for i, var in enumerate(variables):
+            if variables_skip(var):
+                continue
+                        
+            else:
+                if pl:
+                    vi = dfield.data[:,i,:,:].transpose((1,2,0))
+                    ncf_out.variables[var][beg:end + 1,:,:] = vi
+                else:
+                    vi = dfield.data[:,i,:].transpose((1,0))
+                    ncf_out.variables[var][beg:end + 1,:] = vi
 
     @staticmethod
     def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
