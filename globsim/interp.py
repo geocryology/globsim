@@ -11,7 +11,7 @@ def ele_interpolate(elevation: np.ndarray, h: float, nl: int):
         Parameters
         ----------
         elevation : np.ndarray
-            elevation of data at (time, level) in meters. Must be monotonically decreasing along axis 1
+            elevation of data at (time, level) in meters. Must be monotonically increasing/decreasing along axis 1
         h : float
             elevation of station
         nl : int
@@ -26,27 +26,49 @@ def ele_interpolate(elevation: np.ndarray, h: float, nl: int):
         vb : np.ndarray 
             array of indices corresponding to nearest level below station
         """
-
-        # difference in elevation, level directly above will be >= 0
-        if np.all(np.diff(elevation, axis=1) > 0):  # monotonically increasing
-            elev_diff = -(elevation - h)
-        elif np.all(np.diff(elevation, axis=1) < 0):  # monotonically decreasing 
-            elev_diff = elevation - h
+        # difference in elevation, level directly station above will be >= 0
+        elev_diff = elevation - h
+        i_ravel = np.arange(elevation.shape[0]) * elevation.shape[1]  # indices for first level in each time 
+        if np.all(np.diff(elevation, axis=1) > 0):  # elevations monotonically increasing
+            inverted = True
+        elif np.all(np.diff(elevation, axis=1) < 0):  # elevations monotonically decreasing 
+            inverted = False
         else:
             raise ValueError("Elevation must be monotonically decreasing or increasing")
+        if inverted:
+            va = np.argmin(elev_diff + (elev_diff < 0) * 1e6, axis=1) # level indices that are directly above station.
+            mask = (va != 0)  # station is above lowest level
+            va += i_ravel  # will be added to raveled data
+            vb = va - mask  # next-lowest station index when va != 0
+        else:
+            # vector of level indices that fall directly above station.
+            # Apply after ravel() of data.
+            va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1)
+            # mask for situations where station is below lowest level
+            mask = va < (nl - 1)
+            va += i_ravel
+
+            # Vector level indices that fall directly below station.
+            # Apply after ravel() of data.
+            vb = va + mask  # +1 when OK, +0 when below lowest level
+
+        # calculate slopes for extrapolation
+
+        if inverted:
+            delta_s = elevation[:, 0] - h
+            delta_L = elevation[:, 1] - elevation[:, 0]
+            i_lowest_diff = i_ravel
+            i_lowest_data = i_ravel
+            R = -(delta_s / delta_L)
         
-        # vector of level indices that fall directly above station.
-        # Apply after ravel() of data.
-        va = np.argmin(elev_diff + (elev_diff < 0) * 100000, axis=1)
-        # mask for situations where station is below lowest level
-        mask = va < (nl - 1)
-        va += np.arange(elevation.shape[0]) * elevation.shape[1]
-
-        # Vector level indices that fall directly below station.
-        # Apply after ravel() of data.
-        vb = va + mask  # +1 when OK, +0 when below lowest level
-
-        return elev_diff, va, vb
+        else:
+            delta_s = elevation[:, -1] - h
+            delta_L = elevation[:, -2] - elevation[:, -1]
+            i_lowest_diff = i_ravel + nl - 2
+            i_lowest_data = i_ravel + nl - 1
+            R = delta_s / delta_L
+        
+        return elev_diff, va, vb, R, i_lowest_diff, i_lowest_data
 
 
 def calculate_weights(elev_diff, va, vb) -> tuple:
@@ -111,7 +133,7 @@ def interpolate_level_data(data: np.ndarray, elevation: np.ndarray, h: Union[flo
             interp[:, i] = interpolate_level_data(data[:, :, i], elevation[:, :, i], h_i)
     
     elif (data.ndim == 2) and isinstance(h, Number):
-        elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+        elev_diff, va, vb, R, i_diff, i_data = ele_interpolate(elevation, h, nl)
         wa, wb = calculate_weights(elev_diff, va, vb)
         interp = data.ravel()[va] * wa + data.ravel()[vb] * wb
     

@@ -340,7 +340,7 @@ class MERRAinterpolate(GenericInterpolate):
                 # TODO: check if height of stations in data range (+50m at top,
                 # lapse r.)
 
-                elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+                elev_diff, va, vb, R, i_diff, i_data = ele_interpolate(elevation, h, nl)
                 wa, wb = calculate_weights(elev_diff, va, vb)
 
                 # loop over variables and apply interpolation weights
@@ -353,20 +353,25 @@ class MERRAinterpolate(GenericInterpolate):
                         # pressure [hPa] variable from levels, shape: (time, level)
                         data = np.repeat([ncf.variables['level'][:]],
                                         len(time),axis=0).ravel()
-                        ipol = data[va] * wa + data[vb] * wb   # interpolated value
-
-                        # if mask[pixel] == false, pass the maximum of pressure level to pixles
-                        level_highest = ncf.variables['level'][:][-1]
+    
+                        # 2025-01-28 [NB]: I don't think this block of code is necessary
+                        """level_highest = ncf.variables['level'][:][-1]
                         level_lowest = ncf.variables['level'][:][0]
 
                         for j, value in enumerate(ipol):
                             if value == level_highest:
-                                ipol[j] = level_lowest
-
+                                ipol[j] = level_lowest"""
                     else:
-                        # read data from netCDF
                         data = ncf.variables[var][:,:,n].ravel()
-                        ipol = data[va] * wa + data[vb] * wb   # interpolated value
+                    
+                    ipol = data[va] * wa + data[vb] * wb   # interpolated value
+
+                    if self.extrapolate_below_grid:
+                            below_lowest = np.where(np.min(elevation, axis=1) > h)[0]
+                            delta_V = np.diff(data)[i_diff]  # difference between levels
+                            epol = data[i_data] + R * delta_V  # extrapolated values
+                            ipol[below_lowest] = epol[below_lowest]  # replace values below lowest level
+                            
                     rootgrp.variables[var][:,n] = ipol  # assign to file
                     rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
                 
