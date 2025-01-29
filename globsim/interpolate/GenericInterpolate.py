@@ -8,6 +8,7 @@ import warnings
 import logging
 import sys
 import psutil
+import xarray as xr
 
 from datetime import datetime, timedelta
 from os import path, makedirs
@@ -62,7 +63,33 @@ class GenericInterpolate:
         self._skip_pl = kwargs.get('skip_pl', False)
         self.resume = bool(self.read_and_report(kwargs, 'resume', False))
         self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
+
+        self._working_order_3d = ('time', 'latitude', 'longitude')
+        self._working_order_4d = ('time', 'level', 'latitude', 'longitude')
+        self._downloaded_order_3d = ('time', 'latitude', 'longitude')
+        self._downloaded_order_4d = ('time', 'level', 'latitude', 'longitude')
+        self._downloaded_order_5d = ('time', 'number', 'level', 'latitude', 'longitude')
+        self._downloaded_order_5d = ('time', 'number', 'level', 'latitude', 'longitude')
     
+    def r3d(self, arr, slices={}):
+        ''' transform array dimensions from on-disk order to working order '''
+        working_order = self._working_order_3d
+        downloaded_order = self._downloaded_order_3d
+        return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
+
+    def r4d(self, arr, slices={}):
+        ''' read downloaded file and reorder dimensions '''
+        working_order =  self._working_order_4d
+        downloaded_order = self._downloaded_order_4d
+        return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
+    
+    def r5d(self, arr, slices={}):
+        ''' read downloaded file and reorder dimensions '''
+        working_order =  self._working_order_5d
+        downloaded_order = self._downloaded_order_5d
+        return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
+    
+
     def read_and_report(self, kwargs, name=None, default=None):
         value = kwargs.get(name, "MISSING FROM KWARGS")
         
@@ -406,7 +433,6 @@ class GenericInterpolate:
                     sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
 
                 else:
-
                     vi = ncf_in[var][tmask_chunk,ni,:,:]
                     sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
 
@@ -712,7 +738,48 @@ def grid_create_from_coordinates_periodic(longitudes, latitudes, lon_corners=Fal
 
     return grid
 
+
+def reorder_and_slice_array(arr, array_order: tuple, desired_order: tuple, slice_boundaries: dict) -> np.ndarray:
+    """
+    Reorders and slices a NumPy or xarray array based on the provided dimension order and slice boundaries.
     
+    Parameters:
+        arr (np.ndarray or xr.DataArray): Input array (can be a NumPy array or an xarray DataArray).
+        array_order (tuple): Tuple indicating the current order of dimensions (e.g., ('time', 'latitude', 'longitude')).
+        desired_order (tuple): Tuple indicating the desired order of dimensions.
+        slice_boundaries (dict): Dictionary with dimension names as keys and corresponding slice boundaries as values.
+            For example: {'time': slice(1, 3), 'latitude': slice(None), 'longitude': slice(0, 5)}.
 
+    Returns:
+        np.ndarray: Reordered and sliced array (either numpy ndarray or xarray DataArray).
+    """
+    
+    # Create a mapping from dimension name to index based on the array's current order
+    order_mapping = {dim: idx for idx, dim in enumerate(array_order)}
+    
+    slices = []
+    for dim in array_order:
+        boundary = slice_boundaries.get(dim, slice(None))
+        
+        # If the boundary is an integer, convert it to a slice
+        if isinstance(boundary, int):
+            slices.append(slice(boundary, boundary + 1))  # Treat integer as a slice of length 1
+        else:
+            slices.append(boundary)  # Otherwise, use the boundary as is (could be a slice or None)
+    
+    # Apply the slices to the array (slicing first)
+    sliced_arr = arr[tuple(slices)]  # This applies the slices
+    
+    # Get the new indices based on the desired order
+    new_axes = [order_mapping[dim] for dim in desired_order]
+    
+    # Reorder the dimensions of the sliced array
+    if isinstance(arr, xr.DataArray):
+        # For xarray, use .transpose to reorder dimensions
+        reordered_arr = sliced_arr.transpose(*desired_order)
+    else:
+        # For NumPy, use np.transpose to reorder dimensions
+        reordered_arr = np.transpose(sliced_arr, axes=new_axes)
 
+    return reordered_arr
 
