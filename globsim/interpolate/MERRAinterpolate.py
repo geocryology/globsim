@@ -12,7 +12,7 @@ from pathlib import Path
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base
-from globsim.interp import calculate_weights, ele_interpolate
+from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
@@ -353,20 +353,23 @@ class MERRAinterpolate(GenericInterpolate):
                         # pressure [hPa] variable from levels, shape: (time, level)
                         data = np.repeat([ncf.variables['level'][:]],
                                         len(time),axis=0).ravel()
-                        ipol = data[va] * wa + data[vb] * wb   # interpolated value
-
-                        # if mask[pixel] == false, pass the maximum of pressure level to pixles
-                        level_highest = ncf.variables['level'][:][-1]
+    
+                        # 2025-01-28 [NB]: I don't think this block of code is necessary
+                        """level_highest = ncf.variables['level'][:][-1]
                         level_lowest = ncf.variables['level'][:][0]
 
                         for j, value in enumerate(ipol):
                             if value == level_highest:
-                                ipol[j] = level_lowest
-
+                                ipol[j] = level_lowest"""
                     else:
-                        # read data from netCDF
                         data = ncf.variables[var][:,:,n].ravel()
-                        ipol = data[va] * wa + data[vb] * wb   # interpolated value
+                    
+                    ipol = data[va] * wa + data[vb] * wb   # interpolated value
+
+                    if self.extrapolate_below_grid:
+                            extrapolated_values = extrapolate_below_grid(elevation, data, h)
+                            ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
+                            
                     rootgrp.variables[var][:,n] = ipol  # assign to file
                     rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
                 

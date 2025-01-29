@@ -7,25 +7,30 @@ import argparse
 from globsim import globsim_convert, globsim_download, globsim_scale, globsim_interpolate
 from globsim.globsim_convert import export_styles
 from globsim._version import __version__
+from globsim.view.interp_vis import main_args as interp_vis_main
 
 
-def configure_logging(args):
+def configure_logging(args: argparse.Namespace):
     # logging.basicConfig(format='%(asctime)s  %(asctime)s ')
-    logger.setLevel(args.level)
+    try:
+        level = args.level
+    except AttributeError:
+        level = logging.INFO
 
+    logger.setLevel(level)
     console_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt="%H:%M:%S")
     # console_formatter = logging.Formatter('%(message)s', datefmt="%H:%M:%S")
 
     ch = logging.StreamHandler()
-    ch.setLevel(args.level)
+    ch.setLevel(level)
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    if args.logfile:
+    if getattr(args, "logfile", None):
         file_formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
         logfile = args.logfile  # TODO: write logfile to project directory if missing
         fh = logging.FileHandler(logfile)
-        fh.setLevel(args.level)
+        fh.setLevel(level)
         fh.setFormatter(file_formatter)
         logger.addHandler(fh)
 
@@ -50,6 +55,7 @@ def main():
     interpolate = subparsers.add_parser("interpolate")
     scale = subparsers.add_parser("scale")
     convert = subparsers.add_parser("convert")
+    view = subparsers.add_parser("view")
 
     mainparser.add_argument("--version", action='version', version=f"GlobSim version {__version__}")
 
@@ -94,6 +100,15 @@ def main():
                          help="(optional) The name of the site you want to export. If not provided, all sites will be exported")
     convert.add_argument('-p', "--profile", dest='profile', default=None, type=str, help="Path to an 'export profile' TOML file (geotop only) ")
 
+    view.set_defaults(func=interp_vis_main)
+    view.add_argument("file", nargs="?", type=str, help="file to plot")
+    view.add_argument("--file", dest='file', type=str, help="file to plot")
+    view.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot")
+    view.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
+    view.add_argument("-o", "--output", type=str, dest='output', help="output directory")
+    
+
+    
     if len(sys.argv) == 1:
         mainparser.print_help(sys.stderr)
         sys.exit(1)

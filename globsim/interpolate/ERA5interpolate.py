@@ -12,7 +12,7 @@ from pathlib import Path
 from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
-from globsim.interp import ele_interpolate, calculate_weights
+from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 import globsim.constants as const
 
 logger = logging.getLogger('globsim.interpolate')
@@ -402,8 +402,13 @@ class ERA5interpolate(GenericInterpolate):
                             # read data from netCDF
                             logger.debug(f"Reading {var}")
                             data = ncf.variables[var][:,:,n].ravel()
-
+                        
                         ipol = data[va] * wa + data[vb] * wb   # interpolated value
+                        
+                        if self.extrapolate_below_grid:
+                            extrapolated_values = extrapolate_below_grid(elevation, data, h)
+                            ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
+
                         rootgrp.variables[var][:,n] = ipol  # write to file
                     
                         rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
@@ -487,7 +492,3 @@ class ERA5interpolate(GenericInterpolate):
             with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
                 self.ERA2station(sf, self.getOutFile('sf'),
                                 self.stations, varlist, date=self.date)
-
-
-# vv = nc.Dataset(self.getOutFile('pl'))
-# xx = xr.open_dataset(self.getOutFile('sa'))

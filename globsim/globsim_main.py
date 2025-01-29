@@ -33,18 +33,10 @@
 
 from multiprocessing.dummy import Pool as ThreadPool
 from globsim.LazyLoader import LazyLoader
-from globsim.download.era5_monthly import download_threadded
 
 download = LazyLoader('globsim.download')
 interpolate = LazyLoader('globsim.interpolate')
 scale = LazyLoader('globsim.scale')
-
-# from globsim.download import *
-# from globsim.scale import *
-# from globsim.interpolate import *
-
-# from globsim.JRA import JRAdownload, JRAinterpolate, JRAscale
-
 
 def GlobsimDownload(pfile, multithread=True, 
                     ERA5=True, 

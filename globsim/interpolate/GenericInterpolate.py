@@ -62,8 +62,25 @@ class GenericInterpolate:
         self._skip_sa = kwargs.get('skip_sa', False)
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
-        self.resume = kwargs.get('resume', False)
-
+        self.resume = bool(self.read_and_report(kwargs, 'resume', False))
+        self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
+    
+    def read_and_report(self, kwargs, name=None, default=None):
+        value = kwargs.get(name, "MISSING FROM KWARGS")
+        
+        if value == "MISSING FROM KWARGS":
+            value = self.par.get(name, "MISSING FROM TOML")
+            if value == "MISSING FROM TOML":
+                value = default
+                setfrom = "DEFAULT"
+            else:
+                setfrom = "TOML   "
+        else:
+            setfrom = "CLI    "
+        value = self.par.get(name, default)
+        logger.debug(f"{setfrom} {name}: {value}")
+        return value
+        
     @property
     def vn_time(self):
         return 'time'

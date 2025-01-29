@@ -12,7 +12,7 @@ from pathlib import Path
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
-from globsim.interp import calculate_weights, ele_interpolate
+from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -333,12 +333,14 @@ class JRAinterpolate(GenericInterpolate):
                         data = np.repeat([ncf.variables['level'][:]],
                                         len(time),axis=0).ravel()
                     else:
-                        # read data from netCDF
                         data = ncf.variables[var][:,:,n].ravel()
 
-                    multvawa = np.multiply(data[va], wa)
-                    multvbwb = np.multiply(data[vb], wb)
-                    ipol = multvawa + multvbwb
+                    ipol = np.multiply(data[va], wa) + np.multiply(data[vb], wb)
+
+                    if self.extrapolate_below_grid:
+                        extrapolated_values = extrapolate_below_grid(elevation, data, h)
+                        ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
+                            
                     rootgrp.variables[var][:,n] = ipol  # assign to file
                     rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
                 
