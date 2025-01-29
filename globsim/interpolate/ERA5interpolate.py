@@ -508,7 +508,7 @@ class ERA5EnsembleInterpolate(ERA5interpolate):
         return sfield
     
     @staticmethod
-    def nc_data_subset_to_source_field(variables, sfield_list: "list[ESMF.Field]", ncf_in,
+    def nc_data_subset_to_source_field(variables, sfield_list: list, ncf_in,
                                          tmask_chunk, pl: bool, lon_subset, lat_subset):
         for n, var in enumerate(variables):
             for ni in ncf_in['number'][:]:
