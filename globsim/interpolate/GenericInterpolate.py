@@ -281,10 +281,9 @@ class GenericInterpolate:
                             nt,
                             ncf_in,
                             pl:bool):
-        
-        nlev = ncf_in.variables[self.vn_level].shape[0]
 
         if pl:  # only for pressure level files
+            nlev = ncf_in.variables[self.vn_level].shape[0]
             sfield = create_field(sgrid, variables, nt, nlev)
         else:  # 2D files
             sfield = create_field(sgrid, variables, nt)
