@@ -51,8 +51,35 @@ def ele_interpolate(elevation: np.ndarray, h: float, nl: int):
             # Vector level indices that fall directly below station.
             # Apply after ravel() of data.
             vb = va + mask  # +1 when OK, +0 when below lowest level
+        
+        return elev_diff, va, vb
 
-        # calculate slopes for extrapolation
+
+def extrapolate_below_grid(elevation: np.ndarray, data:np.ndarray, h: float):
+        """ 
+        Parameters
+        ----------
+        elevation : np.ndarray
+            elevation of data at (time, level) in meters. Must be monotonically increasing/decreasing along axis 1
+        data : np.ndarray
+            data to interpolate.
+        h : float
+            elevation of station
+
+        Returns
+        -------
+        epol : np.ndarray
+            extrapolated data for station below lowest level (masked where station is above lowest level)
+        """
+        nl = elevation.shape[1]
+        i_ravel = np.arange(elevation.shape[0]) * nl  # indices for first level in each time 
+
+        if np.all(np.diff(elevation, axis=1) > 0): 
+            inverted = True   # elevations monotonically increasing
+        elif np.all(np.diff(elevation, axis=1) < 0):  
+            inverted = False  # elevations monotonically decreasing 
+        else:
+            raise ValueError("Elevation must be monotonically decreasing or increasing")
 
         if inverted:
             delta_s = elevation[:, 0] - h
@@ -67,8 +94,13 @@ def ele_interpolate(elevation: np.ndarray, h: float, nl: int):
             i_lowest_diff = i_ravel + nl - 2
             i_lowest_data = i_ravel + nl - 1
             R = delta_s / delta_L
-        
-        return elev_diff, va, vb, R, i_lowest_diff, i_lowest_data
+
+        below_lowest = np.where(np.min(elevation, axis=1) > h)[0]  # indices of times where station is below lowest level
+        delta_V = np.diff(data)[i_lowest_diff]  # difference between levels at each time [nt,]
+        epol = np.ma.MaskedArray(data=data[i_lowest_data] + R * delta_V, mask=True)  # extrapolated values
+        epol.mask[below_lowest] = False  
+
+        return epol
 
 
 def calculate_weights(elev_diff, va, vb) -> tuple:
@@ -133,7 +165,7 @@ def interpolate_level_data(data: np.ndarray, elevation: np.ndarray, h: Union[flo
             interp[:, i] = interpolate_level_data(data[:, :, i], elevation[:, :, i], h_i)
     
     elif (data.ndim == 2) and isinstance(h, Number):
-        elev_diff, va, vb, R, i_diff, i_data = ele_interpolate(elevation, h, nl)
+        elev_diff, va, vb = ele_interpolate(elevation, h, nl)
         wa, wb = calculate_weights(elev_diff, va, vb)
         interp = data.ravel()[va] * wa + data.ravel()[vb] * wb
     

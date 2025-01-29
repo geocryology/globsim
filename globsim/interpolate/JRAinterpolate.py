@@ -12,7 +12,7 @@ from pathlib import Path
 from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
-from globsim.interp import calculate_weights, ele_interpolate
+from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -319,7 +319,7 @@ class JRAinterpolate(GenericInterpolate):
                 # shape: (time, level)
                 elevation = ncf.variables[self.GEOPOTENTIAL][:,:,n]
 
-                elev_diff, va, vb, R, i_diff, i_data = ele_interpolate(elevation, h, nl)
+                elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                 wa, wb = calculate_weights(elev_diff, va, vb)
 
                 # loop over variables and apply interpolation weights
@@ -338,10 +338,8 @@ class JRAinterpolate(GenericInterpolate):
                     ipol = np.multiply(data[va], wa) + np.multiply(data[vb], wb)
 
                     if self.extrapolate_below_grid:
-                        below_lowest = np.where(np.min(elevation, axis=1) > h)[0]
-                        delta_V = np.diff(data)[i_diff]  # difference between levels
-                        epol = data[i_data] + R * delta_V  # extrapolated values
-                        ipol[below_lowest] = epol[below_lowest]  # replace values below lowest level
+                        extrapolated_values = extrapolate_below_grid(elevation, data, h)
+                        ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
                             
                     rootgrp.variables[var][:,n] = ipol  # assign to file
                     rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))

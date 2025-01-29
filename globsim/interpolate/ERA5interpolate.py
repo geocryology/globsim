@@ -12,7 +12,7 @@ from pathlib import Path
 from globsim.common_utils import variables_skip, str_encode
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
-from globsim.interp import ele_interpolate, calculate_weights
+from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 import globsim.constants as const
 
 logger = logging.getLogger('globsim.interpolate')
@@ -369,7 +369,7 @@ class ERA5interpolate(GenericInterpolate):
                     num = ncf.variables['number'][:]
                     for ni in num:
                         elevation = ncf.variables['z'][:,ni,:,n] / const.G
-                        elev_diff, va, vb, R, i_diff, i_data = ele_interpolate(elevation, h, nl)
+                        elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                         wa, wb = calculate_weights(elev_diff, va, vb)
                         for v, var in enumerate(varlist):
                             if var == 'air_pressure':
@@ -385,7 +385,7 @@ class ERA5interpolate(GenericInterpolate):
                 else:
                     # convert geopotential [mbar] to height [m], shape: (time, level)
                     elevation = ncf.variables['z'][:,:,n] / const.G
-                    elev_diff, va, vb, R, i_diff, i_data = ele_interpolate(elevation, h, nl)
+                    elev_diff, va, vb = ele_interpolate(elevation, h, nl)
                     wa, wb = calculate_weights(elev_diff, va, vb)
 
                     # loop over variables and apply interpolation weights
@@ -406,10 +406,8 @@ class ERA5interpolate(GenericInterpolate):
                         ipol = data[va] * wa + data[vb] * wb   # interpolated value
                         
                         if self.extrapolate_below_grid:
-                            below_lowest = np.where(np.min(elevation, axis=1) > h)[0]
-                            delta_V = np.diff(data)[i_diff]  # difference between levels
-                            epol = data[i_data] + R * delta_V  # extrapolated values
-                            ipol[below_lowest] = epol[below_lowest]  # replace values below lowest level
+                            extrapolated_values = extrapolate_below_grid(elevation, data, h)
+                            ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
 
                         rootgrp.variables[var][:,n] = ipol  # write to file
                     
