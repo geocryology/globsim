@@ -502,7 +502,7 @@ class ERA5EnsembleInterpolate(ERA5interpolate):
         num = ncf_in.variables['number'][:]
         sfield = []
         for ni in num:
-            f = super(ERA5EnsembleInterpolate, self).create_source_field(sgrid, variables, nt, nlev, ncf_in, pl)
+            f = super(ERA5EnsembleInterpolate, self).create_source_field(sgrid, variables, nt, ncf_in, pl)
             sfield.append(f)
 
         return sfield
