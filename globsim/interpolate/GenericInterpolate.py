@@ -62,17 +62,39 @@ class GenericInterpolate:
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
         self.resume = bool(self.read_and_report(kwargs, 'resume', False))
+        self._reordered = bool(self.read_and_report(kwargs, 'reordered', True))
         self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
 
-        self._working_order_3d = ('time', 'latitude', 'longitude')
-        self._working_order_4d = ('time', 'level', 'latitude', 'longitude')
-        self._downloaded_order_3d = ('time', 'latitude', 'longitude')
-        self._downloaded_order_4d = ('time', 'level', 'latitude', 'longitude')
-        self._downloaded_order_5d = ('time', 'number', 'level', 'latitude', 'longitude')
-        self._downloaded_order_5d = ('time', 'number', 'level', 'latitude', 'longitude')
+        # how globsim handles dimension order internally
+        self._working_order_3d = (self.vn_time, 'latitude', 'longitude')
+        self._working_order_4d = (self.vn_time, self.vn_level, 'latitude', 'longitude')
+        self._working_order_5d = (self.vn_time, 'number', self.vn_level, 'latitude', 'longitude')
+        
+    @property
+    def _downloaded_order_3d(self):
+        if self._reordered:
+            return ('latitude', 'longitude',self.vn_time)
+        else:
+            return (self.vn_time, 'latitude', 'longitude')
     
+    @property
+    def _downloaded_order_4d(self):
+        if self._reordered:
+            return ('latitude', 'longitude', self.vn_level, self.vn_time)
+        else:
+            return (self.vn_time, self.vn_level, 'latitude', 'longitude')
+    
+    @property
+    def _downloaded_order_5d(self):
+        if self._reordered:
+            return ('latitude', 'longitude', 'number', self.vn_level, self.vn_time)
+        else:
+            return (self.vn_time, 'number', self.vn_level, 'latitude', 'longitude')
+        
     def r3d(self, arr, slices={}):
-        ''' transform array dimensions from on-disk order to working order '''
+        ''' transform 3d array dimensions from on-disk order to working order 
+            used to handle cases where reanalysis dimensions change order    
+        '''
         working_order = self._working_order_3d
         downloaded_order = self._downloaded_order_3d
         return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
@@ -438,8 +460,7 @@ class GenericInterpolate:
 
             logger.debug(f"Wrote {var} data to source field for regridding")
 
-    @staticmethod
-    def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+    def nc_data_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
                                 tmask_chunk, pl: bool):
         # assign data from ncdf: (time, [level], latitude, longitude)
         # to sfield (longitude, latitude, variable, time, [level])
@@ -447,10 +468,10 @@ class GenericInterpolate:
         tmax = np.max(np.where(tmask_chunk))
         for n, var in enumerate(variables):
             if pl:
-                vi = ncf_in[var][tmin:tmax + 1,:,:,:]
+                vi = self.r4d(ncf_in[var], {'time':slice(tmin,tmax+1)})
                 sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
             else:
-                vi = ncf_in[var][tmin:tmax + 1,:,:]
+                vi = self.r3d(ncf_in[var], {'time':slice(tmin,tmax+1)})
                 sfield.data[:,:,n,:] = vi.transpose((2,1,0))
 
             logger.debug(f"Wrote {var} data to source field for regridding")
@@ -472,20 +493,20 @@ class GenericInterpolate:
             var = ncf_in[v]
 
             if pl:
-                logger.debug(f"Reading {v} data from source.")  # NB: writing is almost instantaneous
+                logger.debug(f"Reading {v} data from source.")
                 if self._plarray.shape[0] == dtime:
-                    self._plarray[:] = var[time_slice, :, lat_slice, lon_slice].values
+                    self._plarray[:] = self.r4d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 else:
-                    self._plarray = var[time_slice, :, lat_slice, lon_slice].values
+                    self._plarray = self.r4d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
 
             else:
                 logger.debug(f"Reading {v} data from source")
                 if self._array.shape == (dtime, dlat, dlon):
-                    self._array[:] = var[time_slice, lat_slice, lon_slice].values
+                    self._array[:] = self.r3d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 else:
-                    self._array = var[time_slice, lat_slice, lon_slice].values
+                    self._array = self.r3d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 
