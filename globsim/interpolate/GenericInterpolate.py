@@ -62,7 +62,7 @@ class GenericInterpolate:
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
         self.resume = bool(self.read_and_report(kwargs, 'resume', False))
-        self._reordered = bool(self.read_and_report(kwargs, 'reordered', True))
+        self._reordered = bool(self.read_and_report(kwargs, 'reordered', False))
         self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
 
         # how globsim handles dimension order internally
