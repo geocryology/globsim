@@ -9,6 +9,12 @@ LEV="pressure_level"
 PRODUCT="era5"
 OVERWRITE=false
 
+# 'Hard-coded' values
+LAT='latitude'
+LON='longitude' 
+LAT_CHK=6
+LON_CHK=6
+
 # Help message
 usage() {
     echo "Usage: $0 input_dir output_dir [--year YEAR] [--time TIME] [--lev LEV] [--overwrite]"
@@ -125,10 +131,10 @@ for file in "$input_dir"/${PRODUCT}_*_${YEAR}*_to_*.nc; do
               cnk_dim[sa]="--cnk_dmn=$LON,$LON_CHK --cnk_dmn=$LAT,$LAT_CHK --cnk_dmn=$TIME,$TIME_CHK"
               cnk_dim[sf]="--cnk_dmn=$LON,$LON_CHK --cnk_dmn=$LAT,$LAT_CHK --cnk_dmn=$TIME,$TIME_CHK"
             
-            echo "Reordering $file -> $output_file with order: ${dim_orders[$type]}"
-            time ncpdq --rdr=${dim_orders[$type]} ${cnk_dim[$type]} "$file" "$output_file"
-            #time ncpdq --rdr=${dim_orders[$type]} ${cnk_dim[$type]} "$file" "$output_file"  # provide timing information
-            #echo "ncpdq --rdr=${dim_orders[$type]} ${cnk_dim[$type]} \"$file\" \"$output_file\""  # just print the command
+            #echo "Reordering $file -> $output_file with order: ${dim_orders[$type]}"
+            #ncpdq --rdr=${dim_orders[$type]} ${cnk_dim[$type]} "$file" "$output_file"
+            time ncpdq --rdr=${dim_orders[$type]} ${cnk_dim[$type]} "$file" "$output_file"  # provide timing information
+            echo "ncpdq --rdr=${dim_orders[$type]} ${cnk_dim[$type]} \"$file\" \"$output_file\""  # just print the command
         else
             echo "Skipping $filename: Unknown type"
         fi
