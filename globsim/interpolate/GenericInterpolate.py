@@ -114,18 +114,17 @@ class GenericInterpolate:
 
     def read_and_report(self, kwargs, name=None, default=None):
         value = kwargs.get(name, "MISSING FROM KWARGS")
-        
+
         if value == "MISSING FROM KWARGS":
             value = self.par.get(name, "MISSING FROM TOML")
             if value == "MISSING FROM TOML":
                 value = default
                 setfrom = "DEFAULT"
             else:
-                setfrom = "TOML   "
+                setfrom = "TOML"
         else:
-            setfrom = "CLI    "
-        value = self.par.get(name, default)
-        logger.debug(f"{setfrom} {name}: {value}")
+            setfrom = "CLI"
+        logger.debug(f"CONFIG ({setfrom}) {name}: {value}")
         return value
         
     @property
