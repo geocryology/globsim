@@ -103,12 +103,14 @@ def main():
     view.set_defaults(func=interp_vis_main)
     view.add_argument("file", nargs="?", type=str, help="file to plot")
     view.add_argument("--file", dest='file', type=str, help="file to plot")
+    view.add_argument("reanalysis",  type=str, choices=('era5','jra3qg','merra'), nargs='?', default=None,
+                        help="if file is a TOML file, specify the reanalysis to plot.")
+    view.add_argument("ftype",  type=str, choices=('sa','pl','sf'), nargs='?', default=None,
+                        help="if file is a TOML file, specify the type of file to plot.")
     view.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot")
     view.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
     view.add_argument("-o", "--output", type=str, dest='output', help="output directory")
-    
-
-    
+   
     if len(sys.argv) == 1:
         mainparser.print_help(sys.stderr)
         sys.exit(1)

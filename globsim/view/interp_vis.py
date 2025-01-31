@@ -1,9 +1,11 @@
 import xarray as xr
+import tomlkit as tk
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
 import os
 
+from pathlib import Path
 """ make plots of interpolated variables """
 
 DATA_VARS = ['PRESS_pl', 'AIRT_pl', 'AIRT_sur', 'AIRT_redcapp_DeltaT',
@@ -47,7 +49,24 @@ def get_df(ds: xr.Dataset, variable:str, aggregate:str="D"):
                     )
     return df
 
-def main(file, variable, aggregate="D", output_directory=None):
+def main(file, variable, aggregate="D", output_directory=None, reanalysis=None, ftype=None):
+    """ plot interpolated variable """
+    if Path(file).suffix.lower() == ".toml":
+        if ftype is None:
+            print("Please specify the type of file to plot")
+            sys.exit(1)
+        with open(file, 'r') as f:
+            toml = tk.parse(f.read())
+        stationlist = str(toml['interpolate']['station_list'])
+        name_suffix = Path(stationlist).stem
+        output_directory = toml.get('interpolate').get('output_directory', 
+                                                       toml.get('interpolate').get('project_directory', None))
+        if ftype.lower()=='pl':
+            file = Path(output_directory, 'interpolated', f"{reanalysis}_{ftype}_{name_suffix}_surface.nc")
+        else:
+            file = Path(output_directory, 'interpolated', f"{reanalysis}_{ftype}_{name_suffix}.nc")
+
+
     dat = xr.open_dataset(file)
     if (variable is None) or (variable not in dat.data_vars):
         print(f"Variable ({variable}) not in file. Choose from:{[var for var in dat.data_vars]}")
@@ -68,17 +87,21 @@ def main(file, variable, aggregate="D", output_directory=None):
     
 
 def main_args(args):
-    main(args.file, args.variable, args.aggregate, args.output)
+    main(args.file, args.variable, args.aggregate, args.output, args.reanalysis, args.ftype)
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("file", type=str, help="file to plot")
+    parser.add_argument("file", type=str, help="file to plot, or TOML file with one of ()")
+    parser.add_argument("reanalysis",  type=str, choices=('era5','jra3qg','merra'), nargs='?', default=None,
+                        help="if file is a TOML file, specify the reanalysis to plot.")
+    parser.add_argument("ftype",  type=str, choices=('sa','pl','sf', 'pls'), nargs='?',
+                        help="if file is a TOML file, specify the type of file to plot.")
     parser.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot")
     parser.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
     parser.add_argument("-o", "--output", type=str, dest='output', help="output directory")
     
     args = parser.parse_args()
-    main(args.file, args.variable, args.aggregate, args.output)
+    main(args.file, args.variable, args.aggregate, args.ftype, args.output)
