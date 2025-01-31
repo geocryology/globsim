@@ -172,16 +172,19 @@ class GenericInterpolate:
         self._preprocess()
 
         if not self._skip_sa:
+            self.require_safe_mem_usage(logging.INFO)
             self._process_sa()
         else:
             logger.info("skipping interpolation of _sa file")
 
         if not self._skip_sf:
+            self.require_safe_mem_usage(logging.INFO)
             self._process_sf()
         else:
             logger.info("skipping interpolation of _sf file")
 
         if not self._skip_pl:
+            self.require_safe_mem_usage(logging.INFO)
             self._process_pl()
         else:
             logger.info("skipping interpolation of _pl file")
@@ -252,9 +255,10 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-        tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
-        tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
-        logger.debug(f"2d interpolation for period {tbeg} to {tend}")
+        #import pdb;pdb.set_trace()
+        #tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+        #tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+        #logger.info(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
         pl = self.vn_level in ncf_in.sizes.keys()
@@ -485,7 +489,7 @@ class GenericInterpolate:
         time_slice = slice(tmin, tmax + 1)
         dlon, dlat, dtime = [x.stop - x.start for x in [lon_slice, lat_slice, time_slice]]
 
-        logger.info("Reading source data from netcdf file")
+        logger.debug("Reading source data from netcdf file")
         t0 = datetime.now()
 
         for n, v in enumerate(variables):
@@ -512,7 +516,7 @@ class GenericInterpolate:
                 sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
 
         filltime = (datetime.now() - t0).total_seconds()
-        logger.info(f"Finished reading source data for chunk ({filltime} seconds)")
+        logger.debug(f"Finished reading source data for chunk ({filltime} seconds)")
 
     def remove_select_variables(self, varlist: list, pl: bool, ens: bool = False):
         varlist.remove(self.vn_time)
@@ -579,10 +583,10 @@ class GenericInterpolate:
             else:
                 return False
             
-    def require_safe_mem_usage(self):
+    def require_safe_mem_usage(self, level=logging.DEBUG):
         """ Check if memory usage is safe. Kill globsim if not """
         mem = psutil.virtual_memory()
-        logger.info(f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
+        logger.log(level, f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
         safe = mem.percent < self.SAFE_MEM_LIMIT_PERCENT
         if not safe:
             logger.critical(f"Memory use exceeds safe limit of {self.SAFE_MEM_LIMIT_PERCENT}%. Exiting safely")

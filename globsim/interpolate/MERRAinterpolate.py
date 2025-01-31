@@ -184,7 +184,10 @@ class MERRAinterpolate(GenericInterpolate):
                                                 self.stations, tmask_chunk,
                                                 subset_grid, lon_slice, lat_slice,
                                                 variables=None, date=None)
-
+                tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+                tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+                logger.info(f"{Path(ncf_out.filepath()).name} -- {tbeg} to {tend}")
+                
                 # append variables
                 self.write_dfield_to_file(dfield, variables, ncf_out, beg, end, pl)
                 ncf_out.globsim_last_chunk_written = n
