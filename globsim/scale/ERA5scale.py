@@ -147,8 +147,9 @@ class ERA5scale(GenericScale):
         var.standard_name = 'surface_air_pressure'
 
         # interpolate station by station
-        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        time_in = self.input_times_in_output_units(self.nc_pl_sur)        
         values  = self.getValues(self.nc_pl_sur, 'air_pressure')
+
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             # scale from hPa to Pa
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
@@ -276,7 +277,7 @@ class ERA5scale(GenericScale):
         """
         # temporary variable,  interpolate station by station
         rh = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
+        time_in = self.input_times_in_output_units(self.nc_pl_sur)
 
         values  = self.getValues(self.nc_pl_sur, 'r')
 
