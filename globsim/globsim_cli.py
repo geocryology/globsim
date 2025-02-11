@@ -5,10 +5,11 @@ import sys
 import argparse
 
 from globsim import globsim_convert, globsim_download, globsim_scale, globsim_interpolate
+from globsim.LazyLoader import LazyLoader
 from globsim.globsim_convert import export_styles
 from globsim._version import __version__
-from globsim.view.interp_vis import main_args as interp_vis_main
 
+gsview = LazyLoader("globsim.view.interp_vis")
 
 def configure_logging(args: argparse.Namespace):
     # logging.basicConfig(format='%(asctime)s  %(asctime)s ')
@@ -100,7 +101,7 @@ def main():
                          help="(optional) The name of the site you want to export. If not provided, all sites will be exported")
     convert.add_argument('-p', "--profile", dest='profile', default=None, type=str, help="Path to an 'export profile' TOML file (geotop only) ")
 
-    view.set_defaults(func=interp_vis_main)
+    view.set_defaults(func=gsview.main_args)
     view.add_argument("file", nargs="?", type=str, help="file to plot")
     view.add_argument("--file", dest='file', type=str, help="file to plot")
     view.add_argument("reanalysis",  type=str, choices=('era5','jra3qg','merra'), nargs='?', default=None,
