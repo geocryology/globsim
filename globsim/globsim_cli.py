@@ -9,7 +9,7 @@ from globsim.LazyLoader import LazyLoader
 from globsim.globsim_convert import export_styles
 from globsim._version import __version__
 
-gsview = LazyLoader("globsim.view.interp_vis")
+gsview = LazyLoader("globsim.view.view_main")
 
 def configure_logging(args: argparse.Namespace):
     # logging.basicConfig(format='%(asctime)s  %(asctime)s ')
