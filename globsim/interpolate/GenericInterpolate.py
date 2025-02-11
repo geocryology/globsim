@@ -169,6 +169,7 @@ class GenericInterpolate:
         return path.join(self.output_dir, f'{self.REANALYSIS}_{kind}_{self.list_name}.nc')
     
     def process(self):
+        t_start = datetime.now()
         self._preprocess()
 
         if not self._skip_sa:
@@ -188,6 +189,10 @@ class GenericInterpolate:
             self._process_pl()
         else:
             logger.info("skipping interpolation of _pl file")
+
+        duration = human_readable_time(datetime.now() - t_start)
+        text = f"Interpolation complete in {duration[0]} Days, {duration[1]} Hours, {duration[2]}:{duration[3]}"
+        logger.info(text)
 
     def _preprocess(self):
         pass
@@ -807,3 +812,23 @@ def reorder_and_slice_array(arr, array_order: tuple, desired_order: tuple, slice
 
     return reordered_arr
 
+def human_readable_time(delta: timedelta) -> tuple:
+    """
+    Convert a timedelta object into a tuple of days, hours, minutes, and seconds.
+    
+    Parameters:
+        delta (timedelta): A timedelta object representing a duration of time.
+    
+    Returns:
+        tuple: A tuple of integers representing the number of days, hours, minutes, and seconds in the timedelta.
+    """
+    # Calculate the total number of seconds in the timedelta
+    total_seconds = delta.total_seconds()
+    
+    # Calculate the number of days, hours, minutes, and seconds
+    days = int(total_seconds // (24 * 3600))
+    hours = int((total_seconds % (24 * 3600)) // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = int(total_seconds % 60)
+    
+    return days, hours, minutes, seconds
