@@ -29,14 +29,11 @@ def main(file, variable, aggregate="D", output_directory=None, reanalysis=None, 
     dat = xr.open_dataset(file)
 
 
-    # Scaled data
-    if Path(file).name.startswith("scaled"):
-        if variable is None:
+    # Scaled panel
+    if Path(file).name.startswith("scaled") and (variable is None):
             station = dat['station'].to_numpy()[0]
             fig, ax = plot_scaled(dat, station, aggregate)
-        else:
-            pass
-
+        
     # Interpolated data
     else:
         if (variable is None) or (variable not in dat.data_vars):
