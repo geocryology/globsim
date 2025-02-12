@@ -8,6 +8,7 @@ import warnings
 import logging
 import sys
 import psutil
+import xarray as xr
 
 from datetime import datetime, timedelta
 from os import path, makedirs
@@ -61,22 +62,69 @@ class GenericInterpolate:
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
         self.resume = bool(self.read_and_report(kwargs, 'resume', False))
+        self._reordered = bool(self.read_and_report(kwargs, 'reordered', False))
         self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
+
+        # how globsim handles dimension order internally
+        self._working_order_3d = (self.vn_time, 'latitude', 'longitude')
+        self._working_order_4d = (self.vn_time, self.vn_level, 'latitude', 'longitude')
+        self._working_order_5d = (self.vn_time, 'number', self.vn_level, 'latitude', 'longitude')
+        
+    @property
+    def _downloaded_order_3d(self):
+        if self._reordered:
+            return ('latitude', 'longitude',self.vn_time)
+        else:
+            return (self.vn_time, 'latitude', 'longitude')
     
+    @property
+    def _downloaded_order_4d(self):
+        if self._reordered:
+            return ('latitude', 'longitude', self.vn_level, self.vn_time)
+        else:
+            return (self.vn_time, self.vn_level, 'latitude', 'longitude')
+    
+    @property
+    def _downloaded_order_5d(self):
+        if self._reordered:
+            return ('latitude', 'longitude', 'number', self.vn_level, self.vn_time)
+        else:
+            return (self.vn_time, 'number', self.vn_level, 'latitude', 'longitude')
+        
+    def r3d(self, arr, slices={}):
+        ''' transform 3d array dimensions from on-disk order to working order 
+            used to handle cases where reanalysis dimensions change order    
+        '''
+        working_order = self._working_order_3d
+        downloaded_order = self._downloaded_order_3d
+        return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
+
+    def r4d(self, arr, slices={}):
+        ''' read downloaded file and reorder dimensions '''
+        working_order =  self._working_order_4d
+        downloaded_order = self._downloaded_order_4d
+        return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
+    
+    def r5d(self, arr, slices={}):
+        ''' read downloaded file and reorder dimensions '''
+        working_order =  self._working_order_5d
+        downloaded_order = self._downloaded_order_5d
+        return reorder_and_slice_array(arr, downloaded_order, working_order, slices)
+    
+
     def read_and_report(self, kwargs, name=None, default=None):
         value = kwargs.get(name, "MISSING FROM KWARGS")
-        
+
         if value == "MISSING FROM KWARGS":
             value = self.par.get(name, "MISSING FROM TOML")
             if value == "MISSING FROM TOML":
                 value = default
                 setfrom = "DEFAULT"
             else:
-                setfrom = "TOML   "
+                setfrom = "TOML"
         else:
-            setfrom = "CLI    "
-        value = self.par.get(name, default)
-        logger.debug(f"{setfrom} {name}: {value}")
+            setfrom = "CLI"
+        logger.debug(f"CONFIG ({setfrom}) {name}: {value}")
         return value
         
     @property
@@ -121,22 +169,30 @@ class GenericInterpolate:
         return path.join(self.output_dir, f'{self.REANALYSIS}_{kind}_{self.list_name}.nc')
     
     def process(self):
+        t_start = datetime.now()
         self._preprocess()
 
         if not self._skip_sa:
+            self.require_safe_mem_usage(logging.INFO)
             self._process_sa()
         else:
             logger.info("skipping interpolation of _sa file")
 
         if not self._skip_sf:
+            self.require_safe_mem_usage(logging.INFO)
             self._process_sf()
         else:
             logger.info("skipping interpolation of _sf file")
 
         if not self._skip_pl:
+            self.require_safe_mem_usage(logging.INFO)
             self._process_pl()
         else:
             logger.info("skipping interpolation of _pl file")
+
+        duration = human_readable_time(datetime.now() - t_start)
+        text = f"Interpolation complete in {duration[0]} Days, {duration[1]} Hours, {duration[2]}:{duration[3]}"
+        logger.info(text)
 
     def _preprocess(self):
         pass
@@ -204,9 +260,10 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-        tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
-        tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
-        logger.debug(f"2d interpolation for period {tbeg} to {tend}")
+        #import pdb;pdb.set_trace()
+        #tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+        #tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
+        #logger.info(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
         pl = self.vn_level in ncf_in.sizes.keys()
@@ -406,14 +463,12 @@ class GenericInterpolate:
                     sfield_list[ni].data[:,:,n,:,:] = vi.transpose((3,2,0,1))
 
                 else:
-
                     vi = ncf_in[var][tmask_chunk,ni,:,:]
                     sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
 
             logger.debug(f"Wrote {var} data to source field for regridding")
 
-    @staticmethod
-    def nc_data_to_source_field(variables, sfield: "ESMF.Field", ncf_in,
+    def nc_data_to_source_field(self, variables, sfield: "ESMF.Field", ncf_in,
                                 tmask_chunk, pl: bool):
         # assign data from ncdf: (time, [level], latitude, longitude)
         # to sfield (longitude, latitude, variable, time, [level])
@@ -421,10 +476,10 @@ class GenericInterpolate:
         tmax = np.max(np.where(tmask_chunk))
         for n, var in enumerate(variables):
             if pl:
-                vi = ncf_in[var][tmin:tmax + 1,:,:,:]
+                vi = self.r4d(ncf_in[var], {'time':slice(tmin,tmax+1)})
                 sfield.data[:,:,n,:,:] = vi.transpose((3,2,0,1))
             else:
-                vi = ncf_in[var][tmin:tmax + 1,:,:]
+                vi = self.r3d(ncf_in[var], {'time':slice(tmin,tmax+1)})
                 sfield.data[:,:,n,:] = vi.transpose((2,1,0))
 
             logger.debug(f"Wrote {var} data to source field for regridding")
@@ -439,34 +494,34 @@ class GenericInterpolate:
         time_slice = slice(tmin, tmax + 1)
         dlon, dlat, dtime = [x.stop - x.start for x in [lon_slice, lat_slice, time_slice]]
 
-        logger.info("Reading source data from netcdf file")
+        logger.debug("Reading source data from netcdf file")
         t0 = datetime.now()
 
         for n, v in enumerate(variables):
             var = ncf_in[v]
 
             if pl:
-                logger.debug(f"Reading {v} data from source.")  # NB: writing is almost instantaneous
+                logger.debug(f"Reading {v} data from source.")
                 if self._plarray.shape[0] == dtime:
-                    self._plarray[:] = var[time_slice, :, lat_slice, lon_slice].values
+                    self._plarray[:] = self.r4d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 else:
-                    self._plarray = var[time_slice, :, lat_slice, lon_slice].values
+                    self._plarray = self.r4d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
 
             else:
                 logger.debug(f"Reading {v} data from source")
                 if self._array.shape == (dtime, dlat, dlon):
-                    self._array[:] = var[time_slice, lat_slice, lon_slice].values
+                    self._array[:] = self.r3d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 else:
-                    self._array = var[time_slice, lat_slice, lon_slice].values
+                    self._array = self.r3d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
                 
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 
                 sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
 
         filltime = (datetime.now() - t0).total_seconds()
-        logger.info(f"Finished reading source data for chunk ({filltime} seconds)")
+        logger.debug(f"Finished reading source data for chunk ({filltime} seconds)")
 
     def remove_select_variables(self, varlist: list, pl: bool, ens: bool = False):
         varlist.remove(self.vn_time)
@@ -533,10 +588,10 @@ class GenericInterpolate:
             else:
                 return False
             
-    def require_safe_mem_usage(self):
+    def require_safe_mem_usage(self, level=logging.DEBUG):
         """ Check if memory usage is safe. Kill globsim if not """
         mem = psutil.virtual_memory()
-        logger.info(f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
+        logger.log(level, f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
         safe = mem.percent < self.SAFE_MEM_LIMIT_PERCENT
         if not safe:
             logger.critical(f"Memory use exceeds safe limit of {self.SAFE_MEM_LIMIT_PERCENT}%. Exiting safely")
@@ -712,7 +767,68 @@ def grid_create_from_coordinates_periodic(longitudes, latitudes, lon_corners=Fal
 
     return grid
 
+
+def reorder_and_slice_array(arr, array_order: tuple, desired_order: tuple, slice_boundaries: dict) -> np.ndarray:
+    """
+    Reorders and slices a NumPy or xarray array based on the provided dimension order and slice boundaries.
     
+    Parameters:
+        arr (np.ndarray or xr.DataArray): Input array (can be a NumPy array or an xarray DataArray).
+        array_order (tuple): Tuple indicating the current order of dimensions (e.g., ('time', 'latitude', 'longitude')).
+        desired_order (tuple): Tuple indicating the desired order of dimensions.
+        slice_boundaries (dict): Dictionary with dimension names as keys and corresponding slice boundaries as values.
+            For example: {'time': slice(1, 3), 'latitude': slice(None), 'longitude': slice(0, 5)}.
 
+    Returns:
+        np.ndarray: Reordered and sliced array (either numpy ndarray or xarray DataArray).
+    """
+    
+    # Create a mapping from dimension name to index based on the array's current order
+    order_mapping = {dim: idx for idx, dim in enumerate(array_order)}
+    
+    slices = []
+    for dim in array_order:
+        boundary = slice_boundaries.get(dim, slice(None))
+        
+        # If the boundary is an integer, convert it to a slice
+        if isinstance(boundary, int):
+            slices.append(slice(boundary, boundary + 1))  # Treat integer as a slice of length 1
+        else:
+            slices.append(boundary)  # Otherwise, use the boundary as is (could be a slice or None)
+    
+    # Apply the slices to the array (slicing first)
+    sliced_arr = arr[tuple(slices)]  # This applies the slices
+    
+    # Get the new indices based on the desired order
+    new_axes = [order_mapping[dim] for dim in desired_order]
+    
+    # Reorder the dimensions of the sliced array
+    if isinstance(arr, xr.DataArray):
+        # For xarray, use .transpose to reorder dimensions
+        reordered_arr = sliced_arr.transpose(*desired_order)
+    else:
+        # For NumPy, use np.transpose to reorder dimensions
+        reordered_arr = np.transpose(sliced_arr, axes=new_axes)
 
+    return reordered_arr
 
+def human_readable_time(delta: timedelta) -> tuple:
+    """
+    Convert a timedelta object into a tuple of days, hours, minutes, and seconds.
+    
+    Parameters:
+        delta (timedelta): A timedelta object representing a duration of time.
+    
+    Returns:
+        tuple: A tuple of integers representing the number of days, hours, minutes, and seconds in the timedelta.
+    """
+    # Calculate the total number of seconds in the timedelta
+    total_seconds = delta.total_seconds()
+    
+    # Calculate the number of days, hours, minutes, and seconds
+    days = int(total_seconds // (24 * 3600))
+    hours = int((total_seconds % (24 * 3600)) // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = int(total_seconds % 60)
+    
+    return days, hours, minutes, seconds
