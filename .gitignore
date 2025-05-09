@@ -8,7 +8,7 @@ build/*
 docs/build/*
 /docs/build/*
 /projects
-
+esmpy/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
