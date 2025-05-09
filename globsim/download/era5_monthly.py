@@ -232,7 +232,7 @@ def convert_grib2nc_to(f, overwrite=False):
     #     ds.load().to_netcdf(new_file)
 
     logger.debug('Opening GRIB dataset')
-    ds = xr.open_dataset(f, engine="cfgrib", indexpath='', decode_timedelta=False)
+    ds = xr.open_dataset(f, engine="cfgrib", indexpath='', decode_timedelta=True)
     logger.debug('Dropping unused vraiables')
     ds = ds.drop_vars(['step', 'surface', 'time'])
     logger.debug("Creating 'valid_time' dimension")
@@ -244,6 +244,7 @@ def convert_grib2nc_to(f, overwrite=False):
     logger.debug('Saving to netCDF4 file')
     ds.load().to_netcdf(new_file)
     logger.debug(f"Done converting {Path(f).name}")
+    ds.close()
 
 def rename_pl_dir(dir):
     pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).grib")
@@ -275,7 +276,7 @@ def convert_grib2nc_pl(f, overwrite=False):
     logger.debug(f"Converting {Path(f).name}")
     print(new_file)
     logger.debug('Opening GRIB dataset')
-    ds = xr.open_dataset(f, engine="cfgrib", indexpath='', decode_timedelta=False)
+    ds = xr.open_dataset(f, engine="cfgrib", indexpath='', decode_timedelta=True)
     logger.debug('Dropping unused vraiables')
     ds = ds.drop_vars(['step', 'valid_time'])
     logger.debug('Renaming dimensions')
@@ -289,6 +290,7 @@ def convert_grib2nc_pl(f, overwrite=False):
     logger.debug('Saving to netCDF4 file')
     ds.load().to_netcdf(new_file)
     logger.debug(f"Done converting {Path(f).name}")
+    ds.close()
 
 
 def rename_sl_dir(dir):
@@ -320,7 +322,7 @@ def convert_grib2nc_sl(f, overwrite=False):
     p1 = subprocess.Popen(cmd1.split(" "))
     p1.wait()
     logger.debug('Opening GRIB dataset')
-    ds = xr.open_dataset(new_file_temp, engine='netcdf4', decode_timedelta=False)
+    ds = xr.open_dataset(new_file_temp, engine='netcdf4', decode_timedelta=True)
     logger.debug('Renaming dimensions')
     ds = ds.rename_dims({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude'})
     logger.debug('Renaming variables')
@@ -332,6 +334,7 @@ def convert_grib2nc_sl(f, overwrite=False):
     ds.load().to_netcdf(new_file)
     logger.debug(f"Done converting {Path(f).name}")
     Path(new_file_temp).unlink()
+    ds.close()
 
 
 def split_sl(f, overwrite=False, time_var='valid_time'):
