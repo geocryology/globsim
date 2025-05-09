@@ -6,6 +6,8 @@ import time
 import zipfile
 import xarray as xr
 import cfgrib
+from netCDF4 import Dataset
+from netCDF4 import num2date, date2num
 
 from datetime import datetime
 from functools import partial
@@ -306,6 +308,18 @@ def rename_sl_dir(dir):
     for f in matched_files:
         print(f'Current sl file: {f}')
         split_sl(f)
+    orig = re.compile(r"era5_sa_(\d{8}_to_\d{8}).nc")
+    files = [str(f) for f in Path(dir).iterdir()]
+    matched_files = [f for f in files if orig.search(f)]
+    for f in matched_files:
+        print(f'Current sa file: {f}')
+        convert_time_sa(f)
+    orig = re.compile(r"era5_sf_(\d{8}_to_\d{8}).nc")
+    files = [str(f) for f in Path(dir).iterdir()]
+    matched_files = [f for f in files if orig.search(f)]
+    for f in matched_files:
+        print(f'Current sf file: {f}')
+        convert_time_sf(f)
 
 def convert_grib2nc_sl(f, overwrite=False):
     sl_pattern = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
@@ -391,6 +405,55 @@ def split_resl_nc(f, sa, sf, time_var):
     if Path(sf).exists() and Path(sa).exists():
         logger.debug(f"Removing {f}")
         # Path(f).unlink()
+    cmd1 = f'ncks -C -O -x -v time {sf} {sf}'
+    cmd2 = f'ncks -C -O -x -v time {sa} {sa}'
+    logger.debug(cmd1)
+    p1 = subprocess.Popen(cmd1.split(" "))
+    p1.wait()
+    logger.debug(cmd2)
+    p2 = subprocess.Popen(cmd2.split(" "))
+    p2.wait()
+
+
+def convert_time_sa(f, overwrite=True, time_var='valid_time'):
+    sa_pattern = re.compile(r"era5_sa_(\d{8}_to_\d{8}).grib")
+    orig = sa_pattern.sub(r"era5_sa_\1.nc", f)
+    logger.debug(f"Converting time units for {Path(f).name}")
+    print(orig)
+
+    if not overwrite and Path(orig).exists():
+        print(f"Skipping {orig}")
+        return
+
+    nc = Dataset(orig, mode='r+')
+
+    newunit = 'seconds since 1970-01-01'
+    timevar = nc.variables[time_var]
+    timein = timevar[:]
+    datesin = num2date(timein,timevar.units)
+    timevar.setncattr('units',newunit)
+    timevar[:] = date2num(datesin,newunit)
+    nc.close()
+
+def convert_time_sf(f, overwrite=True, time_var='valid_time'):
+    sa_pattern = re.compile(r"era5_sf_(\d{8}_to_\d{8}).grib")
+    orig = sa_pattern.sub(r"era5_sf_\1.nc", f)
+    logger.debug(f"Converting time units for {Path(f).name}")
+    print(orig)
+
+    if not overwrite and Path(orig).exists():
+        print(f"Skipping {orig}")
+        return
+
+    nc = Dataset(orig, mode='r+')
+
+    newunit = 'seconds since 1970-01-01'
+    timevar = nc.variables[time_var]
+    timein = timevar[:]
+    datesin = num2date(timein,timevar.units)
+    timevar.setncattr('units',newunit)
+    timevar[:] = date2num(datesin,newunit)
+    nc.close()
 
 
 def wait_for_file_scandir(directory, pattern, timeout=60, check_interval=1):
@@ -434,6 +497,8 @@ if __name__ == "__main__":
         if args.sl:
             convert_grib2nc_sl(args.sl, overwrite=args.overwrite)
             split_sl(args.sl, overwrite=args.overwrite)
+            convert_time_sa(args.sl)
+            convert_time_sf(args.sl)
             pass
         if args.pl:
             rename_pl_file(args.pl, overwrite=args.overwrite)
