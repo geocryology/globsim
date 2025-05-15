@@ -8,6 +8,7 @@ import sys
 import re
 import warnings
 import logging
+import requests
 
 from datetime          import datetime, timedelta
 from netCDF4           import Dataset
@@ -544,15 +545,14 @@ class MERRAdownload(GenericDownload):
         list
         """
         # Setup the based url strings
-        baseurl_2d = ('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/')
-        baseurl_3d = ('https://goldsmr5.gesdisc.eosdis.nasa.gov/opendap/MERRA2/')
+        baseurl = ('https://opendap.earthdata.nasa.gov/collections/')
 
-        baseurl_3dn = (baseurl_3d + 'M2I6NPANA.5.12.4/{YM}/MERRA2_{FN}.inst6_3d_ana_Np.{YMD}.nc4')
-        baseurl_3da = (baseurl_3d + 'M2I3NPASM.5.12.4/{YM}/MERRA2_{FN}.inst3_3d_asm_Np.{YMD}.nc4')
-        baseurl_2dm = (baseurl_2d + 'M2I1NXASM.5.12.4/{YM}/MERRA2_{FN}.inst1_2d_asm_Nx.{YMD}.nc4')
-        baseurl_2dr = (baseurl_2d + 'M2T1NXRAD.5.12.4/{YM}/MERRA2_{FN}.tavg1_2d_rad_Nx.{YMD}.nc4')
-        baseurl_2ds = (baseurl_2d + 'M2T1NXFLX.5.12.4/{YM}/MERRA2_{FN}.tavg1_2d_flx_Nx.{YMD}.nc4')
-        baseurl_2dv = (baseurl_2d + 'M2T1NXSLV.5.12.4/{YM}/MERRA2_{FN}.tavg1_2d_slv_Nx.{YMD}.nc4')
+        baseurl_3dn = (baseurl + 'C1276812884-GES_DISC/granules/M2I6NPANA.5.12.4%3AMERRA2_{FN}.inst6_3d_ana_Np.{YMD}.nc4')
+        baseurl_3da = (baseurl + 'C1276812879-GES_DISC/granules/M2I3NPASM.5.12.4%3AMERRA2_{FN}.inst3_3d_asm_Np.{YMD}.nc4')
+        baseurl_2dm = (baseurl + 'C1276812820-GES_DISC/granules/M2I1NXASM.5.12.4%3AMERRA2_{FN}.inst1_2d_asm_Nx.{YMD}.nc4')
+        baseurl_2dr = (baseurl + 'C1276812851-GES_DISC/granules/M2T1NXRAD.5.12.4%3AMERRA2_{FN}.tavg1_2d_rad_Nx.{YMD}.nc4')
+        baseurl_2ds = (baseurl + 'C1276812838-GES_DISC/granules/M2T1NXFLX.5.12.4%3AMERRA2_{FN}.tavg1_2d_flx_Nx.{YMD}.nc4')
+        baseurl_2dv = (baseurl + 'C1276812863-GES_DISC/granules/M2T1NXSLV.5.12.4%3AMERRA2_{FN}.tavg1_2d_slv_Nx.{YMD}.nc4')
 
         # build the urls list
         urls_3dmana = []
@@ -563,20 +563,19 @@ class MERRAdownload(GenericDownload):
         urls_2dv = []
 
         for d in pd.date_range(date['beg'], date['end']):
-            ym = d.strftime("%Y/%m")
             ymd = d.strftime("%Y%m%d")
 
             fn = self.get_file_number(d.year, d.month)
 
-            urls_3dmana.append(baseurl_3dn.format(YM=ym, FN=fn, YMD=ymd))
-            urls_3dmasm.append(baseurl_3da.format(YM=ym, FN=fn, YMD=ymd))
-            urls_2dm.append(baseurl_2dm.format(YM=ym, FN=fn, YMD=ymd))
-            urls_2ds.append(baseurl_2ds.format(YM=ym, FN=fn, YMD=ymd))
-            urls_2dr.append(baseurl_2dr.format(YM=ym, FN=fn, YMD=ymd))
-            urls_2dv.append(baseurl_2dv.format(YM=ym, FN=fn, YMD=ymd))
+            urls_3dmana.append(baseurl_3dn.format(FN=fn, YMD=ymd))
+            urls_3dmasm.append(baseurl_3da.format(FN=fn, YMD=ymd))
+            urls_2dm.append(baseurl_2dm.format(FN=fn, YMD=ymd))
+            urls_2ds.append(baseurl_2ds.format(FN=fn, YMD=ymd))
+            urls_2dr.append(baseurl_2dr.format(FN=fn, YMD=ymd))
+            urls_2dv.append(baseurl_2dv.format(FN=fn, YMD=ymd))
 
         # Setup URL for getting constant model parameters (2D, single-level, full horizontal resolution)
-        url_2dc = ['https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4']
+        url_2dc = ['https://opendap.earthdata.nasa.gov/collections/C1276812819-GES_DISC/granules/M2C0NXASM.5.12.4%3AMERRA2_101.const_2d_asm_Nx.00000000.nc4']
 
         return urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv
 
@@ -612,15 +611,15 @@ class MERRAdownload(GenericDownload):
 
     def start_session(self):
         self.session = setup_session(self.username, self.password,
-                                     check_url="https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4")
-
+                                     check_url="https://opendap.earthdata.nasa.gov/collections/C1276812819-GES_DISC/granules/M2C0NXASM.5.12.4%3AMERRA2_101.const_2d_asm_Nx.00000000.nc4")
+    
     def build_subsetters(self):
-        self.subsetters = {"3dmana": MERRASubsetter('https://goldsmr5.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2I6NPANA.5.12.4/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4', self.session),
-                           "3dmasm": MERRASubsetter('https://goldsmr5.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2I3NPASM.5.12.4/2016/01/MERRA2_400.inst3_3d_asm_Np.20160101.nc4', self.session),
-                           "2dm": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2I1NXASM.5.12.4/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4', self.session),
-                           "2ds": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXFLX.5.12.4/2016/01/MERRA2_400.tavg1_2d_flx_Nx.20160101.nc4', self.session),
-                           "2dr": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXRAD.5.12.4/1981/01/MERRA2_100.tavg1_2d_rad_Nx.19810101.nc4', self.session),
-                           "2dv": MERRASubsetter('https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2/M2T1NXSLV.5.12.4/2016/01/MERRA2_400.tavg1_2d_slv_Nx.20160101.nc4', self.session)}
+        self.subsetters = {"3dmana": MERRASubsetter('https://opendap.earthdata.nasa.gov/collections/C1276812884-GES_DISC/granules/M2I6NPANA.5.12.4%3AMERRA2_400.inst6_3d_ana_Np.20160101.nc4', self.session),
+                           "3dmasm": MERRASubsetter('https://opendap.earthdata.nasa.gov/collections/C1276812879-GES_DISC/granules/M2I3NPASM.5.12.4%3AMERRA2_400.inst3_3d_asm_Np.20160101.nc4', self.session),
+                           "2dm": MERRASubsetter('https://opendap.earthdata.nasa.gov/collections/C1276812820-GES_DISC/granules/M2I1NXASM.5.12.4%3AMERRA2_400.inst1_2d_asm_Nx.20160102.nc4', self.session),
+                           "2dr": MERRASubsetter('https://opendap.earthdata.nasa.gov/collections/C1276812851-GES_DISC/granules/M2T1NXRAD.5.12.4%3AMERRA2_100.tavg1_2d_rad_Nx.19810101.nc4', self.session),
+                           "2ds": MERRASubsetter('https://opendap.earthdata.nasa.gov/collections/C1276812838-GES_DISC/granules/M2T1NXFLX.5.12.4%3AMERRA2_400.tavg1_2d_flx_Nx.20160101.nc4', self.session),
+                           "2dv": MERRASubsetter('https://opendap.earthdata.nasa.gov/collections/C1276812863-GES_DISC/granules/M2T1NXSLV.5.12.4%3AMERRA2_400.tavg1_2d_slv_Nx.20160101.nc4', self.session)}
 
         for s in self.subsetters.values():
             s.set_lon_range(self.area['west'], self.area['east'])
@@ -704,6 +703,7 @@ class MERRAdownload(GenericDownload):
             elif self.mode == "links":
                 url_file = Path(self.directory, "merra-wishlist.txt")
                 self.download_links(date_range, str(url_file))
+                self.actual_download_links(date_range, str(url_file))
                 
                 logger.info(f"Created OPeNDAP links file: {url_file}")
                 logger.info(f"To download the files, use the command 'cat {url_file} | xargs -n 1 -P 6 wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --auth-no-challenge=on --keep-session-cookies --content-disposition'")
@@ -724,6 +724,18 @@ class MERRAdownload(GenericDownload):
         _ = [self.subsetters['2dv'].get_download_link(url, url_file=url_file) for url in urls_2dv]
         _ = [self.subsetters['3dmana'].get_download_link(url, url_file=url_file) for url in urls_3dmana]
         _ = [self.subsetters['3dmasm'].get_download_link(url, url_file=url_file) for url in urls_3dmasm]
+
+    def actual_download_links(self, date_range: "dict[str, datetime]", url_file: str):
+        """ Save the links to the datasets (which can be downloaded in paralell with wget + xargs)"""
+
+        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
+
+        _ = [self.subsetters['2dm'].do_download_link(url, url_file=url_file) for url in urls_2dm]
+        _ = [self.subsetters['2ds'].do_download_link(url, url_file=url_file) for url in urls_2ds]
+        _ = [self.subsetters['2dr'].do_download_link(url, url_file=url_file) for url in urls_2dr]
+        _ = [self.subsetters['2dv'].do_download_link(url, url_file=url_file) for url in urls_2dv]
+        _ = [self.subsetters['3dmana'].do_download_link(url, url_file=url_file) for url in urls_3dmana]
+        _ = [self.subsetters['3dmasm'].do_download_link(url, url_file=url_file) for url in urls_3dmasm]
 
     def download(self, date_range):
         logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
@@ -813,7 +825,9 @@ class MERRASubsetter:
 
         session : pydap access session object created from setup_session
 
-        2d VAR[lat:lat][lon:lon][time:time] """
+        old: 2d VAR[time:time][lat:lat][lon:lon]
+        new version: old: 2d VAR%5Btime:time%5D%5Blat:lat%5D%5Blon:lon%5D
+        replace '[' -> '%5B' and ']' -> '%5D'  """
         self.session = session
         logger.info(f"Requesting dataset information from {url}")
         self.dataset = open_url(url, session=session)
@@ -827,31 +841,31 @@ class MERRASubsetter:
 
     def subset_time(self):
         """ Get the full day """
-        return "[0:{}]".format(self.n_timesteps - 1)
+        return "%5B0:{}%5D".format(self.n_timesteps - 1)
 
     def subset_lat(self, lat_min, lat_max):
         indices = np.where((self.lat_values >= lat_min) & (self.lat_values <= lat_max))
-        return "[{}:{}]".format(np.min(indices), np.max(indices))
+        return "%5B{}:{}%5D".format(np.min(indices), np.max(indices))
 
     def subset_lon(self, lon_min, lon_max):
         indices = np.where((self.lon_values >= lon_min) & (self.lon_values <= lon_max))
-        return "[{}:{}]".format(np.min(indices), np.max(indices))
+        return "%5B{}:{}%5D".format(np.min(indices), np.max(indices))
 
     def subset_lev(self, elev_min, elev_max):
         Pmax = pressure_from_elevation(elev_min) + 55
         Pmin = pressure_from_elevation(elev_max) - 55
 
         indices = np.where((self.LEVS >= Pmin) & (self.LEVS <= Pmax))
-        return "[{}:{}]".format(np.min(indices), np.max(indices))
+        return "%5B{}:{}%5D".format(np.min(indices), np.max(indices))
 
     def subset_2d_variable(self, variable_name, lat_min, lat_max, lon_min, lon_max):
-        var_string = "".join([variable_name, self.subset_time(),
+        var_string = "".join(['/', variable_name, self.subset_time(),
                               self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max)])
 
         return var_string
 
     def subset_3d_variable(self, variable_name, elev_min, elev_max, lat_min, lat_max, lon_min, lon_max):
-        var_string = "".join([variable_name, self.subset_time(), self.subset_lev(elev_min, elev_max),
+        var_string = "".join(['/', variable_name, self.subset_time(), self.subset_lev(elev_min, elev_max),
                               self.subset_lat(lat_min, lat_max), self.subset_lon(lon_min, lon_max)])
 
         return var_string
@@ -877,6 +891,8 @@ class MERRASubsetter:
         Returns
         -------
         str : variable name with slices, e.g. "H[0:3][4:59][23:44]"
+              but new format is H%5B0:3%5D%5B4:59%5D%5B23:44%5D
+              replace '[' -> '%5B' and ']' -> '%5D'
         """
         is_3d = ('lev' in self.dataset[variable].dimensions)
 
@@ -910,7 +926,7 @@ class MERRASubsetter:
         if 'lev' in self.dataset:
             uri_parameters.append('lev' + self.subset_lev(self.elev_min, self.elev_max))
 
-        dods_url = dataset_url + f".{type}?" + ",".join(uri_parameters)
+        dods_url = dataset_url + f".dap.{type}?dap4.ce=" + ";".join(uri_parameters)
 
         return dods_url
     
@@ -926,6 +942,27 @@ class MERRASubsetter:
         ncurl = self.create_request_url(url)
         with open(url_file, 'a') as f:
             f.write(ncurl + "\n")
+        
+        return None
+
+    def do_download_link(self, url, url_file):
+        """ download a link to the dataset that can be downloaded with wget
+        
+        Parameters
+        ----------
+        url : [type]
+            base URL for a dataset that can be opened with pydap.open_url
+        
+        """
+        ncurl = self.create_request_url(url)
+        base_ncurl = ''.join([ncurl.split('%3A')[-1].split('.dap.nc4?')[0], '.nc4'])
+        response = requests.get(ncurl)
+        # Download the variable if the response is OK
+        if response.ok:
+            with open(base_ncurl, 'wb') as file_handler:
+                file_handler.write(response.content)
+        else:
+            print(f'Request failed: {response.text}')
         
         return None
 
