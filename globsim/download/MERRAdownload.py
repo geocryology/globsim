@@ -9,6 +9,8 @@ import re
 import warnings
 import logging
 import requests
+import concurrent.futures
+import subprocess
 
 from datetime          import datetime, timedelta
 from netCDF4           import Dataset
@@ -703,7 +705,7 @@ class MERRAdownload(GenericDownload):
             elif self.mode == "links":
                 url_file = Path(self.directory, "merra-wishlist.txt")
                 self.download_links(date_range, str(url_file))
-                self.actual_download_links(date_range, str(url_file))
+                self.actual_download_links(str(url_file))
                 
                 logger.info(f"Created OPeNDAP links file: {url_file}")
                 logger.info(f"To download the files, use the command 'cat {url_file} | xargs -n 1 -P 6 wget --load-cookies ~/.urs_cookies --save-cookies ~/.urs_cookies --auth-no-challenge=on --keep-session-cookies --content-disposition'")
@@ -725,17 +727,32 @@ class MERRAdownload(GenericDownload):
         _ = [self.subsetters['3dmana'].get_download_link(url, url_file=url_file) for url in urls_3dmana]
         _ = [self.subsetters['3dmasm'].get_download_link(url, url_file=url_file) for url in urls_3dmasm]
 
-    def actual_download_links(self, date_range: "dict[str, datetime]", url_file: str):
+    def actual_download_links(self, url_file: str):
         """ Save the links to the datasets (which can be downloaded in paralell with wget + xargs)"""
 
-        urls_3dmana, urls_3dmasm, urls_2dm, urls_2ds, urls_2dr, url_2dc, urls_2dv = self.getURLs(date_range)
+        list_url = []
+        with open(str(url_file), 'r') as file:
+            for line in file:
+                list_url.append(line.strip()) 
 
-        _ = [self.subsetters['2dm'].do_download_link(url, url_file=url_file) for url in urls_2dm]
-        _ = [self.subsetters['2ds'].do_download_link(url, url_file=url_file) for url in urls_2ds]
-        _ = [self.subsetters['2dr'].do_download_link(url, url_file=url_file) for url in urls_2dr]
-        _ = [self.subsetters['2dv'].do_download_link(url, url_file=url_file) for url in urls_2dv]
-        _ = [self.subsetters['3dmana'].do_download_link(url, url_file=url_file) for url in urls_3dmana]
-        _ = [self.subsetters['3dmasm'].do_download_link(url, url_file=url_file) for url in urls_3dmasm]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            executor.map(self.download_granule, list_url)
+
+    def download_granule(self, url):
+        response = requests.get(url)
+        base_url = ''.join([url.split('%3A')[-1].split('.dap.nc4?')[0], '.nc4'])
+
+        # Download the variable if the response is OK
+        if response.ok:
+            with open(base_url, 'wb') as file_handler:
+                logger.info(f'Downloading: {base_url}')
+                file_handler.write(response.content)
+                cmd1 = f"mv {base_url} {self.directory}"
+                logger.debug(cmd1)
+                p1 = subprocess.Popen(cmd1.split(" "))
+                p1.wait()
+        else:
+            print(f'Request failed: {response.text}')
 
     def download(self, date_range):
         logger.info(f"Downloading chunk {date_range['beg']} to {date_range['end']}")
