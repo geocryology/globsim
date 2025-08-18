@@ -2,8 +2,9 @@ lxml
 tomlkit
 ecmwf-api-client
 cdsapi
-pydap==3.2.2
+pydap>=3.2.2
 numpy
 pandas
 netCDF4
 scipy
+pysolar
