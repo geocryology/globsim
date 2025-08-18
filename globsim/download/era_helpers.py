@@ -223,7 +223,7 @@ class Era5Request(ERA5generic):
 
         if self.product_type_alias == "re":
             if self.dataset == "reanalysis-era5-single-levels":
-                files = [Path(self.directory, f"era5_{x}_{time}.grib")
+                files = [Path(self.directory, f"era5_{x}_{time}.nc")
                          for x in ["sa", "sf"]]
 
             elif self.dataset == "reanalysis-era5-pressure-levels":

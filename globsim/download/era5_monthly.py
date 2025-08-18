@@ -416,7 +416,7 @@ def split_resl_nc(f, sa, sf, time_var):
 
 
 def convert_time_sa(f, overwrite=True, time_var='valid_time'):
-    sa_pattern = re.compile(r"era5_sa_(\d{8}_to_\d{8}).grib")
+    sa_pattern = re.compile(r"era5_sa_(\d{8}_to_\d{8}).nc")
     orig = sa_pattern.sub(r"era5_sa_\1.nc", f)
     logger.debug(f"Converting time units for {Path(f).name}")
     print(orig)
@@ -436,7 +436,7 @@ def convert_time_sa(f, overwrite=True, time_var='valid_time'):
     nc.close()
 
 def convert_time_sf(f, overwrite=True, time_var='valid_time'):
-    sa_pattern = re.compile(r"era5_sf_(\d{8}_to_\d{8}).grib")
+    sa_pattern = re.compile(r"era5_sf_(\d{8}_to_\d{8}).nc")
     orig = sa_pattern.sub(r"era5_sf_\1.nc", f)
     logger.debug(f"Converting time units for {Path(f).name}")
     print(orig)
