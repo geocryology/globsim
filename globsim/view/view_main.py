@@ -68,7 +68,7 @@ if __name__ == "__main__":
                         help="if file is a TOML file, specify the reanalysis to plot.")
     parser.add_argument("ftype",  type=str, choices=('sa','pl','sf', 'pls'), nargs='?',
                         help="if file is a TOML file, specify the type of file to plot.")
-    parser.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot", default=None)
+    parser.add_argument("-V", "--var", type=str, dest='variable', help="variable to plot", default=None)
     parser.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
     parser.add_argument("-o", "--output", type=str, dest='output', help="output directory")
     

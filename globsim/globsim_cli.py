@@ -64,8 +64,6 @@ def main():
     mainparser.add_argument("--version", action='version', version=f"GlobSim version {__version__}")
 
     for parser in [download, interpolate, scale]:
-        parser.add_argument("--debug", action='store_true', help="Enable debug mode, which will enter a debug shell if an error occurs.")
-
         parser.add_argument("-f", "--config-file",
                             default=None, type=str, required=True, dest='f',
                             help="Path to GlobSim configuration file.")
@@ -75,11 +73,12 @@ def main():
                             choices=["ERA5", "ERA5ENS", "MERRA", "JRA", "JRA3Q", "JRA3QG"],
                             dest='d', help="What data sources should run?")
 
-    for parser in [download, interpolate, scale, convert]:
+    for parser in [download, interpolate, scale, convert, view]:  # ALL parsers
         parser.add_argument("-v", "--verbose", nargs="?", default=logging.INFO, const=logging.DEBUG, dest='level',
                             help="Show detailed output")
         parser.add_argument("-L", "--logfile", default=False, nargs="?", const=True, dest='logfile',
                             help="Whether to save output to a logfile. If a path is provided, it will be used instead of the default path")
+        parser.add_argument("--debug", action='store_true', help="Enable debug mode, which will enter a debug shell if an error occurs.")
 
     download.add_argument('-r', '--retry',  default=1, type=int, help="Number of times to re-launch download if it crashes")
     download.add_argument('-m', '--multi', action='store_true',    help="Download all data sources simultaneously ")
@@ -112,7 +111,7 @@ def main():
                         help="if file is a TOML file, specify the reanalysis to plot.")
     view.add_argument("ftype",  type=str, choices=('sa','pl','sf'), nargs='?', default=None,
                         help="if file is a TOML file, specify the type of file to plot.")
-    view.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot")
+    view.add_argument("-V", "--var", type=str, dest='variable', help="variable to plot")
     view.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
     view.add_argument("-o", "--output", type=str, dest='output', help="output directory")
    
