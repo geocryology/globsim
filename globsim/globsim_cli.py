@@ -4,12 +4,15 @@ import logging
 import sys
 import argparse
 
-from globsim import globsim_convert, globsim_download, globsim_scale, globsim_interpolate
 from globsim.LazyLoader import LazyLoader
 from globsim.globsim_convert import export_styles
 from globsim._version import __version__
 
 gsview = LazyLoader("globsim.view.view_main")
+globsim_download = LazyLoader("globsim.globsim_download")
+globsim_scale = LazyLoader("globsim.globsim_scale")
+globsim_interpolate = LazyLoader("globsim.globsim_interpolate")
+globsim_convert = LazyLoader("globsim.globsim_convert")
 
 def configure_logging(args: argparse.Namespace):
     # logging.basicConfig(format='%(asctime)s  %(asctime)s ')
@@ -61,6 +64,7 @@ def main():
     mainparser.add_argument("--version", action='version', version=f"GlobSim version {__version__}")
 
     for parser in [download, interpolate, scale]:
+        parser.add_argument("--debug", action='store_true', help="Enable debug mode, which will enter a debug shell if an error occurs.")
 
         parser.add_argument("-f", "--config-file",
                             default=None, type=str, required=True, dest='f',
@@ -119,5 +123,18 @@ def main():
     else:
         args = mainparser.parse_args()
         configure_logging(args)
-        args.func(args)
+
+        if args.debug:
+            import pdb, traceback
+            try:
+                args.func(args)
+            except Exception as e:
+                traceback.print_exc()
+                print(f"An exception occurred: {e}\nEntering post-mortem debug mode.")
+                # This drops you into the debugger at the exact point of the crash
+                pdb.post_mortem()
+ 
+        else:
+            args.func(args)
+       
 
