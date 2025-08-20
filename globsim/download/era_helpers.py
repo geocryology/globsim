@@ -250,14 +250,14 @@ class Era5Request(ERA5generic):
     def globsim_outputs(self) -> "list[Path]":
         if self.dataset == "reanalysis-era5-single-levels": 
             orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
-            sf = orig.sub(r'era5_sf_\1.grib', self.output_file.name)
-            sa = orig.sub(r'era5_sa_\1.grib', self.output_file.name)
+            sf = orig.sub(r'era5_sf_\1.nc', self.output_file.name)
+            sa = orig.sub(r'era5_sa_\1.nc', self.output_file.name)
             
             files = [self.output_file.with_name(n) for n in [sa, sf]]
 
         elif self.dataset == "reanalysis-era5-pressure-levels":
             pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).grib")
-            pl = pl_pattern.sub(r"era5_pl_\1.grib", self.output_file.name)
+            pl = pl_pattern.sub(r"era5_pl_\1.nc", self.output_file.name)
             
             files = [self.output_file.with_name(pl)]
 

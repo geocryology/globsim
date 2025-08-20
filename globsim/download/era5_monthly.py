@@ -299,26 +299,20 @@ def rename_sl_dir(dir):
     orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
     files = [str(f) for f in Path(dir).iterdir()]
     matched_files = [f for f in files if orig.search(f)]
+    matched_files_re_resl = [ff for ff in [f.replace('.grib', '.nc') for f in matched_files] if Path(ff).exists()]
+    matched_files_sa = [ff for ff in [f.replace('re_resl', 'sa') for f in matched_files_re_resl] if Path(ff).exists()]
+    matched_files_sf = [ff for ff in [f.replace('re_resl', 'sf') for f in matched_files_re_resl] if Path(ff).exists()]
     for f in matched_files:
-        print(f'Current sl file: {f}')
+        print(f'Current grib re_resl file: {f}')
         convert_grib2nc_sl(f)
-    orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
-    files = [str(f) for f in Path(dir).iterdir()]
-    matched_files = [f for f in files if orig.search(f)]
-    for f in matched_files:
-        print(f'Current sl file: {f}')
+    for f in matched_files_re_resl:
+        print(f'Current netCDF re_resl file: {f}')
         split_sl(f)
-    orig = re.compile(r"era5_sa_(\d{8}_to_\d{8}).nc")
-    files = [str(f) for f in Path(dir).iterdir()]
-    matched_files = [f for f in files if orig.search(f)]
-    for f in matched_files:
-        print(f'Current sa file: {f}')
+    for f in matched_files_sa:
+        print(f'Current netCDF sa file: {f}')
         convert_time_sa(f)
-    orig = re.compile(r"era5_sf_(\d{8}_to_\d{8}).nc")
-    files = [str(f) for f in Path(dir).iterdir()]
-    matched_files = [f for f in files if orig.search(f)]
-    for f in matched_files:
-        print(f'Current sf file: {f}')
+    for f in matched_files_sf:
+        print(f'Current netCDF sf file: {f}')
         convert_time_sf(f)
 
 def convert_grib2nc_sl(f, overwrite=False):
