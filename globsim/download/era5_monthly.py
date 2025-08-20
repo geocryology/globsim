@@ -300,8 +300,8 @@ def rename_sl_dir(dir):
     files = [str(f) for f in Path(dir).iterdir()]
     matched_files = [f for f in files if orig.search(f)]
     matched_files_re_resl = [ff for ff in [f.replace('.grib', '.nc') for f in matched_files] if Path(ff).exists()]
-    matched_files_sa = [ff for ff in [f.replace('re_resl', 'sa') for f in matched_files_re_resl] if Path(ff).exists()]
-    matched_files_sf = [ff for ff in [f.replace('re_resl', 'sf') for f in matched_files_re_resl] if Path(ff).exists()]
+    matched_files_sa = [f.replace('re_resl', 'sa') for f in matched_files_re_resl]
+    matched_files_sf = [f.replace('re_resl', 'sf') for f in matched_files_re_resl]
     for f in matched_files:
         print(f'Current grib re_resl file: {f}')
         convert_grib2nc_sl(f)
