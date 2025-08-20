@@ -49,5 +49,6 @@ setuptools.setup(
                       'cdsapi>=0.7.3',
                       'psutil',
                       'pysolar',
-                      'pytz']
+                      'pytz',
+                      'cfgrib']
 )

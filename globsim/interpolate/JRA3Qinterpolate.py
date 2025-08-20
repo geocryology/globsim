@@ -1,5 +1,4 @@
 from globsim.interpolate.JRAinterpolate import JRAinterpolate
-from globsim.download.JRA3Qdownload import J3QD
 
 import logging
 
