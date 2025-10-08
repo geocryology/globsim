@@ -5,7 +5,6 @@ import sys
 import argparse
 
 from globsim.LazyLoader import LazyLoader
-from globsim.globsim_convert import export_styles
 from globsim._version import __version__
 
 gsview = LazyLoader("globsim.view.view_main")
@@ -96,8 +95,8 @@ def main():
 
     convert.add_argument('-f', "--file", dest='file', default=None, required=True, type=str,
                          help="Path to scaled Globsim *.nc file")
-    convert.add_argument('-F', "--format", dest='format', default=None, required=True, type=str, choices=export_styles.keys(),
-                         help=f"What kind of output to generate. Chosen from {export_styles.keys()}")
+    convert.add_argument('-F', "--format", dest='format', default=None, required=True, type=str, choices=globsim_convert.export_styles.keys(),
+                         help=f"What kind of output to generate. Chosen from {globsim_convert.export_styles.keys()}")
     convert.add_argument('-o', "--output", dest='output', default=None, required=True, type=str,
                          help="Output directory to write new files")
     convert.add_argument('-s', "--site", dest='site', default=None, nargs="*", type=str,

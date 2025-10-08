@@ -95,6 +95,7 @@ declare -A dim_orders
 dim_orders[pl]="latitude,longitude,pressure_level,valid_time"
 dim_orders[sa]="latitude,longitude,valid_time"
 dim_orders[sf]="latitude,longitude,valid_time"
+dim_orders[to]="latitude,longitude,valid_time"
 
 # ensure paths are different
 if [ "$(realpath "$input_dir")" == "$(realpath "$output_dir")" ]; then
@@ -139,4 +140,32 @@ for file in "$input_dir"/${PRODUCT}_*_${YEAR}*_to_*.nc; do
             echo "Skipping $filename: Unknown type"
         fi
     fi
+done
+
+# handle constant files
+# File patterns to check
+files=(
+    "$input_dir/era5_to.nc"
+    "$input_dir/jra*_to_*_to_*.nc"
+    "$input_dir/merra_sc.nc"
+)
+type="to"
+# Iterate over file patterns
+for pattern in "${files[@]}"; do
+    for file in $pattern; do
+        # Skip if the file does not exist in input directory
+        [[ -e "$file" ]] || continue
+
+        # Extract filename
+        filename=$(basename "$file")
+        output_file="$output_dir/$filename"
+
+        # Check if the file exists in the output directory
+        if [[ ! -e "$output_file" ]]; then
+            ncpdq --rdr=${dim_orders[$type]} "$file" "$output_file"
+            echo "ncpdq --rdr=${dim_orders[$type]} \"$file\" \"$output_file\" "
+        else
+            echo "$filename already exists in output directory, skipping."
+        fi
+    done
 done
