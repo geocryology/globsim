@@ -34,8 +34,8 @@ class MERRAinterpolate(GenericInterpolate):
         par = self.par
 
         self.input_dir = path.join(par['project_directory'],'merra2')
-
-        # Load MF Datasets
+       
+       # Load MF Datasets
         self.mf_sc = xr.open_mfdataset(path.join(self.input_dir,'merra_sc.nc'), decode_times=False)
         self.mf_sa = xr.open_mfdataset(self.prefilter_mf_paths(path.join(self.input_dir,'merra_sa_*.nc')), decode_times=False)
         self.mf_sf = xr.open_mfdataset(self.prefilter_mf_paths(path.join(self.input_dir,'merra_sf_*.nc')), decode_times=False)
@@ -50,7 +50,16 @@ class MERRAinterpolate(GenericInterpolate):
             logger.info("Check data integrity (pl)")
             self.ensure_datset_integrity(self.mf_pl['time'], 6)
             logger.info("Data integrity ok")
+    
+    @property
+    def dn_lat(self):
+        return 'lat'
 
+    @property
+    def dn_lon(self):
+        return 'lon'
+    
+    
     def MERRA2station(self, ncf_in, ncfile_out, points,
                       variables=None, date=None):
         """
