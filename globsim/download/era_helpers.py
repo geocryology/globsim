@@ -227,7 +227,7 @@ class Era5Request(ERA5generic):
                          for x in ["sa", "sf"]]
 
             elif self.dataset == "reanalysis-era5-pressure-levels":
-                files = [Path(self.directory, f"era5_pl_{time}.nc")]
+                files = [Path(self.directory, f"era5_pl_{time}.grib")]
 
         elif self.product_type_alias == "ens":
             pass
@@ -242,21 +242,21 @@ class Era5Request(ERA5generic):
             time = f"{self.params.start}_to_{self.params.end}"
             era_type = self.PRODUCTTYPES[self.params["product_type"]]
             dataset = self.DATASETS[self.dataset]
-            file = Path(self.directory, f"era5_{era_type}_{dataset}_{time}.nc")
+            file = Path(self.directory, f"era5_{era_type}_{dataset}_{time}.grib")
 
         return file
     
     @property
     def globsim_outputs(self) -> "list[Path]":
         if self.dataset == "reanalysis-era5-single-levels": 
-            orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
+            orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
             sf = orig.sub(r'era5_sf_\1.nc', self.output_file.name)
             sa = orig.sub(r'era5_sa_\1.nc', self.output_file.name)
             
             files = [self.output_file.with_name(n) for n in [sa, sf]]
 
         elif self.dataset == "reanalysis-era5-pressure-levels":
-            pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
+            pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).grib")
             pl = pl_pattern.sub(r"era5_pl_\1.nc", self.output_file.name)
             
             files = [self.output_file.with_name(pl)]

@@ -1,11 +1,14 @@
-from globsim.exporttools import globsim_to_geotop, globsim_to_classic_met, globsim_to_freethaw
+from globsim.LazyLoader import LazyLoader
+# Lazy load the modules to avoid circular imports
+globsim_convert = LazyLoader("globsim.convert")
+#from globsim.convert.exporttools import (globsim_to_geotop, globsim_to_classic_met, 
+#globsim_to_freethaw)
+
+export_styles = {"geotop": "globsim_to_geotop",
+                 "classicmet": "globsim_to_classic_met",
+                 "freethaw": "globsim_to_freethaw"}
 
 import argparse
-
-export_styles = {"geotop": globsim_to_geotop,
-                 "classicmet": globsim_to_classic_met,
-                 "freethaw": globsim_to_freethaw}
-
 
 def main(args):
     source_file = args.file
@@ -15,18 +18,18 @@ def main(args):
     export_profile = args.profile
 
     if export_type == "geotop":
-        globsim_to_geotop(ncd=source_file,
+        globsim_convert.globsim_to_geotop(ncd=source_file,
                           out_dir=dest_directory,
                           export_profile=export_profile,
                           site=site)
 
     elif export_type == "classicmet":
-        globsim_to_classic_met(ncd=source_file,
+        globsim_convert.globsim_to_classic_met(ncd=source_file,
                                out_dir=dest_directory,
                                site=site)
         
     elif export_type == "freethaw":
-        globsim_to_freethaw(ncd=source_file,
+        globsim_convert.globsim_to_freethaw(ncd=source_file,
                             out_dir=dest_directory,
                             site=site)
 

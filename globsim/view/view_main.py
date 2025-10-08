@@ -5,7 +5,8 @@ import os
 
 from pathlib import Path
 
-from globsim.view.plotting import plot_var, format_fig, get_df, plot_scaled
+from globsim.LazyLoader import LazyLoader
+pt = LazyLoader("globsim.view.plotting")
 
 
 def main(file, variable, aggregate="D", output_directory=None, reanalysis=None, ftype=None):
@@ -32,7 +33,7 @@ def main(file, variable, aggregate="D", output_directory=None, reanalysis=None, 
     # Scaled panel
     if Path(file).name.startswith("scaled") and (variable is None):
             station = dat['station'].to_numpy()[0]
-            fig, ax = plot_scaled(dat, station, aggregate)
+            fig, ax = pt.plot_scaled(dat, station, aggregate)
         
     # Interpolated data
     else:
@@ -40,10 +41,10 @@ def main(file, variable, aggregate="D", output_directory=None, reanalysis=None, 
             print(f"Variable ({variable}) not in file. Choose from:{[var for var in dat.data_vars]}")
             sys.exit(1)
 
-        df  = get_df(dat, variable, aggregate)
-        fig, ax = plot_var(df)
+        df  = pt.get_df(dat, variable, aggregate)
+        fig, ax = pt.plot_var(df)
 
-        format_fig(fig, ax, dat, variable)
+        pt.format_fig(fig, ax, dat, variable)
 
     figname = f"{os.path.basename(file)}_{variable}_{aggregate}.png"
     if output_directory is None:
@@ -67,7 +68,7 @@ if __name__ == "__main__":
                         help="if file is a TOML file, specify the reanalysis to plot.")
     parser.add_argument("ftype",  type=str, choices=('sa','pl','sf', 'pls'), nargs='?',
                         help="if file is a TOML file, specify the type of file to plot.")
-    parser.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot", default=None)
+    parser.add_argument("-V", "--var", type=str, dest='variable', help="variable to plot", default=None)
     parser.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
     parser.add_argument("-o", "--output", type=str, dest='output', help="output directory")
     

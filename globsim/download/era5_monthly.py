@@ -4,6 +4,10 @@ import re
 import subprocess
 import time
 import zipfile
+import xarray as xr
+import cfgrib
+from netCDF4 import Dataset
+from netCDF4 import num2date, date2num
 
 from datetime import datetime
 from functools import partial
@@ -39,12 +43,12 @@ class ERA5MonthlyDownload(GenericDownload):
         if ensemble:
             raise NotImplementedError("Not implemented yet for ensemble download")
             # self._set_input_directory("era5ens")
-            # self.topo_file = 'era5_ens_to.nc'
+            # self.topo_file = 'era5_ens_to.grib'
             # self.product_type = 'something else'
         else:
             self._set_input_directory("era5")
             self.product_type = 'reanalysis'
-            self.topo_file = 'era5_to.nc'
+            self.topo_file = 'era5_to.grib'
         
     def list_requests(self):
         variables = self.par.get('variables')
@@ -64,8 +68,8 @@ class ERA5MonthlyDownload(GenericDownload):
                                          day="01",
                                          time="00:00",
                                          area=area,
-                                         format='netcdf',
-                                         data_format= 'netcdf',
+                                         format='grib',
+                                         data_format= 'grib',
                                          download_format = 'unarchived')
 
         request_to = Era5Request('reanalysis-era5-single-levels', self.directory, to_param)
@@ -84,8 +88,8 @@ class ERA5MonthlyDownload(GenericDownload):
                                        time=Era5RequestParameters.all_times(),
                                        area=area,
                                        pressure_level=self.levels,
-                                       format='netcdf',
-                                       data_format= 'netcdf',
+                                       format='grib',
+                                       data_format= 'grib',
                                        download_format = 'unarchived')
             rpl = Era5Request('reanalysis-era5-pressure-levels', self.directory, pl)
             requests_pl.append(rpl)
@@ -97,8 +101,8 @@ class ERA5MonthlyDownload(GenericDownload):
                                        day=day,
                                        time=Era5RequestParameters.all_times(),
                                        area=area,
-                                       format='netcdf',
-                                       data_format= 'netcdf',
+                                       format='grib',
+                                       data_format= 'grib',
                                        download_format = 'unarchived')
 
             rsl = Era5Request('reanalysis-era5-single-levels', self.directory, sl)
@@ -107,6 +111,7 @@ class ERA5MonthlyDownload(GenericDownload):
         return [request_to] + requests_pl + requests_sl
 
     def rename_files(self):
+        rename_to_dir(self.directory)
         rename_pl_dir(self.directory)
         rename_sl_dir(self.directory)
 
@@ -133,6 +138,7 @@ class ERA5MonthlyDownload(GenericDownload):
         logger.info(f"Finished ERA5 multi-threaded download with {workers} workers")
         
         logger.info(f"Renaming files in {self.directory}")
+        rename_to_dir(self.directory)
         rename_pl_dir(self.directory)
         rename_sl_dir(self.directory)
 
@@ -200,17 +206,62 @@ def download_serial(cds_requests, dotrc=None):
     
     return failed_downloads
 
+def rename_to_dir(dir):
+    pl_pattern = re.compile(r"era5_to.grib")
+    files = [str(f) for f in Path(dir).iterdir() if pl_pattern.search(str(f))]
+    for f in files:
+        convert_grib2nc_to(f)
+
+def convert_grib2nc_to(f, overwrite=False):
+    pl_pattern = re.compile(r"era5_to.grib")
+    new_file = pl_pattern.sub(r"era5_to.nc", f)
+    if not overwrite and Path(new_file).exists():
+        print(f"Skipping {new_file}")
+        return
+    logger.debug(f"Converting {Path(f).name}")
+    print(new_file)
+
+    # cmd1 = f"grib_to_netcdf -o {new_file} {f}"
+    # # logger.debug(cmd1)
+    # p1 = subprocess.Popen(cmd1.split(" "))
+    # p1.wait()
+    # with xr.open_dataset(new_file, engine='netcdf4') as ds:
+    #     ds = ds.rename_dims({'time': 'valid_time'})
+    #     ds = ds.rename_vars({'time': 'valid_time'})    
+    #     # ds = ds.assign_coords(number=('valid_time', [0]))
+    #     # ds = ds.assign_coords(expver=('valid_time', ['0001']))
+    #     ds = ds.transpose('latitude', 'longitude', 'valid_time')
+    #     ds.load().to_netcdf(new_file)
+
+    logger.debug('Opening GRIB dataset')
+    ds = xr.open_dataset(f, engine="cfgrib", indexpath='', decode_timedelta=True)
+    logger.debug('Dropping unused vraiables')
+    ds = ds.drop_vars(['step', 'surface', 'time'])
+    logger.debug("Creating 'valid_time' dimension")
+    ds = ds.expand_dims('valid_time', create_index_for_new_dim=True)
+    logger.debug("Assigning coordinate to 'valid_time'")
+    ds = ds.assign_coords(expver=('valid_time', ['0001']))
+    logger.debug("Transposing dimensions in the format: ['latitude', 'longitude', 'valid_time']")
+    ds = ds.transpose('latitude', 'longitude', 'valid_time')
+    logger.debug('Saving to netCDF4 file')
+    ds.load().to_netcdf(new_file)
+    logger.debug(f"Done converting {Path(f).name}")
+    ds.close()
 
 def rename_pl_dir(dir):
-    pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
+    pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).grib")
     files = [str(f) for f in Path(dir).iterdir() if pl_pattern.search(str(f))]
     for f in files:
         rename_pl_file(f)
+    pl_pattern = re.compile(r"era5_pl_(\d{8}_to_\d{8}).grib")
+    files = [str(f) for f in Path(dir).iterdir() if pl_pattern.search(str(f))]
+    for f in files:
+        convert_grib2nc_pl(f)
 
 
 def rename_pl_file(f, overwrite=True):
-    pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).nc")
-    new_file = pl_pattern.sub(r"era5_pl_\1.nc", f)
+    pl_pattern = re.compile(r"era5_re_repl_(\d{8}_to_\d{8}).grib")
+    new_file = pl_pattern.sub(r"era5_pl_\1.grib", f)
     if not overwrite and Path(new_file).exists():
         print(f"Skipping {new_file}")
         return
@@ -218,13 +269,80 @@ def rename_pl_file(f, overwrite=True):
     print(new_file)
     rename(f, new_file)
 
+def convert_grib2nc_pl(f, overwrite=False):
+    pl_pattern = re.compile(r"era5_pl_(\d{8}_to_\d{8}).grib")
+    new_file = pl_pattern.sub(r"era5_pl_\1.nc", f)
+    if not overwrite and Path(new_file).exists():
+        print(f"Skipping {new_file}")
+        return
+    logger.debug(f"Converting {Path(f).name}")
+    print(new_file)
+    logger.debug('Opening GRIB dataset')
+    ds = xr.open_dataset(f, engine="cfgrib", indexpath='', decode_timedelta=True)
+    logger.debug('Dropping unused vraiables')
+    ds = ds.drop_vars(['step', 'valid_time'])
+    logger.debug('Renaming dimensions')
+    ds = ds.rename_dims({'time':'valid_time', 'isobaricInhPa': 'pressure_level'})
+    logger.debug('Renaming variables')
+    ds = ds.rename_vars({'time':'valid_time', 'isobaricInhPa': 'pressure_level'})
+    logger.debug("Transposing dimensions in the format: ['latitude', 'longitude', 'pressure_level', 'valid_time']")
+    ds = ds.transpose('latitude', 'longitude', 'pressure_level', 'valid_time')
+    logger.debug("Creating 'expver' variable")
+    ds = ds.assign_coords(expver=("valid_time", ['0001']*len(ds.valid_time)))
+    logger.debug('Saving to netCDF4 file')
+    ds.load().to_netcdf(new_file)
+    logger.debug(f"Done converting {Path(f).name}")
+    ds.close()
+
 
 def rename_sl_dir(dir):
-    orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).nc")
+    orig = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
     files = [str(f) for f in Path(dir).iterdir()]
     matched_files = [f for f in files if orig.search(f)]
     for f in matched_files:
+        print(f'Current grib re_resl file: {f}')
+        convert_grib2nc_sl(f)
+    matched_files_re_resl = [ff for ff in [f.replace('.grib', '.nc') for f in matched_files] if Path(ff).exists()]
+    matched_files_sa = [f.replace('re_resl', 'sa') for f in matched_files_re_resl]
+    matched_files_sf = [f.replace('re_resl', 'sf') for f in matched_files_re_resl]
+    for f in matched_files_re_resl:
+        print(f'Current netCDF re_resl file: {f}')
         split_sl(f)
+    for f in matched_files_sa:
+        print(f'Current netCDF sa file: {f}')
+        convert_time_sa(f)
+    for f in matched_files_sf:
+        print(f'Current netCDF sf file: {f}')
+        convert_time_sf(f)
+
+def convert_grib2nc_sl(f, overwrite=False):
+    sl_pattern = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
+    new_file = sl_pattern.sub(r"era5_re_resl_\1.nc", f)
+    new_file_temp = sl_pattern.sub(r"era5_re_resl_temp_\1.nc", f)
+    if not overwrite and Path(new_file).exists():
+        print(f"Skipping {new_file}")
+        return
+    logger.debug(f"Converting {Path(f).name}")
+    print(new_file)
+
+    cmd1 = f"cdo -f nc -copy {f} {new_file_temp}"
+    logger.debug(cmd1)
+    p1 = subprocess.Popen(cmd1.split(" "))
+    p1.wait()
+    logger.debug('Opening GRIB dataset')
+    ds = xr.open_dataset(new_file_temp, engine='netcdf4', decode_timedelta=True)
+    logger.debug('Renaming dimensions')
+    ds = ds.rename_dims({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude'})
+    logger.debug('Renaming variables')
+    ds = ds.rename_vars({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude',
+                         '2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'})
+    logger.debug("Transposing dimensions in the format: ['latitude', 'longitude', 'valid_time']")
+    ds = ds.transpose('latitude', 'longitude', 'valid_time')
+    logger.debug('Saving to netCDF4 file')
+    ds.load().to_netcdf(new_file)
+    logger.debug(f"Done converting {Path(f).name}")
+    Path(new_file_temp).unlink()
+    ds.close()
 
 
 def split_sl(f, overwrite=False, time_var='valid_time'):
@@ -250,8 +368,8 @@ def split_resl_zip(zipf:zipfile.ZipFile, sa:str, sf:str):
     zname = zipf.filename
     parent_dir = Path(zname).parent
     zipf.extractall(parent_dir)
-    f_acc = Path(zname).with_name("data_stream-oper_stepType-accum.nc")
-    f_ins = Path(zname).with_name("data_stream-oper_stepType-instant.nc")
+    f_acc = Path(zname).with_name("data_stream-oper_stepType-accum.grib")
+    f_ins = Path(zname).with_name("data_stream-oper_stepType-instant.grib")
     cmd1 = f'ncks -C -O -x -v number,expver {f_acc} {sf}'
     cmd2 = f'ncks -C -O -x -v number,expver {f_ins} {sa}'
     logger.debug(cmd1)
@@ -281,6 +399,55 @@ def split_resl_nc(f, sa, sf, time_var):
     if Path(sf).exists() and Path(sa).exists():
         logger.debug(f"Removing {f}")
         # Path(f).unlink()
+    cmd1 = f'ncks -C -O -x -v time {sf} {sf}'
+    cmd2 = f'ncks -C -O -x -v time {sa} {sa}'
+    logger.debug(cmd1)
+    p1 = subprocess.Popen(cmd1.split(" "))
+    p1.wait()
+    logger.debug(cmd2)
+    p2 = subprocess.Popen(cmd2.split(" "))
+    p2.wait()
+
+
+def convert_time_sa(f, overwrite=True, time_var='valid_time'):
+    sa_pattern = re.compile(r"era5_sa_(\d{8}_to_\d{8}).nc")
+    orig = sa_pattern.sub(r"era5_sa_\1.nc", f)
+    logger.debug(f"Converting time units for {Path(f).name}")
+    print(orig)
+
+    if not overwrite and Path(orig).exists():
+        print(f"Skipping {orig}")
+        return
+
+    nc = Dataset(orig, mode='r+')
+
+    newunit = 'seconds since 1970-01-01'
+    timevar = nc.variables[time_var]
+    timein = timevar[:]
+    datesin = num2date(timein,timevar.units)
+    timevar.setncattr('units',newunit)
+    timevar[:] = date2num(datesin,newunit)
+    nc.close()
+
+def convert_time_sf(f, overwrite=True, time_var='valid_time'):
+    sa_pattern = re.compile(r"era5_sf_(\d{8}_to_\d{8}).nc")
+    orig = sa_pattern.sub(r"era5_sf_\1.nc", f)
+    logger.debug(f"Converting time units for {Path(f).name}")
+    print(orig)
+
+    if not overwrite and Path(orig).exists():
+        print(f"Skipping {orig}")
+        return
+
+    nc = Dataset(orig, mode='r+')
+
+    newunit = 'seconds since 1970-01-01'
+    timevar = nc.variables[time_var]
+    timein = timevar[:]
+    datesin = num2date(timein,timevar.units)
+    timevar.setncattr('units',newunit)
+    timevar[:] = date2num(datesin,newunit)
+    nc.close()
 
 
 def wait_for_file_scandir(directory, pattern, timeout=60, check_interval=1):
@@ -309,6 +476,7 @@ if __name__ == "__main__":
 
     # add parser for download
     split = subparsers.add_parser('split', help="Download ERA5 data")
+    split.add_argument('-t', '--to', type=str, default=None, help="Topography (to) file")
     split.add_argument('-s', '--sl', type=str, default=None, help="Single-level file")
     split.add_argument('-S', '--sl-dir', type=str, dest="sldir", default=None, help="Single-level file")
     split.add_argument('-p', '--pl', type=str, default=None, help="Pressure-level file")
@@ -317,8 +485,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.command == 'split':
+        if args.to:
+            convert_grib2nc_to(args.to, overwrite=args.overwrite)
+            pass
         if args.sl:
+            convert_grib2nc_sl(args.sl, overwrite=args.overwrite)
             split_sl(args.sl, overwrite=args.overwrite)
+            convert_time_sa(args.sl)
+            convert_time_sf(args.sl)
+            pass
         if args.pl:
             rename_pl_file(args.pl, overwrite=args.overwrite)
         if args.sldir:

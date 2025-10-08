@@ -215,7 +215,12 @@ class GenericInterpolate:
             logger.info("skipping interpolation of _pl file")
 
         duration = human_readable_time(datetime.now() - t_start)
+        self._finished_successfully_message(duration)
+
+    def _finished_successfully_message(self, duration):
         text = f"Interpolation complete in {duration[0]} Days, {duration[1]} Hours, {duration[2]}:{duration[3]}"
+        logger.info(text)
+        text = f"Files created in {self.output_dir}"
         logger.info(text)
 
     def _preprocess(self):

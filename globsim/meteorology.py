@@ -323,12 +323,13 @@ def thermal_transmissivity(swe, t, alpha: float, beta:float, nosnow=15) -> np.nd
     np.ndarray
         numpy array same length as input data
     """
+    swe = np.atleast_1d(swe).astype('float')
+    t = np.atleast_1d(t).astype('float')
+    Hs = np.empty_like(swe)
+
     if (max(t) >= beta):
         raise ValueError(f"beta ({beta}) must be greater than the longest snowpack duration ({max(t)} days)")
     
-    swe = np.atleast_1d(swe)
-    t = np.atleast_1d(t)
-    Hs = np.empty_like(swe)
     Hs[swe == 0] = np.nan
 
     Hs[~np.isnan(Hs)] = 1 / (swe[~np.isnan(Hs)] * alpha * (1 - (t[~np.isnan(Hs)] / beta)))

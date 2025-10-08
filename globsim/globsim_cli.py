@@ -4,12 +4,14 @@ import logging
 import sys
 import argparse
 
-from globsim import globsim_convert, globsim_download, globsim_scale, globsim_interpolate
 from globsim.LazyLoader import LazyLoader
-from globsim.globsim_convert import export_styles
 from globsim._version import __version__
 
 gsview = LazyLoader("globsim.view.view_main")
+globsim_download = LazyLoader("globsim.globsim_download")
+globsim_scale = LazyLoader("globsim.globsim_scale")
+globsim_interpolate = LazyLoader("globsim.globsim_interpolate")
+globsim_convert = LazyLoader("globsim.globsim_convert")
 
 def configure_logging(args: argparse.Namespace):
     # logging.basicConfig(format='%(asctime)s  %(asctime)s ')
@@ -61,7 +63,6 @@ def main():
     mainparser.add_argument("--version", action='version', version=f"GlobSim version {__version__}")
 
     for parser in [download, interpolate, scale]:
-
         parser.add_argument("-f", "--config-file",
                             default=None, type=str, required=True, dest='f',
                             help="Path to GlobSim configuration file.")
@@ -71,11 +72,12 @@ def main():
                             choices=["ERA5", "ERA5ENS", "MERRA", "JRA", "JRA3Q", "JRA3QG"],
                             dest='d', help="What data sources should run?")
 
-    for parser in [download, interpolate, scale, convert]:
+    for parser in [download, interpolate, scale, convert, view]:  # ALL parsers
         parser.add_argument("-v", "--verbose", nargs="?", default=logging.INFO, const=logging.DEBUG, dest='level',
                             help="Show detailed output")
         parser.add_argument("-L", "--logfile", default=False, nargs="?", const=True, dest='logfile',
                             help="Whether to save output to a logfile. If a path is provided, it will be used instead of the default path")
+        parser.add_argument("--debug", action='store_true', help="Enable debug mode, which will enter a debug shell if an error occurs.")
 
     download.add_argument('-r', '--retry',  default=1, type=int, help="Number of times to re-launch download if it crashes")
     download.add_argument('-m', '--multi', action='store_true',    help="Download all data sources simultaneously ")
@@ -93,8 +95,8 @@ def main():
 
     convert.add_argument('-f', "--file", dest='file', default=None, required=True, type=str,
                          help="Path to scaled Globsim *.nc file")
-    convert.add_argument('-F', "--format", dest='format', default=None, required=True, type=str, choices=export_styles.keys(),
-                         help=f"What kind of output to generate. Chosen from {export_styles.keys()}")
+    convert.add_argument('-F', "--format", dest='format', default=None, required=True, type=str, choices=globsim_convert.export_styles.keys(),
+                         help=f"What kind of output to generate. Chosen from {globsim_convert.export_styles.keys()}")
     convert.add_argument('-o', "--output", dest='output', default=None, required=True, type=str,
                          help="Output directory to write new files")
     convert.add_argument('-s', "--site", dest='site', default=None, nargs="*", type=str,
@@ -108,7 +110,7 @@ def main():
                         help="if file is a TOML file, specify the reanalysis to plot.")
     view.add_argument("ftype",  type=str, choices=('sa','pl','sf'), nargs='?', default=None,
                         help="if file is a TOML file, specify the type of file to plot.")
-    view.add_argument("-v", "--var", type=str, dest='variable', help="variable to plot")
+    view.add_argument("-V", "--var", type=str, dest='variable', help="variable to plot")
     view.add_argument("-a", "--agg", choices=["1h", "6h", "D", "ME", "YE"], dest='aggregate', default="ME", help="aggregate data")
     view.add_argument("-o", "--output", type=str, dest='output', help="output directory")
    
@@ -119,5 +121,18 @@ def main():
     else:
         args = mainparser.parse_args()
         configure_logging(args)
-        args.func(args)
+
+        if args.debug:
+            import pdb, traceback
+            try:
+                args.func(args)
+            except Exception as e:
+                traceback.print_exc()
+                print(f"An exception occurred: {e}\nEntering post-mortem debug mode.")
+                # This drops you into the debugger at the exact point of the crash
+                pdb.post_mortem()
+ 
+        else:
+            args.func(args)
+       
 
