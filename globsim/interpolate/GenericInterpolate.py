@@ -66,30 +66,30 @@ class GenericInterpolate:
         self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
 
         # how globsim handles dimension order internally
-        self._working_order_3d = (self.vn_time, 'latitude', 'longitude')
-        self._working_order_4d = (self.vn_time, self.vn_level, 'latitude', 'longitude')
-        self._working_order_5d = (self.vn_time, 'number', self.vn_level, 'latitude', 'longitude')
+        self._working_order_3d = (self.dn_time, self.dn_lat, self.dn_lon)
+        self._working_order_4d = (self.dn_time, self.dn_level, self.dn_lat, self.dn_lon)
+        self._working_order_5d = (self.dn_time, 'number', self.dn_level, self.dn_lat, self.dn_lon)
         
     @property
     def _downloaded_order_3d(self):
         if self._reordered:
-            return ('latitude', 'longitude',self.vn_time)
+            return (self.dn_lat, self.dn_lon, self.dn_time)
         else:
-            return (self.vn_time, 'latitude', 'longitude')
+            return (self.dn_time, self.dn_lat, self.dn_lon)
     
     @property
     def _downloaded_order_4d(self):
         if self._reordered:
-            return ('latitude', 'longitude', self.vn_level, self.vn_time)
+            return (self.dn_lat, self.dn_lon, self.dn_level, self.dn_time)
         else:
-            return (self.vn_time, self.vn_level, 'latitude', 'longitude')
+            return (self.dn_time, self.dn_level, self.dn_lat, self.dn_lon)
     
     @property
     def _downloaded_order_5d(self):
         if self._reordered:
-            return ('latitude', 'longitude', 'number', self.vn_level, self.vn_time)
+            return (self.dn_lat, self.dn_lon, 'number', self.dn_level, self.dn_time)
         else:
-            return (self.vn_time, 'number', self.vn_level, 'latitude', 'longitude')
+            return (self.dn_time, 'number', self.dn_level, self.dn_lat, self.dn_lon)
         
     def r3d(self, arr, slices={}):
         ''' transform 3d array dimensions from on-disk order to working order 
@@ -134,7 +134,31 @@ class GenericInterpolate:
     @property
     def vn_level(self):
         return 'level'
+
+    @property
+    def vn_lat(self):
+        return 'latitude'
+
+    @property
+    def vn_lon(self):
+        return 'longitude'
     
+    @property
+    def dn_time(self):
+        return self.vn_time
+
+    @property
+    def dn_lat(self):
+        return self.dn_lat
+
+    @property
+    def dn_lon(self):
+        return self.dn_lon
+
+    @property
+    def dn_level(self):
+        return self.vn_level
+
     def find_stations_csv(self, par):
         if Path(par.get('station_list')).is_file():
             return Path(par.get('station_list'))
@@ -503,18 +527,18 @@ class GenericInterpolate:
             if pl:
                 logger.debug(f"Reading {v} data from source.")
                 if self._plarray.shape[0] == dtime:
-                    self._plarray[:] = self.r4d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
+                    self._plarray[:] = self.r4d(var, {self.dn_time:time_slice, self.dn_lat:lat_slice, self.dn_lon:lon_slice}).values
                 else:
-                    self._plarray = self.r4d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
+                    self._plarray = self.r4d(var, {self.dn_time:time_slice, self.dn_lat:lat_slice, self.dn_lon:lon_slice}).values
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
 
             else:
                 logger.debug(f"Reading {v} data from source")
                 if self._array.shape == (dtime, dlat, dlon):
-                    self._array[:] = self.r3d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
+                    self._array[:] = self.r3d(var, {self.dn_time:time_slice, self.dn_lat:lat_slice, self.dn_lon:lon_slice}).values
                 else:
-                    self._array = self.r3d(var, {self.vn_time:time_slice, 'latitude':lat_slice, 'longitude':lon_slice}).values
+                    self._array = self.r3d(var, {self.dn_time:time_slice, self.dn_lat:lat_slice, self.dn_lon:lon_slice}).values
                 
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
                 
@@ -526,13 +550,13 @@ class GenericInterpolate:
     def remove_select_variables(self, varlist: list, pl: bool, ens: bool = False):
         varlist.remove(self.vn_time)
         try:
-            varlist.remove('latitude')
+            varlist.remove(self.vn_lat)
         except ValueError as e:
             print(e)
             print('continue')
             pass
         try:
-            varlist.remove('longitude')
+            varlist.remove(self.vn_lon)
         except ValueError as e:
             print(e)
             print('continue')
