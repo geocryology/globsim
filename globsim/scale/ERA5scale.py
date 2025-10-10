@@ -381,6 +381,12 @@ class ERA5scale(GenericScale):
         var.units     = 'W m-2'
         var.standard_name = 'surface_direct_downwelling_shortwave_flux_in_air'
 
+        vn_glob = 'SW_topo_global'  # variable name
+        var           = self.rg.createVariable(vn_glob,'f4',('time', 'station'))
+        var.long_name = 'TOPOscale-corrected global solar radiation'
+        var.units     = 'W m-2'
+        var.standard_name = 'surface_downwelling_shortwave_flux_in_air'
+
         # interpolate station by station
         nc_time = self.input_times_in_output_units(self.nc_sf)
         py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.t_cal, only_use_cftime_datetimes=False)
@@ -417,11 +423,16 @@ class ERA5scale(GenericScale):
                 sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
                 corrected_direct *= sensible_values_mask
 
+            global_sw = diffuse + corrected_direct
+
             f = interp1d(nc_time, corrected_direct, kind='linear')
             self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
 
             f = interp1d(nc_time, diffuse, kind='linear')
             self.rg.variables[vn_diff][:, n] = f(self.times_out_nc)
+
+            f = interp1d(nc_time, global_sw, kind='linear')
+            self.rg.variables[vn_glob][:, n] = f(self.times_out_nc)
 
     def LW_Wm2_sur(self):
         """
