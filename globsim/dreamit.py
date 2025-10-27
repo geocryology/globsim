@@ -52,7 +52,7 @@ def add_var_AIRT_DReaMIT(group: nc.Dataset):
     """ Add DReaMIT air T to the netCDF file"""
     vn  = 'AIRT_DReaMIT_C'  # variable name
     var = group.createVariable(vn,'f4',('time', 'station'))
-    var.long_name = 'ADD A LONG NAME HERE'
+    var.long_name = 'DReaMIT model air temperature corrected for surface-based inversions'
     var.comment   = ref_dreamit
     var.units     = 'degree_C'
     
@@ -62,7 +62,7 @@ def add_var_beta_t(group: nc.Dataset):
     """ Add DReaMIT reanalysis bias air T to the netCDF file"""
     vn  = 'beta_t_C'  # variable name
     var = group.createVariable(vn,'f4',('time',))
-    var.long_name = 'ADD A LONG NAME HERE'
+    var.long_name = 'reanalysis bias independent of stations'
     var.comment   = ref_dreamit
     var.units     = 'degree_C'
     
@@ -380,13 +380,13 @@ def dreamit_air_T(T_lapse_grid: np.ndarray, T_lapse_station: np.ndarray, T_sur: 
 
     Returns
     ------- 
-    T_mod : np.ndarray
+    AIRT_DReaMIT_C : np.ndarray
         DReaMIT model air temperature corrected for surface-based inversions [C], with dimensions (time,station)
-    beta_t : np.ndarray
+    beta_t_C : np.ndarray
         reanalysis bias independent of stations [C], with dimensions (time,)
     """
     alpha_slope, alpha_intercept, beta_amp, t_star, beta_bias = params
-    beta_t  = (beta_amp * np.cos(2*np.pi*(time_frac_year-t_star)) + beta_bias)
+    beta_t_C  = (beta_amp * np.cos(2*np.pi*(time_frac_year-t_star)) + beta_bias)
     num_station = len(hyps)
     T_mod = {n: [] for n in range(num_station)}
     for n in range(num_station):
@@ -394,8 +394,8 @@ def dreamit_air_T(T_lapse_grid: np.ndarray, T_lapse_station: np.ndarray, T_sur: 
     
         alpha_h = (alpha_intercept + (np.exp(alpha_slope*hyps[n])-1))
     
-        T_mod[n] = (alpha_h * DT_grid + beta_t + T_lapse_station[:,n])
+        T_mod[n] = (alpha_h * DT_grid + beta_t_C + T_lapse_station[:,n])
 
-    T_mod = np.stack(list(T_mod.values()), axis=-1)
+    AIRT_DReaMIT_C = np.stack(list(T_mod.values()), axis=-1)
     
-    return T_mod, beta_t
+    return AIRT_DReaMIT_C, beta_t_C
