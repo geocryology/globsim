@@ -8,7 +8,9 @@ import math
 DATA_VARS = ['PRESS_pl', 'AIRT_pl', 'AIRT_sur', 'AIRT_redcapp_DeltaT',
              'PREC_sur', 'RH_sur', 'RH_pl', 'WSPD_sur', 'WDIR_sur',
              'SW_sur', 'LW_sur', 'SH_sur', 'SW_topo_diffuse', 
-             'SW_topo_direct', 'LW_topo']
+             'SW_topo_direct', 'LW_topo', 'z_top_inversion_m',
+             'T_lapse_grid_C', 'T_lapse_station_C', 'lapse_Cperm',
+             'AIRT_DReaMIT_C']
 
 
 """ make plots of interpolated variables """

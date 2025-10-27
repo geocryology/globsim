@@ -1,0 +1,3 @@
+reanalysis,alpha_slope,alpha_intercept,beta_amp,t_star,beta_bias,alpha_slope_err [%],alpha_intercept_err [%],beta_amp_err [%],t_star_err [%],beta_bias_err [%]
+era5,0.732,0.449,0.918,0.958,1.181,0.236,0.363,1.724,0.209,0.963
+jra3qg,0.753,0.525,0.796,0.945,0.229,0.277,0.369,2.068,0.266,4.858

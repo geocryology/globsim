@@ -21,6 +21,7 @@ The station  list CSV file uses the following headers for the data columns:
 ``sky_view``                    no             The sky-view factor (between 0 and 1) at the location. Used to correct for topographic effects (e.g. if the TOPOscale kernel is used).
 ``slope``                       no             The slope of the ground at the location in degrees. Used to correct for topographic effects (e.g. if the TOPOscale kernel is used).
 ``aspect``                      no             The slope of the ground at the location in degrees. Used to correct for topographic effects (e.g. if the TOPOscale kernel is used).
+``hypsometry``                  no             The hypsometry of the station (e.g. if the AIRT_DReaMIT kernel is used).
 =========================  ==============      ===============
 
 Example Siteslist file
@@ -29,8 +30,8 @@ Here is an example of a station list file
 
 ::
 
-   station_number,station_name,longitude_dd,latitude_dd,elevation_m,sky_view,slope,aspect
-   1,'hilltop',-129.1,64.1,2500,0.9,70,90
-   2,'swamp_2',-129.4,61.1,1000,0.5,0,0
-   3,'research_station',-126.1,64.1,1500,1.0,10,180
+   station_number,station_name,longitude_dd,latitude_dd,elevation_m,sky_view,slope,aspect,hypsometry
+   1,'hilltop',-129.1,64.1,2500,0.9,70,90,0
+   2,'swamp_2',-129.4,61.1,1000,0.5,0,0,0.5
+   3,'research_station',-126.1,64.1,1500,1.0,10,180,1
 
