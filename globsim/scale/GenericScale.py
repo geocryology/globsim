@@ -143,6 +143,20 @@ class GenericScale:
         self.__skyview = np.atleast_1d(svf)  # Cache for later use
 
         return self.__skyview
+    
+    def get_hypsometry(self) -> "np.ndarray":
+        if hasattr(self, "__hypsometry"):
+            return getattr(self, "__hypsometry")
+
+        if 'hypsometry' in self.stations.columns:
+            hyps = self.stations['hypsometry'].to_numpy(dtype='float32')
+        else:
+            logger.warning("No 'hypsometry' column in siteslist. Assuming h = 0 (top of ridge)")
+            hyps = np.ones_like(self.stations['longitude_dd'].values)
+        
+        self.__hypsometry = np.atleast_1d(hyps)  # Cache for later use
+
+        return self.__hypsometry
 
     def make_output_directory(self, par):
         """make directory to hold outputs"""

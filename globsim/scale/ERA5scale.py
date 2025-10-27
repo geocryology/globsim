@@ -38,6 +38,7 @@ from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, s
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 import globsim.constants as const
 import globsim.redcapp as redcapp
+import globsim.dreamit as dreamit
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -192,6 +193,68 @@ class ERA5scale(GenericScale):
             self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
                                                              time_in,
                                                              values[:, n] - 273.15)
+
+    def AIRT_DReaMIT(self):
+        """
+        Air temperature derived from surface data, pressure level data, and
+        dynamically-computed inversion metrics as shown by the method DReaMIT
+        """
+        # add variables to ncdf file
+        dreamit.add_var_z_top_inversion(self.rg)
+        dreamit.add_var_T_lapse_grid(self.rg)
+        dreamit.add_var_T_lapse_station(self.rg)
+        dreamit.add_var_lapse(self.rg)
+        dreamit.add_var_AIRT_DReaMIT(self.rg)
+        dreamit.add_var_beta_t(self.rg)
+
+        # interpolate station by station
+        time_in = self.input_times_in_output_units(self.nc_sa)
+        # get T from pressure level
+        T_pl_in = self.getValues(self.nc_pl, "t")
+        # get height from pressure level
+        h_pl_in = self.getValues(self.nc_pl, "z")
+        # get station temperature from pressure level surface
+        T_pl_surface_in = self.getValues(self.nc_pl_sur, "t")
+        # get station height from pressure level surface
+        h_pl_surface_in = self.getValues(self.nc_pl_sur, "height")
+        # get grid height from to
+        grid_elev_in = self.getValues(self.nc_to, "z")
+        # get T from surface
+        T_sur_in = self.getValues(self.nc_sa, "t2m")
+        # Time netCDF file
+        nc_time = self.nc_sa.variables['time']
+
+        z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = dreamit.dreamit_metrics(reanalysis='era5',
+                                                                                                    T_pl_in=T_pl_in,
+                                                                                                    h_pl_in=h_pl_in,
+                                                                                                    T_pl_surface_in=T_pl_surface_in,
+                                                                                                    h_pl_surface_in=h_pl_surface_in,
+                                                                                                    grid_elev_in=grid_elev_in)
+
+        hypsometry = self.get_hypsometry()
+        list_params = dreamit.get_model_params('era5')
+        time_frac_year = dreamit.time_frac_year(nc_time)
+
+        AIRT_DReaMIT_C, beta_t_C = dreamit.dreamit_air_T(T_lapse_grid=T_lapse_grid_C,
+                                                         T_lapse_station=T_lapse_station_C,
+                                                         T_sur=T_sur_in,
+                                                         time_frac_year=time_frac_year,
+                                                         hyps=hypsometry,
+                                                         params=list_params)
+
+        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
+            self.rg.variables['z_top_inversion_m'][:, n] = np.interp(self.times_out_nc,
+                                                                     time_in, z_top_inversion_m[:, n])
+            self.rg.variables['T_lapse_grid_C'][:, n] = np.interp(self.times_out_nc,
+                                                                     time_in, T_lapse_grid_C[:, n]) - 273.15
+            self.rg.variables['T_lapse_station_C'][:, n] = np.interp(self.times_out_nc,
+                                                                     time_in, T_lapse_station_C[:, n]) - 273.15
+            self.rg.variables['lapse_Cperm'][:, n] = np.interp(self.times_out_nc,
+                                                                     time_in, lapse_Cperm[:, n])
+            self.rg.variables['AIRT_DReaMIT_C'][:, n] = np.interp(self.times_out_nc,
+                                                                     time_in, AIRT_DReaMIT_C[:, n]) - 273.15
+        self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
+                                                     time_in, beta_t_C[:])
 
     def AIRT_redcapp(self):
         """
