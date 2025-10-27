@@ -38,6 +38,7 @@ jobs:
         python -m pip install -r requirements.txt
         python -m pip install pygrib 
         python -m pip install xarray
+        python -m pip install lmfit
         python setup.py install
     - name: Lint with flake8
       run: |
