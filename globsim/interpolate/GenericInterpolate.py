@@ -129,34 +129,42 @@ class GenericInterpolate:
         
     @property
     def vn_time(self):
+        """ variable name for time dimension """
         return 'time'
 
     @property
     def vn_level(self):
+        """ variable name for level dimension """
         return 'level'
 
     @property
     def vn_lat(self):
+        """ variable name for latitude dimension """
         return 'latitude'
 
     @property
     def vn_lon(self):
+        """ variable name for longitude dimension """
         return 'longitude'
     
     @property
     def dn_time(self):
+        """ dimension name for time dimension """
         return self.vn_time
 
     @property
     def dn_lat(self):
-        return self.dn_lat
+        """ dimension name for latitude dimension """
+        return self.vn_lat
 
     @property
     def dn_lon(self):
-        return self.dn_lon
+        """ dimension name for longitude dimension """
+        return self.vn_lon
 
     @property
     def dn_level(self):
+        """ dimension name for level dimension """
         return self.vn_level
 
     def find_stations_csv(self, par):
