@@ -335,7 +335,9 @@ def convert_grib2nc_sl(f, overwrite=False):
     ds = ds.rename_dims({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude'})
     logger.debug('Renaming variables')
     ds = ds.rename_vars({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude',
-                         '2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'})
+                         'var228': 'tp', 'var169': 'ssrd', 'var175': 'strd', 'var167': '2t',
+                         'var168': '2d', 'var165': '10u', 'var166': '10v', 'var206': 'tco3', 'var137': 'tcwv'})
+    ds = ds.rename_vars({'2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'})
     logger.debug("Transposing dimensions in the format: ['latitude', 'longitude', 'valid_time']")
     ds = ds.transpose('latitude', 'longitude', 'valid_time')
     logger.debug('Saving to netCDF4 file')

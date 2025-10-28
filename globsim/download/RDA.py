@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class Rdams(object):
-    BASE_URL = 'https://rda.ucar.edu/api/'
+    BASE_URL = 'https://gdex.ucar.edu/api/'
     ENVAUTHFILE = 'GLOBSIM_RDA_AUTH_FILE'
 
     def __init__(self, auth_file):
@@ -53,7 +53,7 @@ class Rdams(object):
         
         else:
             print(f"Could not find an authentication for RDAMS file. Please set the environment variable {self.ENVAUTHFILE} or create a file at {default_auth}")
-            print("See 'https://rda.ucar.edu/accounts/profile/' to get a token.")
+            print("See 'https://gdex.ucar.edu/accounts/profile/' to get a token.")
             sys.exit(1)
 
     def query(self, args=None):
@@ -100,7 +100,7 @@ class Rdams(object):
 
     def get_userinfo(self):
         """Get token from command line."""
-        print('Please visit https://rda.ucar.edu/accounts/profile/ to access token.')
+        print('Please visit https://gdex.ucar.edu/accounts/profile/ to access token.')
         token = input("Paste that token here: ")
         self.write_token_file(token)
         return token
