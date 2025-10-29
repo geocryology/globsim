@@ -3,11 +3,14 @@ from os import scandir
 import re
 import subprocess
 import time
+import shutil
 import zipfile
 import xarray as xr
 import cfgrib
 from netCDF4 import Dataset
 from netCDF4 import num2date, date2num
+
+import time
 
 from datetime import datetime
 from functools import partial
@@ -16,6 +19,8 @@ from concurrent.futures import ThreadPoolExecutor
 from os import rename
 from requests.exceptions import ChunkedEncodingError
 
+import warnings
+warnings.filterwarnings("ignore", message=".*decode timedelta values based on the presence of a timedelta-like units.*")
 
 from globsim.download.GenericDownload import GenericDownload
 from globsim.download.era_helpers import make_monthly_chunks, Era5Request, Era5RequestParameters, era5_pressure_levels, cf_to_cds_pressure, cf_to_cds_single
@@ -80,33 +85,43 @@ class ERA5MonthlyDownload(GenericDownload):
             month = period["month"]
             day = period["day"]
 
-            pl = Era5RequestParameters(product_type=self.product_type,
-                                       variable=cf_to_cds_pressure(variables) + ['geopotential'],
-                                       year=year,
-                                       month=month,
-                                       day=day,
-                                       time=Era5RequestParameters.all_times(),
-                                       area=area,
-                                       pressure_level=self.levels,
-                                       format='grib',
-                                       data_format= 'grib',
-                                       download_format = 'unarchived')
-            rpl = Era5Request('reanalysis-era5-pressure-levels', self.directory, pl)
-            requests_pl.append(rpl)
+            f_name_pl = f"era5_pl_{year}{int(month):02d}01_to_{year}{int(month):02d}31.nc"
 
-            sl = Era5RequestParameters(product_type=self.product_type,
-                                       variable=cf_to_cds_single(variables),
-                                       year=year,
-                                       month=month,
-                                       day=day,
-                                       time=Era5RequestParameters.all_times(),
-                                       area=area,
-                                       format='grib',
-                                       data_format= 'grib',
-                                       download_format = 'unarchived')
+            if (Path(self.directory) / f_name_pl).exists(): 
+                logger.warning(f"Found {f_name_pl}. Will not re-download.")
+            else:
+                pl = Era5RequestParameters(product_type=self.product_type,
+                                        variable=cf_to_cds_pressure(variables) + ['geopotential'],
+                                        year=year,
+                                        month=month,
+                                        day=day,
+                                        time=Era5RequestParameters.all_times(),
+                                        area=area,
+                                        pressure_level=self.levels,
+                                        format='grib',
+                                        data_format= 'grib',
+                                        download_format = 'unarchived')
+                rpl = Era5Request('reanalysis-era5-pressure-levels', self.directory, pl)
+                requests_pl.append(rpl)
 
-            rsl = Era5Request('reanalysis-era5-single-levels', self.directory, sl)
-            requests_sl.append(rsl)
+            f_name_sl = f"era5_re_resl_{year}{int(month):02d}01_to_{year}{int(month):02d}31.nc"
+
+            if (Path(self.directory) / f_name_sl).exists(): 
+                logger.warning(f"Found {f_name_sl}. Will not re-download.")
+            else:
+                sl = Era5RequestParameters(product_type=self.product_type,
+                                        variable=cf_to_cds_single(variables),
+                                        year=year,
+                                        month=month,
+                                        day=day,
+                                        time=Era5RequestParameters.all_times(),
+                                        area=area,
+                                        format='grib',
+                                        data_format= 'grib',
+                                        download_format = 'unarchived')
+
+                rsl = Era5Request('reanalysis-era5-single-levels', self.directory, sl)
+                requests_sl.append(rsl)
 
         return [request_to] + requests_pl + requests_sl
 
@@ -257,6 +272,12 @@ def rename_pl_dir(dir):
     files = [str(f) for f in Path(dir).iterdir() if pl_pattern.search(str(f))]
     for f in files:
         convert_grib2nc_pl(f)
+    for f in files:
+        print(f'moving grib file {f} to grib_files/ directory')
+        file_path = Path(f)
+        target_dir = file_path.parent / "grib_files"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(file_path), str(target_dir / file_path.name))
 
 
 def rename_pl_file(f, overwrite=True):
@@ -308,12 +329,41 @@ def rename_sl_dir(dir):
     for f in matched_files_re_resl:
         print(f'Current netCDF re_resl file: {f}')
         split_sl(f)
+    time.sleep(1)
     for f in matched_files_sa:
-        print(f'Current netCDF sa file: {f}')
+        print(f'Current converting time units for netCDF sa file: {f}')
         convert_time_sa(f)
+    time.sleep(1)
     for f in matched_files_sf:
-        print(f'Current netCDF sf file: {f}')
+        print(f'Current converting time units for netCDF sf file: {f}')
         convert_time_sf(f)
+    time.sleep(1)
+    for f in matched_files:
+        print(f'moving grib file {f} to grib_files/ directory')
+        file_path = Path(f)
+        target_dir = file_path.parent / "grib_files"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(file_path), str(target_dir / file_path.name))
+
+def extract_grib_attrs(f):
+    """
+    Extract all available attributes from a GRIB file using cfgrib.
+    Returns a nested dict like:
+        {'t2m': {'units': 'K', 'long_name': '2 metre temperature', ...}, ...}
+    """
+    mapping = {}
+    try:
+        datasets = cfgrib.open_datasets(f, backend_kwargs={"indexpath": ""})
+        for ds in datasets:
+            for var in ds.data_vars:
+                attrs = ds[var].attrs
+                if attrs:  # only store if there are any
+                    mapping[var] = dict(attrs)
+            ds.close()
+        del datasets  # ensure all backends are released
+    except Exception as e:
+        print(f"Could not extract units from GRIB ({e})")
+    return mapping
 
 def convert_grib2nc_sl(f, overwrite=False):
     sl_pattern = re.compile(r"era5_re_resl_(\d{8}_to_\d{8}).grib")
@@ -330,21 +380,32 @@ def convert_grib2nc_sl(f, overwrite=False):
     p1 = subprocess.Popen(cmd1.split(" "))
     p1.wait()
     logger.debug('Opening GRIB dataset')
-    ds = xr.open_dataset(new_file_temp, engine='netcdf4', decode_timedelta=True)
-    logger.debug('Renaming dimensions')
-    ds = ds.rename_dims({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude'})
-    logger.debug('Renaming variables')
-    ds = ds.rename_vars({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude',
-                         'var228': 'tp', 'var169': 'ssrd', 'var175': 'strd', 'var167': '2t',
-                         'var168': '2d', 'var165': '10u', 'var166': '10v', 'var206': 'tco3', 'var137': 'tcwv'})
-    ds = ds.rename_vars({'2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'})
-    logger.debug("Transposing dimensions in the format: ['latitude', 'longitude', 'valid_time']")
-    ds = ds.transpose('latitude', 'longitude', 'valid_time')
-    logger.debug('Saving to netCDF4 file')
-    ds.load().to_netcdf(new_file)
-    logger.debug(f"Done converting {Path(f).name}")
-    Path(new_file_temp).unlink()
-    ds.close()
+    with xr.open_dataset(new_file_temp, engine="netcdf4", decode_timedelta=True) as ds:
+        logger.debug('Renaming dimensions')
+        ds = ds.rename_dims({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude'})
+        logger.debug('Renaming variables')
+        ds = ds.rename_vars({
+            'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude',
+            'var228': 'tp', 'var169': 'ssrd', 'var175': 'strd', 'var167': '2t',
+            'var168': '2d', 'var165': '10u', 'var166': '10v',
+            'var206': 'tco3', 'var137': 'tcwv'
+        })
+        ds = ds.rename_vars({'2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'})
+
+        logger.debug("Applying all attributes from GRIB")
+        attr_map = extract_grib_attrs(f)
+        for var, attrs in attr_map.items():
+            if var in ds:
+                ds[var].attrs.update(attrs)
+        logger.debug("Transposing dimensions in the format: ['latitude', 'longitude', 'valid_time']")
+        ds = ds.transpose("latitude", "longitude", "valid_time")
+        logger.debug('Saving to netCDF4 file')
+        # Save and close
+        ds.load().to_netcdf(new_file)
+        logger.debug(f"Done converting {Path(f).name}")
+
+    # Cleanup temporary file
+    Path(new_file_temp).unlink(missing_ok=True)
 
 
 def split_sl(f, overwrite=False, time_var='valid_time'):
@@ -401,6 +462,7 @@ def split_resl_nc(f, sa, sf, time_var):
     if Path(sf).exists() and Path(sa).exists():
         logger.debug(f"Removing {f}")
         # Path(f).unlink()
+    time.sleep(1)
     cmd1 = f'ncks -C -O -x -v time {sf} {sf}'
     cmd2 = f'ncks -C -O -x -v time {sa} {sa}'
     logger.debug(cmd1)
@@ -421,15 +483,24 @@ def convert_time_sa(f, overwrite=True, time_var='valid_time'):
         print(f"Skipping {orig}")
         return
 
-    nc = Dataset(orig, mode='r+')
+    with Dataset(orig, mode='r+') as nc:
+        fully_processed = nc.getncattr("fully_processed") if "fully_processed" in nc.ncattrs() else None
+        if fully_processed == "True":
+            print(f"Skipping {orig}")
+            return
+        else:
+            if time_var not in nc.variables:
+                raise KeyError(f"Time variable '{time_var}' not found in {orig}")
 
-    newunit = 'seconds since 1970-01-01'
-    timevar = nc.variables[time_var]
-    timein = timevar[:]
-    datesin = num2date(timein,timevar.units)
-    timevar.setncattr('units',newunit)
-    timevar[:] = date2num(datesin,newunit)
-    nc.close()
+            timevar = nc.variables[time_var]
+            timein = timevar[:]
+            datesin = num2date(timein, timevar.units)
+
+            newunit = 'seconds since 1970-01-01'
+            timevar.setncattr('units', newunit)
+            timevar[:] = date2num(datesin, newunit)
+
+            nc.setncattr("fully_processed", "True")
 
 def convert_time_sf(f, overwrite=True, time_var='valid_time'):
     sa_pattern = re.compile(r"era5_sf_(\d{8}_to_\d{8}).nc")
@@ -441,16 +512,24 @@ def convert_time_sf(f, overwrite=True, time_var='valid_time'):
         print(f"Skipping {orig}")
         return
 
-    nc = Dataset(orig, mode='r+')
+    with Dataset(orig, mode='r+') as nc:
+        fully_processed = nc.getncattr("fully_processed") if "fully_processed" in nc.ncattrs() else None
+        if fully_processed == "True":
+            print(f"Skipping {orig}")
+            return
+        else:
+            if time_var not in nc.variables:
+                raise KeyError(f"Time variable '{time_var}' not found in {orig}")
 
-    newunit = 'seconds since 1970-01-01'
-    timevar = nc.variables[time_var]
-    timein = timevar[:]
-    datesin = num2date(timein,timevar.units)
-    timevar.setncattr('units',newunit)
-    timevar[:] = date2num(datesin,newunit)
-    nc.close()
+            timevar = nc.variables[time_var]
+            timein = timevar[:]
+            datesin = num2date(timein, timevar.units)
 
+            newunit = 'seconds since 1970-01-01'
+            timevar.setncattr('units', newunit)
+            timevar[:] = date2num(datesin, newunit)
+
+            nc.setncattr("fully_processed", "True")
 
 def wait_for_file_scandir(directory, pattern, timeout=60, check_interval=1):
     regex = re.compile(pattern)
