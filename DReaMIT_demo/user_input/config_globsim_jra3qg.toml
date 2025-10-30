@@ -1,0 +1,52 @@
+# This is a TOML document
+
+title = "Globsim Control File"
+
+[download]
+# logistics
+project_directory = "./reanalysis"
+credentials_directory = "./user_input"
+
+# chunk size for splitting files and download [days]
+chunk_size = 14
+
+# area bounding box [decimal degrees]
+bbN = 65.8
+bbS = 64.2
+bbW = -139
+bbE = -137.4
+
+# ground elevation range within area [m]
+ele_min = 0
+ele_max = 5000
+
+# time slice [YYYY/MM/DD]
+beg = "2023/01/01"
+end = "2023/01/05"
+
+# variables to download [CF Standard Name Table]
+variables = ["air_temperature", "relative_humidity", "wind_speed", "wind_from_direction", "precipitation_amount","specific_humidity",
+"downwelling_shortwave_flux_in_air", "downwelling_longwave_flux_in_air", "downwelling_shortwave_flux_in_air_assuming_clear_sky", "downwelling_longwave_flux_in_air_assuming_clear_sky"]
+
+[interpolate]
+reordered=false
+project_directory = "./reanalysis" # directory where the downloads are. Looks there for input data.
+output_directory = "./reanalysis/jra3qg" # Interpolated data will look there.
+skip_checks = "True"
+station_list = "./dem_to_hypso/config_globsim_with_hypso.csv"
+chunk_size = 10
+beg = "2023/01/01"
+end = "2023/01/05"
+variables = ["air_temperature"]
+
+[scale]
+project_directory = "./reanalysis/jra3qg"
+# where the interpolated files are.
+output_directory = "./reanalysis/jra3qg"
+# will create a directory there called 'scaled'
+beg = "2023/01/01"
+end = "2023/01/05"
+station_list = "config_globsim_with_hypso.csv"
+kernels = ["AIRT_C_pl", "AIRT_C_sur", "AIRT_DReaMIT"]
+time_step = 1 # hourly
+overwrite = true
