@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: DReaMIT
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Victor
+    family-names: Pozsgay
+    email: victor.pozsgay@carleton.ca
+    orcid: 'https://orcid.org/0000-0002-6799-3364'
+    affiliation: Carleton University
+  - given-names: Nick C.
+    family-names: Noad
+    email: nick.noad@uleth.ca
+    orcid: 'https://orcid.org/0000-0003-0652-5337'
+    affiliation: University of Lethbridge
+  - given-names: Stephan
+    family-names: Gruber
+    orcid: 'https://orcid.org/0000-0002-1079-1542'
+    affiliation: Carleton University
+    email: stephan.gruber@carleton.ca
+  - given-names: Philip P.
+    family-names: Bonnaventure
+    orcid: 'https://orcid.org/0000-0002-4157-0689'
+    affiliation: University of Lethbridge
+    email: philip.bonnaventure@uleth.ca
+repository-code: 'https://github.com/geocryology/globsim/tree/DReaMIT_demo'
