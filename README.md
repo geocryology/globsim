@@ -7,6 +7,12 @@ Welcome to the **DReaMIT_demo** branch of Globsim, a tool for automating the dow
 
 The new **DReaMIT_demo** branch is the result of the integration of the **DReaMIT** (**D**ynamical **Rea**nalysis **M**odel for **I**nversions of **T**emperature) model into GlobSim. This allows the user to directly produce surface-based inversion (SBI) metrics and air temperature for any point location. Full desciption available in a coming GMD publication, authored by Victor Pozsgay, Nick Noad, Stephan Gruber, and Philip Bonnaventure.
 
+We provide a demonstration folder: **GloSim/DReaMIT_demo/**
+
+The main files for the  integration are:
+1. core file for the model [dreamit.py](/globsim/dreamit.py)
+2. integration into the GlobSim scaling process for [ERA5](/globsim/scale/ERA5scale.py) and [JRA-3Q](/globsim/scale/JRAscale.py).
+
 ## Installation
 
 Start by cloning this branch
@@ -30,6 +36,8 @@ Details for usage (and outdated installation instructions) for Globsim can be fo
 ## Credentials for ERA5 and JRA-3Q
 
 _All paths in this section are given relative to the root of /GlobSim/DReaMIT_demo/._
+
+See the [Credentials](/docs/source/Credentials.rst) page for details about credentials.
 
 Get personal tokens (credentials) to be able to download ERA5 and JRA-3Q data.
 - ERA5:
@@ -129,6 +137,20 @@ DReaMIT_demo/
 └── plots/                                    # all the produced plots are found here
     └── some .pdf files
 ```
+
+## Adapting the code
+
+### Change locations
+1. Make sure to update the list of stations in **./user_input/config_globsim_pre_hypso.csv**
+2. Update the area bounding box of the ERA5 and JRA-3Q TOML configuration files (MAKE SURE TO HAVE AT LEAST 1.5 DECIMAL DEGREES IN BOTH LATITUDE AND LATITUDE)
+
+See the [Siteslist](/docs/source/Siteslist.rst) page for details about sites list.
+
+### Change period
+Change 'beg' and 'end' fields under [scale], [interpolate], and [scale] sections of both TOML configuration files.
+
+### Change kernels
+See the [Operation](/docs/source/Operation.rst) page for details about available scaling kernels and associated netCDF variables.
 
 ## Disclaimer
 GlobSim is made available for use under the GNU GPL-3 license. We do not guarantee that this software will work with your particular hardware or software. We also make no claim of offering technical support or continued development. However, any issues or bugs should be reported using the github issue tracking tool.

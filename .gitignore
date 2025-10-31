@@ -1,6 +1,5 @@
 *.pyc
 
-*.nc
 /docs/source/_build/*
 
 *.pyc
@@ -37,6 +36,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+DReaMIT_demo/dem_to_hypso/DMP_WS01/*
+DReaMIT_demo/dem_to_hypso/DMP_WS02/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

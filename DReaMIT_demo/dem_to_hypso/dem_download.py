@@ -351,6 +351,7 @@ def plot_dem_with_station(list_stations, df_sites, df_grid_radius, points):
         ax.set_ylabel("Northing [m]")
         ax.legend()
         ax.set_title(f'ArcticDEM around {station} — elevation contour at {int(threshold)} m')
+        os.makedirs(f'./plots', exist_ok=True)
         fig.savefig(f"./plots/ArcticDEM_{station}.pdf", format='pdf', bbox_inches='tight')
         figures_dem[station] = fig
         plt.close()
