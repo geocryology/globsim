@@ -152,5 +152,11 @@ Change 'beg' and 'end' fields under [scale], [interpolate], and [scale] sections
 ### Change kernels
 See the [Operation](/docs/source/Operation.rst) page for details about available scaling kernels and associated netCDF variables.
 
+### Change model parameters  (e.g., for new regional calibration)
+The file that contains the calibrated model parameters (alpha, beta) is found at **globsim/globsim/data/DReaMIT_params.csv**. If you would like to update the parameters with your own, modify this csv file.
+
+## Observational data
+Observational data used in the study to calibrate and test the model is available in the **./observations/** folder. There, you will find hourly air temperature data for all WS01 and WS02 sites, together with all Dawson sites. Note that data from ECCC/NAVCAN sites is accessible for download with the R-package weathercan (Lazerte, 2018).
+
 ## Disclaimer
 GlobSim is made available for use under the GNU GPL-3 license. We do not guarantee that this software will work with your particular hardware or software. We also make no claim of offering technical support or continued development. However, any issues or bugs should be reported using the github issue tracking tool.
