@@ -3,11 +3,11 @@
 
 last revision November 2025
 
-Welcome to the **DReaMIT_demo** branch of Globsim, a tool for automating the downloading, interpolation and scaling of different reanalyses to produce meteorological time series for user-defined point locations.
+Welcome to the **DReaMIT_demo** branch of Globsim, a tool for automating the downloading, interpolation, and scaling of different reanalyses to produce meteorological time series for user-defined point locations.
 
-The new **DReaMIT_demo** branch is the result of the integration of the **DReaMIT** (**D**ynamical **Rea**nalysis **M**odel for **I**nversions of **T**emperature) model into GlobSim. This allows the user to directly produce surface-based inversion (SBI) metrics and air temperature for any point location. Full desciption available in a coming GMD publication, authored by Victor Pozsgay, Nick Noad, Stephan Gruber, and Philip Bonnaventure.
+The new **DReaMIT_demo** branch is the result of the integration of the **DReaMIT** (**D**ynamical **Rea**nalysis **M**odel for **I**nversions of **T**emperature) model into GlobSim. This allows the user to directly produce surface-based inversion (SBI) metrics and air temperature for any point location. Full desciption available in a coming GMD publication, authored by Victor Pozsgay, Nick Noad, Philip Bonnaventure, and Stephan Gruber.
 
-We provide a demonstration folder: **GloSim/DReaMIT_demo/**
+We provide a demonstration folder: **globsim/DReaMIT_demo/**
 
 The main files for the  integration are:
 1. core file for the model [dreamit.py](/globsim/dreamit.py)
@@ -19,9 +19,9 @@ Start by cloning this branch
 ```bash
 git clone --branch DReaMIT_demo --single-branch https://github.com/geocryology/globsim.git
 ```
-Use a conda environment to handle most dependencies to avoid building ESMF yourself. Navigate to the **GloSim/DReaMIT_demo/** folder and install the **globsim_DReaMIT** conda environment from the YAML file, and activate it, before navigating back to the root of the **GlobSim/** folder and installing it:
+Use a conda environment to handle most dependencies to avoid building ESMF yourself. Navigate to the **globsim/DReaMIT_demo/** folder, install the **globsim_DReaMIT** conda environment from the YAML file, and activate it, before navigating back to the root of the **globsim/** folder and installing it:
 ```bash
-cd GlobSim/DReaMIT_demo/
+cd globsim/DReaMIT_demo/
 conda env create -f environment.yml
 conda activate globsim_DReaMIT
 cd ..
@@ -29,19 +29,19 @@ python -m pip install -e .
 cd DReaMIT_demo/
 ```
 
-For the remaining of the demonstration use, users will need to work from the folder **GloSim/DReaMIT_demo/**.
+For the remaining of the demonstration use, users will need to work from the folder **globsim/DReaMIT_demo/**.
 
 Details for usage (and outdated installation instructions) for Globsim can be found on our [ReadTheDocs page](https://globsim.readthedocs.io/en/latest/?).
 
 ## Credentials for ERA5 and JRA-3Q
 
-_All paths in this section are given relative to the root of /GlobSim/DReaMIT_demo/._
+_All paths in this section are given relative to the root of /globsim/DReaMIT_demo/._
 
 See the [Credentials](/docs/source/Credentials.rst) page for details about credentials.
 
 Get personal tokens (credentials) to be able to download ERA5 and JRA-3Q data.
 - ERA5:
-    1. Create a ECMWF account, complete the form, activate your profile, and go to https://cds-beta.climate.copernicus.eu/how-to-api.
+    1. Create an ECMWF account, complete the form, activate your profile, and go to https://cds-beta.climate.copernicus.eu/how-to-api.
     2. Fill the credential file **./user_input/.cdsapirc** with your info.
     3. Install the CDS API client (pip install 'cdsapi>=0.7.0').
     4. Go to: https://cds-beta.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels?tab=download and scroll down a lot and accept the Licence to use Copernicus Products under the 'Terms of use'  
@@ -50,11 +50,11 @@ Get personal tokens (credentials) to be able to download ERA5 and JRA-3Q data.
     2. Go to your Profile->API Token, and copy it into **./user_input/rdams_token.txt**
 
 ## Run the Notebook
-_All paths in this section are given relative to the root of /GlobSim/DReaMIT_demo/._
+_All paths in this section are given relative to the root of /globsim/DReaMIT_demo/._
 
 _Depending on your Jupyter notebook interpreter, you might be prompted to install ipykernel too._
 
-_The downloaded DEM data is not included in GitHub due to large file size limits. However, the user should feel free to use the notebook to download them locally._
+_The downloaded DEM data is not included in GitHub due to large file size limits. However, the user should feel free to use the notebook to download the data locally._
 
 _The folder provides the reanalysis data, downloaded for a short time window. If the user wishes to download it for a longer time period, or different locations, they should feel free to modify the GlobSim configuration files in the ./user_input/ folder._
 
@@ -160,3 +160,6 @@ Observational data used in the study to calibrate and test the model is availabl
 
 ## Disclaimer
 GlobSim is made available for use under the GNU GPL-3 license. We do not guarantee that this software will work with your particular hardware or software. We also make no claim of offering technical support or continued development. However, any issues or bugs should be reported using the github issue tracking tool.
+
+# Have fun
+Please customise the code and use it for your project. Then let us know how things work. We hope this is useful for you.
