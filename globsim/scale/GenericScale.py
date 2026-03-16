@@ -2,6 +2,7 @@ import tomlkit
 import logging
 import numpy as np
 import netCDF4 as nc
+import pandas as pd
 
 from datetime import datetime
 from os import path, makedirs
@@ -37,6 +38,46 @@ class GenericScale:
         if np.ma.isMaskedArray(times_out):
             times_out = times_out.data
         return f(times_out)
+    
+    def set_valid_stations(self, interpolated_ncf: nc.Dataset):
+        ipl_station_ix=self.nc_pl_sur['station'][:]
+        ipl_station_lon=self.nc_pl_sur['longitude'][:]
+        ipl_station_lat=self.nc_pl_sur['latitude'][:]
+
+        try:
+            ipl_station_name=self.nc_pl_sur['station_name'][:]
+        except IndexError:
+            logger.warning("No station_name variable in interpolated netCDF.")
+            ipl_station_name = None
+        
+        interpolated_stations = pd.DataFrame(data={'station_number':ipl_station_ix,
+                                                   'longitude_dd': ipl_station_lon, 
+                                                   'latitude_dd': ipl_station_lat, 
+                                                   'station_name': ipl_station_name})
+
+        station_df = self.stations.merge(interpolated_stations, on='station_number', how='inner', suffixes=('_scale', '_interpolate'))
+        station_df['lon_matches'] = np.isclose(station_df['longitude_dd_scale'], station_df['longitude_dd_interpolate'], atol=1e-4)
+        station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'], station_df['latitude_dd_interpolate'], atol=1e-4)
+        station_df['coordinates_match'] = station_df['lon_matches'] & station_df['lat_matches']
+        station_df['name_matches'] = station_df['station_name_scale'] == station_df['station_name_interpolate']
+
+        for _, row in station_df[~station_df['coordinates_match']].iterrows():
+            logger.warning(f"Station {row['station_number']} ({row['station_name_scale']})" \
+                           f"has mismatched coordinates between station list" \
+                           f"({row['longitude_dd_scale']}, {row['latitude_dd_scale']}) and interpolated netCDF" \
+                           f"({row['longitude_dd_interpolate']}, {row['latitude_dd_interpolate']}).")
+            
+        for _, row in station_df[~station_df['name_matches']].iterrows():
+            logger.warning(f"Station {row['station_number']} ({row['station_name_scale']}) " \
+                           f"has mismatched names between station list ({row['station_name_scale']})" \
+                           f"and interpolated netCDF ({row['station_name_interpolate']}).")
+            
+        logger.info(f"Found {len(station_df)} valid stations with matching station numbers between station list and interpolated netCDF. " \
+                    f"{~(station_df['coordinates_match']).sum()} of these have mismatched coordinates and " \
+                    f"{~(station_df['name_matches'].sum())} have mismatched names.")
+        
+        self.valid_stations = station_df
+      
 
     def set_parameters(self, par):
         self.intpdir = path.join(par['project_directory'], 'interpolated')
