@@ -58,6 +58,7 @@ class GenericInterpolate:
         self._array = np.array([])  # recycled numpy array
         self._plarray = np.array([])
 
+        self._skip_invariant = kwargs.get('skip_to', False)
         self._skip_sa = kwargs.get('skip_sa', False)
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
@@ -125,6 +126,10 @@ class GenericInterpolate:
         else:
             setfrom = "CLI"
         logger.debug(f"CONFIG ({setfrom}) {name}: {value}")
+        
+        if value == "False":  # handle string "False" from toml
+            value = False
+
         return value
         
     @property
@@ -297,10 +302,6 @@ class GenericInterpolate:
             ERA2station('era_sa.nc', 'era_sa_inter.nc', stations,
                         variables=variables, date=date)
         """
-        #import pdb;pdb.set_trace()
-        #tbeg = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][0]], ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
-        #tend = nc.num2date(ncf_in[self.vn_time][np.where(tmask_chunk)[0][-1]],  ncf_in[self.vn_time].units, ncf_in[self.vn_time].calendar)
-        #logger.info(f"2d interpolation for period {tbeg} to {tend}")
 
         # is it a file with pressure levels?
         pl = self.vn_level in ncf_in.sizes.keys()
@@ -533,7 +534,7 @@ class GenericInterpolate:
 
         logger.debug("Reading source data from netcdf file")
         t0 = datetime.now()
-
+        
         for n, v in enumerate(variables):
             var = ncf_in[v]
 
@@ -846,7 +847,7 @@ def reorder_and_slice_array(arr, array_order: tuple, desired_order: tuple, slice
     else:
         # For NumPy, use np.transpose to reorder dimensions
         reordered_arr = np.transpose(sliced_arr, axes=new_axes)
-
+    
     return reordered_arr
 
 def human_readable_time(delta: timedelta) -> tuple:

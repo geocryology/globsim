@@ -349,13 +349,16 @@ class JRAinterpolate(GenericInterpolate):
         ncf.close()  # close input file
 
     def _preprocess(self):
-        try:
-            self.JRA2station(self.mf_to,
-                             path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
-                             self.stations, ['Geopotential'], date=None)
-        except OSError:
-            logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
-                         "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+            logger.info("Skipping invariant interpolation")
+        else:
+            try:
+                self.JRA2station(self.mf_to,
+                                path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
+                                self.stations, ['Geopotential'], date=None)
+            except OSError:
+                logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
+                            "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
 
     def _process_sa(self):
         # === 2D Interpolation for Surface  Data ===

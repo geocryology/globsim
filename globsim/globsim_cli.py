@@ -82,6 +82,7 @@ def main():
     download.add_argument('-r', '--retry',  default=1, type=int, help="Number of times to re-launch download if it crashes")
     download.add_argument('-m', '--multi', action='store_true',    help="Download all data sources simultaneously ")
 
+    interpolate.add_argument('--skip-to', dest='skip_to', action='store_true', help='skip creation of "to" file')
     interpolate.add_argument('--skip-sa', dest='skip_sa', action='store_true', help='skip creation of "sa" file')
     interpolate.add_argument('--skip-sf', dest='skip_sf', action='store_true', help='skip creation of "sf" file')
     interpolate.add_argument('--skip-pl', dest='skip_pl', action='store_true', help='skip creation of "pl" file')

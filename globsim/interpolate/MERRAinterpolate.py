@@ -335,9 +335,12 @@ class MERRAinterpolate(GenericInterpolate):
         if not path.isdir(self.output_dir):
             makedirs(self.output_dir)
         
-        self.MERRA2station(self.mf_sc,
-                           path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
-                           self.stations, ['PHIS','FRLAND'], date=None)
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+            logger.info("Skipping invariant interpolation")
+        else:
+            self.MERRA2station(self.mf_sc,
+                            path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
+                            self.stations, ['PHIS','FRLAND'], date=None)
     
     def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===

@@ -392,8 +392,11 @@ class ERA5interpolate(GenericInterpolate):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
-        self.ERA2station(self.mf_to, self.getOutFile('to'),
-                         self.stations, ['z', 'lsm'], date=None)
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+            logger.info("Skipping invariant interpolation")
+        else:
+            self.ERA2station(self.mf_to, self.getOutFile('to'),
+                            self.stations, ['z', 'lsm'], date=None)
         
     def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===
