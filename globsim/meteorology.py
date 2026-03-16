@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import globsim.constants as const
 
-boltzmann = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
-
 
 def satvapp_kPa_fT(T):
     '''
@@ -113,7 +111,7 @@ def LW_downward(RH,T,N):
     p1 = 6
     p2 = 4
     e_as = 0.979
-    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * boltzmann * T**4
+    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * const.boltzmann * T**4
     return lw
 
 
