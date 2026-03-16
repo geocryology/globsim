@@ -384,14 +384,22 @@ def convert_grib2nc_sl(f, overwrite=False):
         logger.debug('Renaming dimensions')
         ds = ds.rename_dims({'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude'})
         logger.debug('Renaming variables')
-        ds = ds.rename_vars({
-            'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude',
-            'var228': 'tp', 'var169': 'ssrd', 'var175': 'strd', 'var167': '2t',
-            'var168': '2d', 'var165': '10u', 'var166': '10v',
-            'var206': 'tco3', 'var137': 'tcwv'
-        })
-        ds = ds.rename_vars({'2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'})
-
+        
+        rename_dict = {
+                'time': 'valid_time', 'lat': 'latitude', 'lon': 'longitude',
+                'var228': 'tp', 'var169': 'ssrd', 'var175': 'strd', 'var167': '2t',
+                'var168': '2d', 'var165': '10u', 'var166': '10v',
+                'var206': 'tco3', 'var137': 'tcwv',
+                '2t': 't2m', '2d': 'd2m', '10u': 'u10', '10v': 'v10'
+            }
+        for key, val in rename_dict.items():
+            if key in ds.variables:
+                ds = ds.rename_vars({key: val})
+            elif val in ds.variables:
+                logger.debug(f"Variable '{key}' already renamed to '{val}' in dataset.")
+            else:
+                logger.warning(f"Neither variable '{key}' nor '{val}' found in dataset. Cannot rename. Variables in dataset: {list(ds.data_vars)}")
+        
         logger.debug("Applying all attributes from GRIB")
         attr_map = extract_grib_attrs(f)
         for var, attrs in attr_map.items():
