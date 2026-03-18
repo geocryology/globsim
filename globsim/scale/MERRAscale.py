@@ -178,28 +178,18 @@ class MERRAscale(GenericScale):
         if not path.isdir(path.dirname(self.output_file)):
             makedirs(path.dirname(self.outfile))
 
+        self.set_valid_stations(self.nc_pl_sur)
+        valid_indices = self.valid_stations['nc_index']
         self.rg = new_scaled_netcdf(self.output_file,
                                     self.nc_pl_sur,
                                     self.times_out_nc,
-                                    t_unit=self.scaled_t_units)
+                                    t_unit=self.scaled_t_units,
+                                    valid_indices=valid_indices,
+                                    station_names=self.valid_stations['station_name_scale'])
         
         # add grid elevation to netCDF
-        self.add_grid_elevation(self.rg, self.nc_sc['PHIS'][0, :] / const.G)
+        self.add_grid_elevation(self.rg, self.nc_sc['PHIS'][0, valid_indices.values] / const.G)
         
-        # add station names to netcdf
-        # first convert to character array
-        names_out = nc.stringtochar(np.array(self.stations['station_name'], 'S32'))
-
-        # create space in the netcdf
-        _        = self.rg.createDimension('name_strlen', 32)
-        st           = self.rg.createVariable('station_name', "S1",
-                                              ('station', 'name_strlen'))
-        st.standard_name = 'platform_name'
-        st.units     = ''
-
-        # add data
-        st[:] = names_out
-
         # iterate through kernels and start process
         self.run_kernels()
 

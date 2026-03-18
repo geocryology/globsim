@@ -115,16 +115,18 @@ class ERA5scale(GenericScale):
         variable and adds it to the netCDF file.
         """
 
-        stations = self.stations['station_name']
+        self.set_valid_stations(self.nc_pl_sur)
         # iterate thorugh kernels and start process
 
         self.output_file = self.getOutNCF(self.par, self.src)
+        valid_indices = self.valid_stations['nc_index']
         self.rg = new_scaled_netcdf(self.output_file,
                                     self.nc_pl_sur, self.times_out_nc,
                                     t_unit=self.scaled_t_units,
-                                    station_names=stations)
+                                    valid_indices=valid_indices,
+                                    station_names=self.valid_stations['station_name_scale'])
         # add surface height
-        self.add_grid_elevation(self.rg, self.getValues(self.nc_to, 'z')[0, :] / const.G)
+        self.add_grid_elevation(self.rg, self.getValues(self.nc_to, 'z')[0, valid_indices.values] / const.G)
 
         self.indProcess()
 

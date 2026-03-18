@@ -54,8 +54,11 @@ class GenericScale:
                                                    'longitude_dd': ipl_station_lon, 
                                                    'latitude_dd': ipl_station_lat, 
                                                    'station_name': ipl_station_name})
+        interpolated_stations['nc_index'] = interpolated_stations.index
 
-        station_df = self.stations.merge(interpolated_stations, on='station_number', how='inner', suffixes=('_scale', '_interpolate'))
+        stations = self.stations.copy()
+        stations['siteslist_index'] = stations.index
+        station_df = stations.merge(interpolated_stations, on='station_number', how='inner', suffixes=('_scale', '_interpolate'))
         station_df['lon_matches'] = np.isclose(station_df['longitude_dd_scale'], station_df['longitude_dd_interpolate'], atol=1e-4)
         station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'], station_df['latitude_dd_interpolate'], atol=1e-4)
         station_df['coordinates_match'] = station_df['lon_matches'] & station_df['lat_matches']
@@ -73,10 +76,16 @@ class GenericScale:
                            f"and interpolated netCDF ({row['station_name_interpolate']}).")
             
         logger.info(f"Found {len(station_df)} valid stations with matching station numbers between station list and interpolated netCDF. " \
-                    f"{~(station_df['coordinates_match']).sum()} of these have mismatched coordinates and " \
-                    f"{~(station_df['name_matches'].sum())} have mismatched names.")
+                    f"{(~station_df['coordinates_match']).sum()} of these have mismatched coordinates and " \
+                    f"{(~station_df['name_matches']).sum()} have mismatched names.")
         
         self.valid_stations = station_df
+
+
+    def iterate_stations(self):
+        """Iterate through stations, returning siteslist index and interpolated file index."""
+        for row in self.valid_stations.itertuples():
+            yield row.siteslist_index, row.nc_index
       
 
     def set_parameters(self, par):
