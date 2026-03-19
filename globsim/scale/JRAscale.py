@@ -17,6 +17,7 @@ from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
                                      solar_zenith)
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+import globsim.scale.kernel_templates as kt
 import globsim.constants as const
 import globsim.redcapp as redcapp
 import globsim.dreamit as dreamit
@@ -106,74 +107,26 @@ class JRAscale(GenericScale):
         self.nc_pl.close()
         self.nc_sf.close()
         self.nc_sa.close()
-
-    def get_file(self, file:str) -> "nc.Dataset":
-        if file == "sa":
-            f = self.nc_sa
-        elif file == "sf":
-            f = self.nc_sf
-        elif file == "pl_sur":
-            f = self.nc_pl_sur
-        elif file == "pl":
-            f = self.nc_pl
-        elif file == "to":
-            f = self.nc_to
-        else:
-            raise ValueError("sa, sf, to, or pl_sur")
-        
-        return f
     
     def get_name(self, file:str, jra55name:str) -> str:
         return jra55name
     
-    def get_station_values(self, file:str, jra55name:str, station_ix:int, preserve_dims:bool=False) -> np.ndarray:
-        """ Get station values for a given variable and station index. Handles slicing for 2D and 3D variables. """
-        if preserve_dims:
-            station_ix = slice(station_ix, station_ix + 1)
-
-        if file in ['sa', 'sf', 'to', 'pl_sur']:  #  time, station
-            _slice = (slice(None), station_ix)
-        elif file == 'pl':  #  time, level, station
-            _slice = (slice(None), slice(None), station_ix)
-        
-        return self.get_values(file, jra55name, _slice=_slice)
+    def get_station_values(self, file, jra55name, station_ix, preserve_dims = False):
+        return super().get_station_values(file, jra55name, station_ix, preserve_dims)
     
-    def get_values(self, file:str, jra55name:str, _slice=None, attr=None):
+    def get_values(self, file:str, jra55name: str, _slice=None, attr=None):
         """ Get JRA-55 or 3Q values in common units
 
         Handles name differences and  scale-offset conversions 
         between JRA55 and JRA3Q """
-        f = self.get_file(file)
-        n = self.get_name(file, jra55name)
-        
-        if attr is not None:
-            v = f.variables[n].getncattr(attr)
-        
-        else:
-            if _slice is None:
-                v = f.variables[n][:]
-            else:
-                v = f.variables[n][_slice]
-            
-            if jra55name in self.SCALING.get(file).keys():
-                scale, offset = self.SCALING.get(file).get(jra55name)
-                v *= scale
-                v += offset
-
-        return v
+        return super().get_values(file, jra55name, _slice=_slice, attr=attr)
     
     def PRESS_Pa_pl(self):
         """
         Surface air pressure from pressure levels.
         """
-        # add variable to ncdf file
-        vn = 'PRESS_pl'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time','station'))
-        var.long_name = 'air_pressure {} pressure levels only'.format(self.NAME)
-        var.units     = 'Pa'
-        var.standard_name = 'surface_air_pressure'
-
-        # interpolate station by station
+        vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
+        
         time_in = self.get_values("pl_sur", "time").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
@@ -186,13 +139,8 @@ class JRAscale(GenericScale):
         """
         Air temperature derived from pressure levels, exclusively.
         """
-        vn = 'AIRT_pl'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time','station'))
-        var.long_name = 'air_temperature {} pressure levels only'.format(self.NAME)
-        var.units     = 'degrees_C'
-        var.standard_name = 'air_temperature'
+        vn = kt.AIRT_C_pl(self.rg, self.NAME)
 
-        # interpolate station by station
         time_in = self.get_values("pl_sur","time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
@@ -203,34 +151,20 @@ class JRAscale(GenericScale):
         """
         Air temperature derived from surface data, exclusively.
         """
+        vn = kt.AIRT_C_sur(self.rg, self.NAME)
 
-        # add variable to ncdf file
-        vn = 'AIRT_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '2_metre_temperature {} surface only'.format(self.NAME)
-        var.units     = 'degrees_C'
-        var.standard_name = 'air_temperature'
-
-        # interpolate station by station
         time_in = self.get_values("sa", "time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", "Temperature", interp_ix)
             self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values) - 273.15
 
-
     def AIRT_DReaMIT(self):
         """
         Air temperature derived from surface data, pressure level data, and
         dynamically-computed inversion metrics as shown by the method DReaMIT
         """
-        # add variables to ncdf file
-        dreamit.add_var_z_top_inversion(self.rg)
-        dreamit.add_var_T_lapse_grid(self.rg)
-        dreamit.add_var_T_lapse_station(self.rg)
-        dreamit.add_var_lapse(self.rg)
-        dreamit.add_var_AIRT_DReaMIT(self.rg)
-        dreamit.add_var_beta_t(self.rg)
+        kt.AIRT_DReaMIT(self.rg)
         
         # Time netCDF file
         nc_time = self.nc_sa.variables['time']
@@ -250,18 +184,19 @@ class JRAscale(GenericScale):
             T_pl_surface_in = self.get_station_values("pl_sur", "Temperature", interp_ix, preserve_dims=True)
             # get station height from pressure level surface
             h_pl_surface_in = pl_height[interp_ix: interp_ix+1]  
-            
             # get grid height from to
             grid_elev_in = self.get_station_values("to", "Geopotential", interp_ix, preserve_dims=True)
             # get T from surface
             T_sur_in = self.get_station_values("sa", "Temperature", interp_ix, preserve_dims=True)
             
-            z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = dreamit.dreamit_metrics(reanalysis='jra3qg',
-                                                                                                        T_pl_in=T_pl_in,
-                                                                                                        h_pl_in=h_pl_in,
-                                                                                                        T_pl_surface_in=T_pl_surface_in,
-                                                                                                        h_pl_surface_in=h_pl_surface_in,
-                                                                                                        grid_elev_in=grid_elev_in)
+            mtrcs = dreamit.dreamit_metrics(reanalysis=self.NAME,
+                                            T_pl_in=T_pl_in,
+                                            h_pl_in=h_pl_in,
+                                            T_pl_surface_in=T_pl_surface_in,
+                                            h_pl_surface_in=h_pl_surface_in,
+                                            grid_elev_in=grid_elev_in)
+            
+            z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = mtrcs
             
             AIRT_DReaMIT_C, beta_t_C = dreamit.dreamit_air_T(T_lapse_grid=T_lapse_grid_C,
                                                             T_lapse_station=T_lapse_station_C,
@@ -301,7 +236,6 @@ class JRAscale(GenericScale):
             # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)
             h_sur = self.get_station_values("to", "Geopotential", interp_ix, preserve_dims=False) / const.G  # [m]
             # get pressure-level temperatures
-            
             airT_pl = self.get_station_values("pl", "Temperature", interp_ix, preserve_dims=True)
             # get pressure-level elevations from geopotential
             elevation = self.get_station_values("pl", "Geopotential height", interp_ix, preserve_dims=True)  # JRA units say [gpm] but range [-10 to 4600] suggests its already [m]
@@ -319,12 +253,7 @@ class JRAscale(GenericScale):
         """
         Relative Humidity derived from surface data, exclusively.
         """
-        # add variable to ncdf file
-        vn = 'RH_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'relative humidity {} surface only'.format(self.NAME)
-        var.units     = 'percent'
-        var.standard_name = 'relative_humidity'
+        vn = kt.RH_per_sur(self.rg, self.NAME)
 
         # interpolate station by station
         time_in = self.get_values("sa","time")
@@ -337,12 +266,7 @@ class JRAscale(GenericScale):
         """
         Relative Humidity derived from pressure-level data, exclusively.
         """
-        # add variable to ncdf file
-        vn = 'RH_pl'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'relative humidity {} pressure-level only'.format(self.NAME)
-        var.units     = 'percent'
-        var.standard_name = 'relative_humidity'
+        vn = kt.RH_per_pl(self.rg, self.NAME)
 
         # interpolate station by station
         time_in = self.get_values("pl_sur","time")
@@ -355,45 +279,18 @@ class JRAscale(GenericScale):
         """
         Wind at 10 metre derived from surface data, exclusively.
         """
+        vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
+        
+        #self.get_values("sa","u-component of wind", attr="units")
+        # self.get_values("sa","v-component of wind", attr="units")
 
-        # add variable to ncdf file
-        vn = '10 metre U wind component'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '10 metre U wind component'
-        var.units     = self.get_values("sa","u-component of wind", attr="units")
-
-        # interpolate station by station
         time_in = self.get_values("sa","time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "u-component of wind", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-
-        # add variable to ncdf file
-        vn = '10 metre V wind component'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '10 metre V wind component'
-        var.units     = self.get_values("sa","v-component of wind", attr="units")
-
-        # interpolate station by station
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa","v-component of wind", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-
-        # add variable to ncdf file
-        vn = 'WSPD_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '10 metre wind speed {} surface only'.format(self.NAME)
-        var.units     = 'm s-1'
-        var.standard_name = 'wind_speed'
-
-        # add variable to ncdf file
-        vn = 'WDIR_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '10 metre wind direction {} surface only'.format(self.NAME)
-        var.units     = 'degree'
-        var.standard_name = 'wind_from_direction'
+            values_u  = self.get_station_values("sa", "u-component of wind", interp_ix)
+            self.rg.variables[vn_u][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values_u)
+            values_v  = self.get_station_values("sa","v-component of wind", interp_ix)
+            self.rg.variables[vn_v][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values_v)
 
         # convert
         # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
@@ -405,22 +302,15 @@ class JRAscale(GenericScale):
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
         WD = np.mod(WD, 360)
 
-        self.rg.variables['WSPD_sur'][:] = WS
-        self.rg.variables['WDIR_sur'][:] = WD
+        self.rg.variables[vn_spd][:] = WS
+        self.rg.variables[vn_dir][:] = WD
 
     def SW_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
         """
+        vn = kt.SW_Wm2_sur(self.rg, self.NAME)
 
-        # add variable to ncdf file
-        vn = 'SW_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Surface solar radiation downwards {} surface only'.format(self.NAME)
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_shortwave_flux'
-
-        # interpolate station by station
         time_in = self.get_values("sf","time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
@@ -432,27 +322,9 @@ class JRAscale(GenericScale):
         """
         Short-wave downwelling radiation corrected using a modified version of TOPOscale.
         Partitions into direct and diffuse
-        """
-        # add variable to ncdf file
-        vn_diff = 'SW_topo_diffuse'  # variable name
-        var           = self.rg.createVariable(vn_diff,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected diffuse solar radiation'
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_diffuse_downwelling_shortwave_flux_in_air'
+        """     
+        vn_dir, vn_diff, vn_glob = kt.SW_Wm2_topo(self.rg, self.NAME)
 
-        vn_dir = 'SW_topo_direct'  # variable name
-        var           = self.rg.createVariable(vn_dir,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected direct solar radiation'
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_direct_downwelling_shortwave_flux_in_air'
-
-        vn_glob = 'SW_topo_global'  # variable name
-        var           = self.rg.createVariable(vn_glob,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected global solar radiation'
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_shortwave_flux_in_air'
-        
-        
         nc_time = self.nc_sf.variables['time']
         py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar,
                                only_use_cftime_datetimes=False)# , only_use_python_datetime=True)
@@ -466,14 +338,13 @@ class JRAscale(GenericScale):
         slope = self.get_slope()
         aspect = self.get_aspect()
 
-        # interpolate station by station
-        sw = self.get_values("sf","Downward solar radiation flux")  # [W m-2]
         grid_elev = self.get_values("to", "Geopotential", (0, slice(None,None,1))) / const.G  # [m]
         station_elev = self.get_values("pl_sur","height")  # [m]
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
-            
+            sw = self.get_station_values("sf", "Downward solar radiation flux", interp_ix, preserve_dims=True)  # [W m-2]
+
             diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
                                                                grid_sw=sw[:,interp_ix],
                                                                lat=np.ones_like(sw[:,interp_ix]) * lat[interp_ix],
@@ -508,15 +379,8 @@ class JRAscale(GenericScale):
         """
         Long-wave radiation downwards derived from surface data, exclusively.
         """
+        vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
 
-        # add variable to ncdf file
-        vn = 'LW_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Surface thermal radiation downwards {} surface only'.format(self.NAME)
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_longwave_flux'
-
-        # interpolate station by station
         time_in = self.get_values("sf","time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
@@ -525,12 +389,7 @@ class JRAscale(GenericScale):
 
     def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
-        # add variable to ncdf file
-        vn = 'LW_topo'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected thermal radiation downwards'
-        var.standard_name = 'surface_downwelling_longwave_flux'
-        var.units     = 'W m-2'
+        vn = kt.LW_Wm2_topo(self.rg, self.NAME)
 
         time_sf = self.get_values("sf", "time").astype(np.int64)
         time_pl = self.get_values("pl", "time").astype(np.int64)
@@ -553,14 +412,7 @@ class JRAscale(GenericScale):
         Precipitation derived from surface data, exclusively.
         Convert unit: to mm/s (kg m-2 s-1)
         """
-
-        # add variable to ncdf file
-        vn = 'PREC_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
-        var.units     = 'kg m-2 s-1'
-        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
-        var.standard_name = 'precipitation_flux'
+        vn  = kt.PREC_mm_sur(self.rg, self.NAME)
 
         # interpolate station by station
         time_in = self.get_values("sf","time")
@@ -574,17 +426,10 @@ class JRAscale(GenericScale):
         '''
         Specific humidity [kg/kg] derived from surface data, exclusively
         '''
-        # add variable to ncdf file
-        vn = 'SH_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'specific humidity {} surface only'.format(self.NAME)
-        var.units     = 'kg/kg'
-        var.standard_name = 'specific_humidity'
+        vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
 
-        # interpolate station by station
         time_in = self.get_values("sa","time")
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", "Specific humidity", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                               time_in, values)
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
