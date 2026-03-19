@@ -293,16 +293,13 @@ class ERA5scale(GenericScale):
         """
         vn = kt.RH_per_sur(self.rg, self.NAME)
 
-        # temporary variable
-        dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
         time_in = self.input_times_in_output_units(self.nc_sa)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "d2m", interp_ix)
-            dewp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values - 273.15)
-            
-        RH = self._rh()(self.rg.variables['AIRT_sur'][:, :], dewp[:, :])
-        self.rg.variables[vn][:, :] = RH.clip(min=0.1, max=99.9)
+            d2m_values  = self.get_station_values("sa", "d2m", interp_ix) - 273.15
+            t2m_values = self.get_station_values("sa", "t2m", interp_ix) - 273.15
+            rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh_values )
 
     def RH_per_pl(self):
         """
@@ -384,14 +381,14 @@ class ERA5scale(GenericScale):
         #for n, s in enumerate(self.rg.variables['station'][:].tolist()):
         for siteslist_ix, interp_ix in self.iterate_stations():
             zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
-            sw = self.get_station_values('sf', 'ssrd', interp_ix, preserve_dims=True) / self.interval_in  # [J m-2] --> [W m-2]
+            sw = self.get_station_values('sf', 'ssrd', interp_ix, preserve_dims=False) / self.interval_in  # [J m-2] --> [W m-2]
             diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
-                                                               grid_sw=sw[:,interp_ix],
-                                                               lat=np.ones_like(sw[:,interp_ix]) * lat[interp_ix],
-                                                               lon=np.ones_like(sw[:,interp_ix]) * lon[interp_ix],
+                                                               grid_sw=sw,
+                                                               lat=np.ones_like(sw) * lat[interp_ix],
+                                                               lon=np.ones_like(sw) * lon[interp_ix],
                                                                time=py_time,
-                                                               grid_elevation=np.ones_like(sw[:,interp_ix]) * grid_elev[interp_ix],
-                                                               sub_elevation=np.ones_like(sw[:,interp_ix]) * station_elev[interp_ix])
+                                                               grid_elevation=np.ones_like(sw) * grid_elev[interp_ix],
+                                                               sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
 
             diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
 

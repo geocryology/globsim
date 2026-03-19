@@ -343,15 +343,15 @@ class JRAscale(GenericScale):
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
-            sw = self.get_station_values("sf", "Downward solar radiation flux", interp_ix, preserve_dims=True)  # [W m-2]
+            sw = self.get_station_values("sf", "Downward solar radiation flux", interp_ix, preserve_dims=False)  # [W m-2]
 
             diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
                                                                grid_sw=sw[:,interp_ix],
-                                                               lat=np.ones_like(sw[:,interp_ix]) * lat[interp_ix],
-                                                               lon=np.ones_like(sw[:,interp_ix]) * lon[interp_ix],
+                                                               lat=np.ones_like(sw) * lat[interp_ix],
+                                                               lon=np.ones_like(sw) * lon[interp_ix],
                                                                time=py_time,
-                                                               grid_elevation=np.ones_like(sw[:,interp_ix]) * grid_elev[interp_ix],
-                                                               sub_elevation=np.ones_like(sw[:,interp_ix]) * station_elev[interp_ix])
+                                                               grid_elevation=np.ones_like(sw) * grid_elev[interp_ix],
+                                                               sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
 
             diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
 

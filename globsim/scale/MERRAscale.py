@@ -109,6 +109,7 @@ from globsim.common_utils import series_interpolate
 from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+import globsim.scale.kernel_templates as kt
 import globsim.constants as const
 import globsim.redcapp as redcapp
 
@@ -143,6 +144,7 @@ class MERRAscale(GenericScale):
         self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
         self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
+        self.nc_to = self.nc_sc  # alias 
 
         # Check data integrity
         _check_timestep_length(self.nc_pl_sur.variables['time'], "pl_sur")
@@ -203,59 +205,41 @@ class MERRAscale(GenericScale):
         """
         Surface air pressure from pressure levels.
         """
-        # add variable to ncdf file
-        vn = 'PRESS_pl'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time','station'))
-        var.long_name = 'air_pressure MERRA-2 pressure levels only'
-        var.units     = 'Pa'
-        var.standard_name = 'surface_air_pressure'
-
-        # interpolate station by station
-        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl_sur.variables['air_pressure'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            # scale from hPa to Pa
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n]) * 100
+        vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
+    
+        time_in = self.input_times_in_output_units(self.nc_pl_sur)
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix) 
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
+                                                             time_in,
+                                                             values) * 100
 
     def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
         """
-        vn = 'AIRT_pl'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time','station'))
-        var.long_name = 'air_temperature {} pressure levels only'.format(self.NAME)
-        var.units     = 'degrees_C'
-        var.standard_name = 'air_temperature'
+        vn = kt.AIRT_C_pl(self.rg, self.NAME)
 
-        # interpolate station by station
-        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
-        values  = self.nc_pl_sur.variables['T'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n] - 273.15)
+        time_in = self.input_times_in_output_units(self.nc_pl_sur)
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("pl_sur", "T", interp_ix)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
+                                                             time_in,
+                                                             values - 273.15)
 
     def AIRT_C_sur(self):
         """
         Air temperature derived from surface data, exclusively.
         """
+        vn = kt.AIRT_C_sur(self.rg, self.NAME)
 
-        # add variable to ncdf file
-        vn = 'AIRT_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '2_metre_temperature {} surface only'.format(self.NAME)
-        var.units     = 'degrees_C'
-        var.standard_name = 'air_temperature'
+        time_in = self.input_times_in_output_units(self.nc_sa)
 
-        # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.nc_sa.variables['T2M'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n] - 273.15)
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sa", "T2M", interp_ix)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) - 273.15
     
     def AIRT_redcapp(self):
         """
@@ -284,12 +268,12 @@ class MERRAscale(GenericScale):
                                       elevation=elevation,
                                       h_sur=h_sur)  
 
-        time_in = time_in = self.nc_pl.variables['time'][:].astype(np.int64)
+        time_in = self.input_times_in_output_units(self.nc_pl)
         values  = Delta_T_c
         
         for n, s in enumerate(self.rg.variables['station'][:].tolist()):
             var[:, n] = series_interpolate(self.times_out_nc, 
-                                           time_in * 3600,
+                                           time_in,
                                            values[:, n])
 
     def RH_per_pl(self):
@@ -297,170 +281,108 @@ class MERRAscale(GenericScale):
         Relative Humdity derived from pressure level data, exclusively.Clipped to
         range [0.1,99.9].
         """
+        vn = kt.RH_per_pl(self.rg, self.NAME)
 
-        # temporary variable,  interpolate station by station
-        time_in = self.nc_pl_sur.variables['time'][:].astype(np.int64)
-        values = self.nc_pl_sur.variables['RH'][:]
+        time_in = self.input_times_in_output_units(self.nc_pl_sur)
 
-        # add variable to ncdf file
-        vn = 'RH_pl'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
-        var.units     = 'percent'
-        var.standard_name = 'relative_humidity'
-
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            rh = series_interpolate(self.times_out_nc, time_in * 3600,
-                                    values[:, n])
-            rh *= 100  # Convert to % 
-            self.rg.variables[vn][:, n] = rh
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            rh  = self.get_station_values("pl_sur", "RH", interp_ix) * 100  # convert to %
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh)
 
     def RH_per_sur(self):
         """
         Relative Humdity derived from surface data, exclusively.Clipped to
         range [0.1,99.9].
         """
+        vn = kt.RH_per_sur(self.rg, self.NAME)
 
-        # temporary variable,  interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        dewp = self.nc_sf.variables['T2MDEW'][:]
-        t = self.nc_sa.variables['T2M'][:]
-        relhu = self._rh()(t, dewp)
+        time_in = self.input_times_in_output_units(self.nc_sf)
 
-        # add variable to ncdf file
-        vn = 'RH_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Relative humidity {} surface only'.format(self.NAME)
-        var.units     = 'percent'
-        var.standard_name = 'relative_humidity'
-
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            rh = series_interpolate(self.times_out_nc, time_in * 3600,
-                                    relhu[:, n])
-            self.rg.variables[vn][:, n] = rh
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            d2m_values  = self.get_station_values("sf", "T2MDEW", interp_ix) - 273.15
+            t2m_values = self.get_station_values("sa", "T2M", interp_ix) - 273.15
+            rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh_values )
 
     def WIND_sur(self):
         """
         Wind speed and direction at 10 metre derived from surface data,
         exclusively.
         """
+        vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
 
-        # temporary variable, interpolate station by station
         U = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.nc_sa.variables['U10M'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            U[:, n] = series_interpolate(self.times_out_nc,
-                                         time_in * 3600,
-                                         values[:, n])
-
-        # temporary variable, interpolate station by station
         V = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.nc_sa.variables['V10M'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            V[:, n] = series_interpolate(self.times_out_nc,
-                                         time_in * 3600,
-                                         values[:, n])
+        
+        time_in = self.input_times_in_output_units(self.nc_sa)
 
-        # add variable to ncdf file
-        vn = 'WSPD_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '10 metre wind speed {} surface only'.format(self.NAME)
-        var.units     = 'm s-1'
-        var.standard_name = 'wind_speed'
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values_u  = self.get_station_values('sa', 'U10M', interp_ix)
+            values_v  = self.get_station_values('sa', 'V10M', interp_ix)
+            U[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_u)
+            V[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_v)
 
-        # add variable to ncdf file
-        vn = 'WDIR_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = '10 metre wind direction {} surface only'.format(self.NAME)
-        var.units     = 'degree'
-        var.standard_name = 'wind_from_direction'
+        self.rg.variables[vn_u][:, :] = U
+        self.rg.variables[vn_v][:, :] = V
 
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            WS = np.sqrt(np.power(V[:, n], 2) + np.power(U[:, n], 2))
-            WD = [atan2(V[i, n], U[i, n]) * (180 / pi) + 180 for i in np.arange(V.shape[0])]
-            WD = np.mod(WD, 360)
-            self.rg.variables['WSPD_sur'][:, n] = WS
-            self.rg.variables['WDIR_sur'][:,n] = WD
+        WS = np.sqrt(np.power(V,2) + np.power(U,2))
+        self.rg.variables[vn_spd][:, :] = WS
+
+        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
+        WD = np.mod(WD, 360)
+        self.rg.variables[vn_dir][:, :] = WD
 
     def SW_Wm2_sur(self):
         """
         solar radiation downwards derived from surface data, exclusively.
         """
+        vn = kt.SW_Wm2_sur(self.rg, self.NAME)
 
-        # add variable to ncdf file
-        vn = 'SW_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Surface solar radiation downwards {} surface only'.format(self.NAME)
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_shortwave_flux'
+        time_in = self.input_times_in_output_units(self.nc_sf)
 
-        # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['SWGDN'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n])
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", "SWGDN", interp_ix)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def SW_Wm2_topo(self):
         """
         Short-wave downwelling radiation corrected using a modified version of TOPOscale.
         Partitions into direct and diffuse
         """
-
-        # add variable to ncdf file
-        vn_diff = 'SW_topo_diffuse'  # variable name
-        var           = self.rg.createVariable(vn_diff,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected diffuse solar radiation'
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_diffuse_downwelling_shortwave_flux_in_air'
-
-        vn_dir = 'SW_topo_direct'  # variable name
-        var           = self.rg.createVariable(vn_dir,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected direct solar radiation'
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_direct_downwelling_shortwave_flux_in_air'
-
-        vn_glob = 'SW_topo_global'  # variable name
-        var           = self.rg.createVariable(vn_glob,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected global solar radiation'
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_shortwave_flux_in_air'
+        vn_dir, vn_diff, vn_glob = kt.SW_Wm2_topo(self.rg, self.NAME)
         
         # interpolate station by station
-        nc_time = self.nc_sf.variables['time']
-        py_time = nc.num2date(nc_time[:], nc_time.units, nc_time.calendar, only_use_cftime_datetimes=False)
+        nc_time = self.input_times_in_output_units(self.nc_sf)
+        py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.t_cal, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        lat = self.nc_pl_sur['latitude'][:]
-        lon = self.nc_pl_sur['longitude'][:]
-        sw = self.nc_sf['SWGDN'][:]  # [W m-2]
-        grid_elev = self.nc_sc["PHIS"][0, :] / const.G  # [m]
-        station_elev = self.nc_pl_sur["height"][:]  # [m]
-
+        
+        lat = self.get_values('pl_sur', 'latitude')
+        lon = self.get_values('pl_sur', 'longitude')
+        
         svf = self.get_sky_view()
         slope = self.get_slope()
         aspect = self.get_aspect()
-
-        interpolation_time = nc_time[:].astype(np.int64)
         
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            zenith = solar_zenith(lat=lat[n], lon=lon[n], time=py_time)
-            
+        grid_elev = self.get_values('to', 'PHIS', (0, slice(None,None,1))) / const.G  # z has 2 dimensions from the scaling step
+        station_elev = self.get_values("pl_sur","height")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
+            sw = self.get_station_values('sf', 'SWGDN', interp_ix, preserve_dims=False)
+
             diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
-                                                               grid_sw=sw[:,n],
-                                                               lat=np.ones_like(sw[:,n]) * lat[n],
-                                                               lon=np.ones_like(sw[:,n]) * lon[n],
+                                                               grid_sw=sw,
+                                                               lat=np.ones_like(sw) * lat[interp_ix],
+                                                               lon=np.ones_like(sw) * lon[interp_ix],
                                                                time=py_time,
-                                                               grid_elevation=np.ones_like(sw[:,n]) * grid_elev[n],
-                                                               sub_elevation=np.ones_like(sw[:,n]) * station_elev[n])
+                                                               grid_elevation=np.ones_like(sw) * grid_elev[interp_ix],
+                                                               sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
 
-            diffuse = diffuse * svf[n]  # apply sky-view factor
+            diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
 
-            if not np.all(slope == 0):
-                azimuth = get_azimuth_fast(lat[n], lon[n], py_time)
-                cos_i_sub = illumination_angle(zenith, azimuth, slope[n], aspect[n])
+            if slope[siteslist_ix] != 0:
+                azimuth = get_azimuth_fast(lat[interp_ix], lon[interp_ix], py_time)
+                cos_i_sub = illumination_angle(zenith, azimuth, slope[siteslist_ix], aspect[siteslist_ix])
                 cos_i_grid = np.cos(np.radians(zenith))
                 corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
                 
@@ -469,62 +391,42 @@ class MERRAscale(GenericScale):
 
             global_sw = diffuse + corrected_direct
 
-            f = interp1d(interpolation_time * 3600, corrected_direct, kind='linear')
-            self.rg.variables[vn_dir][:, n] = f(self.times_out_nc)
-
-            f = interp1d(interpolation_time * 3600, diffuse, kind='linear')
-            self.rg.variables[vn_diff][:, n] = f(self.times_out_nc)
-
-            f = interp1d(interpolation_time * 3600, global_sw, kind='linear')
-            self.rg.variables[vn_glob][:, n] = f(self.times_out_nc)
+            self.rg.variables[vn_dir][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, corrected_direct)
+            self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
+            self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
 
     def LW_Wm2_sur(self):
         """
         Long-wave radiation downwards derived from surface data, exclusively.
         """
+        vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
 
-        # add variable to ncdf file
-        vn = 'LW_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Surface thermal radiation downwards {} surface only'.format(self.NAME)
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_longwave_flux'
+        time_in = self.input_times_in_output_units(self.nc_sf)
 
-        # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['LWGDN'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n])
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", "LWGDN", interp_ix)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
-        # add variable to ncdf file
-        vn = 'LW_topo'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'TOPOscale-corrected thermal radiation downwards ERA-5'
-        var.standard_name = 'surface_downwelling_longwave_flux'
-        var.units     = 'W m-2'
+        vn = kt.LW_Wm2_topo(self.rg, self.NAME)
 
-        # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        """ I'm cutting corners here by repeating variables with longer timesteps. This should be improved [NB]"""
-        t_sub = np.repeat(self.nc_pl_sur['T'][:], 6, axis=0)  # [K]
-        rh_sub = np.repeat(self.nc_pl_sur['RH'][:], 6, axis=0) * 100  # [%]
-        t_grid = self.nc_sa['T2M'][:]  # [K]
-        dewp_grid = self.nc_sf['T2MDEW'][:]  # [K]
-        lw_grid  = self.nc_sf["LWGDN"]  # [w m-2 s-1]
-        rh_grid = self._rh()(t_grid, dewp_grid)
-
-        lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
-        
+        time_in = self.input_times_in_output_units(self.nc_sf)
         svf = self.get_sky_view()
 
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            data = lw_sub[:, n] * svf[n]
-            f = interp1d(time_in * 3600, data, kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) 
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            """ I'm cutting corners here by repeating variables with longer timesteps. This should be improved [NB]"""
+            t_sub = self.get_station_values("pl_sur", 'T', interp_ix)
+            t_sub = np.repeat(t_sub, 6, axis=0)
+            rh_sub = self.get_station_values("pl_sur", 'RH', interp_ix)  # [%]
+            rh_sub = np.repeat(rh_sub, 6, axis=0) * 100  # [%]
+            t_grid = self.get_station_values("sa", 'T2M', interp_ix)  # [K]
+            dewp_grid = self.get_station_values("sf", 'T2MDEW', interp_ix)  # [K]
+            rh_grid = self._rh()(t_grid - 273.15, dewp_grid - 273.15) 
+            lw_grid  = self.get_station_values("sf", 'LWGDN', interp_ix) # [w m-2 s-1]
+            lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+            values = lw_sub * svf[siteslist_ix]
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def PREC_mm_sur(self):
         """
@@ -532,21 +434,13 @@ class MERRAscale(GenericScale):
         Convert units: kg/m2/s to kg/m2/s
         1 kg/m2 = 1mm
         """
+        vn  = kt.PREC_mm_sur(self.rg, self.NAME)
 
-        # add variable to ncdf file
-        vn = 'PREC_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Total precipitation {} surface only'.format(self.NAME)
-        var.units     = 'kg m-2 s-1'
-        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
-        var.standard_name = 'precipitation_flux'
+        time_in = self.input_times_in_output_units(self.nc_sf)
 
-        # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['PRECTOT'][:]  # mm s-1 aka kg/m2/s
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            f = interp1d(time_in * 3600, values[:, n], kind='linear')
-            self.rg.variables[vn][:, n] = f(self.times_out_nc) * self.scf
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", "PRECTOT", interp_ix) * self.scf
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def PRECCORR_mm_sur(self):
         """
@@ -554,65 +448,31 @@ class MERRAscale(GenericScale):
         Convert units: kg/m2/s to mm/time_step (hours)
         1 kg/m2 = 1mm
         """
+        vn  = kt.PRECCORR_mm_sur(self.rg, self.NAME)
 
-        # add variable to ncdf file
-        vn = 'PRECCORR_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Corrected Total precipitation {} surface only'.format(self.NAME)
-        var.units     = 'kg m-2 s-1'
-        var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
-        var.standard_name = 'precipitation_flux'
+        time_in = self.input_times_in_output_units(self.nc_sf)
 
-        # interpolate station by station
-        time_in = self.nc_sf.variables['time'][:].astype(np.int64)
-        values  = self.nc_sf.variables['PRECTOTCORR'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n]) * self.scf
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", "PRECTOTCORR", interp_ix) * self.scf
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg] derived from surface data, exclusively.
         '''
+        vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
+        
+        time_in = self.input_times_in_output_units(self.nc_sf)
 
-        # add variable to ncdf file
-        vn = 'SH_sur'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Specific humidity {} surface only'.format(self.NAME)
-        var.units     = '1'
-        var.standard_name = 'specific_humidity'
-
-        # interpolate station by station
-        time_in = self.nc_sa.variables['time'][:].astype(np.int64)
-        values  = self.nc_sa.variables['QV2M'][:]
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            self.rg.variables[vn][:, n] = series_interpolate(self.times_out_nc,
-                                                             time_in * 3600,
-                                                             values[:, n])
-'''
-    def LW_Wm2_topo(self):
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sa", "QV2M", interp_ix)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
+    
+    def input_times_in_output_units(self, ncf):
         """
-        Long-wave radiation downwards [W/m2]
-        https://www.geosci-model-dev.net/7/387/2014/gmd-7-387-2014.pdf
+        Convert time in input data to time in Globsim.
         """
-        # get sky view, and interpolate in time
-        N = np.asarray(list(self.stations['sky_view'][:]))
-
-        # add variable to ncdf file
-        vn = 'LW_topo'  # variable name
-        var           = self.rg.createVariable(vn,'f4',('time', 'station'))
-        var.long_name = 'Incoming long-wave radiation {} surface only'.format(self.NAME)
-        var.units     = 'W m-2'
-        var.standard_name = 'surface_downwelling_longwave_flux'
-
-        # compute
-        for i in range(0, len(self.rg.variables['RH_sur'][:])):
-            for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-                LW = LW_downward(self.rg.variables['RH_sur'][i, n],
-                                 self.rg.variables['AIRT_sur'][i, n] + 273.15,
-                                 N[n])
-
-                self.rg.variables[vn][i, n] = LW
-
-'''
+        raw = ncf['time'][:].astype(np.int64)
+        time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
+        converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.t_cal)
+        return converted.astype(np.int64)

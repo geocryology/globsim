@@ -1,6 +1,8 @@
 import netCDF4 as nc
 
 import globsim.dreamit as dreamit
+from globsim.redcapp import add_var_delta_T
+
 
 def PRESS_Pa_pl(rg: nc.Dataset, reanalysis: str):
     vn = 'PRESS_pl'
@@ -150,6 +152,17 @@ def SW_Wm2_topo(rg: nc.Dataset, reanalysis: str):
     return vn_dir, vn_diff, vn_glob
 
 
+def PRECCORR_mm_sur(rg: nc.Dataset, reanalysis: str):
+    vn = 'PRECCORR_sur'  # variable name
+    var           = rg.createVariable(vn,'f4',('time', 'station'))
+    var.long_name = 'Corrected Total precipitation {} surface only'.format(reanalysis)
+    var.units     = 'kg m-2 s-1'
+    var.comment = "units [kg m-2 s-1] corresponds to [mm/s] for water (density 1000 [kg m-3])"
+    var.standard_name = 'precipitation_flux'
+
+    return vn
+
+
 def AIRT_DReaMIT(rg: nc.Dataset):
     dreamit.add_var_z_top_inversion(rg)
     dreamit.add_var_T_lapse_grid(rg)
@@ -158,6 +171,9 @@ def AIRT_DReaMIT(rg: nc.Dataset):
     dreamit.add_var_AIRT_DReaMIT(rg)
     dreamit.add_var_beta_t(rg)
 
+def AIRT_redcapp_DeltaT(rg: nc.Dataset):
+    _ = add_var_delta_T(rg)
+    return 'AIRT_redcapp_DeltaT'
 
 __all__ = ['PRESS_Pa_pl',
            'AIRT_C_pl', 
@@ -171,4 +187,6 @@ __all__ = ['PRESS_Pa_pl',
            'SH_kgkg_sur',
            'LW_Wm2_topo',
            'SW_Wm2_topo',
-            'AIRT_DReaMIT']
+           'PRECCORR_sur',
+           'AIRT_redcapp_DeltaT'
+           'AIRT_DReaMIT']

@@ -209,17 +209,17 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
         if len(num):
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'number', 'level', 'station'),
-                                             chunksizes=(len(n_time), 1, len(lev), 1))
+                                             chunksizes=(n_time, 1, len(lev), 1))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time','number', 'station'),
-                                             chunksizes=(len(n_time), 1, 1))
+                                             chunksizes=(n_time, 1, 1))
         else:
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4', ('time','level','station'),
-                                              chunksizes=(len(n_time), len(lev), 1))
+                                              chunksizes=(n_time, len(lev), 1))
             else:
                 tmp = rootgrp.createVariable(var,'f4', ('time','station'),
-                                             chunksizes=(len(n_time), 1))
+                                             chunksizes=(n_time, 1))
 
         # copy attributes
         input_var = nc_in.variables[var]
