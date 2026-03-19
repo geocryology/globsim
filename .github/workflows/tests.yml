@@ -8,46 +8,54 @@ on:
     branches: [ master ]
     paths:
     - 'globsim/**'
-    - 'setup.py'
+    - 'pyproject.toml'
   pull_request:
     branches: [ master ]
     paths:
     - 'globsim/**'
-    - 'setup.py'
+    - 'pyproject.toml'
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11,3.12]
+        python-version: ["3.10", "3.11", "3.12", "3.12"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0 
+        
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+        cache: 'pip'
+
+    - name: Install system dependencies
       run: |
-        sudo apt-get install libhdf5-serial-dev netcdf-bin libnetcdf-dev
+        sudo apt-get update
+        sudo apt-get install -y libhdf5-serial-dev netcdf-bin libnetcdf-dev
+    
+    - name: Install python dependencies
+      run: |
         python -m pip install --upgrade pip
         pip install flake8
-        python -m pip install setuptools
-        python -m pip install -r requirements.txt
         python -m pip install pygrib 
-        python -m pip install xarray
         python -m pip install lmfit
-        python setup.py install
+        python -m pip install .
+
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
     - name: Test with pytest
       run: |
-        cd globsim
-        cd test
-        python -m unittest
+        python -m unittest discover -s globsim/test
+        #cd globsim
+        #cd test
+        #python -m unittest
