@@ -346,7 +346,7 @@ class JRAscale(GenericScale):
             sw = self.get_station_values("sf", "Downward solar radiation flux", interp_ix, preserve_dims=False)  # [W m-2]
 
             diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
-                                                               grid_sw=sw[:,interp_ix],
+                                                               grid_sw=sw,
                                                                lat=np.ones_like(sw) * lat[interp_ix],
                                                                lon=np.ones_like(sw) * lon[interp_ix],
                                                                time=py_time,
