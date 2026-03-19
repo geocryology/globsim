@@ -153,7 +153,6 @@ class MERRAscale(GenericScale):
         # self.nc_sc = nc.Dataset(path.join(self.intpdir,
         #                                  'merra2_to_' +
         #                        self.list_name + '.nc'), 'r')
-        self.nstation = len(self.nc_pl_sur.variables['station'][:])
 
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(par, 'merra2')

@@ -45,7 +45,8 @@ class ERA5Escale(ERA5scale):
         ERAd = ERA5scale(sfile)
         ERAd.process()
     """
-    src = 'era5_ens'
+    REANALYSIS = 'era5_ens'
+    NAME = "ERA-5 Ensemble"
 
     def __init__(self, sfile):
         super().__init__(sfile)
@@ -79,7 +80,7 @@ class ERA5Escale(ERA5scale):
 
         for ni in self.nc_sa['number']:
             self.current_member = ni
-            src = '{}_{}'.format(self.src, ni)
+            src = '{}_{}'.format(self.REANALYSIS, ni)
             self.output_file = self.getOutNCF(self.par, src)
             self.rg = new_scaled_netcdf(self.output_file,
                                         self.nc_pl_sur, self.times_out_nc,

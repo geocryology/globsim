@@ -18,6 +18,11 @@ logger = logging.getLogger('globsim.scale')
 
 
 class GenericScale:
+    SCALING = {"sf": {},
+               "sa": {},
+               "pl": {},
+               "to": {},
+               "pl_sur": {}}
 
     def __init__(self, sfile):
         # read parameter file
@@ -39,6 +44,41 @@ class GenericScale:
             times_out = times_out.data
         return f(times_out)
     
+    def get_name(self, file:str, name:str):
+        return name
+    
+    def get_values(self, file:str, name:str, _slice=None, attr=None):
+        f = self.get_file(file)
+        n = self.get_name(file, name)
+        
+        if attr is not None:
+            v = f.variables[n].getncattr(attr)
+        
+        else:
+            if _slice is None:
+                v = f.variables[n][:]
+            else:
+                v = f.variables[n][_slice]
+            
+            if name in self.SCALING.get(file).keys():
+                scale, offset = self.SCALING.get(file).get(name)
+                v *= scale
+                v += offset
+
+        return v
+    
+    def get_station_values(self, file:str, name:str, station_ix:int, preserve_dims:bool=False) -> np.ndarray:
+        """ Get station values for a given variable and station index. Handles slicing for 2D and 3D variables. """
+        if preserve_dims:
+            station_ix = slice(station_ix, station_ix + 1)
+
+        if file in ['sa', 'sf', 'to', 'pl_sur']:  #  time, station
+            _slice = (slice(None), station_ix)
+        elif file == 'pl':  #  time, level, station
+            _slice = (slice(None), slice(None), station_ix)
+        
+        return self.get_values(file, name, _slice=_slice)
+
     def set_valid_stations(self, interpolated_ncf: nc.Dataset):
         ipl_station_ix=self.nc_pl_sur['station'][:]
         ipl_station_lon=self.nc_pl_sur['longitude'][:]
@@ -80,13 +120,29 @@ class GenericScale:
                     f"{(~station_df['name_matches']).sum()} have mismatched names.")
         
         self.valid_stations = station_df
+        self.nstation = self.valid_stations.shape[0]
 
 
     def iterate_stations(self):
         """Iterate through stations, returning siteslist index and interpolated file index."""
         for row in self.valid_stations.itertuples():
             yield row.siteslist_index, row.nc_index
-      
+
+    def get_file(self, file:str) -> "nc.Dataset":
+        if file == "sa":
+            f = self.nc_sa
+        elif file == "sf":
+            f = self.nc_sf
+        elif file == "pl_sur":
+            f = self.nc_pl_sur
+        elif file == "pl":
+            f = self.nc_pl
+        elif file == "to":
+            f = self.nc_to
+        else:
+            raise ValueError("sa, sf, to, or pl_sur")
+        
+        return f  
 
     def set_parameters(self, par):
         self.intpdir = path.join(par['project_directory'], 'interpolated')
