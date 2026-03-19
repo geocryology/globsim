@@ -439,7 +439,7 @@ class ERA5scale(GenericScale):
             rh_sub = self.get_station_values("pl_sur", 'r', interp_ix)  # [%]
             t_grid = self.get_station_values("sa", 't2m', interp_ix)  # [K]
             dewp_grid = self.get_station_values("sa", 'd2m', interp_ix)  # [K]
-            rh_grid = self._rh()(t_grid, dewp_grid)
+            rh_grid = self._rh()(t_grid - 273.15, dewp_grid - 273.15)
             lw_grid  = self.get_station_values("sf", 'strd', interp_ix) / self.interval_in  # [w m-2 s-1]
 
             lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
