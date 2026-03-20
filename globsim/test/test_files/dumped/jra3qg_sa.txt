@@ -1,0 +1,62 @@
+netcdf jra3qg_sa_siteslist {
+dimensions:
+	station = 212 ;
+	time = 113960 ;
+variables:
+	int time(time) ;
+		time:long_name = "time" ;
+		time:units = "hours since 1900-01-01 00:00:00" ;
+		time:calendar = "gregorian" ;
+		time:standard_name = "time" ;
+		time:axis = "T" ;
+	int station(station) ;
+		station:long_name = "station for time series data" ;
+		station:units = "1" ;
+	double latitude(station) ;
+		latitude:long_name = "latitude" ;
+		latitude:units = "degrees_north" ;
+		latitude:standard_name = "latitude" ;
+		latitude:axis = "Y" ;
+	double longitude(station) ;
+		longitude:long_name = "longitude" ;
+		longitude:units = "degrees_east" ;
+		longitude:standard_name = "longitude" ;
+		longitude:axis = "X" ;
+	float height(station) ;
+		height:long_name = "Elevation of station" ;
+		height:units = "m" ;
+		height:axis = "Z" ;
+		height:standard_name = "height_above_reference_ellipsoid" ;
+		height:positive = "up" ;
+	float Temperature(time, station) ;
+		Temperature:long_name = "2m temperature" ;
+		Temperature:units = "K" ;
+		Temperature:orig_name = "tmp2m-hgt-an-gauss" ;
+	float v-component\ of\ wind(time, station) ;
+		v-component\ of\ wind:long_name = "10m v-component of wind" ;
+		v-component\ of\ wind:units = "m s-1" ;
+		v-component\ of\ wind:orig_name = "vgrd10m-hgt-an-gauss" ;
+	float Specific\ humidity(time, station) ;
+		Specific\ humidity:long_name = "2m specific humidity" ;
+		Specific\ humidity:units = "kg kg-1" ;
+		Specific\ humidity:orig_name = "spfh2m-hgt-an-gauss" ;
+	float u-component\ of\ wind(time, station) ;
+		u-component\ of\ wind:long_name = "10m u-component of wind" ;
+		u-component\ of\ wind:units = "m s-1" ;
+		u-component\ of\ wind:orig_name = "ugrd10m-hgt-an-gauss" ;
+	float Relative\ humidity(time, station) ;
+		Relative\ humidity:long_name = "2m relative humidity" ;
+		Relative\ humidity:units = "percent" ;
+		Relative\ humidity:orig_name = "rh2m-hgt-an-gauss" ;
+
+// global attributes:
+		:Conventions = "CF-1.6" ;
+		:featureType = "timeSeries" ;
+		:globsim_version = "4.4.1" ;
+		:source = "jra3qg, interpolated bilinearly to stations" ;
+		:globsim_interpolate_start = "1948/01/01" ;
+		:globsim_interpolate_end = "2025/12/31" ;
+		:globsim_chunk_size = 400000 ;
+		:globsim_interpolate_success = 1 ;
+		:globsim_last_chunk_written = 0 ;
+}
