@@ -14,6 +14,17 @@ def _resolve_class(dotted_path: str):
     return getattr(module, class_name)
 
 
+def parse_enabled(args_d: "list[str] | None") -> dict[str, bool]:
+    """Convert CLI's -d list into {backend_key: bool} dict.
+    
+    If args_d is None, nothing is enabled (enabled_by_default=False).
+    If args_d contains backend keys, only those are enabled.
+    """
+    if args_d is None:
+        return {}
+    return {key: (key in args_d) for key in BACKENDS}
+
+
 @dataclass
 class ReanalysisBackend:
     """One reanalysis product (e.g. ERA5, MERRA-2)."""

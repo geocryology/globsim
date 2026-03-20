@@ -21,36 +21,25 @@
 #
 #===============================================================================
 import argparse
-import configparser
-
 from globsim.globsim_main import GlobsimScale
-
+from globsim.registry import parse_enabled
+from globsim.registry import all_keys
 
 def main(args):
-        sfile = args.f
+    enabled = parse_enabled(args.d)
+    if not any(enabled.values()):
+        print("No reanalysis source selected. Use -d to specify one.")
+        return
+    GlobsimScale(args.f, **enabled)
 
-        ERA5    = True if args.d is None or "ERA5"     in args.d else False
-        ERA5ENS = True if args.d is None or "ERA5ENS"  in args.d else False
-        JRA     = True if args.d is None or "JRA"      in args.d else False
-        JRA3Q   = True if args.d is None or "JRA3Q"    in args.d else False
-        JRA3QG   = True if args.d is None or "JRA3QG"    in args.d else False
-        MERRA   = True if args.d is None or "MERRA"    in args.d else False
-        
-        if sum([ ERA5, ERA5ENS, JRA, MERRA, JRA3Q, JRA3QG]) > 0:
-            GlobsimScale(sfile, ERA5=ERA5, ERA5ENS=ERA5ENS, 
-                        JRA=JRA, MERRA=MERRA, JRA3Q=JRA3Q, JRA3QG=JRA3QG)
 
-        
-        else: print("Failed! Reanalysis source should be ERA5, MERRA, JRA, JRA3Q please check")
-
-#===scale the variables from mutiple re-analysis data at stations===
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scale reanalysis data",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-f', default=None, type=str, 
                         help="file path to download parameter file")
-    parser.add_argument('-d', default=None, nargs="*", type=str, 
-                        help="What data sources should run?  ERA5, ERA5ENS, MERRA, JRA, JRA3Q, JRA3QG")
+    parser.add_argument('-d', default=None, nargs="*", type=str.upper, choices=all_keys(),
+                        help="What data sources should run?")
     
     
     args = parser.parse_args()

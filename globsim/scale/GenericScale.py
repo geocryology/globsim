@@ -18,6 +18,8 @@ logger = logging.getLogger('globsim.scale')
 
 
 class GenericScale:
+    REANALYSIS: str = ''
+
     SCALING = {"sf": {},
                "sa": {},
                "pl": {},
