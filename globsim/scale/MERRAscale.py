@@ -48,7 +48,7 @@
 #
 # (5) Obtianing the mutiple datasets with spefici spacial and temporal)
 #
-# (6) Get all varialbes which are needed, and saved in NetCDF files
+# (6) Get all variables which are needed, and saved in NetCDF files
 #
 # ==============================================================================
 # IMPORTANT Notes:

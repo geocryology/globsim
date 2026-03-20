@@ -52,7 +52,7 @@ def main(args):
             i += 1
 
 
-# =====download the wanted varialbe from multiple re-analysis date sources======
+# =====download the wanted variable from multiple re-analysis date sources======
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get MET data",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
