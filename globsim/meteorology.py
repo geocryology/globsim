@@ -237,7 +237,7 @@ def swe_accumulation(times, temps, total_precip) -> pd.Series:
     swe : float
         Accumulated snow water equivalent over the time period
     """
-    require_celcius(temps)
+    require_celsius(temps)
     df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
     df['P'] = df['P'].clip(lower=0)  # remove negative precipitation
     df['P'] = df['P'].fillna(0)  # remove NaNs
