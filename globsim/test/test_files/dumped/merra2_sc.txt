@@ -1,0 +1,60 @@
+netcdf merra2_sc_siteslist {
+dimensions:
+	station = 3 ;
+	time = 23 ;
+variables:
+	int time(time) ;
+		time:long_name = "time" ;
+		time:units = "hours since 1980-01-01 00:00:00" ;
+		time:calendar = "gregorian" ;
+		time:standard_name = "time" ;
+		time:axis = "T" ;
+	int station(station) ;
+		station:long_name = "station for time series data" ;
+		station:units = "1" ;
+	double latitude(station) ;
+		latitude:long_name = "latitude" ;
+		latitude:units = "degrees_north" ;
+		latitude:standard_name = "latitude" ;
+		latitude:axis = "Y" ;
+	double longitude(station) ;
+		longitude:long_name = "longitude" ;
+		longitude:units = "degrees_east" ;
+		longitude:standard_name = "longitude" ;
+		longitude:axis = "X" ;
+	float height(station) ;
+		height:long_name = "Elevation of station" ;
+		height:units = "m" ;
+		height:axis = "Z" ;
+		height:standard_name = "height_above_reference_ellipsoid" ;
+		height:positive = "up" ;
+	float FRLAND(time, station) ;
+		FRLAND:long_name = "fraction_of_land" ;
+		FRLAND:units = "1" ;
+	float PHIS(time, station) ;
+		PHIS:long_name = "surface geopotential height" ;
+		PHIS:units = "m+2 s-2" ;
+	float SGH(time, station) ;
+		SGH:long_name = "isotropic stdv of GWD topography" ;
+		SGH:units = "m" ;
+	float FRLANDICE(time, station) ;
+		FRLANDICE:long_name = "fraction_of_land_ice" ;
+		FRLANDICE:units = "1" ;
+	float FROCEAN(time, station) ;
+		FROCEAN:long_name = "fraction_of_ocean" ;
+		FROCEAN:units = "1" ;
+	float FRLAKE(time, station) ;
+		FRLAKE:long_name = "fraction_of_lake" ;
+		FRLAKE:units = "1" ;
+
+// global attributes:
+		:Conventions = "CF-1.6" ;
+		:featureType = "timeSeries" ;
+		:globsim_version = "4.4.2" ;
+		:source = "merra2, interpolated bilinearly to stations" ;
+		:globsim_interpolate_start = "2020/01/01" ;
+		:globsim_interpolate_end = "2021/12/31" ;
+		:globsim_chunk_size = 2000 ;
+		:globsim_interpolate_success = 1 ;
+		:globsim_last_chunk_written = 0 ;
+}

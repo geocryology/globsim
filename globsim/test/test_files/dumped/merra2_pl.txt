@@ -1,0 +1,61 @@
+netcdf merra2_pl_siteslist {
+dimensions:
+	station = 3 ;
+	time = 2924 ;
+	level = 16 ;
+variables:
+	int time(time) ;
+		time:long_name = "time" ;
+		time:units = "hours since 1980-01-01 00:00:00" ;
+		time:calendar = "gregorian" ;
+		time:standard_name = "time" ;
+		time:axis = "T" ;
+	int station(station) ;
+		station:long_name = "station for time series data" ;
+		station:units = "1" ;
+	double latitude(station) ;
+		latitude:long_name = "latitude" ;
+		latitude:units = "degrees_north" ;
+		latitude:standard_name = "latitude" ;
+		latitude:axis = "Y" ;
+	double longitude(station) ;
+		longitude:long_name = "longitude" ;
+		longitude:units = "degrees_east" ;
+		longitude:standard_name = "longitude" ;
+		longitude:axis = "X" ;
+	float height(station) ;
+		height:long_name = "Elevation of station" ;
+		height:units = "m" ;
+		height:axis = "Z" ;
+		height:standard_name = "height_above_reference_ellipsoid" ;
+		height:positive = "up" ;
+	int level(level) ;
+		level:long_name = "pressure_level" ;
+		level:units = "hPa" ;
+	float V(time, level, station) ;
+		V:long_name = "Northward wind component" ;
+		V:units = "m/s" ;
+	float T(time, level, station) ;
+		T:long_name = "Air temperature" ;
+		T:units = "K" ;
+	float U(time, level, station) ;
+		U:long_name = "Eastward wind component" ;
+		U:units = "m/s" ;
+	float H(time, level, station) ;
+		H:long_name = "Geopotential height" ;
+		H:units = "m" ;
+	float RH(time, level, station) ;
+		RH:long_name = "relative_humidity_after_moist" ;
+		RH:units = "1" ;
+
+// global attributes:
+		:Conventions = "CF-1.6" ;
+		:featureType = "timeSeries" ;
+		:globsim_version = "4.4.2" ;
+		:source = "merra2, interpolated bilinearly to stations" ;
+		:globsim_interpolate_start = "2020/01/01" ;
+		:globsim_interpolate_end = "2021/12/31" ;
+		:globsim_chunk_size = 2000 ;
+		:globsim_interpolate_success = 1 ;
+		:globsim_last_chunk_written = 1 ;
+}
