@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "globsim"
+dynamic = ["version"]
+description = "Using global reanalysis data for local permafrost simulation"
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.9"
+authors = [
+    { name = "Nick Brown", email = "nick.brown@carleton.ca" },
+    { name = "Xiaojing Quan" },
+    { name = "Stephan Gruber", email = "stephan.gruber@carleton.ca" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+dependencies = [
+    "lxml",
+    "numpy>=2",
+    "pandas",
+    "netCDF4",
+    "scipy",
+    "dask",
+    "xarray",
+    "pydap>=3.4.1",
+    "tomlkit",
+    "cdsapi>=0.7.3",
+    "psutil",
+    "pysolar",
+    "pytz",
+    "cfgrib",
+]
+
+[project.urls]
+Homepage = "https://github.com/geocryology/globsim"
+Repository = "https://github.com/geocryology/globsim"
+
+[project.scripts]
+globsim = "globsim.globsim_cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "globsim._version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["globsim*"]

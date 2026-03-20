@@ -1,4 +1,5 @@
-from globsim.meteorology import emissivity_clear_sky, boltzmann, pressure_from_elevation
+from globsim.meteorology import emissivity_clear_sky, pressure_from_elevation
+from globsim.constants import boltzmann
 from typing import Union
 from pysolar import solar
 import numpy as np

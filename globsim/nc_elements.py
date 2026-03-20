@@ -4,6 +4,7 @@ functions for creating netcdf files
 import logging
 import netCDF4 as nc
 import numpy as np
+import pandas as pd
 from os import path
 from typing import Optional
 import xarray as xr
@@ -83,11 +84,13 @@ def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
 
 
 def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
-                      t_unit, station_names=None):
+                      t_unit, valid_indices:pd.Series, 
+                      station_names:pd.Series=None):
     """
     Create netCDF file for scaled results (same for all reanalyses)
     Returns the file object so that kernel functions can
     successively write variables to it.
+    valid_indices: series of indices corresponding to the stations that will be used
 
     """
 
@@ -97,9 +100,12 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     # make netCDF outfile, variables are written in kernels
     rootgrp = nc_new_file(ncfile_out, fmt='NETCDF4')
     rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
-
+ 
     # dimensions
     n_station = len(nc_interpol.variables['station'][:])
+    if station_names is not None and len(station_names) != n_station:
+        n_station = len(station_names.values)  # override n_station if station names are provided.
+        logger.warning(f"Number of station names provided ({len(station_names)}) does not match number of stations in interpolated netCDF ({n_station}).")
     station = rootgrp.createDimension('station', n_station)
     time    = rootgrp.createDimension('time', len(times_out))
 
@@ -122,10 +128,10 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
 
     # assign base variables
     time[:]      = times_out
-    station[:]   = nc_interpol.variables['station'][:]
-    latitude[:]  = nc_interpol.variables['latitude'][:]
-    longitude[:] = nc_interpol.variables['longitude'][:]
-    height[:]    = nc_interpol.variables['height'][:]
+    station[:]   = nc_interpol.variables['station'][valid_indices.values]
+    latitude[:]  = nc_interpol.variables['latitude'][valid_indices.values]
+    longitude[:] = nc_interpol.variables['longitude'][valid_indices.values]
+    height[:]    = nc_interpol.variables['height'][valid_indices.values]
 
     # add station names to netcdf
     if station_names is not None:
@@ -133,7 +139,8 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
         names_out = nc.stringtochar(np.array(station_names, 'S32'))
 
         # create space in the netcdf
-        _            = rootgrp.createDimension('name_strlen', 32)
+        maxlen = 32
+        _            = rootgrp.createDimension('name_strlen', maxlen)
         st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
         st.standard_name = 'platform_name'
         st.units     = ''
@@ -201,17 +208,18 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
         # extra treatment for pressure level files
         if len(num):
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'number',
-                                                       'level', 'station'))
+                tmp = rootgrp.createVariable(var,'f4',('time', 'number', 'level', 'station'),
+                                             chunksizes=(n_time, 1, len(lev), 1))
             else:
-                tmp = rootgrp.createVariable(var,'f4',('time','number',
-                                                       'station'))
+                tmp = rootgrp.createVariable(var,'f4',('time','number', 'station'),
+                                             chunksizes=(n_time, 1, 1))
         else:
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4', ('time','level',
-                                                        'station'))
+                tmp = rootgrp.createVariable(var,'f4', ('time','level','station'),
+                                              chunksizes=(n_time, len(lev), 1))
             else:
-                tmp = rootgrp.createVariable(var,'f4', ('time','station'))
+                tmp = rootgrp.createVariable(var,'f4', ('time','station'),
+                                             chunksizes=(n_time, 1))
 
         # copy attributes
         input_var = nc_in.variables[var]

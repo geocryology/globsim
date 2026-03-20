@@ -2,7 +2,19 @@ import numpy as np
 import pandas as pd
 import globsim.constants as const
 
-boltzmann = 5.67 * 10**(-8)  # J/s/m/K4 Stefan-Boltzmann constant
+
+def require_celsius(T, tmin=-75, tmax=75):
+    """ Ensure temperatures are in degrees Celsius """
+    _T = np.atleast_1d(T)
+    if (_T > tmax).any() or (_T < tmin).any():
+        raise ValueError(f"Temperatures should be in degrees Celsius and between {tmin} and {tmax} C. Found values outside this range.")
+
+
+def require_kelvin(T, tmin=-75+273.15, tmax=75+273.15):
+    """ Ensure temperatures are in degrees Kelvin """
+    _T = np.atleast_1d(T)
+    if (_T > tmax).any() or (_T < tmin).any():
+        raise ValueError(f"Temperatures should be in degrees Kelvin and between {tmin} and {tmax} K. Found values outside this range.")
 
 
 def satvapp_kPa_fT(T):
@@ -12,6 +24,7 @@ def satvapp_kPa_fT(T):
 
     T: Temperature [C]
     '''
+    require_celsius(T)
     e0 = 0.6113  # [kPa]
     b = 17.2694  # fitting constant
     T1 = 273.15  # [K]
@@ -30,6 +43,7 @@ def vapp_kPa_fTd(Td):
     Td: Dew point temperature [C]
 
     '''
+    require_celsius(Td)
     # (Bolton 1980)
     # https://doi.org/10.1175/1520-0493(1980)108<1046:TCOEPT>2.0.CO;2
     return 6.112 * np.exp((17.67 * Td) / (Td + 243.5))
@@ -44,6 +58,7 @@ def spec_hum_kgkg(Td, Pr):
     Td: Dewpoint temperature [C]
     Pr:  Air pressure [Pa]
     '''
+    require_celsius(Td)
     E = 0.622  # density of vater vapour / density of dry air
     e = vapp_kPa_fTd(Td) / 10
     P = Pr / 1000.  # from Pa to kPa
@@ -58,6 +73,7 @@ def water_vap_pressure(RH,T):
     RH: relative humidity (%)
     Tair: air temperature (kelvin)
     '''
+    require_kelvin(T)
     es0 = 6.11  # reference saturation vapour pressure at 0ºC
     T0 = 273.15  # Kelvin
     lv = 2.5 * 1000000  # latent heat of vaporization of water
@@ -83,6 +99,7 @@ def emissivity_clear_sky(RH,T):
     -------
     float or array : clear sky emissivity [1] (unitless)
     '''
+    require_kelvin(T)
     pv = water_vap_pressure(RH, T)
     x1 = 0.43
     x2 = 5.7
@@ -113,7 +130,7 @@ def LW_downward(RH,T,N):
     p1 = 6
     p2 = 4
     e_as = 0.979
-    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * boltzmann * T**4
+    lw = e_clear * (1 - N**p1) + (e_as * (N**p2)) * const.boltzmann * T**4
     return lw
 
 
@@ -124,6 +141,9 @@ def rh_lawrence(t: np.ndarray, td: np.ndarray) -> np.ndarray:
     td : dewpoint temperature [C]
     returns : relative humidity [%]
     '''
+    require_celsius(t)
+    require_celsius(td)
+
     t = np.atleast_1d(t)
     td = np.atleast_1d(td)
 
@@ -141,6 +161,8 @@ def rh_liston(t: np.ndarray, td: np.ndarray) -> np.ndarray:
     td : dewpoint temperature [C]
     returns : relative humidity [%]
     """
+    require_celsius(t)
+    require_celsius(td)
 
     t = np.atleast_1d(t)
     td = np.atleast_1d(td)
@@ -175,6 +197,7 @@ def forteau_2021_conductivity(rho, T):
     T : float or array
         Temperature of snow [K]
     """
+    require_kelvin(T)
     # thermal conductivity [W m-1 K-1]
     if np.max(T) < 50:
         print("Warning: temperatures should be in degrees K")
@@ -214,6 +237,7 @@ def swe_accumulation(times, temps, total_precip) -> pd.Series:
     swe : float
         Accumulated snow water equivalent over the time period
     """
+    require_celsius(temps)
     df = pd.DataFrame(data={"T":temps, "P":total_precip}, index=times)
     df['P'] = df['P'].clip(lower=0)  # remove negative precipitation
     df['P'] = df['P'].fillna(0)  # remove NaNs
