@@ -9,7 +9,6 @@ import pytz
 from math import atan2, pi
 from pathlib import Path
 from pysolar.solar import get_azimuth_fast
-from scipy.interpolate import interp1d
 
 from globsim.common_utils import series_interpolate
 from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
@@ -111,6 +110,15 @@ class JRAscale(GenericScale):
     def get_name(self, file:str, jra55name:str) -> str:
         return jra55name
     
+    def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
+        return self.get_station_values("to", "Geopotential", station_ix, 
+                                       preserve_dims=preserve_dims) / const.G
+
+    def get_pressure_level_height_m(self, station_ix, preserve_dims=False):
+        # JRA's "Geopotential height" is already in meters
+        return self.get_station_values("pl", "Geopotential height", station_ix,
+                                    preserve_dims=preserve_dims)
+
     def get_station_values(self, file, jra55name, station_ix, preserve_dims = False):
         return super().get_station_values(file, jra55name, station_ix, preserve_dims)
     
@@ -130,10 +138,10 @@ class JRAscale(GenericScale):
         time_in = self.get_values("pl_sur", "time").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix) 
+            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix, units="Pa") 
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                              time_in,
-                                                             values) * 100 # scale from hPa to Pa
+                                                             values)
 
     def AIRT_C_pl(self):
         """
@@ -144,8 +152,8 @@ class JRAscale(GenericScale):
         time_in = self.get_values("pl_sur","time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur","Temperature", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values) - 273.15
+            values  = self.get_station_values("pl_sur","Temperature", interp_ix, units="degree_C")
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def AIRT_C_sur(self):
         """
@@ -156,8 +164,8 @@ class JRAscale(GenericScale):
         time_in = self.get_values("sa", "time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "Temperature", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values) - 273.15
+            values  = self.get_station_values("sa", "Temperature", interp_ix, units="degree_C")
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def AIRT_DReaMIT(self):
         """
@@ -168,7 +176,7 @@ class JRAscale(GenericScale):
         
         # Time netCDF file
         nc_time = self.nc_sa.variables['time']
-        time_in = self.get_values("sa","time")
+        time_in = self.get_values("sa", "time")
        
         hypsometry = self.get_hypsometry()
         list_params = dreamit.get_model_params('jra3qg')
@@ -187,7 +195,7 @@ class JRAscale(GenericScale):
             # get grid height from to
             grid_elev_in = self.get_station_values("to", "Geopotential", interp_ix, preserve_dims=True)
             # get T from surface
-            T_sur_in = self.get_station_values("sa", "Temperature", interp_ix, preserve_dims=True)
+            T_sur_in = self.get_station_values("sa", "Temperature", interp_ix, preserve_dims=True, units="degree_C")
             
             mtrcs = dreamit.dreamit_metrics(reanalysis=self.NAME,
                                             T_pl_in=T_pl_in,
@@ -205,18 +213,18 @@ class JRAscale(GenericScale):
                                                             hyps=hypsometry[siteslist_ix],
                                                             params=list_params)
 
-            self.rg.variables['z_top_inversion_m'][:, siteslist_ix] = np.interp(self.times_out_nc,
+            self.rg.variables['z_top_inversion_m'][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                                      time_in, z_top_inversion_m)
-            self.rg.variables['T_lapse_grid_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
+            self.rg.variables['T_lapse_grid_C'][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                                      time_in, T_lapse_grid_C) - 273.15
-            self.rg.variables['T_lapse_station_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
+            self.rg.variables['T_lapse_station_C'][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                                      time_in, T_lapse_station_C) - 273.15
-            self.rg.variables['lapse_Cperm'][:, siteslist_ix] = np.interp(self.times_out_nc,
+            self.rg.variables['lapse_Cperm'][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                                      time_in, lapse_Cperm)
-            self.rg.variables['AIRT_DReaMIT_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
+            self.rg.variables['AIRT_DReaMIT_C'][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                                      time_in, AIRT_DReaMIT_C) - 273.15
-        self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
-                                                     time_in, beta_t_C[:])
+        self.rg.variables['beta_t_C'][:] = series_interpolate(self.times_out_nc,
+                                                              time_in, beta_t_C[:])
 
     def AIRT_redcapp(self):
         """
@@ -366,14 +374,9 @@ class JRAscale(GenericScale):
 
             global_sw = diffuse + corrected_direct
 
-            f = interp1d(interpolation_time, corrected_direct, kind='linear')
-            self.rg.variables[vn_dir][:, siteslist_ix] = f(self.times_out_nc)
-
-            f = interp1d(interpolation_time, diffuse, kind='linear')
-            self.rg.variables[vn_diff][:, siteslist_ix] = f(self.times_out_nc)
-
-            f = interp1d(interpolation_time, global_sw, kind='linear')
-            self.rg.variables[vn_glob][:, siteslist_ix] = f(self.times_out_nc)
+            self.rg.variables[vn_dir][:, siteslist_ix] = series_interpolate(self.times_out_nc, interpolation_time, corrected_direct)
+            self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, interpolation_time, diffuse)
+            self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, interpolation_time, global_sw)
 
     def LW_Wm2_sur(self):
         """
@@ -419,8 +422,7 @@ class JRAscale(GenericScale):
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf","Total precipitation", interp_ix)  # We expect this in [mm/s]. 'get_values' handles conversion
-            f = interp1d(time_in, values, kind='linear')
-            self.rg.variables[vn][:, siteslist_ix] = f(self.times_out_nc) * self.scf
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
 
     def SH_kgkg_sur(self):
         '''

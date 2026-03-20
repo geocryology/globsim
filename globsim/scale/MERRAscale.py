@@ -100,7 +100,6 @@ import warnings
 from os import path, makedirs
 from math import atan2, pi
 from pysolar.solar import get_azimuth_fast
-from scipy.interpolate import interp1d
 
 from globsim.common_utils import series_interpolate
 from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
@@ -166,6 +165,9 @@ class MERRAscale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.t_cal)
+        
+    def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
+        return self.get_station_values("to", "PHIS", station_ix, preserve_dims=preserve_dims) / const.G
 
     def process(self):
         """
@@ -207,10 +209,10 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_pl_sur)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix) 
+            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix, units="Pa") 
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                              time_in,
-                                                             values) * 100
+                                                             values) 
 
     def AIRT_C_pl(self):
         """
@@ -221,10 +223,10 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_pl_sur)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "T", interp_ix)
+            values  = self.get_station_values("pl_sur", "T", interp_ix, units="degree_C")
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                              time_in,
-                                                             values - 273.15)
+                                                             values)
 
     def AIRT_C_sur(self):
         """
@@ -235,8 +237,8 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sa)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "T2M", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) - 273.15
+            values  = self.get_station_values("sa", "T2M", interp_ix, units="degree_C")
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
     
     def AIRT_redcapp(self):
         """
@@ -283,7 +285,7 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_pl_sur)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            rh  = self.get_station_values("pl_sur", "RH", interp_ix) * 100  # convert to %
+            rh  = self.get_station_values("pl_sur", "RH", interp_ix, units="percent")
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh)
 
     def RH_per_sur(self):
@@ -296,8 +298,8 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sf)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            d2m_values  = self.get_station_values("sf", "T2MDEW", interp_ix) - 273.15
-            t2m_values = self.get_station_values("sa", "T2M", interp_ix) - 273.15
+            d2m_values  = self.get_station_values("sf", "T2MDEW", interp_ix, units="degree_C")
+            t2m_values = self.get_station_values("sa", "T2M", interp_ix, units="degree_C")
             rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh_values )
 
@@ -314,8 +316,8 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sa)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values_u  = self.get_station_values('sa', 'U10M', interp_ix)
-            values_v  = self.get_station_values('sa', 'V10M', interp_ix)
+            values_u  = self.get_station_values('sa', 'U10M', interp_ix, units="m s-1")
+            values_v  = self.get_station_values('sa', 'V10M', interp_ix, units="m s-1")
             U[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_u)
             V[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_v)
 
@@ -462,14 +464,7 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sf)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "QV2M", interp_ix)
+            values  = self.get_station_values("sa", "QV2M", interp_ix, units="kg kg-1")
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
     
-    def input_times_in_output_units(self, ncf):
-        """
-        Convert time in input data to time in Globsim.
-        """
-        raw = ncf['time'][:].astype(np.int64)
-        time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
-        converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.t_cal)
-        return converted.astype(np.int64)
+    

@@ -6,6 +6,7 @@ import pandas as pd
 
 from datetime import datetime
 from os import path, makedirs
+from cfunits import Units
 from pathlib import Path
 from math import floor
 from typing import Callable
@@ -49,7 +50,9 @@ class GenericScale:
     def get_name(self, file:str, name:str):
         return name
     
-    def get_values(self, file:str, name:str, _slice=None, attr=None):
+    def get_values(self, file:str, name:str, _slice=None, attr=None, units:str=None):
+        """Get values for a given variable and file. Handles scaling and attribute retrieval.
+        If units is provided, bypasses internal scaling and converts based on netcdf attributes"""
         f = self.get_file(file)
         n = self.get_name(file, name)
         
@@ -62,14 +65,19 @@ class GenericScale:
             else:
                 v = f.variables[n][_slice]
             
-            if name in self.SCALING.get(file).keys():
+            if units is not None:
+                # Convert units if specified
+                input_units = f.variables[n].getncattr('units')
+                v = Units.conform(v, Units(input_units), Units(units), inplace=True)
+
+            elif name in self.SCALING.get(file).keys():  # 
                 scale, offset = self.SCALING.get(file).get(name)
                 v *= scale
                 v += offset
 
         return v
     
-    def get_station_values(self, file:str, name:str, station_ix:int, preserve_dims:bool=False) -> np.ndarray:
+    def get_station_values(self, file:str, name:str, station_ix:int, preserve_dims:bool=False, units=None) -> np.ndarray:
         """ Get station values for a given variable and station index. Handles slicing for 2D and 3D variables. """
         if preserve_dims:
             station_ix = slice(station_ix, station_ix + 1)
@@ -79,13 +87,13 @@ class GenericScale:
         elif file == 'pl':  #  time, level, station
             _slice = (slice(None), slice(None), station_ix)
         
-        return self.get_values(file, name, _slice=_slice)
+        return self.get_values(file, name, _slice=_slice, units=units)
 
     def set_valid_stations(self, interpolated_ncf: nc.Dataset):
         ipl_station_ix=self.nc_pl_sur['station'][:]
         ipl_station_lon=self.get_values('pl_sur', 'longitude')
         ipl_station_lat=self.get_values('pl_sur', 'latitude')
-        ipl_station_elev=self.get_values('pl_sur', 'elevation')
+        ipl_station_elev=self.get_values('pl_sur', 'height')
 
         try:
             ipl_station_name=self.nc_pl_sur['station_name'][:]
@@ -103,15 +111,15 @@ class GenericScale:
         stations = self.stations.copy()
         stations['siteslist_index'] = stations.index
         
-        if (interpolated_stations['station_name'] != None).all():
+        if (~interpolated_stations['station_name'].isna().any()):
             station_df = stations.merge(interpolated_stations, on=['station_number', 'station_name'], 
                                         how='inner', suffixes=('_scale', '_interpolate'))
         else:
             logger.warning("One or more station names in interpolated netCDF are missing. Matching stations based on station number and coordinates only.")
             station_df = stations.merge(interpolated_stations, on='station_number', how='inner', suffixes=('_scale', '_interpolate'))
         
-        station_df['lon_matches'] = np.isclose(station_df['longitude_dd_scale'], station_df['longitude_dd_interpolate'], atol=1e-6)
-        station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'], station_df['latitude_dd_interpolate'], atol=1e-6)
+        station_df['lon_matches'] = np.isclose(station_df['longitude_dd_scale'] % 360, station_df['longitude_dd_interpolate'] % 360, atol=1e-6)
+        station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'] % 360, station_df['latitude_dd_interpolate'] % 360, atol=1e-6)
         station_df['elev_matches'] = np.isclose(station_df['elevation_m_scale'], station_df['elevation_m_interpolate'], atol=1e-4)
         station_df['coordinates_match'] = station_df['lon_matches'] & station_df['lat_matches'] & station_df['elev_matches']
         station_df['name_matches'] = station_df['station_name_scale'] == station_df['station_name_interpolate']
@@ -356,6 +364,15 @@ class GenericScale:
         elev_var[:] = data
 
         self.warn_station_elevation(data)
+
+    def input_times_in_output_units(self, ncf):
+        """
+        Convert time in input data to time in Globsim.
+        """
+        raw = ncf['time'][:].astype(np.int64)
+        time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
+        converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.t_cal)
+        return converted.astype(np.int64)
 
     def warn_station_elevation(self, data: "np.ndarray") -> None:
         """Warn if there are stations with elevation below grid level"""

@@ -26,15 +26,14 @@ import urllib3
 import logging
 import pytz
 
-from math import atan2, pi
-from scipy.interpolate import interp1d
+from cfunits import Units
 from pathlib import Path
 from pysolar.solar import get_azimuth_fast
 
 from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg
 from globsim.nc_elements import new_scaled_netcdf
-from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, sw_partition, solar_zenith, sw_toa, shading_corrected_sw_direct, illumination_angle
+from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, solar_zenith, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 import globsim.scale.kernel_templates as kt
 import globsim.constants as const
@@ -62,6 +61,13 @@ class ERA5scale(GenericScale):
     src = 'era5'
     REANALYSIS = 'era5'
     NAME = "ERA-5"
+    SCALING = {"sf": {"ssrd": (1/3600, 0),  # [J m-2] -> [W m-2]
+                      "strd": (1/3600, 0),  # [J m-2] -> [W m-2]
+                      "tp": (1000/3600, 0)},  # [m] -> [mm s-1]
+               "sa": {},
+               "pl": {},
+               "to": {},
+               "pl_sur": {}}
     
 
     def __init__(self, sfile):
@@ -98,6 +104,13 @@ class ERA5scale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.t_cal)
+        
+    def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
+        return self.get_station_values("to", "z", station_ix, preserve_dims=preserve_dims) / const.G
+
+    def get_pressure_level_height_m(self, station_ix, preserve_dims=False):
+        return self.get_station_values("pl", "z", station_ix, 
+                                       preserve_dims=preserve_dims) / const.G
 
     def getValues(self, ncf, varStr):
         return ncf.variables[varStr][:]
@@ -149,10 +162,10 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_pl_sur)        
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix) 
+            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix, units="Pa") 
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                              time_in,
-                                                             values) * 100 # scale from hPa to Pa
+                                                             values)
 
     def AIRT_C_pl(self):
         """
@@ -163,8 +176,8 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_pl_sur)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "t", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) - 273.15
+            values  = self.get_station_values("pl_sur", "t", interp_ix, units="degree_C")
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
         
     def AIRT_C_sur(self):
         """
@@ -175,7 +188,7 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sa)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "t2m", interp_ix)
+            values  = self.get_station_values("sa", "t2m", interp_ix, units="degree_C")
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) - 273.15
 
     def AIRT_DReaMIT(self):
@@ -279,12 +292,7 @@ class ERA5scale(GenericScale):
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", "tp", interp_ix)  
-            values  = values * 1000 / (self.interval_in)  # [m] -> [mm s-1]  (TODO: handle this in get_values / SCALING)
-            # self.nc_sf.variables['tp'][:]*1000/self.interval_in
-            # https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
-            # We assume interval_in is in hours (1 for regular, 3 for ensemble)
-            f = interp1d(time_in, values, kind='linear')
-            self.rg.variables[vn][:, siteslist_ix] = f(self.times_out_nc) * self.scf
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
 
     def RH_per_sur(self):
         """
@@ -296,8 +304,8 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sa)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            d2m_values  = self.get_station_values("sa", "d2m", interp_ix) - 273.15
-            t2m_values = self.get_station_values("sa", "t2m", interp_ix) - 273.15
+            d2m_values  = self.get_station_values("sa", "d2m", interp_ix, units="degree_C")
+            t2m_values = self.get_station_values("sa", "t2m", interp_ix, units="degree_C")
             rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh_values )
 
@@ -310,7 +318,7 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_pl_sur)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "r", interp_ix)
+            values  = self.get_station_values("pl_sur", "r", interp_ix, units="percent")
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def WIND_sur(self):
@@ -326,8 +334,8 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sa)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values_u  = self.get_station_values("sa", "u10", interp_ix)
-            values_v  = self.get_station_values("sa", "v10", interp_ix)
+            values_u  = self.get_station_values("sa", "u10", interp_ix, units="m s-1")
+            values_v  = self.get_station_values("sa", "v10", interp_ix, units="m s-1")
             U[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_u)
             V[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_v)            
 
@@ -353,9 +361,7 @@ class ERA5scale(GenericScale):
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", "ssrd", interp_ix)
-            values  /= self.interval_in  # [J m-2] -> [W m-2]
-            f = interp1d(time_in, values, kind='linear')
-            self.rg.variables[vn][:, siteslist_ix] = f(self.times_out_nc)
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
     
     def SW_Wm2_topo(self):
         """
@@ -376,12 +382,12 @@ class ERA5scale(GenericScale):
         aspect = self.get_aspect()
 
         grid_elev = self.get_values('to', 'z', (0, slice(None,None,1))) / const.G  # z has 2 dimensions from the scaling step
-        station_elev = self.get_values("pl_sur","height")
+        station_elev = self.get_values("pl_sur", "height")
 
         #for n, s in enumerate(self.rg.variables['station'][:].tolist()):
         for siteslist_ix, interp_ix in self.iterate_stations():
             zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
-            sw = self.get_station_values('sf', 'ssrd', interp_ix, preserve_dims=False) / self.interval_in  # [J m-2] --> [W m-2]
+            sw = self.get_station_values('sf', 'ssrd', interp_ix, preserve_dims=False)
             diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
                                                                grid_sw=sw,
                                                                lat=np.ones_like(sw) * lat[interp_ix],
@@ -403,14 +409,9 @@ class ERA5scale(GenericScale):
 
             global_sw = diffuse + corrected_direct
 
-            f = interp1d(nc_time, corrected_direct, kind='linear')
-            self.rg.variables[vn_dir][:, siteslist_ix] = f(self.times_out_nc)
-
-            f = interp1d(nc_time, diffuse, kind='linear')
-            self.rg.variables[vn_diff][:, siteslist_ix] = f(self.times_out_nc)
-
-            f = interp1d(nc_time, global_sw, kind='linear')
-            self.rg.variables[vn_glob][:, siteslist_ix] = f(self.times_out_nc)
+            self.rg.variables[vn_dir][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, corrected_direct)
+            self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
+            self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
 
     def LW_Wm2_sur(self):
         """
@@ -423,9 +424,7 @@ class ERA5scale(GenericScale):
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", "strd", interp_ix)
-            values  /= self.interval_in  # [J m-2] -> [w m-2]
-            f = interp1d(time_in, values, kind='linear')
-            self.rg.variables[vn][:, siteslist_ix] = f(self.times_out_nc)  
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
@@ -435,18 +434,17 @@ class ERA5scale(GenericScale):
         svf = self.get_sky_view()
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            t_sub = self.get_station_values("pl_sur", 't', interp_ix)  # [K]
-            rh_sub = self.get_station_values("pl_sur", 'r', interp_ix)  # [%]
-            t_grid = self.get_station_values("sa", 't2m', interp_ix)  # [K]
-            dewp_grid = self.get_station_values("sa", 'd2m', interp_ix)  # [K]
+            t_sub = self.get_station_values("pl_sur", 't', interp_ix, units="degree_K")  # [K]
+            rh_sub = self.get_station_values("pl_sur", 'r', interp_ix, units="percent")  # [%]
+            t_grid = self.get_station_values("sa", 't2m', interp_ix, units="degree_K")  # [K]
+            dewp_grid = self.get_station_values("sa", 'd2m', interp_ix, units="degree_K")  # [K]
             rh_grid = self._rh()(t_grid - 273.15, dewp_grid - 273.15)
-            lw_grid  = self.get_station_values("sf", 'strd', interp_ix) / self.interval_in  # [w m-2 s-1]
+            lw_grid  = self.get_station_values("sf", 'strd', interp_ix)
 
             lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
 
             values = lw_sub * svf[siteslist_ix]
-            f = interp1d(time_in, values, kind='linear')
-            self.rg.variables[vn][:, siteslist_ix] = f(self.times_out_nc) 
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def SH_kgkg_sur(self):
         '''
@@ -460,18 +458,10 @@ class ERA5scale(GenericScale):
         time_in = self.input_times_in_output_units(self.nc_sa)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values = self.get_station_values("sa", "d2m", interp_ix)
-            dewp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values - 273.15)
+            values = self.get_station_values("sa", "d2m", interp_ix, units="degree_C")
+            dewp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
         SH = spec_hum_kgkg(dewp[:, :], self.rg.variables['PRESS_pl'][:, :])
         self.rg.variables[vn][:, :] = SH
 
 
-    def input_times_in_output_units(self, ncf):
-        """
-        Convert time in input data to time in Globsim.
-        """
-        raw = ncf['time'][:].astype(np.int64)
-        time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
-        converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.t_cal)
-        return converted.astype(np.int64)
