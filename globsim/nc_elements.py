@@ -9,7 +9,7 @@ from os import path
 from typing import Optional
 import xarray as xr
 
-from globsim.common_utils import variables_skip, str_encode
+from globsim.common_utils import variables_skip
 from globsim import __version__ as globsim_version
 
 
@@ -235,7 +235,7 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
                     continue
                 tmp.setncattr(key, getattr(input_var, key))
         units = tmp.units if hasattr(tmp, 'units') else '??'
-        logger.info(f"Created new empty variable: {str_encode(var)} [{units}]")
+        logger.info(f"Created new empty variable: {var} [{units}]")
     
     return rootgrp
 

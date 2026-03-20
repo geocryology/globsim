@@ -132,18 +132,6 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
     return vi
 
 
-def str_encode(value, encoding="UTF8"):
-    """
-    handles encoding to allow compatibility between python 2 and 3
-    specifically with regards to netCDF variables. Python 2 imports
-    variable names as unicode, whereas python 3 imports them as str.
-    """
-    if type(value) == str:
-        return(value)
-    else:
-        return(value.encode(encoding))
-
-
 def create_globsim_directory(target_dir, name):
     """
     creates globsim directory
