@@ -5,12 +5,11 @@ import logging
 import numpy as np
 import urllib3
 
-from datetime import datetime
 from os import path
 from pathlib import Path
 
-from globsim.common_utils import variables_skip, str_encode
-from globsim.interpolate.GenericInterpolate import GenericInterpolate, create_field
+from globsim.common_utils import variables_skip
+from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 import globsim.constants as const

@@ -11,7 +11,7 @@ from pathlib import Path
 from pysolar.solar import get_azimuth_fast
 from scipy.interpolate import interp1d
 
-from globsim.common_utils import str_encode, series_interpolate
+from globsim.common_utils import series_interpolate
 from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
                                      shading_corrected_sw_direct, elevation_corrected_sw, 
                                      solar_zenith)

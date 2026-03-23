@@ -9,7 +9,6 @@ from datetime          import datetime
 from os                import path, makedirs
 from pathlib import Path
 
-from globsim.common_utils import str_encode, variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
@@ -225,7 +224,7 @@ class MERRAinterpolate(GenericInterpolate):
         nl = len(ncf.variables['level'][:])
 
         # list variables
-        varlist = [str_encode(x) for x in ncf.variables.keys()]
+        varlist = [x for x in ncf.variables.keys()]
         for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'H']:
             varlist.remove(V)
 
@@ -262,15 +261,15 @@ class MERRAinterpolate(GenericInterpolate):
             # create and assign variables from input file
             for var in varlist:
                 tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
-                tmp.long_name = str_encode(ncf.variables[var].long_name)
-                tmp.units     = str_encode(ncf.variables[var].units)
+                tmp.long_name = ncf.variables[var].long_name
+                tmp.units     = ncf.variables[var].units
 
             # add air pressure as new variable
             var = 'air_pressure'
             varlist.append(var)
             tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
-            tmp.long_name = str_encode(var)
-            tmp.units     = str_encode('hPa')
+            tmp.long_name = var
+            tmp.units     = 'hPa'
             rootgrp.close()
         # end file prepation ==================================================
         

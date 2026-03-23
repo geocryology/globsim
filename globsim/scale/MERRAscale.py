@@ -48,7 +48,7 @@
 #
 # (5) Obtianing the mutiple datasets with spefici spacial and temporal)
 #
-# (6) Get all varialbes which are needed, and saved in NetCDF files
+# (6) Get all variables which are needed, and saved in NetCDF files
 #
 # ==============================================================================
 # IMPORTANT Notes:
@@ -91,9 +91,6 @@
 # downwelling_longwave_flux_in_air_assuming_clear_sky = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux Assuming Clear Sky
 
 # ==============================================================================
-
-from __future__        import print_function
-
 import logging
 import netCDF4 as nc
 import numpy as np
