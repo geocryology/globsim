@@ -1,96 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright Xiaojing Quan & Stephan Gruber
-# =============================================================================
-# REVISION HISTORY
-# 20170510 -- Initial Version Created
-# 20171208 -- First Draft Completed
-#
-# ==============================================================================
-# A scripts for downloading MERRA-2 reanalysis data:
-# -- Geoppotential Height at pressure levels [time*level*lat*lon] (Unit:m) (6-hourly/day)
-# -- Air Temperature at pressure levels [time*level*lat*lon] (Unit:K) (6-hourly/day)
-# -- Relative Humidity at Pressure Levels[time*level*lat*lon] (Unit:1) (3-hourly/day)
-# -- Easteward Wind at Pressure Levels [time*level*lat*lon] (Unit:m/s) (6-hourly/day)
-# -- Northward Wind at Pressure Levels [time*level*lat*lon] (Unit:m/s) (6-hourly/day)
-# -- Air Temperature at 2 Meter [time*lat*lon] (Unit:K) (1-hourly/day)
-# -- Eastward Wind at 2 Meter [time*lat*lon] (Unit:K) (1-hourly/day)
-# -- Northward Wind at 2 Meter [time*lat*lon] (Unit: m/s) (1-hourly/day)
-# -- Eastward Wind at 10 Meter  [time*lat*lon] (Unit: m/s) (1-hourly/day)
-# -- Northward Wind at 10 Meter [time*lat*lon] (Unit: m/s) (1-hourly/day)
-# -- Precipitation Flux [time*lat*lon] (Unit: kg/m2/s) (1-hourly/day)
-# -- Surface Incoming Shoertwave Flux [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-# -- Surface Incoming Shortwave Flux Assuming Clear Sky [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-# -- Surface Net Downward Longwave Flux [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-# -- Surface Net Downward Longwave Flux Assuming Clear Sky [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-# -- Longwave Flux Emitted from Surface [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-#
-# -- Surface Absorbed Longwave Flux [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-# -- Surface Absorbed Longwave Flux Assuming Clear Sky [time*lat*lon] (Unit:W/m2) (1-hourly/day)
-#
-# Saved as netCDF 4
-# ====================HOW TO RUN THIS ==========================================
-#
-# (1) Register a New User in Earthdata Login:
-#  https://wiki.earthdata.nasa.gov/display/EL/How+To+Register+With+Earthdata+Login
-#
-# (2) Authorize NASA GESDISC DATA ARCHIVE in Earthdata Login
-# https://disc.gsfc.nasa.gov/registration/authorizing-gesdisc-data-access-in-earthdata_login
-#
-# (3) Adapt the script below with:
-#    - Authrized Username and Password (setup in .merrarc file),
-#    - Input parameters: Date, Area, Elevation, Chunk_size, Variables, etc.
-#      (setup in Globsim download parameter file )
-#
-# (4) Obtaining the URL addresses of the objected datasets at:
-#     https://disc.sci.gsfc.nasa.gov/daac-bin/FTPSubset2.pl
-#
-# (5) Obtianing the mutiple datasets with spefici spacial and temporal)
-#
-# (6) Get all variables which are needed, and saved in NetCDF files
-#
-# ==============================================================================
-# IMPORTANT Notes:
-
-# 1. Samples of Selected URLs list:
-
-# 3d,6-hourly,Instantaneous,Pressure-Level, Analyzed Meteorological Fields
-# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I6NPANA.5.12.4'
-#        '/2016/01/MERRA2_400.inst6_3d_ana_Np.20160101.nc4')
-
-# 3d,3-hourly,Instantaneous,Pressure-Level,Assimilation,Assimilated Meteorological Fields
-# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I3NPASM.5.12.4'
-#        '/2016/01/MERRA2_400.inst3_3d_asm_Np.20160201.nc4')
-
-# 2d,1-hourly,Instantaneous,Single-level,Assimilation,Single-Level Diagnostics
-# url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2I1NXASM.5.12.4'
-#         '/2016/01/MERRA2_400.inst1_2d_asm_Nx.20160102.nc4')
-
-# 2d,1-hourly, single-level, full horizontal resolution, Surface Flux Diagnostics
-# url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXFLX.5.12.4'
-#        '/2016/01/MERRA2_400.tavg1_2d_flx_Nx.20160101.nc4')
-
-# 2d,1-Hourly,Time-Averaged,Single-Level,Assimilation,Radiation Diagnostics
-# url = ('https://goldsmr5.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T3NPRAD.5.12.4'
-#       '/2016/01/MERRA2_400.tavg3_3d_rad_Np.20160102.nc4')
-
-# 2d 1-Hourly,Time-Averaged,Single-Level,Assimilation,Single-Level Diagnostics V5.12.4
-# url = ('https://goldsmr4.gesdisc.eosdis.nasa.gov:443/opendap/MERRA2/M2T1NXSLV.5.12.4'
-# '       '/2016/01/MERRA2_400.tavg1_2d_slv_Nx.20160101.nc4')
-
-# 2. Radiation Variables Processing:
-# Considering the variables below as equal utilization:
-#
-# downwelling_shortwave_flux_in_air_assuming_clear_sky = Surface_Incoming_Shoertwave_Flux
-#
-# downwelling_shortwave_flux_in_air_assuming_clear_sky = Surface_Incoming_Shortwave_Flux_Assuming_Clear_Sky
-#
-# downwelling_longwave_flux_in_air = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux
-#
-# downwelling_longwave_flux_in_air_assuming_clear_sky = Longwave Flux Emitted from Surface + Surface Net Downward Longwave Flux Assuming Clear Sky
-
-# ==============================================================================
 import logging
 import netCDF4 as nc
 import numpy as np
@@ -100,6 +10,7 @@ import warnings
 from os import path, makedirs
 from math import atan2, pi
 from pysolar.solar import get_azimuth_fast
+from cfunits import Units
 
 from globsim.common_utils import series_interpolate
 from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
@@ -108,6 +19,7 @@ from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 import globsim.scale.kernel_templates as kt
 import globsim.constants as const
 import globsim.redcapp as redcapp
+from globsim.scale.scalenames import ScaleNames as SN
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
@@ -129,7 +41,43 @@ class MERRAscale(GenericScale):
         MERRAd.process()
     """
     NAME = "MERRA-2"
+    REANALYSIS = "merra2"
+    VARNAMES = {
+        "sa":     {SN.time:        "time",
+                   SN.temperature: "T2M",
+                   SN.specific_humidity: "QV2M",
+                   SN.rh:          "T2M",
+                   SN.u_wind:      "U10M",
+                   SN.v_wind:      "V10M"},
+        "sf":     {SN.time:        "time",
+                   SN.dewpoint:      "T2MDEW",
+                   SN.sw_down_flux:       "SWGDN",
+                   SN.lw_down_flux:       "LWGDN",
+                   SN.precipitation_rate: "PRECTOT"},
+        "pl":     {SN.time:        "time",
+                   SN.temperature:   "T",
+                   SN.rh:            "RH",
+                   SN.elevation:     "H"},
+        "pl_sur": {SN.temperature:   "T",
+                   SN.pressure:      "air_pressure",
+                   SN.rh:            "RH"},
+        "to":     {SN.time:        "time",
+                   SN.geopotential:  "PHIS",
+                   SN.elevation:     "PHIS"},
+    }
 
+    CONVERTERS = {("to", SN.elevation): "_geopotential_to_m",
+                  ("sa", SN.rh): "_temp_to_rh",
+                  }
+
+    def _temp_to_rh(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
+        """Convert temperature to relative humidity using dewpoint."""
+        t2m = Units.conform(data, Units(nc_var.units), Units("degree_C"))
+        d2m = self.get_values("sf", SN.dewpoint, _slice, units="degree_C")
+        rh = self._rh()(t2m, d2m).clip(min=0.1, max=99.9)
+        
+        return rh, "percent"
+        
     def __init__(self, sfile):
         super().__init__(sfile)
         par = self.par
@@ -199,47 +147,7 @@ class MERRAscale(GenericScale):
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_pl.close()
-
-    def PRESS_Pa_pl(self):
-        """
-        Surface air pressure from pressure levels.
-        """
-        vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
-    
-        time_in = self.input_times_in_output_units(self.nc_pl_sur)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix, units="Pa") 
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
-                                                             time_in,
-                                                             values) 
-
-    def AIRT_C_pl(self):
-        """
-        Air temperature derived from pressure levels, exclusively.
-        """
-        vn = kt.AIRT_C_pl(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_pl_sur)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "T", interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
-                                                             time_in,
-                                                             values)
-
-    def AIRT_C_sur(self):
-        """
-        Air temperature derived from surface data, exclusively.
-        """
-        vn = kt.AIRT_C_sur(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sa)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "T2M", interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-    
+   
     def AIRT_redcapp(self):
         """
         Air temperature derived from surface data and pressure level data as
@@ -274,74 +182,6 @@ class MERRAscale(GenericScale):
             var[:, n] = series_interpolate(self.times_out_nc, 
                                            time_in,
                                            values[:, n])
-
-    def RH_per_pl(self):
-        """
-        Relative Humdity derived from pressure level data, exclusively.Clipped to
-        range [0.1,99.9].
-        """
-        vn = kt.RH_per_pl(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_pl_sur)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            rh  = self.get_station_values("pl_sur", "RH", interp_ix, units="percent")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh)
-
-    def RH_per_sur(self):
-        """
-        Relative Humdity derived from surface data, exclusively.Clipped to
-        range [0.1,99.9].
-        """
-        vn = kt.RH_per_sur(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            d2m_values  = self.get_station_values("sf", "T2MDEW", interp_ix, units="degree_C")
-            t2m_values = self.get_station_values("sa", "T2M", interp_ix, units="degree_C")
-            rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh_values )
-
-    def WIND_sur(self):
-        """
-        Wind speed and direction at 10 metre derived from surface data,
-        exclusively.
-        """
-        vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
-
-        U = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        V = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        
-        time_in = self.input_times_in_output_units(self.nc_sa)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values_u  = self.get_station_values('sa', 'U10M', interp_ix, units="m s-1")
-            values_v  = self.get_station_values('sa', 'V10M', interp_ix, units="m s-1")
-            U[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_u)
-            V[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_v)
-
-        self.rg.variables[vn_u][:, :] = U
-        self.rg.variables[vn_v][:, :] = V
-
-        WS = np.sqrt(np.power(V,2) + np.power(U,2))
-        self.rg.variables[vn_spd][:, :] = WS
-
-        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
-        WD = np.mod(WD, 360)
-        self.rg.variables[vn_dir][:, :] = WD
-
-    def SW_Wm2_sur(self):
-        """
-        solar radiation downwards derived from surface data, exclusively.
-        """
-        vn = kt.SW_Wm2_sur(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "SWGDN", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def SW_Wm2_topo(self):
         """
@@ -394,18 +234,6 @@ class MERRAscale(GenericScale):
             self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
             self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
 
-    def LW_Wm2_sur(self):
-        """
-        Long-wave radiation downwards derived from surface data, exclusively.
-        """
-        vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "LWGDN", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-
     def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
         vn = kt.LW_Wm2_topo(self.rg, self.NAME)
@@ -427,20 +255,6 @@ class MERRAscale(GenericScale):
             values = lw_sub * svf[siteslist_ix]
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
-    def PREC_mm_sur(self):
-        """
-        Precipitation derived from surface data, exclusively.
-        Convert units: kg/m2/s to kg/m2/s
-        1 kg/m2 = 1mm
-        """
-        vn  = kt.PREC_mm_sur(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "PRECTOT", interp_ix) * self.scf
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-
     def PRECCORR_mm_sur(self):
         """
         Corrected Precipitation derived from surface data, exclusively.
@@ -455,16 +269,3 @@ class MERRAscale(GenericScale):
             values  = self.get_station_values("sf", "PRECTOTCORR", interp_ix) * self.scf
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
-    def SH_kgkg_sur(self):
-        '''
-        Specific humidity [kg/kg] derived from surface data, exclusively.
-        '''
-        vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
-        
-        time_in = self.input_times_in_output_units(self.nc_sf)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "QV2M", interp_ix, units="kg kg-1")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-    
-    
