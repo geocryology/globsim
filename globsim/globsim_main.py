@@ -1,169 +1,44 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Generic classes, methods, functions used for more than one reanalysis.
-#
-#
-# (C) Copyright 2017-2019 Stephan Gruber
-#				2017-2018 Xiaojing Quan
-#				2018-2019 Nicholas Brown
-#				2018-2019 Bin Cao
-#         
-#     This program is free software: you can redistribute it and/or modify
-#     it under the terms of the GNU General Public License as published by
-#     the Free Software Foundation, either version 3 of the License, or
-#     (at your option) any later version.
-#
-#     This program is distributed in the hope that it will be useful,
-#     but WITHOUT ANY WARRANTY; without even the implied warranty of
-#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#     GNU General Public License for more details.
-#
-#     You should have received a copy of the GNU General Public License
-#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#
-# === CONTRIBUTIONS ============================================================
-# Intial code for globsim is designed by Stephan Gruber. Xiaojing Quan developed
-# MERRA-2, download part of ERA-Interim, and intial interpolation and scale  
-# parts of globsim. Bin Cao wrote the download parts of ERA5, JRA-55, and
-# finilized the interpolation and scale part. Nicholas Brown improved ERA5, 
-# wrote the CF conventions part, and tested globsim.
-#===============================================================================
-
 from multiprocessing.dummy import Pool as ThreadPool
-from globsim.LazyLoader import LazyLoader
+from globsim.registry import BACKENDS, _resolve_class
 
-download = LazyLoader('globsim.download')
-interpolate = LazyLoader('globsim.interpolate')
-scale = LazyLoader('globsim.scale')
 
-def GlobsimDownload(pfile, multithread=True, 
-                    ERA5=True, 
-                    ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True, JRA3QG=True):
-    """
-    Download data from multiple reanalyses. Each reanalysis is run as one 
-    separate thread if 'multithread = True'. If 'multithread = False', each
-    download is run sequentially. This is easier for interpreting the output.
-    """
-    # make list of objects to execute
+def _selected_backends(enabled: dict[str, bool]) -> list:
+    """Return backend entries where enabled[key] is True."""
+    return [b for b in BACKENDS.values()
+            if enabled.get(b.key, b.enabled_by_default)]
+
+
+def GlobsimDownload(pfile, multithread=True, **enabled):
+    """Download data from selected reanalyses."""
     objects = []
-    
-    # === ERA5 ===
-    if ERA5:
-        ERA5REAdownl = download.ERA5MonthlyDownload(pfile, False)
-        objects.append(ERA5REAdownl)
-    
-    # === ERA5 10-member ensemble ===
-    if ERA5ENS:
-        ERA5ENSdownl = download.ERA5Edownload(pfile)
-        objects.append(ERA5ENSdownl)
-    
-    # === MERRA-2 ===
-    if MERRA:
-        MERRAdownl = download.MERRAdownload(pfile)
-        objects.append(MERRAdownl)
+    for b in _selected_backends(enabled):
+        cls = _resolve_class(b.download_cls)
+        obj = cls(pfile, **b.download_args) if b.download_args else cls(pfile)
+        objects.append(obj)
 
-    # === JRA-55 ===
-    if JRA:
-        JRAdownl = download.JRAdownload(pfile)
-        objects.append(JRAdownl)
-
-    # === JRA-3Q ===
-    if JRA3Q:
-        JRA3Qdownl = download.J3QD(pfile)
-        objects.append(JRA3Qdownl)
-
-    if JRA3QG:
-        JRA3QGdownl = download.J3QgD(pfile)
-        objects.append(JRA3QGdownl)
-
-    # serial of parallel execution
-    if multithread:
-        # Make the Pool of workers and run as lambda functions
-        pool = ThreadPool(len(objects)) 
-        results = pool.map(lambda ob: ob.retrieve(), objects)
-        # close the pool and wait for the work to finish 
+    if multithread and len(objects) > 1:
+        pool = ThreadPool(len(objects))
+        pool.map(lambda ob: ob.retrieve(), objects)
         pool.close()
         pool.join()
-        print('Multithreaded download finished')
     else:
-        for result in (ob.retrieve() for ob in objects):
-            print(result)
-        print('Serial download finished')
-    
+        for ob in objects:
+            ob.retrieve()
 
-def GlobsimInterpolateStation(ifile, ERA5=True, ERA5ENS=True,
-                              MERRA=True, JRA=True, JRA3Q=True,JRA3QG=True, **kwargs):
-    """
-    Interpolate re-analysis data to individual stations (points: lat, lon, ele).
-    The temporal granularity and variables of each re-analysis are preserved.
-    The resulting data is saved in netCDF format. THis is not parallelised to
-    differing processors as memory may be a limiting factor.
-    """
-    
-    # === ERA5 ===
-    if ERA5:
-        ERA5interp = interpolate.ERA5interpolate(ifile, **kwargs)
-        ERA5interp.process()
-        
-    # === ERA5ENS ===
-    if ERA5ENS:
-        ERA5interp = interpolate.ERA5EnsembleInterpolate(ifile, **kwargs)
-        ERA5interp.process()
-    
-    # === MERRA-2 ===
-    if MERRA:
-        MERRAinterp = interpolate.MERRAinterpolate(ifile, **kwargs)
-        MERRAinterp.process()
 
-    # === JRA-55 ===
-    if JRA:
-        JRAinterp = interpolate.JRAinterpolate(ifile, **kwargs)
-        JRAinterp.process()
-  
-    if JRA3Q:
-        JRA3Qinterp = interpolate.J3QI(ifile, **kwargs)
-        JRA3Qinterp.process()
+def GlobsimInterpolateStation(ifile, **enabled_and_kwargs):
+    """Interpolate re-analysis grids to station points."""
+    # Separate backend toggles from passthrough kwargs
+    enabled = {k: v for k, v in enabled_and_kwargs.items() if k in BACKENDS}
+    kwargs  = {k: v for k, v in enabled_and_kwargs.items() if k not in BACKENDS}
 
-    if JRA3QG:
-        JRA3QGinterp = interpolate.J3QgI(ifile, **kwargs)
-        JRA3QGinterp.process()
-            
-def GlobsimScale(sfile, ERA5=True, ERA5ENS=True, MERRA=True, JRA=True, JRA3Q=True,JRA3QG=True):
-    """
-    Use re-analysis data that has been interpolated to station locations to 
-    derive fluxes scaled / converted / adjusted to drive point-scale 
-    near-surface models. The resulting data has coherent variables for all 
-    reanalyses, optionally coherent temporal granularity, and is saved as netCDF.
-    """
-    
-    # === ERA5 ===
-    if ERA5:
-        ERA5sc = scale.ERA5scale(sfile)
-        ERA5sc.process()
-        
-    # === ERA5ENS ===
-    if ERA5ENS:
-        ERA5sc = scale.ERA5Escale(sfile)
-        ERA5sc.process()
-    
-    # # === MERRA-2 ===
-    if MERRA:
-        MERRAsc = scale.MERRAscale(sfile)
-        MERRAsc.process()
-    #     
-    # # === JRA-55 ===
-    if JRA:
-        JRAsc = scale.JRAscale(sfile)
-        JRAsc.process()
+    for b in _selected_backends(enabled):
+        cls = _resolve_class(b.interpolate_cls)
+        cls(ifile, **kwargs).process()
 
-    # # === JRA-3Q ===
-    if JRA3Q:
-        JRA3Qsc = scale.J3QS(sfile)
-        JRA3Qsc.process()
 
-    if JRA3QG:
-        JRA3QGsc = scale.J3QgS(sfile)
-        JRA3QGsc.process()
-                  
+def GlobsimScale(sfile, **enabled):
+    """Scale interpolated data to near-surface fluxes."""
+    for b in _selected_backends(enabled):
+        cls = _resolve_class(b.scale_cls)
+        cls(sfile).process()
