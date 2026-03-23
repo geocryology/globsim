@@ -132,17 +132,6 @@ class JRAscale(GenericScale):
         self.nc_pl.close()
         self.nc_sf.close()
         self.nc_sa.close()
-       
-    def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
-        return self.get_station_values("to", "Geopotential", station_ix, 
-                                       preserve_dims=preserve_dims) / const.G
-
-    def get_pressure_level_height_m(self, station_ix, preserve_dims=False):
-        # JRA's "Geopotential height" is already in meters
-        return self.get_station_values("pl", "Geopotential height", station_ix,
-                                    preserve_dims=preserve_dims)
-    
-
     
     def AIRT_DReaMIT(self):
         """
@@ -212,7 +201,6 @@ class JRAscale(GenericScale):
         
         # add variable to ncdf file
         var = redcapp.add_var_delta_T(self.rg)
-
         time_in = self.get_values("sa", "time")
 
         for siteslist_ix, interp_ix in self.iterate_stations():
@@ -232,73 +220,7 @@ class JRAscale(GenericScale):
                                           h_sur=h_sur) 
             
             values = Delta_T_c[:, 0]  # remove station dimension for interpolation
-            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values) 
-            
-    def RH_per_sur(self):
-        """
-        Relative Humidity derived from surface data, exclusively.
-        """
-        vn = kt.RH_per_sur(self.rg, self.NAME)
-
-        # interpolate station by station
-        time_in = self.get_values("sa","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "Relative humidity", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-
-    def RH_per_pl(self):
-        """
-        Relative Humidity derived from pressure-level data, exclusively.
-        """
-        vn = kt.RH_per_pl(self.rg, self.NAME)
-
-        # interpolate station by station
-        time_in = self.get_values("pl_sur","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "Relative humidity", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-
-    def WIND_sur(self):
-        """
-        Wind at 10 metre derived from surface data, exclusively.
-        """
-        vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
-
-        time_in = self.get_values("sa","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values_u  = self.get_station_values("sa", "u-component of wind", interp_ix)
-            self.rg.variables[vn_u][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values_u)
-            values_v  = self.get_station_values("sa","v-component of wind", interp_ix)
-            self.rg.variables[vn_v][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values_v)
-
-        # convert
-        # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
-        # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
-        V = self.rg.variables['10 metre V wind component'][:]
-        U = self.rg.variables['10 metre U wind component'][:]
-        
-        WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
-        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
-        WD = np.mod(WD, 360)
-
-        self.rg.variables[vn_spd][:] = WS
-        self.rg.variables[vn_dir][:] = WD
-
-    def SW_Wm2_sur(self):
-        """
-        solar radiation downwards derived from surface data, exclusively.
-        """
-        vn = kt.SW_Wm2_sur(self.rg, self.NAME)
-
-        time_in = self.get_values("sf","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf","Downward solar radiation flux", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-                                                    
+            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)                                                
 
     def SW_Wm2_topo(self):
         """
@@ -352,17 +274,6 @@ class JRAscale(GenericScale):
             self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, interpolation_time, diffuse)
             self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, interpolation_time, global_sw)
 
-    def LW_Wm2_sur(self):
-        """
-        Long-wave radiation downwards derived from surface data, exclusively.
-        """
-        vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
-
-        time_in = self.get_values("sf","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "Downward longwave radiation flux", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""

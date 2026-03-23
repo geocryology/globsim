@@ -59,12 +59,12 @@ class GenericScale:
             times_out = times_out.data
         return f(times_out)
     
-    def _convert(self, file:str, name:str|enum.Enum, data:np.ndarray, nc_var: nc.Dataset) -> tuple[np.ndarray, str]:
+    def _convert(self, file:str, name:str|enum.Enum, data:np.ndarray, nc_var: nc.Dataset, _slice=None) -> tuple[np.ndarray, str]:
         """Apply physics conversion if registered, return (data, units_str)."""
         key = (file, name)
         if key in self.CONVERTERS:
             method = getattr(self, self.CONVERTERS[key])
-            return method(data, nc_var)
+            return method(data, nc_var, _slice)
         
         # No conversion needed — units are whatever the file says
         return data, nc_var.units
@@ -96,7 +96,7 @@ class GenericScale:
         
         v = nc_var[_slice] if _slice else nc_var[:]  # raw data
 
-        v, effective_units = self._convert(file, name, v, nc_var)  # physical conversion (e.g. rate to accumulation)
+        v, effective_units = self._convert(file, name, v, nc_var, _slice)  # physical conversion (e.g. rate to accumulation)
         
         if (units is not None) and (effective_units != units):
             v = Units.conform(v, Units(effective_units), Units(units), inplace=True)
@@ -433,9 +433,8 @@ class GenericScale:
         Air temperature derived from pressure levels, exclusively.
         """
         vn = kt.AIRT_C_pl(self.rg, self.NAME)
-
         time_in = self.get_values("pl_sur","time")
-        import pdb;pdb.set_trace()
+
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("pl_sur", SN.temperature, interp_ix, units="degree_C")
             self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
@@ -445,12 +444,12 @@ class GenericScale:
         Air temperature derived from surface data, exclusively.
         """
         vn = kt.AIRT_C_sur(self.rg, self.NAME)
-
+        var = self.rg.variables[vn] 
         time_in = self.get_values("sa", "time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", SN.temperature, interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+            values  = self.get_station_values("sa", SN.temperature, interp_ix, units=var.units)
+            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def PREC_mm_sur(self):
         """
@@ -458,22 +457,103 @@ class GenericScale:
         Convert unit: to mm/s (kg m-2 s-1)
         """
         vn  = kt.PREC_mm_sur(self.rg, self.NAME)
+        var = self.rg.variables[vn]
         time_in = self.get_values("sf", SN.time)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units='kg m-2 s-1')
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
+            values  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units=var.units)
+            var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
+    
+    def RH_per_sur(self):
+        """
+        Relative Humidity derived from surface data, exclusively.
+        """
+        vn = kt.RH_per_sur(self.rg, self.NAME)
+        var = self.rg.variables[vn]
+        time_in = self.get_values("sa","time")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sa", "Relative humidity", interp_ix, units=var.units)
+            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values) 
+    
+    def RH_per_pl(self):
+        """
+        Relative Humidity derived from pressure-level data, exclusively.
+        """
+        vn = kt.RH_per_pl(self.rg, self.NAME)
+        var = self.rg.variables[vn]
+        time_in = self.get_values("pl_sur", "time")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("pl_sur", SN.rh, interp_ix, units=var.units)
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)   
 
     def SH_kgkg_sur(self):
         '''
         Specific humidity [kg/kg] derived from surface data, exclusively
         '''
         vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
+        var = self.rg.variables[vn]
         time_in = self.get_values("sa", SN.time)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", SN.specific_humidity, interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+            values  = self.get_station_values("sa", SN.specific_humidity, interp_ix, units=var.units)
+            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+
+    def SW_Wm2_sur(self):
+        """
+        solar radiation downwards derived from surface data, exclusively.
+        """
+        vn = kt.SW_Wm2_sur(self.rg, self.NAME)
+        var = self.rg.variables[vn]
+        time_in = self.get_values("sf", "time")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", SN.sw_down, interp_ix, units=var.units)
+            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+
+    def LW_Wm2_sur(self):
+        """
+        Long-wave radiation downwards derived from surface data, exclusively.
+        """
+        vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
+        var = self.rg.variables[vn]
+        time_in = self.get_values("sf","time")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", SN.lw_down, interp_ix, units=var.units)
+            var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+
+    def WIND_sur(self):
+        """
+        Wind at 10 metre derived from surface data, exclusively.
+        """
+        vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
+        var_u = self.rg.variables[vn_u]
+        var_v = self.rg.variables[vn_v]
+        var_wspd = self.rg.variables[vn_spd]
+        var_wdir = self.rg.variables[vn_dir]
+
+        time_in = self.get_values("sa", "time")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values_u  = self.get_station_values("sa", SN.u_wind, interp_ix, units=var_u.units)
+            var_u[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values_u)
+            values_v  = self.get_station_values("sa", SN.v_wind, interp_ix, units=var_v.units)
+            var_v[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values_v)
+
+        # convert
+        # u is the ZONAL VELOCITY, i.e. horizontal wind TOWARDS EAST.
+        # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
+        V = self.rg.variables['10 metre V wind component'][:]
+        U = self.rg.variables['10 metre U wind component'][:]
+        
+        WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
+        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
+        WD = np.mod(WD, 360)
+
+        var_wspd[:] = WS
+        var_wdir[:] = WD
 
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:

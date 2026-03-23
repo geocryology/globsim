@@ -2,7 +2,8 @@ import numpy as np
 from cfunits import Units
 
 from globsim.scale.JRAscale import JRAscale
-from globsim.scale.scalenames import SN
+from globsim.scale.scalenames import ScaleNames as SN
+from globsim.constants import G
 
 class JRA55(JRAscale):
       NAME = "JRA-55"
@@ -59,6 +60,7 @@ class J3QS(JRAscale):
             "pl": {},
             "pl_sur": {},
             "to": {}}
+    CONVERTERS = {}
 
 
 
@@ -66,10 +68,15 @@ class J3QgS(JRAscale):
     NAME = "JRA-3QG"
     REANALYSIS = "jra3qg"
     SCALING = {"sa": {},
-            "sf": {},
-            "pl": {},
-            "pl_sur": {},
-            "to": {}}
+               "sf": {},
+               "pl": {},
+               "pl_sur": {},
+               "to": {}}
     
-    CONVERTERS = {}
+    CONVERTERS = {
+                  ("to", SN.elevation): "_geopotential_to_m"}  # note: pl already in m
+    
+    def _geopotential_to_m(self, data, nc_var, _slice):
+        units = Units(nc_var.units) / Units("m s-2")
+        return data / G, units
 
