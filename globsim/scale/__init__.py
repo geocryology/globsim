@@ -1,7 +1,7 @@
 from .ERA5scale import ERA5scale
 from .ERA5Escale import ERA5Escale
 from .JRAscale import JRAscale
-from .JRA3Qscale import J3QS, J3QgS
+from .JRA3Qscale import J3QS, J3QgS, JRA55
 from .MERRAscale import MERRAscale
 
 __all__ = ["ERA5scale",
@@ -9,4 +9,5 @@ __all__ = ["ERA5scale",
            "JRAscale",
            "MERRAscale",
            "J3QS",
-           "J3QgS"]
+           "J3QgS",
+           "JRA55"]

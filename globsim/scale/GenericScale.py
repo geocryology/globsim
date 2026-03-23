@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import netCDF4 as nc
 import pandas as pd
+import enum
 
 from datetime import datetime
 from os import path, makedirs
@@ -12,7 +13,10 @@ from math import floor
 from typing import Callable
 from scipy.interpolate import interp1d
 
-from globsim.common_utils import StationListRead
+from globsim.common_utils import StationListRead, series_interpolate
+
+import globsim.scale.kernel_templates as kt
+from globsim.scale.scalenames import ScaleNames as SN
 import globsim.meteorology as met
 
 logger = logging.getLogger('globsim.scale')
@@ -26,6 +30,14 @@ class GenericScale:
                "pl": {},
                "to": {},
                "pl_sur": {}}
+    
+    VARNAMES ={"sf": {},  # translates scaling canonical names to input variable names
+               "sa": {},
+               "pl": {},
+               "to": {},
+               "pl_sur": {}}
+    
+    CONVERTERS = {}  # translators for e.g. accumulations to rates
 
     def __init__(self, sfile):
         # read parameter file
@@ -47,33 +59,52 @@ class GenericScale:
             times_out = times_out.data
         return f(times_out)
     
+    def _convert(self, file:str, name:str|enum.Enum, data:np.ndarray, nc_var: nc.Dataset) -> tuple[np.ndarray, str]:
+        """Apply physics conversion if registered, return (data, units_str)."""
+        key = (file, name)
+        if key in self.CONVERTERS:
+            method = getattr(self, self.CONVERTERS[key])
+            return method(data, nc_var)
+        
+        # No conversion needed — units are whatever the file says
+        return data, nc_var.units
+    
     def get_name(self, file:str, name:str):
+        """ Globsim translation of variable names. If no translation is found, returns the original name. """
+        if name in self.VARNAMES.get(file, {}).keys():
+            return self.VARNAMES[file][name]
+        
+        else:
+            logger.debug(f"No name translation found for variable '{name}' in file '{file}'. Using name as provided.")
+
         return name
     
-    def get_values(self, file:str, name:str, _slice=None, attr=None, units:str=None):
+    def get_attr(self, file:str, name:str, attr:str):
+        f = self.get_file(file)
+        n = self.get_name(file, name)
+        return f.variables[n].getncattr(attr)
+
+    def get_values(self, file:str, name:str|enum.Enum, _slice=None, units:str=None):
         """Get values for a given variable and file. Handles scaling and attribute retrieval.
         If units is provided, bypasses internal scaling and converts based on netcdf attributes"""
         f = self.get_file(file)
         n = self.get_name(file, name)
-        
-        if attr is not None:
-            v = f.variables[n].getncattr(attr)
-        
-        else:
-            if _slice is None:
-                v = f.variables[n][:]
-            else:
-                v = f.variables[n][_slice]
-            
-            if units is not None:
-                # Convert units if specified
-                input_units = f.variables[n].getncattr('units')
-                v = Units.conform(v, Units(input_units), Units(units), inplace=True)
+        nc_var = f.variables[n]
 
-            elif name in self.SCALING.get(file).keys():  # 
-                scale, offset = self.SCALING.get(file).get(name)
-                v *= scale
-                v += offset
+        if n not in f.variables:
+            raise KeyError(f"Variable '{n}' not found in {file} file. Available variables: {list(f.variables.keys())}")
+        
+        v = nc_var[_slice] if _slice else nc_var[:]  # raw data
+
+        v, effective_units = self._convert(file, name, v, nc_var)  # physical conversion (e.g. rate to accumulation)
+        
+        if (units is not None) and (effective_units != units):
+            v = Units.conform(v, Units(effective_units), Units(units), inplace=True)
+
+        elif name in self.SCALING.get(file).keys():  # 
+            scale, offset = self.SCALING.get(file).get(name)
+            v *= scale
+            v += offset
 
         return v
     
@@ -382,6 +413,67 @@ class GenericScale:
         for i, (stn, grid) in enumerate(zip(stn_elev, data)):
             if stn < grid:
                 logger.warning(f" {stn_name[i]} site elevation ({stn} m) is below reanalysis grid elevation ({grid} m). Results may be unreliable.")
+
+    def PRESS_Pa_pl(self):
+        """
+        Surface air pressure from pressure levels.
+        """
+        vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
+        
+        time_in = self.get_values("pl_sur", "time").astype(np.int64)
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("pl_sur", SN.pressure, interp_ix, units="Pa") 
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
+                                                             time_in,
+                                                             values)
+
+    def AIRT_C_pl(self):
+        """
+        Air temperature derived from pressure levels, exclusively.
+        """
+        vn = kt.AIRT_C_pl(self.rg, self.NAME)
+
+        time_in = self.get_values("pl_sur","time")
+        import pdb;pdb.set_trace()
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("pl_sur", SN.temperature, interp_ix, units="degree_C")
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+
+    def AIRT_C_sur(self):
+        """
+        Air temperature derived from surface data, exclusively.
+        """
+        vn = kt.AIRT_C_sur(self.rg, self.NAME)
+
+        time_in = self.get_values("sa", "time")
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sa", SN.temperature, interp_ix, units="degree_C")
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
+
+    def PREC_mm_sur(self):
+        """
+        Precipitation derived from surface data, exclusively.
+        Convert unit: to mm/s (kg m-2 s-1)
+        """
+        vn  = kt.PREC_mm_sur(self.rg, self.NAME)
+        time_in = self.get_values("sf", SN.time)
+        
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units='kg m-2 s-1')
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
+
+    def SH_kgkg_sur(self):
+        '''
+        Specific humidity [kg/kg] derived from surface data, exclusively
+        '''
+        vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
+        time_in = self.get_values("sa", SN.time)
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            values  = self.get_station_values("sa", SN.specific_humidity, interp_ix)
+            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:

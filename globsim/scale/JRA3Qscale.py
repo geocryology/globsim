@@ -1,4 +1,29 @@
+import numpy as np
+from cfunits import Units
+
 from globsim.scale.JRAscale import JRAscale
+from globsim.scale.scalenames import SN
+
+class JRA55(JRAscale):
+      NAME = "JRA-55"
+      REANALYSIS = "jra55"
+      SCALING = {"sf": {"Total precipitation": (1 / (24 * 3600), 0)},
+                  "sa": {},
+                  "pl": {},
+                  "to": {},
+                  "pl_sur": {}}
+      
+      CONVERTERS = {
+        ("sf", SN.precipitation_rate): "_daily_precip_to_rate",
+            }
+      
+      def _daily_precip_to_rate(self, data, nc_var) -> tuple[np.ndarray, str]:
+        """mm day-1 → kg m-2 s-1"""
+        input_units = Units(nc_var.units)
+        converted_units = input_units / Units("s")
+        converted_data = data / (24 * 3600)
+
+        return converted_data, converted_units.units
 
 
 class J3QSjma(JRAscale):
@@ -45,4 +70,6 @@ class J3QgS(JRAscale):
             "pl": {},
             "pl_sur": {},
             "to": {}}
+    
+    CONVERTERS = {}
 

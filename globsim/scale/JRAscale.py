@@ -5,7 +5,7 @@ import netCDF4 as nc
 import numpy as np
 import pytz
 
-
+from cfunits import Units
 from math import atan2, pi
 from pathlib import Path
 from pysolar.solar import get_azimuth_fast
@@ -16,6 +16,7 @@ from globsim.scale.toposcale import (lw_down_toposcale, illumination_angle,
                                      solar_zenith)
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+from globsim.scale.scalenames import ScaleNames as SN
 import globsim.scale.kernel_templates as kt
 import globsim.constants as const
 import globsim.redcapp as redcapp
@@ -38,13 +39,38 @@ class JRAscale(GenericScale):
         JRAd = JRAscale(sfile)
         JRAd.process()
     """
-    NAME = "JRA-55"
-    REANALYSIS = "jra55"
-    SCALING = {"sf": {"Total precipitation": (1 / (24 * 3600), 0)},
-               "sa": {},
-               "pl": {},
-               "to": {},
-               "pl_sur": {}}
+    NAME = "JRA-generic"
+    REANALYSIS = "jra-generic"
+
+    
+    VARNAMES = {
+        "sa":     {SN.time:        "time",
+                   SN.temperature: "Temperature",
+                   SN.rh:          "Relative humidity",
+                   SN.u_wind:      "u-component of wind",
+                   SN.v_wind:      "v-component of wind",
+                   SN.pressure:     "air_pressure",
+                   SN.specific_humidity: "Specific humidity"},
+        "sf":     {SN.time:          "time",
+                   SN.sw_down:       "Downward solar radiation flux",
+                   SN.lw_down:       "Downward longwave radiation flux",
+                   SN.precipitation_total: "Total precipitation",
+                   SN.precipitation_rate: "Total precipitation"},
+        "pl":     {SN.time:          "time",
+                   SN.temperature:   "Temperature",
+                   SN.geopotential:  "Geopotential height"},
+        "pl_sur": {SN.time:          "time",
+                   SN.temperature:   "Temperature",
+                   SN.rh:            "Relative humidity",
+                   SN.pressure:      "air_pressure"},
+        "to":     {SN.time:          "time",
+                   SN.geopotential:  "Geopotential"},
+    }
+
+    CONVERTERS = {
+        ("sf", SN.precipitation_rate): "_daily_precip_to_rate",
+    }
+    
 
     def __init__(self, sfile):
         super().__init__(sfile)
@@ -106,10 +132,7 @@ class JRAscale(GenericScale):
         self.nc_pl.close()
         self.nc_sf.close()
         self.nc_sa.close()
-    
-    def get_name(self, file:str, jra55name:str) -> str:
-        return jra55name
-    
+       
     def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
         return self.get_station_values("to", "Geopotential", station_ix, 
                                        preserve_dims=preserve_dims) / const.G
@@ -118,55 +141,9 @@ class JRAscale(GenericScale):
         # JRA's "Geopotential height" is already in meters
         return self.get_station_values("pl", "Geopotential height", station_ix,
                                     preserve_dims=preserve_dims)
-
-    def get_station_values(self, file, jra55name, station_ix, preserve_dims = False):
-        return super().get_station_values(file, jra55name, station_ix, preserve_dims)
     
-    def get_values(self, file:str, jra55name: str, _slice=None, attr=None):
-        """ Get JRA-55 or 3Q values in common units
 
-        Handles name differences and  scale-offset conversions 
-        between JRA55 and JRA3Q """
-        return super().get_values(file, jra55name, _slice=_slice, attr=attr)
     
-    def PRESS_Pa_pl(self):
-        """
-        Surface air pressure from pressure levels.
-        """
-        vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
-        
-        time_in = self.get_values("pl_sur", "time").astype(np.int64)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix, units="Pa") 
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
-                                                             time_in,
-                                                             values)
-
-    def AIRT_C_pl(self):
-        """
-        Air temperature derived from pressure levels, exclusively.
-        """
-        vn = kt.AIRT_C_pl(self.rg, self.NAME)
-
-        time_in = self.get_values("pl_sur","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur","Temperature", interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-
-    def AIRT_C_sur(self):
-        """
-        Air temperature derived from surface data, exclusively.
-        """
-        vn = kt.AIRT_C_sur(self.rg, self.NAME)
-
-        time_in = self.get_values("sa", "time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "Temperature", interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
-
     def AIRT_DReaMIT(self):
         """
         Air temperature derived from surface data, pressure level data, and
@@ -288,9 +265,6 @@ class JRAscale(GenericScale):
         Wind at 10 metre derived from surface data, exclusively.
         """
         vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
-        
-        #self.get_values("sa","u-component of wind", attr="units")
-        # self.get_values("sa","v-component of wind", attr="units")
 
         time_in = self.get_values("sa","time")
         
@@ -410,28 +384,3 @@ class JRAscale(GenericScale):
             values = lw_sub * svf[siteslist_ix]
             self.rg.variables[vn][:, siteslist_ix] = self.upscale(time_sf, values, self.times_out_nc)
 
-    def PREC_mm_sur(self):
-        """
-        Precipitation derived from surface data, exclusively.
-        Convert unit: to mm/s (kg m-2 s-1)
-        """
-        vn  = kt.PREC_mm_sur(self.rg, self.NAME)
-
-        # interpolate station by station
-        time_in = self.get_values("sf","time")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf","Total precipitation", interp_ix)  # We expect this in [mm/s]. 'get_values' handles conversion
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
-
-    def SH_kgkg_sur(self):
-        '''
-        Specific humidity [kg/kg] derived from surface data, exclusively
-        '''
-        vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
-
-        time_in = self.get_values("sa","time")
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "Specific humidity", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
