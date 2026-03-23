@@ -35,9 +35,9 @@ from globsim.meteorology import spec_hum_kgkg
 from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, solar_zenith, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
+from globsim.scale.scalenames import ScaleNames as SN
 import globsim.scale.kernel_templates as kt
 import globsim.constants as const
-import globsim.redcapp as redcapp
 import globsim.dreamit as dreamit
 
 urllib3.disable_warnings()
@@ -61,14 +61,50 @@ class ERA5scale(GenericScale):
     src = 'era5'
     REANALYSIS = 'era5'
     NAME = "ERA-5"
-    SCALING = {"sf": {"ssrd": (1/3600, 0),  # [J m-2] -> [W m-2]
-                      "strd": (1/3600, 0),  # [J m-2] -> [W m-2]
-                      "tp": (1000/3600, 0)},  # [m] -> [mm s-1]
+    SCALING = {"sf": {}, 
                "sa": {},
                "pl": {},
                "to": {},
                "pl_sur": {}}
     
+    VARNAMES = {
+    "sa":     {SN.time:        "time",
+                SN.temperature: "t2m",
+                SN.dewpoint:    "d2m",
+                SN.rh:           "d2m", # calculate from dewpoint and temperature
+                SN.specific_humidity: "d2m", # calculate from dewpoint and temperature
+                SN.u_wind:      "u10",
+                SN.v_wind:      "v10",
+                SN.ozone:       "tco3",
+                SN.water_vapour:"tcwv"},
+    "sf":     {SN.time:        "time",
+               SN.sw_down_flux:       "ssrd",
+               SN.sw_down_accumulated:"ssrd",
+               SN.lw_down_flux:       "strd",
+               SN.lw_down_accumulated: "strd",
+               SN.precipitation_total: "tp",
+               SN.precipitation_rate: "tp"},
+    "pl":     {SN.time:        "time",
+               SN.temperature:   "t",
+               SN.rh:            "r",
+               SN.geopotential:  "z",
+               SN.elevation:     "z"},
+    "pl_sur": {SN.time:        "time",
+               SN.temperature:   "t",
+               SN.rh:            "r",
+               SN.pressure:      "air_pressure"},
+    "to":     {SN.geopotential:  "z",
+               SN.elevation:     "z"},
+}
+    
+    CONVERTERS = {("sf", SN.sw_down_flux): "_radiation_to_flux",
+                  ("sf", SN.lw_down_flux): "_radiation_to_flux",
+                  ("sf", SN.precipitation_rate): "_precip_tot_to_flux",
+                  ("sa", SN.rh): "_dewpoint_to_rh",
+                  ("sa", SN.specific_humidity): "_dewpoint_to_sh",
+                  ("to", SN.elevation): "_geopotential_to_m",
+                  ("pl", SN.elevation): "_geopotential_to_m"
+                  }
 
     def __init__(self, sfile):
         super().__init__(sfile)
@@ -152,45 +188,38 @@ class ERA5scale(GenericScale):
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_to.close()
+        self.nc_pl.close()
 
-    def PRESS_Pa_pl(self):
-        """
-        Surface air pressure from pressure levels.
-        """
-        vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
+    def _precip_tot_to_flux(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
+        """Convert total precipitation to precipitation rate by dividing by time step."""
+        input_units = Units(nc_var.units)
+        water_density = Units("kg m-3")
+        converted_data = data / self.get_time_step("sf")
+        converted_units = input_units * water_density / Units("s") 
 
-        time_in = self.input_times_in_output_units(self.nc_pl_sur)        
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "air_pressure", interp_ix, units="Pa") 
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
-                                                             time_in,
-                                                             values)
-
-    def AIRT_C_pl(self):
-        """
-        Air temperature derived from pressure levels, exclusively.
-        """
-        vn = kt.AIRT_C_pl(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_pl_sur)
+        return converted_data, converted_units.units
+    
+    def _dewpoint_to_sh(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
+        dewp = Units.conform(data, Units(nc_var.units), Units("degree_C"))
+        pressure = self.get_values("pl_sur", SN.pressure, _slice, units="Pa")
+        sh = spec_hum_kgkg(dewp, pressure)
         
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "t", interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-        
-    def AIRT_C_sur(self):
-        """
-        Air temperature derived from surface data, exclusively.
-        """
-        vn = kt.AIRT_C_sur(self.rg, self.NAME)
+        return sh, "kg kg-1"
 
-        time_in = self.input_times_in_output_units(self.nc_sa)
+    def _dewpoint_to_rh(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
+        d2m_values = Units.conform(data, Units(nc_var.units), Units("degree_C"))
+        t2m_values = self.get_values("sa", SN.temperature, _slice, units="degree_C")
+        rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
+        return rh_values, "percent"
+    
+    def _radiation_to_flux(self, data, nc_var, _slice):
+        """Convert accumulated radiation to flux by dividing by time step."""
+        input_units = Units(nc_var.units)
+        converted_data = data / self.get_time_step("sf")
+        converted_units = input_units / Units("s")
 
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "t2m", interp_ix, units="degree_C")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) - 273.15
-
+        return converted_data, converted_units.units
+    
     def AIRT_DReaMIT(self):
         """
         Air temperature derived from surface data, pressure level data, and
@@ -249,119 +278,7 @@ class ERA5scale(GenericScale):
             self.rg.variables['AIRT_DReaMIT_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
                                                                      time_in, AIRT_DReaMIT_C) - 273.15
         self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
-                                                     time_in, beta_t_C[:])
-
-    def AIRT_redcapp(self):
-        """
-        Air temperature derived from surface data and pressure level data as
-        shown by the method REDCAPP Cao et al. (2017) 10.5194/gmd-10-2905-2017
-        """
-        logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
-
-        # add variable to ncdf file
-        var = redcapp.add_var_delta_T(self.rg)
-
-        time_in = self.input_times_in_output_units(self.nc_sa)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            # get T from surface level
-            T_sa  = self.get_station_values("sa", 't2m', interp_ix, preserve_dims=True)  
-            # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)
-            h_sur = self.get_station_values("to", 'z', interp_ix, preserve_dims=False) / const.G  # [m]
-            # get pressure-level temperatures
-            airT_pl = self.get_station_values("pl", 't', interp_ix, preserve_dims=True)
-            # get pressure-level elevations from geopotential
-            elevation = self.get_station_values("pl", 'z', interp_ix, preserve_dims=True) / const.G  # [m]
-
-            Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
-                                        airT_pl=airT_pl, 
-                                        elevation=elevation,
-                                        h_sur=h_sur)  
-
-            values  = Delta_T_c[:, 0]
-            var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)                              
-
-    def PREC_mm_sur(self):
-        """
-        Precipitation sum in mm for the time step given.
-        """
-        vn  = kt.PREC_mm_sur(self.rg, self.NAME)
-
-        # interpolation scale factor
-        time_in = self.input_times_in_output_units(self.nc_sf)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "tp", interp_ix)  
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
-
-    def RH_per_sur(self):
-        """
-        Relative humdity derived from surface data, exclusively. Clipped to
-        range [0.1,99.9]. Kernel AIRT_C_sur must be run before.
-        """
-        vn = kt.RH_per_sur(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sa)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            d2m_values  = self.get_station_values("sa", "d2m", interp_ix, units="degree_C")
-            t2m_values = self.get_station_values("sa", "t2m", interp_ix, units="degree_C")
-            rh_values = self._rh()(t2m_values, d2m_values).clip(min=0.1, max=99.9)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rh_values )
-
-    def RH_per_pl(self):
-        """
-        Relative humdity derived from pressure-level.
-        """
-        vn = kt.RH_per_pl(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_pl_sur)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("pl_sur", "r", interp_ix, units="percent")
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-
-    def WIND_sur(self):
-        """
-        Wind speed and direction temperature derived from surface data,
-        exclusively.
-        """
-        vn_u, vn_v, vn_spd, vn_dir = kt.WIND_sur(self.rg, self.NAME)
-
-        U = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        V = np.zeros((self.nt, self.nstation), dtype=np.float32)
-
-        time_in = self.input_times_in_output_units(self.nc_sa)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values_u  = self.get_station_values("sa", "u10", interp_ix, units="m s-1")
-            values_v  = self.get_station_values("sa", "v10", interp_ix, units="m s-1")
-            U[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_u)
-            V[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values_v)            
-
-        WS = np.sqrt(np.power(V,2) + np.power(U,2))
-        self.rg.variables[vn_spd][:, :] = WS
-
-        # Wind direction: 
-        # U - easterly component  V - northerly component
-        # convert to "clockwise from north" from "anti-clockwise from x-axis" : 90 - angle
-        # convert "from direction" : + 180
-        WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
-        WD = np.mod(WD, 360)
-        self.rg.variables[vn_dir][:, :] = WD
-
-    def SW_Wm2_sur(self):
-        """
-        Short-wave downwelling radiation derived from surface data, exclusively.
-        This kernel only interpolates in time.
-        """
-        vn = kt.SW_Wm2_sur(self.rg, self.NAME)
-        
-        time_in = self.input_times_in_output_units(self.nc_sf)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "ssrd", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
+                                                     time_in, beta_t_C[:])                        
     
     def SW_Wm2_topo(self):
         """
@@ -413,18 +330,6 @@ class ERA5scale(GenericScale):
             self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
             self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
 
-    def LW_Wm2_sur(self):
-        """
-        Long-wave downwelling radiation derived from surface data, exclusively.
-        This kernel only interpolates in time.
-        """
-        vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "strd", interp_ix)
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
     def LW_Wm2_topo(self):
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
@@ -445,23 +350,3 @@ class ERA5scale(GenericScale):
 
             values = lw_sub * svf[siteslist_ix]
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-
-    def SH_kgkg_sur(self):
-        '''
-        Specific humidity [kg/kg]
-        https://crudata.uea.ac.uk/cru/pubs/thesis/2007-willett/2INTRO.pdf
-        '''
-        vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
-
-        # temporary variable,  interpolate station by station
-        dewp = np.zeros((self.nt, self.nstation), dtype=np.float32)
-        time_in = self.input_times_in_output_units(self.nc_sa)
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            values = self.get_station_values("sa", "d2m", interp_ix, units="degree_C")
-            dewp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-
-        SH = spec_hum_kgkg(dewp[:, :], self.rg.variables['PRESS_pl'][:, :])
-        self.rg.variables[vn][:, :] = SH
-
-

@@ -13,8 +13,9 @@ from math import floor
 from typing import Callable
 from scipy.interpolate import interp1d
 
+from globsim.constants import G
 from globsim.common_utils import StationListRead, series_interpolate
-
+import globsim.redcapp as redcapp
 import globsim.scale.kernel_templates as kt
 from globsim.scale.scalenames import ScaleNames as SN
 import globsim.meteorology as met
@@ -49,6 +50,7 @@ class GenericScale:
 
     @staticmethod
     def upscale(time_in, values:np.ndarray, times_out):
+        """"""
         axis = [i for i,v in enumerate(values.shape) if v == time_in.shape[0]][0]
         if not axis:
             axis=0
@@ -97,7 +99,7 @@ class GenericScale:
         v = nc_var[_slice] if _slice else nc_var[:]  # raw data
 
         v, effective_units = self._convert(file, name, v, nc_var, _slice)  # physical conversion (e.g. rate to accumulation)
-        
+
         if (units is not None) and (effective_units != units):
             v = Units.conform(v, Units(effective_units), Units(units), inplace=True)
 
@@ -178,6 +180,14 @@ class GenericScale:
         """Iterate through stations, returning siteslist index and interpolated file index."""
         for row in self.valid_stations.itertuples():
             yield row.siteslist_index, row.nc_index
+
+    def get_time_step(self, file:str) -> int:
+        """ Returns time step of file in seconds """
+        time_var = self.get_file(file).variables['time']
+        time_in = time_var[:]
+        t1 = nc.num2date(time_in[1], units=time_var.units, calendar=time_var.calendar)
+        t0 = nc.num2date(time_in[0], units=time_var.units, calendar=time_var.calendar)
+        return (t1 - t0).seconds 
 
     def get_file(self, file:str) -> "nc.Dataset":
         if file == "sa":
@@ -427,7 +437,11 @@ class GenericScale:
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc,
                                                              time_in,
                                                              values)
-
+            
+    def _geopotential_to_m(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
+        units = Units(nc_var.units) / Units("m s-2")
+        return data / G, units.units
+    
     def AIRT_C_pl(self):
         """
         Air temperature derived from pressure levels, exclusively.
@@ -451,6 +465,30 @@ class GenericScale:
             values  = self.get_station_values("sa", SN.temperature, interp_ix, units=var.units)
             var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
+    def AIRT_redcapp(self):
+        """
+        Air temperature derived from surface data and pressure level data as
+        shown by the method REDCAPP Cao et al. (2017) 10.5194/gmd-10-2905-2017
+        """
+        logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
+
+        var = redcapp.add_var_delta_T(self.rg)
+        time_in = self.input_times_in_output_units(self.nc_sa)
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            T_sa  = self.get_station_values("sa", SN.temperature, interp_ix, preserve_dims=True, units="degree_K")  
+            h_sur = self.get_station_values("to", SN.elevation, interp_ix, preserve_dims=False, units='m')
+            airT_pl = self.get_station_values("pl", SN.temperature, interp_ix, preserve_dims=True, units="degree_K")
+            elevation = self.get_station_values("pl", SN.elevation, interp_ix, preserve_dims=True, units='m')
+
+            Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
+                                        airT_pl=airT_pl, 
+                                        elevation=elevation,
+                                        h_sur=h_sur)  
+
+            values  = Delta_T_c[:, 0]
+            var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)      
+
     def PREC_mm_sur(self):
         """
         Precipitation derived from surface data, exclusively.
@@ -470,10 +508,10 @@ class GenericScale:
         """
         vn = kt.RH_per_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("sa","time")
+        time_in = self.get_values("sa", "time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sa", "Relative humidity", interp_ix, units=var.units)
+            values  = self.get_station_values("sa", SN.rh, interp_ix, units=var.units)
             var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values) 
     
     def RH_per_pl(self):
@@ -509,7 +547,7 @@ class GenericScale:
         time_in = self.get_values("sf", "time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", SN.sw_down, interp_ix, units=var.units)
+            values  = self.get_station_values("sf", SN.sw_down_flux, interp_ix, units=var.units)
             var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def LW_Wm2_sur(self):
@@ -521,7 +559,7 @@ class GenericScale:
         time_in = self.get_values("sf","time")
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", SN.lw_down, interp_ix, units=var.units)
+            values  = self.get_station_values("sf", SN.lw_down_flux, interp_ix, units=var.units)
             var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def WIND_sur(self):
