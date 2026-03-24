@@ -140,13 +140,6 @@ class ERA5scale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.t_cal)
-        
-    def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
-        return self.get_station_values("to", "z", station_ix, preserve_dims=preserve_dims) / const.G
-
-    def get_pressure_level_height_m(self, station_ix, preserve_dims=False):
-        return self.get_station_values("pl", "z", station_ix, 
-                                       preserve_dims=preserve_dims) / const.G
 
     def getValues(self, ncf, varStr):
         return ncf.variables[varStr][:]

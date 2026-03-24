@@ -67,9 +67,7 @@ class JRAscale(GenericScale):
                    SN.geopotential:  "Geopotential"},
     }
 
-    CONVERTERS = {
-        ("sf", SN.precipitation_rate): "_daily_precip_to_rate",
-    }
+    CONVERTERS = {}
     
 
     def __init__(self, sfile):

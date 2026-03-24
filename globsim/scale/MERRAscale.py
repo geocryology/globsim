@@ -113,9 +113,6 @@ class MERRAscale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.t_cal)
-        
-    def get_grid_elevation_m(self, station_ix=None, preserve_dims=False):
-        return self.get_station_values("to", "PHIS", station_ix, preserve_dims=preserve_dims) / const.G
 
     def process(self):
         """

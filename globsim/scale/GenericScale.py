@@ -91,11 +91,11 @@ class GenericScale:
         If units is provided, bypasses internal scaling and converts based on netcdf attributes"""
         f = self.get_file(file)
         n = self.get_name(file, name)
-        nc_var = f.variables[n]
-
+        
         if n not in f.variables:
             raise KeyError(f"Variable '{n}' not found in {file} file. Available variables: {list(f.variables.keys())}")
-        
+        nc_var = f.variables[n]
+
         v = nc_var[_slice] if _slice else nc_var[:]  # raw data
 
         v, effective_units = self._convert(file, name, v, nc_var, _slice)  # physical conversion (e.g. rate to accumulation)

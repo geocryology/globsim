@@ -18,7 +18,7 @@ class JRA55(JRAscale):
         ("sf", SN.precipitation_rate): "_daily_precip_to_rate",
             }
       
-      def _daily_precip_to_rate(self, data, nc_var) -> tuple[np.ndarray, str]:
+      def _daily_precip_to_rate(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
         """mm day-1 → kg m-2 s-1"""
         input_units = Units(nc_var.units)
         converted_units = input_units / Units("s")
@@ -44,6 +44,7 @@ class J3QSjma(JRAscale):
                   },
             "pl_sur":{},
             "to":{}}
+    CONVERTERS = {}
 
     SCALING = {"sa": {},
                "sf": {},
