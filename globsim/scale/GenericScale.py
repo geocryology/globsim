@@ -1,24 +1,29 @@
-import tomlkit
+import enum
 import logging
 import numpy as np
 import netCDF4 as nc
 import pandas as pd
-import enum
+import pytz
+import tomlkit
 
-from datetime import datetime
-from os import path, makedirs
 from cfunits import Units
-from pathlib import Path
+from datetime import datetime
 from math import floor
-from typing import Callable
+from os import path, makedirs
+from pathlib import Path
+from pysolar.solar import get_azimuth_fast
 from scipy.interpolate import interp1d
+from typing import Callable
 
 from globsim.constants import G
 from globsim.common_utils import StationListRead, series_interpolate
+from globsim.scale.scalenames import ScaleNames as SN
+from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, solar_zenith, shading_corrected_sw_direct, illumination_angle
+
+import globsim.meteorology as met
 import globsim.redcapp as redcapp
 import globsim.scale.kernel_templates as kt
-from globsim.scale.scalenames import ScaleNames as SN
-import globsim.meteorology as met
+
 
 logger = logging.getLogger('globsim.scale')
 
@@ -38,7 +43,7 @@ class GenericScale:
                "to": {},
                "pl_sur": {}}
     
-    CONVERTERS = {}  # translators for e.g. accumulations to rates
+    CONVERTERS = {}  # translator methods for e.g. accumulations to rates
 
     def __init__(self, sfile):
         # read parameter file
@@ -47,18 +52,23 @@ class GenericScale:
             config = tomlkit.parse(FILE.read())
             self.par = config['scale']
         self.set_parameters(self.par)
+        self.scaled_t_units = 'minutes since 1970-01-01 00:00:00+00:00'
+        self.scaled_t_cal = 'standard'
 
-    @staticmethod
-    def upscale(time_in, values:np.ndarray, times_out):
+    def upscale(self, time_in, values:np.ndarray, times_out):
         """"""
+        if time_in.shape == times_out.shape and np.allclose(time_in, times_out):
+            return values
+        
         axis = [i for i,v in enumerate(values.shape) if v == time_in.shape[0]][0]
         if not axis:
             axis=0
         fv = (values.take(indices=0, axis=axis), values.take(indices=-1, axis=axis))
         f = interp1d(time_in, values, kind='linear', bounds_error=False, fill_value=fv, axis=axis)
-        # handle masked array
+
         if np.ma.isMaskedArray(times_out):
             times_out = times_out.data
+
         return f(times_out)
     
     def _convert(self, file:str, name:str|enum.Enum, data:np.ndarray, nc_var: nc.Dataset, _slice=None) -> tuple[np.ndarray, str]:
@@ -93,17 +103,17 @@ class GenericScale:
         n = self.get_name(file, name)
         
         if n not in f.variables:
-            raise KeyError(f"Variable '{n}' not found in {file} file. Available variables: {list(f.variables.keys())}")
+            raise KeyError(f"Variable '{n}' not found in '{file}' file. Available variables: {list(f.variables.keys())}")
         nc_var = f.variables[n]
 
         v = nc_var[_slice] if _slice else nc_var[:]  # raw data
 
         v, effective_units = self._convert(file, name, v, nc_var, _slice)  # physical conversion (e.g. rate to accumulation)
 
-        if (units is not None) and (effective_units != units):
+        if (units is not None) and (effective_units != units):  # Equivalent units conversion
             v = Units.conform(v, Units(effective_units), Units(units), inplace=True)
 
-        elif name in self.SCALING.get(file).keys():  # 
+        elif name in self.SCALING.get(file).keys():  # (Legacy) Scaling factors available
             scale, offset = self.SCALING.get(file).get(name)
             v *= scale
             v += offset
@@ -121,6 +131,31 @@ class GenericScale:
             _slice = (slice(None), slice(None), station_ix)
         
         return self.get_values(file, name, _slice=_slice, units=units)
+
+    def get_station_values_at(self, file: str, name: str, station_ix: int,
+                          target_file: str, preserve_dims: bool = False,
+                          units: str = None) -> np.ndarray:
+        """Get station values interpolated to the time grid of target_file.    
+        If file and target_file have the same timestep, no interpolation occurs."""
+        values = self.get_station_values(file, name, station_ix,
+                                        preserve_dims=preserve_dims, units=units)
+        
+        source_time = self._file_time_numeric(file)
+        target_time = self._file_time_numeric(target_file)
+        
+        # Fast path: same time grid, no work needed
+        if source_time.shape == target_time.shape and np.allclose(source_time, target_time):
+            return values
+        
+        return self.upscale(source_time, values, target_time)
+
+    def _file_time_numeric(self, file: str) -> np.ndarray:
+        """Get time array for a file in a common numeric representation (int64)."""
+        f = self.get_file(file)
+        time_var = f.variables['time']
+        # Convert to a common epoch so times from different files are comparable
+        time_dates = nc.num2date(time_var[:], time_var.units, time_var.calendar)
+        return nc.date2num(time_dates, units=self.scaled_t_units, calendar=self.scaled_t_cal).astype(np.int64)
 
     def set_valid_stations(self, interpolated_ncf: nc.Dataset):
         ipl_station_ix=self.nc_pl_sur['station'][:]
@@ -353,22 +388,22 @@ class GenericScale:
     def set_time_scale(self, time_variable, time_step):
         nctime = time_variable[:]
 
-        self.t_unit = time_variable.units
-        self.t_cal  = time_variable.calendar
-        self.time_step = time_step
-        self.min_time = nc.num2date(min(nctime), units=self.t_unit, calendar=self.t_cal)
+        t_unit = time_variable.units
+        t_cal  = time_variable.calendar
+        self.scaled_tstep_h = time_step
+        self.min_time = nc.num2date(min(nctime), units=t_unit, calendar=t_cal)
 
-        self.max_time = nc.num2date(max(nctime), units=self.t_unit, calendar=self.t_cal)
-        t1 = nc.num2date(nctime[1], units=self.t_unit, calendar=self.t_cal)
-        t0 = nc.num2date(nctime[0], units=self.t_unit, calendar=self.t_cal)
-        self.interval_in = (t1 - t0).seconds
+        max_time = nc.num2date(max(nctime), units=t_unit, calendar=t_cal)
+        t1 = nc.num2date(nctime[1], units=t_unit, calendar=t_cal)
+        t0 = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
+        interval_in = (t1 - t0).seconds
         
         # number of time steps
-        self.nt = floor((self.max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
+        self.nt = floor((max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
         logger.debug(f"Output time array has {self.nt} elements between "
                      f"{self.min_time.strftime('%Y-%m-%d %H:%M:%S')} and "
-                     f"{self.max_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                     f" (time step of {self.time_step} hours)")
+                     f"{max_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                     f" (time step of {self.scaled_tstep_h} hours)")
 
     @staticmethod
     def build_datetime_array(start_time: datetime, timestep_in_hours: int, num_times: int, output_units:str, output_calendar:str):
@@ -412,7 +447,7 @@ class GenericScale:
         """
         raw = ncf['time'][:].astype(np.int64)
         time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
-        converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.t_cal)
+        converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.scaled_t_cal)
         return converted.astype(np.int64)
 
     def warn_station_elevation(self, data: "np.ndarray") -> None:
@@ -430,7 +465,7 @@ class GenericScale:
         """
         vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
         
-        time_in = self.get_values("pl_sur", "time").astype(np.int64)
+        time_in = self.get_values("pl_sur", SN.time).astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("pl_sur", SN.pressure, interp_ix, units="Pa") 
@@ -459,7 +494,7 @@ class GenericScale:
         """
         vn = kt.AIRT_C_sur(self.rg, self.NAME)
         var = self.rg.variables[vn] 
-        time_in = self.get_values("sa", "time")
+        time_in = self.get_values("sa", SN.time)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", SN.temperature, interp_ix, units=var.units)
@@ -476,15 +511,15 @@ class GenericScale:
         time_in = self.input_times_in_output_units(self.nc_sa)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            T_sa  = self.get_station_values("sa", SN.temperature, interp_ix, preserve_dims=True, units="degree_K")  
+            T_sa  = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", preserve_dims=True, units="degree_K")  
+            airT_pl = self.get_station_values_at("pl", SN.temperature, interp_ix, "sf", preserve_dims=True, units="degree_K")
+            elevation = self.get_station_values_at("pl", SN.elevation, interp_ix, "sf", preserve_dims=True, units='m')
             h_sur = self.get_station_values("to", SN.elevation, interp_ix, preserve_dims=False, units='m')
-            airT_pl = self.get_station_values("pl", SN.temperature, interp_ix, preserve_dims=True, units="degree_K")
-            elevation = self.get_station_values("pl", SN.elevation, interp_ix, preserve_dims=True, units='m')
 
             Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
-                                        airT_pl=airT_pl, 
-                                        elevation=elevation,
-                                        h_sur=h_sur)  
+                                          airT_pl=airT_pl, 
+                                          elevation=elevation,
+                                          h_sur=h_sur)  
 
             values  = Delta_T_c[:, 0]
             var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)      
@@ -508,7 +543,7 @@ class GenericScale:
         """
         vn = kt.RH_per_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("sa", "time")
+        time_in = self.get_values("sa", SN.time)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", SN.rh, interp_ix, units=var.units)
@@ -520,7 +555,7 @@ class GenericScale:
         """
         vn = kt.RH_per_pl(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("pl_sur", "time")
+        time_in = self.get_values("pl_sur", SN.time)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("pl_sur", SN.rh, interp_ix, units=var.units)
@@ -544,7 +579,7 @@ class GenericScale:
         """
         vn = kt.SW_Wm2_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("sf", "time")
+        time_in = self.get_values("sf", SN.time)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", SN.sw_down_flux, interp_ix, units=var.units)
@@ -572,7 +607,7 @@ class GenericScale:
         var_wspd = self.rg.variables[vn_spd]
         var_wdir = self.rg.variables[vn_dir]
 
-        time_in = self.get_values("sa", "time")
+        time_in = self.get_values("sa", SN.time)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values_u  = self.get_station_values("sa", SN.u_wind, interp_ix, units=var_u.units)
@@ -593,6 +628,74 @@ class GenericScale:
         var_wspd[:] = WS
         var_wdir[:] = WD
 
+    def SW_Wm2_topo(self):
+        """
+        Short-wave downwelling radiation corrected using a modified version of TOPOscale.
+        Partitions into direct and diffuse
+        """
+        vn_dir, vn_diff, vn_glob = kt.SW_Wm2_topo(self.rg, self.NAME)
+
+        nc_time = self.input_times_in_output_units(self.nc_sf)
+        py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.scaled_t_cal, only_use_cftime_datetimes=False)
+        py_time = np.array([pytz.utc.localize(t) for t in py_time])
+        
+        lat = self.get_values('pl_sur', 'latitude')
+        lon = self.get_values('pl_sur', 'longitude')
+
+        svf = self.get_sky_view()
+        slope = self.get_slope()
+        aspect = self.get_aspect()
+
+        grid_elev = np.squeeze(self.get_values('to', SN.elevation, units='m'))
+        station_elev = self.get_values("pl_sur", SN.elevation, units='m')
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
+            sw = self.get_station_values('sf', SN.sw_down_flux, interp_ix, preserve_dims=False, units="W m-2")
+            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
+                                                               grid_sw=sw,
+                                                               lat=np.ones_like(sw) * lat[interp_ix],
+                                                               lon=np.ones_like(sw) * lon[interp_ix],
+                                                               time=py_time,
+                                                               grid_elevation=np.ones_like(sw) * grid_elev[interp_ix],
+                                                               sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
+
+            diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
+
+            if slope[siteslist_ix] != 0:
+                azimuth = get_azimuth_fast(lat[interp_ix], lon[interp_ix], py_time)
+                cos_i_sub = illumination_angle(zenith, azimuth, slope[siteslist_ix], aspect[siteslist_ix])
+                cos_i_grid = np.cos(np.radians(zenith))
+                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
+                
+                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
+                corrected_direct *= sensible_values_mask
+
+            global_sw = diffuse + corrected_direct
+
+            self.rg.variables[vn_dir][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, corrected_direct)
+            self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
+            self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
+
+
+    def LW_Wm2_topo(self):
+        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
+        vn = kt.LW_Wm2_topo(self.rg, self.NAME)
+
+        time_in = self.input_times_in_output_units(self.nc_sf)
+        svf = self.get_sky_view()
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            t_sub = self.get_station_values_at("pl_sur", SN.temperature, interp_ix, "sf", units="degree_K")  # [K]
+            rh_sub = self.get_station_values_at("pl_sur", SN.rh, interp_ix, "sf", units="percent")  # [%]
+            t_grid = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", units="degree_K")  # [K]
+            rh_grid = self.get_station_values_at("sa", SN.rh, interp_ix, "sf", units="percent")  # [%]
+            lw_grid  = self.get_station_values_at("sf", SN.lw_down_flux, interp_ix, "sf")
+
+            lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
+
+            values = lw_sub * svf[siteslist_ix]
+            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:
     """ Ensure that input data has a consistent timestep

@@ -28,12 +28,9 @@ import pytz
 
 from cfunits import Units
 from pathlib import Path
-from pysolar.solar import get_azimuth_fast
 
-from globsim.common_utils import series_interpolate
 from globsim.meteorology import spec_hum_kgkg
 from globsim.nc_elements import new_scaled_netcdf
-from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, solar_zenith, shading_corrected_sw_direct, illumination_angle
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 from globsim.scale.scalenames import ScaleNames as SN
 import globsim.scale.kernel_templates as kt
@@ -92,6 +89,7 @@ class ERA5scale(GenericScale):
     "pl_sur": {SN.time:        "time",
                SN.temperature:   "t",
                SN.rh:            "r",
+               SN.elevation:     "height",
                SN.pressure:      "air_pressure"},
     "to":     {SN.geopotential:  "z",
                SN.elevation:     "z"},
@@ -133,13 +131,12 @@ class ERA5scale(GenericScale):
         # time vector for output data
         # get time and convert to datetime object
         self.set_time_scale(self.nc_pl_sur.variables['time'], par['time_step'])
-        self.scaled_t_units = 'seconds since 1900-01-01 00:00:0.0'
-
+        
         self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
-                                                      timestep_in_hours=self.time_step,
+                                                      timestep_in_hours=self.scaled_tstep_h,
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
-                                                      output_calendar=self.t_cal)
+                                                      output_calendar=self.scaled_t_cal)
 
     def getValues(self, ncf, varStr):
         return ncf.variables[varStr][:]
@@ -226,7 +223,7 @@ class ERA5scale(GenericScale):
         hypsometry = self.get_hypsometry()
         list_params = dreamit.get_model_params('era5')
         time_frac_year = dreamit.time_frac_year(nc_time)
-        pl_height = self.get_values("pl_sur", "height")
+        pl_height = self.get_values("pl_sur", SN.elevation)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             # get T from pressure level
@@ -273,73 +270,3 @@ class ERA5scale(GenericScale):
         self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
                                                      time_in, beta_t_C[:])                        
     
-    def SW_Wm2_topo(self):
-        """
-        Short-wave downwelling radiation corrected using a modified version of TOPOscale.
-        Partitions into direct and diffuse
-        """
-        vn_dir, vn_diff, vn_glob = kt.SW_Wm2_topo(self.rg, self.NAME)
-
-        nc_time = self.input_times_in_output_units(self.nc_sf)
-        py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.t_cal, only_use_cftime_datetimes=False)
-        py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        
-        lat = self.get_values('pl_sur', 'latitude')
-        lon = self.get_values('pl_sur', 'longitude')
-
-        svf = self.get_sky_view()
-        slope = self.get_slope()
-        aspect = self.get_aspect()
-
-        grid_elev = self.get_values('to', 'z', (0, slice(None,None,1))) / const.G  # z has 2 dimensions from the scaling step
-        station_elev = self.get_values("pl_sur", "height")
-
-        #for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
-            sw = self.get_station_values('sf', 'ssrd', interp_ix, preserve_dims=False)
-            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
-                                                               grid_sw=sw,
-                                                               lat=np.ones_like(sw) * lat[interp_ix],
-                                                               lon=np.ones_like(sw) * lon[interp_ix],
-                                                               time=py_time,
-                                                               grid_elevation=np.ones_like(sw) * grid_elev[interp_ix],
-                                                               sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
-
-            diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
-
-            if slope[siteslist_ix] != 0:
-                azimuth = get_azimuth_fast(lat[interp_ix], lon[interp_ix], py_time)
-                cos_i_sub = illumination_angle(zenith, azimuth, slope[siteslist_ix], aspect[siteslist_ix])
-                cos_i_grid = np.cos(np.radians(zenith))
-                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
-                
-                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
-                corrected_direct *= sensible_values_mask
-
-            global_sw = diffuse + corrected_direct
-
-            self.rg.variables[vn_dir][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, corrected_direct)
-            self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
-            self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
-
-
-    def LW_Wm2_topo(self):
-        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
-        vn = kt.LW_Wm2_topo(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-        svf = self.get_sky_view()
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            t_sub = self.get_station_values("pl_sur", 't', interp_ix, units="degree_K")  # [K]
-            rh_sub = self.get_station_values("pl_sur", 'r', interp_ix, units="percent")  # [%]
-            t_grid = self.get_station_values("sa", 't2m', interp_ix, units="degree_K")  # [K]
-            dewp_grid = self.get_station_values("sa", 'd2m', interp_ix, units="degree_K")  # [K]
-            rh_grid = self._rh()(t_grid - 273.15, dewp_grid - 273.15)
-            lw_grid  = self.get_station_values("sf", 'strd', interp_ix)
-
-            lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
-
-            values = lw_sub * svf[siteslist_ix]
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)

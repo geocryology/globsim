@@ -133,7 +133,7 @@ class MERRAinterpolate(GenericInterpolate):
         # build the output of empty netCDF file
         if self.resume:
             self.require_file_can_be_resumed(ncfile_out)
-            
+
         if not (self.resume and Path(ncfile_out).exists()):
             #rootgrp = self.netCDF_empty(ncfile_out, self.stations, ncf_in)
             rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
@@ -337,9 +337,9 @@ class MERRAinterpolate(GenericInterpolate):
         if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
             logger.info("Skipping invariant interpolation")
         else:
-            self.MERRA2station(self.mf_sc,
-                            path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
-                            self.stations, ['PHIS','FRLAND'], date=None)
+            self.MERRA2station(self.mf_sc.isel(time=slice(0,1)),  # only first time step (NB: doing this to solve a problem of extra blank time steps... maybe a download bug?)
+                               path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
+                               self.stations, ['PHIS','FRLAND'], date=None)
     
     def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===

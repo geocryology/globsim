@@ -59,9 +59,10 @@ class MERRAscale(GenericScale):
                    SN.rh:            "RH",
                    SN.elevation:     "H"},
         "pl_sur": {SN.temperature:   "T",
+                   SN.elevation:     "height",
                    SN.pressure:      "air_pressure",
                    SN.rh:            "RH"},
-        "to":     {SN.time:        "time",
+        "to":     {SN.time:          "time",
                    SN.geopotential:  "PHIS",
                    SN.elevation:     "PHIS"},
     }
@@ -106,13 +107,12 @@ class MERRAscale(GenericScale):
         # time vector for output data
         # get time and convert to datetime object
         self.set_time_scale(self.nc_pl_sur.variables['time'], par['time_step'])
-        self.scaled_t_units = 'seconds since 1980-01-01 00:00:00'
 
         self.times_out_nc = self.build_datetime_array(start_time=self.min_time,
-                                                      timestep_in_hours=self.time_step,
+                                                      timestep_in_hours=self.scaled_tstep_h,
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
-                                                      output_calendar=self.t_cal)
+                                                      output_calendar=self.scaled_t_cal)
 
     def process(self):
         """
@@ -144,113 +144,7 @@ class MERRAscale(GenericScale):
         self.nc_sf.close()
         self.nc_sa.close()
         self.nc_pl.close()
-   
-    def AIRT_redcapp(self):
-        """
-        Air temperature derived from surface data and pressure level data as
-        shown by the method REDCAPP Cao et al. (2017) 10.5194/gmd-10-2905-2017
-        """
-        logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
-
-        # add variable to ncdf file
-        var = redcapp.add_var_delta_T(self.rg)
-
-        # get T from surface level
-        T_sa  = self.nc_sa.variables['T2M'][::6, :]  # every 6th hour to match pl data 
-        # TODO: interpolate pl data to 24h instead of downsampling sa data.
-
-        # get grid surface elevation from geopotential  (Cao: elev. @ coarse-scale topography)
-        h_sur = self.nc_sc['PHIS'][0, :] / const.G  # remove time dimension. Time-invariant.
-        
-        # get pressure-level temperatures
-        airT_pl = self.nc_pl.variables['T'][:]
-        # get pressure-level elevations from geopotential
-        elevation = self.nc_pl['H'][:]  # 
-
-        Delta_T_c = redcapp.delta_T_c(T_sa=T_sa, 
-                                      airT_pl=airT_pl, 
-                                      elevation=elevation,
-                                      h_sur=h_sur)  
-
-        time_in = self.input_times_in_output_units(self.nc_pl)
-        values  = Delta_T_c
-        
-        for n, s in enumerate(self.rg.variables['station'][:].tolist()):
-            var[:, n] = series_interpolate(self.times_out_nc, 
-                                           time_in,
-                                           values[:, n])
-
-    def SW_Wm2_topo(self):
-        """
-        Short-wave downwelling radiation corrected using a modified version of TOPOscale.
-        Partitions into direct and diffuse
-        """
-        vn_dir, vn_diff, vn_glob = kt.SW_Wm2_topo(self.rg, self.NAME)
-        
-        # interpolate station by station
-        nc_time = self.input_times_in_output_units(self.nc_sf)
-        py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.t_cal, only_use_cftime_datetimes=False)
-        py_time = np.array([pytz.utc.localize(t) for t in py_time])
-        
-        lat = self.get_values('pl_sur', 'latitude')
-        lon = self.get_values('pl_sur', 'longitude')
-        
-        svf = self.get_sky_view()
-        slope = self.get_slope()
-        aspect = self.get_aspect()
-        
-        grid_elev = self.get_values('to', 'PHIS', (0, slice(None,None,1))) / const.G  # z has 2 dimensions from the scaling step
-        station_elev = self.get_values("pl_sur","height")
-        
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            zenith = solar_zenith(lat=lat[interp_ix], lon=lon[interp_ix], time=py_time)
-            sw = self.get_station_values('sf', 'SWGDN', interp_ix, preserve_dims=False)
-
-            diffuse, corrected_direct = elevation_corrected_sw(zenith=zenith,
-                                                               grid_sw=sw,
-                                                               lat=np.ones_like(sw) * lat[interp_ix],
-                                                               lon=np.ones_like(sw) * lon[interp_ix],
-                                                               time=py_time,
-                                                               grid_elevation=np.ones_like(sw) * grid_elev[interp_ix],
-                                                               sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
-
-            diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
-
-            if slope[siteslist_ix] != 0:
-                azimuth = get_azimuth_fast(lat[interp_ix], lon[interp_ix], py_time)
-                cos_i_sub = illumination_angle(zenith, azimuth, slope[siteslist_ix], aspect[siteslist_ix])
-                cos_i_grid = np.cos(np.radians(zenith))
-                corrected_direct = shading_corrected_sw_direct(corrected_direct, cos_i_sub, cos_i_grid)
-                
-                sensible_values_mask = np.where(cos_i_grid < 0.001, 0, 1) * np.where(corrected_direct > 1366, 0, 1)
-                corrected_direct *= sensible_values_mask
-
-            global_sw = diffuse + corrected_direct
-
-            self.rg.variables[vn_dir][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, corrected_direct)
-            self.rg.variables[vn_diff][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, diffuse)
-            self.rg.variables[vn_glob][:, siteslist_ix] = series_interpolate(self.times_out_nc, nc_time, global_sw)
-
-    def LW_Wm2_topo(self):
-        """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
-        vn = kt.LW_Wm2_topo(self.rg, self.NAME)
-
-        time_in = self.input_times_in_output_units(self.nc_sf)
-        svf = self.get_sky_view()
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            """ I'm cutting corners here by repeating variables with longer timesteps. This should be improved [NB]"""
-            t_sub = self.get_station_values("pl_sur", 'T', interp_ix)
-            t_sub = np.repeat(t_sub, 6, axis=0)
-            rh_sub = self.get_station_values("pl_sur", 'RH', interp_ix)  # [%]
-            rh_sub = np.repeat(rh_sub, 6, axis=0) * 100  # [%]
-            t_grid = self.get_station_values("sa", 'T2M', interp_ix)  # [K]
-            dewp_grid = self.get_station_values("sf", 'T2MDEW', interp_ix)  # [K]
-            rh_grid = self._rh()(t_grid - 273.15, dewp_grid - 273.15) 
-            lw_grid  = self.get_station_values("sf", 'LWGDN', interp_ix) # [w m-2 s-1]
-            lw_sub = lw_down_toposcale(t_sub=t_sub, rh_sub=rh_sub, t_sur=t_grid, rh_sur=rh_grid, lw_sur=lw_grid)
-            values = lw_sub * svf[siteslist_ix]
-            self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
+        self.nc_sc.close()
 
     def PRECCORR_mm_sur(self):
         """

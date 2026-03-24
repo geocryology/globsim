@@ -10,7 +10,7 @@ class ScaleNames(enum.Enum):
     u_wind = "u_wind"
     v_wind = "v_wind"
     geopotential = "geopotential"
-    elevation = "elevation"
+    elevation = "elevation"  # elevation [L], not geopotential height
     ozone = "ozone"
     water_vapour = "water_vapour"
     rh = "relative_humidity"
