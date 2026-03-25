@@ -10,7 +10,7 @@ from pathlib import Path
 
 from globsim.common_utils import variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
-from globsim.nc_elements import new_interpolated_netcdf
+from globsim.nc_elements import new_interpolated_netcdf, netcdf_base
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 import globsim.constants as const
 
@@ -272,7 +272,7 @@ class ERA5interpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = netcdfq_base(ncfile_out, len(height), nt,
+            rootgrp = netcdf_base(ncfile_out, len(height), nt,
                                 time_units=ncf['time'].units,
                                 nc_in=ncf,
                                 calendar=ncf['time'].calendar)
