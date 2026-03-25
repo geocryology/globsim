@@ -19,7 +19,9 @@ from globsim.constants import G
 from globsim.common_utils import StationListRead, series_interpolate
 from globsim.scale.scalenames import ScaleNames as SN
 from globsim.scale.toposcale import lw_down_toposcale, elevation_corrected_sw, solar_zenith, shading_corrected_sw_direct, illumination_angle
+from globsim.nc_elements import new_scaled_netcdf
 
+import globsim.dreamit as dreamit
 import globsim.meteorology as met
 import globsim.redcapp as redcapp
 import globsim.scale.kernel_templates as kt
@@ -54,6 +56,8 @@ class GenericScale:
         self.set_parameters(self.par)
         self.scaled_t_units = 'minutes since 1970-01-01 00:00:00+00:00'
         self.scaled_t_cal = 'standard'
+        # check if output file exists and remove if overwrite parameter is set
+        self.output_file = self.getOutNCF(self.par, f'{self.REANALYSIS}')
 
     def upscale(self, time_in, values:np.ndarray, times_out):
         """"""
@@ -80,6 +84,36 @@ class GenericScale:
         
         # No conversion needed — units are whatever the file says
         return data, nc_var.units
+    
+    def process(self):
+        """Run all relevant processes and save data. Each kernel processes one variable and adds it to the netCDF file."""
+        if not path.isdir(path.dirname(self.output_file)):
+            makedirs(path.dirname(self.outfile))
+        
+        self.set_valid_stations(self.nc_pl_sur)
+        valid_indices = self.valid_stations['nc_index']
+        self.rg = new_scaled_netcdf(ncfile_out=self.output_file, 
+                                    nc_interpol=self.nc_pl_sur,
+                                    times_out=self.times_out_nc, 
+                                    t_unit=self.scaled_t_units,
+                                    valid_indices=valid_indices,
+                                    station_names=self.valid_stations['station_name_scale'],)
+        
+        elev = np.squeeze(self.get_values("to", SN.elevation, units='m'))
+        self.add_grid_elevation(self.rg, elev[valid_indices.values])
+        
+        self.run_kernels()
+        logger.info(f"Created scaled output file {self.output_file}")
+
+        self.close_files()
+    
+    def close_files(self):
+        self.rg.close()
+        self.nc_pl_sur.close()
+        self.nc_sf.close()
+        self.nc_sa.close()
+        self.nc_to.close()
+        self.nc_pl.close()
     
     def get_name(self, file:str, name:str):
         """ Globsim translation of variable names. If no translation is found, returns the original name. """
@@ -423,7 +457,8 @@ class GenericScale:
         for kernel_name in self.kernels:
             if hasattr(self, kernel_name):
                 logger.info(f"running scaling kernel: '{kernel_name}'")
-                getattr(self, kernel_name)()
+                kernel = getattr(self, kernel_name)
+                _ = kernel()
             else:
                 logger.error(f"Missing kernel {kernel_name}")
 
@@ -696,6 +731,61 @@ class GenericScale:
 
             values = lw_sub * svf[siteslist_ix]
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
+
+    def AIRT_DReaMIT(self):
+        """
+        Air temperature derived from surface data, pressure level data, and
+        dynamically-computed inversion metrics as shown by the method DReaMIT
+        """
+        kt.AIRT_DReaMIT(self.rg)
+
+        nc_time = self.nc_sa.variables['time']
+        time_in = self.input_times_in_output_units(self.nc_sa)
+
+        hypsometry = self.get_hypsometry()
+        list_params = dreamit.get_model_params(self.REANALYSIS)
+        time_frac_year = dreamit.time_frac_year(nc_time)
+        pl_height = self.get_values("pl_sur", SN.elevation, units='m')
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            T_pl_in = self.get_station_values("pl", SN.temperature, interp_ix, preserve_dims=True, units='degree_K')
+            h_pl_in = self.get_station_values("pl", SN.elevation, interp_ix, preserve_dims=True, units='m')
+            T_pl_surface_in = self.get_station_values("pl_sur", SN.temperature, interp_ix, preserve_dims=True, units='degree_K')
+            h_pl_surface_in = pl_height[interp_ix: interp_ix+1] # preserve dimension
+            grid_elev_in = self.get_station_values("to", SN.elevation, interp_ix, preserve_dims=True, units='m')
+
+            T_sur_in = self.get_station_values("sa", SN.temperature, interp_ix, preserve_dims=True, units='degree_K')            
+
+            mtrcs = dreamit.dreamit_metrics(reanalysis=self.NAME,
+                                            T_pl_in=T_pl_in,
+                                            h_pl_in=h_pl_in,
+                                            T_pl_surface_in=T_pl_surface_in,
+                                            h_pl_surface_in=h_pl_surface_in,
+                                            grid_elev_in=grid_elev_in)
+            
+            z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = mtrcs
+
+
+
+            AIRT_DReaMIT_C, beta_t_C = dreamit.dreamit_air_T(T_lapse_grid=T_lapse_grid_C,
+                                                            T_lapse_station=T_lapse_station_C,
+                                                            T_sur=T_sur_in,
+                                                            time_frac_year=time_frac_year,
+                                                            hyps=np.atleast_1d(hypsometry),
+                                                            params=list_params)
+
+            self.rg.variables['z_top_inversion_m'][:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                                     time_in, z_top_inversion_m)
+            self.rg.variables['T_lapse_grid_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                                     time_in, T_lapse_grid_C) - 273.15
+            self.rg.variables['T_lapse_station_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                                     time_in, T_lapse_station_C) - 273.15
+            self.rg.variables['lapse_Cperm'][:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                                     time_in, lapse_Cperm)
+            self.rg.variables['AIRT_DReaMIT_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                                     time_in, AIRT_DReaMIT_C) - 273.15
+        self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
+                                                     time_in, beta_t_C[:])   
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:
     """ Ensure that input data has a consistent timestep

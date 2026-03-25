@@ -4,21 +4,14 @@
 import logging
 import netCDF4 as nc
 import numpy as np
-import pytz
 import warnings
 
-from os import path, makedirs
-from math import atan2, pi
-from pysolar.solar import get_azimuth_fast
 from cfunits import Units
+from os import path
 
 from globsim.common_utils import series_interpolate
-from globsim.scale.toposcale import lw_down_toposcale, solar_zenith, elevation_corrected_sw, illumination_angle, shading_corrected_sw_direct
-from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 import globsim.scale.kernel_templates as kt
-import globsim.constants as const
-import globsim.redcapp as redcapp
 from globsim.scale.scalenames import ScaleNames as SN
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
@@ -54,11 +47,12 @@ class MERRAscale(GenericScale):
                    SN.sw_down_flux:       "SWGDN",
                    SN.lw_down_flux:       "LWGDN",
                    SN.precipitation_rate: "PRECTOT"},
-        "pl":     {SN.time:        "time",
+        "pl":     {SN.time:          "time",
                    SN.temperature:   "T",
                    SN.rh:            "RH",
                    SN.elevation:     "H"},
-        "pl_sur": {SN.temperature:   "T",
+        "pl_sur": {SN.time:          "time",
+                   SN.temperature:   "T",
                    SN.elevation:     "height",
                    SN.pressure:      "air_pressure",
                    SN.rh:            "RH"},
@@ -102,7 +96,7 @@ class MERRAscale(GenericScale):
         #                        self.list_name + '.nc'), 'r')
 
         # check if output file exists and remove if overwrite parameter is set
-        self.output_file = self.getOutNCF(par, 'merra2')
+        
 
         # time vector for output data
         # get time and convert to datetime object
@@ -113,38 +107,6 @@ class MERRAscale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.scaled_t_cal)
-
-    def process(self):
-        """
-        Run all relevant processes and save data. Each kernel processes one
-        variable and adds it to the netCDF file.
-        """
-
-        if not path.isdir(path.dirname(self.output_file)):
-            makedirs(path.dirname(self.outfile))
-
-        self.set_valid_stations(self.nc_pl_sur)
-        valid_indices = self.valid_stations['nc_index']
-        self.rg = new_scaled_netcdf(self.output_file,
-                                    self.nc_pl_sur,
-                                    self.times_out_nc,
-                                    t_unit=self.scaled_t_units,
-                                    valid_indices=valid_indices,
-                                    station_names=self.valid_stations['station_name_scale'])
-        
-        # add grid elevation to netCDF
-        self.add_grid_elevation(self.rg, self.nc_sc['PHIS'][0, valid_indices.values] / const.G)
-        
-        # iterate through kernels and start process
-        self.run_kernels()
-
-        # close netCDF files
-        self.rg.close()
-        self.nc_pl_sur.close()
-        self.nc_sf.close()
-        self.nc_sa.close()
-        self.nc_pl.close()
-        self.nc_sc.close()
 
     def PRECCORR_mm_sur(self):
         """

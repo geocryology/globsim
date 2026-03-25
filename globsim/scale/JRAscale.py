@@ -3,16 +3,12 @@
 import logging
 import netCDF4 as nc
 
-from cfunits import Units
 from pathlib import Path
-from pysolar.solar import get_azimuth_fast
 
 from globsim.common_utils import series_interpolate
-from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 from globsim.scale.scalenames import ScaleNames as SN
 import globsim.scale.kernel_templates as kt
-import globsim.constants as const
 import globsim.dreamit as dreamit
 
 logger = logging.getLogger('globsim.scale')
@@ -59,9 +55,6 @@ class JRAscale(GenericScale):
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
-        # check if output file exists and remove if overwrite parameter is set
-        self.output_file = self.getOutNCF(par, f'{self.REANALYSIS}')
-
         # time vector for output data
         # get time and convert to datetime object
         self.set_time_scale(self.nc_pl_sur.variables['time'], par['time_step'])
@@ -71,34 +64,6 @@ class JRAscale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.scaled_t_cal)
-
-    def process(self):
-        """
-        Run all relevant processes and save data. Each kernel processes one
-        variable and adds it to the netCDF file.
-        """
-        self.set_valid_stations(self.nc_pl_sur)
-        valid_indices = self.valid_stations['nc_index']
-        self.rg = new_scaled_netcdf(ncfile_out=self.output_file, 
-                                    nc_interpol=self.nc_pl_sur,
-                                    times_out=self.times_out_nc, 
-                                    t_unit=self.nc_pl_sur['time'].units,
-                                    valid_indices=valid_indices,
-                                    station_names=self.valid_stations['station_name_scale'],)
-
-        # add station names to netcdf
-        elev = self.get_values("to", SN.elevation, units='m')
-        self.add_grid_elevation(self.rg, elev[valid_indices.values])  # [m]
-
-        # iterate through kernels and start process
-        self.run_kernels()
-
-        # close netCDF files
-        self.rg.close()
-        self.nc_pl_sur.close()
-        self.nc_pl.close()
-        self.nc_sf.close()
-        self.nc_sa.close()
     
     def AIRT_DReaMIT(self):
         """

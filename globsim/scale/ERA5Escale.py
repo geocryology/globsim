@@ -86,7 +86,7 @@ class ERA5Escale(ERA5scale):
                                         self.nc_pl_sur, self.times_out_nc,
                                         t_unit=self.scaled_t_units,
                                         station_names=stations)
-            self.indProcess()
+            self.run_kernels()
             logger.info(f"Created scaled output file {self.output_file}")
 
         # close netCDF files

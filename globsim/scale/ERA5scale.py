@@ -24,17 +24,14 @@ import netCDF4 as nc
 import numpy as np
 import urllib3
 import logging
-import pytz
 
 from cfunits import Units
 from pathlib import Path
 
 from globsim.meteorology import spec_hum_kgkg
-from globsim.nc_elements import new_scaled_netcdf
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 from globsim.scale.scalenames import ScaleNames as SN
 import globsim.scale.kernel_templates as kt
-import globsim.constants as const
 import globsim.dreamit as dreamit
 
 urllib3.disable_warnings()
@@ -141,45 +138,6 @@ class ERA5scale(GenericScale):
     def getValues(self, ncf, varStr):
         return ncf.variables[varStr][:]
     
-    def indProcess(self):
-        for kernel_name in self.kernels:
-            if hasattr(self, kernel_name):
-                logger.info(f"running scaling kernel: '{kernel_name}'")
-                kernel = getattr(self, kernel_name)
-                _ = kernel()
-            else:
-                logger.error(f"Missing kernel {kernel_name}")
-
-    def process(self):
-        """
-        Run all relevant processes and save data. Each kernel processes one
-        variable and adds it to the netCDF file.
-        """
-
-        self.set_valid_stations(self.nc_pl_sur)
-        # iterate thorugh kernels and start process
-
-        self.output_file = self.getOutNCF(self.par, self.REANALYSIS)
-        valid_indices = self.valid_stations['nc_index']
-        self.rg = new_scaled_netcdf(self.output_file,
-                                    self.nc_pl_sur, self.times_out_nc,
-                                    t_unit=self.scaled_t_units,
-                                    valid_indices=valid_indices,
-                                    station_names=self.valid_stations['station_name_scale'])
-        # add surface height
-        self.add_grid_elevation(self.rg, self.getValues(self.nc_to, 'z')[0, valid_indices.values] / const.G)
-
-        self.indProcess()
-
-        logger.info(f"Created scaled output file {self.output_file}")
-        # close netCDF files
-        self.rg.close()
-        self.nc_pl_sur.close()
-        self.nc_sf.close()
-        self.nc_sa.close()
-        self.nc_to.close()
-        self.nc_pl.close()
-
     def _precip_tot_to_flux(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
         """Convert total precipitation to precipitation rate by dividing by time step."""
         input_units = Units(nc_var.units)
