@@ -1,25 +1,3 @@
-# -*- coding: utf-8 -*-
-#
-# Methods for downloading ERA5 data from the ECMWF server for limited
-# areas and limited times.
-#
-#  OVERALL WORKFLOW
-#
-#  See: https://github.com/geocryology/globsim/wiki/Globsim
-#       and the examples directory on github
-#
-# ECMWF and netCDF information:
-# https://software.ecmwf.int/wiki/display/WEBAPI/Python+ERA-interim+examples
-#
-# For variable codes and units, see:
-#     http://www.ecmwf.int/publications/manuals/d/gribapi/param/
-#
-# Check ECMWF job status: http://apps.ecmwf.int/webmars/joblist/
-#
-#  CF-Convention: this is how you check netcdf file conformity:
-#  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl
-#
-# ===============================================================================
 import urllib3
 import logging
 

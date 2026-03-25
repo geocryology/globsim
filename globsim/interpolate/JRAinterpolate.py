@@ -9,7 +9,6 @@ from datetime import datetime
 from os import path
 from pathlib import Path
 
-from globsim.common_utils import variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
 from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid

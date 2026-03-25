@@ -1,5 +1,4 @@
 """globsim.globsim: provides entry point main()."""
-
 import logging
 import sys
 import argparse

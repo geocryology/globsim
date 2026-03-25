@@ -1,15 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import logging
 import netCDF4 as nc
 
 from pathlib import Path
 
-from globsim.common_utils import series_interpolate
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
-from globsim.scale.scalenames import ScaleNames as SN
-import globsim.scale.kernel_templates as kt
-import globsim.dreamit as dreamit
 
 logger = logging.getLogger('globsim.scale')
 
