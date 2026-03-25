@@ -37,6 +37,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libhdf5-serial-dev netcdf-bin libnetcdf-dev
+        sudo apt-get install -y libudunits2-dev
     
     - name: Install python dependencies
       run: |
