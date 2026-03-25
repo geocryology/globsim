@@ -387,7 +387,8 @@ def dreamit_air_T(T_lapse_grid: np.ndarray, T_lapse_station: np.ndarray, T_sur: 
     """
     alpha_slope, alpha_intercept, beta_amp, t_star, beta_bias = params
     beta_t_C  = (beta_amp * np.cos(2*np.pi*(time_frac_year-t_star)) + beta_bias)
-    num_station = len(hyps)
+    num_station = T_lapse_grid.shape[1]
+
     T_mod = {n: [] for n in range(num_station)}
     for n in range(num_station):
         DT_grid = T_sur[:,n] - T_lapse_grid[:,n]
