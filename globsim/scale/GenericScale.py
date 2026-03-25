@@ -797,7 +797,7 @@ class GenericScale:
             var_airt_drm = self.rg.variables['AIRT_DReaMIT_C']
             var_airt_drm[:, siteslist_ix] = np.interp(self.times_out_nc,
                                                       time_in, 
-                                                      np.squeezeAIRT_DReaMIT_C) - 273.15
+                                                      np.squeeze(AIRT_DReaMIT_C) - 273.15)
         
         var_beta = self.rg.variables['beta_t_C']
         var_beta[:] = np.interp(self.times_out_nc, time_in, beta_t_C[:])   
