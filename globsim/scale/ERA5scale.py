@@ -1,25 +1,3 @@
-# -*- coding: utf-8 -*-
-#
-# Methods for downloading ERA5 data from the ECMWF server for limited
-# areas and limited times.
-#
-#  OVERALL WORKFLOW
-#
-#  See: https://github.com/geocryology/globsim/wiki/Globsim
-#       and the examples directory on github
-#
-# ECMWF and netCDF information:
-# https://software.ecmwf.int/wiki/display/WEBAPI/Python+ERA-interim+examples
-#
-# For variable codes and units, see:
-#     http://www.ecmwf.int/publications/manuals/d/gribapi/param/
-#
-# Check ECMWF job status: http://apps.ecmwf.int/webmars/joblist/
-#
-#  CF-Convention: this is how you check netcdf file conformity:
-#  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl
-#
-# ===============================================================================
 import netCDF4 as nc
 import numpy as np
 import urllib3
@@ -31,8 +9,6 @@ from pathlib import Path
 from globsim.meteorology import spec_hum_kgkg
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 from globsim.scale.scalenames import ScaleNames as SN
-import globsim.scale.kernel_templates as kt
-import globsim.dreamit as dreamit
 
 urllib3.disable_warnings()
 logger = logging.getLogger('globsim.scale')
@@ -144,9 +120,6 @@ class ERA5scale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.scaled_t_cal)
-
-    def getValues(self, ncf, varStr):
-        return ncf.variables[varStr][:]
     
     def _precip_tot_to_flux(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
         """Convert total precipitation to precipitation rate by dividing by time step."""
@@ -177,65 +150,3 @@ class ERA5scale(GenericScale):
         converted_units = input_units / Units("s")
 
         return converted_data, converted_units.units
-'''    
-    def AIRT_DReaMIT(self):
-        """
-        Air temperature derived from surface data, pressure level data, and
-        dynamically-computed inversion metrics as shown by the method DReaMIT
-        """
-        kt.AIRT_DReaMIT(self.rg)
-
-        nc_time = self.nc_sa.variables['time']
-        time_in = self.input_times_in_output_units(self.nc_sa)
-
-        hypsometry = self.get_hypsometry()
-        list_params = dreamit.get_model_params('era5')
-        time_frac_year = dreamit.time_frac_year(nc_time)
-        pl_height = self.get_values("pl_sur", SN.elevation)
-
-        for siteslist_ix, interp_ix in self.iterate_stations():
-            # get T from pressure level
-            T_pl_in = self.get_station_values("pl", "t", interp_ix, preserve_dims=True)
-            # get height from pressure level
-            h_pl_in = self.get_station_values("pl", "z", interp_ix, preserve_dims=True)
-            # get station temperature from pressure level surface
-            T_pl_surface_in = self.get_station_values("pl_sur", "t", interp_ix, preserve_dims=True)
-            # get station height from pressure level surface
-            h_pl_surface_in = pl_height[interp_ix: interp_ix+1]
-            # get grid height from to
-            grid_elev_in = self.get_station_values("to", "z", interp_ix, preserve_dims=True)
-            # get T from surface
-            T_sur_in = self.get_station_values("sa", "t2m", interp_ix, preserve_dims=True)            
-
-            mtrcs = dreamit.dreamit_metrics(reanalysis=self.NAME,
-                                            T_pl_in=T_pl_in,
-                                            h_pl_in=h_pl_in,
-                                            T_pl_surface_in=T_pl_surface_in,
-                                            h_pl_surface_in=h_pl_surface_in,
-                                            grid_elev_in=grid_elev_in)
-            
-            z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = mtrcs
-
-
-
-            AIRT_DReaMIT_C, beta_t_C = dreamit.dreamit_air_T(T_lapse_grid=T_lapse_grid_C,
-                                                            T_lapse_station=T_lapse_station_C,
-                                                            T_sur=T_sur_in,
-                                                            time_frac_year=time_frac_year,
-                                                            hyps=np.atleast_1d(hypsometry),
-                                                            params=list_params)
-
-            self.rg.variables['z_top_inversion_m'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, z_top_inversion_m)
-            self.rg.variables['T_lapse_grid_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, T_lapse_grid_C) - 273.15
-            self.rg.variables['T_lapse_station_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, T_lapse_station_C) - 273.15
-            self.rg.variables['lapse_Cperm'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, lapse_Cperm)
-            self.rg.variables['AIRT_DReaMIT_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, AIRT_DReaMIT_C) - 273.15
-        self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
-                                                     time_in, beta_t_C[:])                        
-    
-'''

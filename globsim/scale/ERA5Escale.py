@@ -65,9 +65,10 @@ class ERA5Escale(ERA5scale):
         else:
             raise ValueError(f"Ensemble member number {ni} not in {self.nc_sa['number']}")
 
-    def getValues(self, ncf, varStr):  # must redefine
-        ni = self.current_member
-        return ncf.variables[varStr][:, ni, :]
+    def get_values(self, *args, **kwargs):
+        ni = self.current_member  # get current ensemble member number
+        # ncf.variables[varStr][:, ni, :]  # additional subsetting for ensemble member
+        raise RuntimeError("get_values is not yet implemented for ERA5-ensemble.")
 
     def process(self):
         """
