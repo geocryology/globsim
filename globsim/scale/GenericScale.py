@@ -90,14 +90,14 @@ class GenericScale:
         if not path.isdir(path.dirname(self.output_file)):
             makedirs(path.dirname(self.outfile))
         
-        self.set_valid_stations(self.nc_pl_sur)
+        self.set_valid_stations()
         valid_indices = self.valid_stations['nc_index']
         self.rg = new_scaled_netcdf(ncfile_out=self.output_file, 
                                     nc_interpol=self.nc_pl_sur,
                                     times_out=self.times_out_nc, 
                                     t_unit=self.scaled_t_units,
                                     valid_indices=valid_indices,
-                                    station_names=self.valid_stations['station_name_scale'],)
+                                    station_names=self.valid_stations['station_name'],)
         
         elev = np.squeeze(self.get_values("to", SN.elevation, units='m'))
         self.add_grid_elevation(self.rg, elev[valid_indices.values])
@@ -191,22 +191,22 @@ class GenericScale:
         time_dates = nc.num2date(time_var[:], time_var.units, time_var.calendar)
         return nc.date2num(time_dates, units=self.scaled_t_units, calendar=self.scaled_t_cal).astype(np.int64)
 
-    def set_valid_stations(self, interpolated_ncf: nc.Dataset):
+    def set_valid_stations(self):
         ipl_station_ix=self.nc_pl_sur['station'][:]
         ipl_station_lon=self.get_values('pl_sur', SN.longitude)
         ipl_station_lat=self.get_values('pl_sur', SN.latitude)
         ipl_station_elev=self.get_values('pl_sur', SN.elevation)
 
         try:
-            ipl_station_name=self.nc_pl_sur['station_name'][:]
+            ipl_station_names=nc.chartostring(self.nc_pl['station_name'][:])
         except IndexError:
             logger.warning("No station_name variable in interpolated netCDF.")
-            ipl_station_name = None
+            ipl_station_names = None
         
         interpolated_stations = pd.DataFrame(data={'station_number':ipl_station_ix,
                                                    'longitude_dd': ipl_station_lon, 
                                                    'latitude_dd': ipl_station_lat, 
-                                                   'station_name': ipl_station_name,
+                                                   'station_name': ipl_station_names,
                                                    'elevation_m':ipl_station_elev})
         interpolated_stations['nc_index'] = interpolated_stations.index
 
@@ -219,28 +219,32 @@ class GenericScale:
         else:
             logger.warning("One or more station names in interpolated netCDF are missing. Matching stations based on station number and coordinates only.")
             station_df = stations.merge(interpolated_stations, on='station_number', how='inner', suffixes=('_scale', '_interpolate'))
-        
+
         station_df['lon_matches'] = np.isclose(station_df['longitude_dd_scale'] % 360, station_df['longitude_dd_interpolate'] % 360, atol=1e-6)
         station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'] % 360, station_df['latitude_dd_interpolate'] % 360, atol=1e-6)
         station_df['elev_matches'] = np.isclose(station_df['elevation_m_scale'], station_df['elevation_m_interpolate'], atol=1e-4)
         station_df['coordinates_match'] = station_df['lon_matches'] & station_df['lat_matches'] & station_df['elev_matches']
-        station_df['name_matches'] = station_df['station_name_scale'] == station_df['station_name_interpolate']
-
-        for _, row in station_df[~station_df['coordinates_match']].iterrows():
-            logger.warning(f"Station {row['station_number']} ({row['station_name_scale']})" \
-                           f"has mismatched coordinates between station list" \
-                           f"({row['longitude_dd_scale']}, {row['latitude_dd_scale']}) and interpolated netCDF" \
-                           f"({row['longitude_dd_interpolate']}, {row['latitude_dd_interpolate']}).")
-            
-        for _, row in station_df[~station_df['name_matches']].iterrows():
-            if row['station_name_interpolate'] is not None:
-                logger.warning(f"Station {row['station_number']} ({row['station_name_scale']}) " \
-                            f"has mismatched names between station list ({row['station_name_scale']})" \
-                            f"and interpolated netCDF ({row['station_name_interpolate']}).")
-            
-        logger.info(f"Found {len(station_df)} valid stations with matching station numbers and coordinates between station list and interpolated netCDF. " \
-                    f"{(~station_df['name_matches']).sum()} have mismatched or missing names.")
         
+        if ipl_station_names is None:
+            station_df['station_name_scale'] = None
+            station_df['name_matches'] = station_df['station_name_scale'] == station_df['station_name_interpolate']
+
+            for _, row in station_df[~station_df['coordinates_match']].iterrows():
+                logger.warning(f"Station {row['station_number']} ({row['station_name_scale']})" \
+                            f"has mismatched coordinates between station list" \
+                            f"({row['longitude_dd_scale']}, {row['latitude_dd_scale']}) and interpolated netCDF" \
+                            f"({row['longitude_dd_interpolate']}, {row['latitude_dd_interpolate']}).")
+
+            for _, row in station_df[~station_df['name_matches']].iterrows():
+                if row['station_name_interpolate'] is not None:
+                    logger.warning(f"Station {row['station_number']} ({row['station_name_scale']}) " \
+                                f"has mismatched names between station list ({row['station_name_scale']})" \
+                                f"and interpolated netCDF ({row['station_name_interpolate']}).")
+        else:
+            station_df['name_matches'] = True  
+            logger.info(f"Found {len(station_df)} valid stations (out of {len(self.stations)} in siteslist and {len(interpolated_stations)} in interpolated netCDF) " \
+                        f"with matching station numbers and coordinates between station list and interpolated netCDF. ") 
+
         self.valid_stations = station_df[station_df['coordinates_match']].copy()
         self.nstation = self.valid_stations.shape[0]
 

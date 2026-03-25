@@ -83,6 +83,22 @@ def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
     return height
 
 
+def add_names(rootgrp, station_names:pd.Series):
+    """Add station names to netCDF file if provided."""
+    # first convert to character array
+    names_out = nc.stringtochar(np.array(station_names, 'S32'))
+
+    # create space in the netcdf
+    maxlen = 32
+    _            = rootgrp.createDimension('name_strlen', maxlen)
+    st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
+    st.standard_name = 'platform_name'
+    st.units     = ''
+
+    # add data
+    st[:] = names_out
+
+
 def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
                       t_unit, valid_indices:pd.Series, 
                       station_names:pd.Series=None):
@@ -133,21 +149,9 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     latitude[:]  = nc_interpol.variables['latitude'][valid_indices.values]
     longitude[:] = nc_interpol.variables['longitude'][valid_indices.values]
     height[:]    = nc_interpol.variables['height'][valid_indices.values]
-
-    # add station names to netcdf
+    
     if station_names is not None:
-        # first convert to character array
-        names_out = nc.stringtochar(np.array(station_names, 'S32'))
-
-        # create space in the netcdf
-        maxlen = 32
-        _            = rootgrp.createDimension('name_strlen', maxlen)
-        st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
-        st.standard_name = 'platform_name'
-        st.units     = ''
-
-        # add data
-        st[:] = names_out
+        add_names(rootgrp, station_names)
 
     return rootgrp
 
@@ -156,7 +160,8 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
                             nc_in:xr.Dataset, time_units:str, 
                             calendar:Optional[str]=None,
                             level_var:Optional[str]=None,
-                            n_time=None) -> nc.Dataset:
+                            n_time=None,
+                            station_names:Optional[pd.Series]=None) -> nc.Dataset:
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
@@ -238,6 +243,9 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
         units = tmp.units if hasattr(tmp, 'units') else '??'
         logger.info(f"Created new empty variable: {var} [{units}]")
     
+    if station_names is not None:
+        add_names(rootgrp, station_names)
+               
     return rootgrp
 
 

@@ -139,7 +139,8 @@ class MERRAinterpolate(GenericInterpolate):
             rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                               time_units=t_unit,
                                               level_var=level_var,
-                                              n_time = len(time_in))
+                                              n_time = len(time_in),
+                                              station_names=self.stations['station_name'])
             rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
@@ -225,7 +226,7 @@ class MERRAinterpolate(GenericInterpolate):
 
         # list variables
         varlist = [x for x in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'H']:
+        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height', 'H', 'station_name']:
             varlist.remove(V)
 
         # === open and prepare output netCDF file =============================
@@ -246,6 +247,7 @@ class MERRAinterpolate(GenericInterpolate):
             latitude = rootgrp["latitude"]
             longitude = rootgrp["longitude"]
             height = rootgrp["height"]
+            station_name = rootgrp["station_name"] if 'station_name' in rootgrp.variables else None
 
             # assign base variables
             time[:]      = ncf.variables['time'][:]
@@ -253,6 +255,8 @@ class MERRAinterpolate(GenericInterpolate):
             latitude[:]  = ncf.variables['latitude'][:]
             longitude[:] = ncf.variables['longitude'][:]
             height[:]    = ncf.variables['height'][:]
+            if station_name is not None:
+                station_name[:] = ncf.variables['station_name'][:]
 
             rootgrp.globsim_interpolate_success = 0
             rootgrp.last_station_written = -1
@@ -261,8 +265,9 @@ class MERRAinterpolate(GenericInterpolate):
             # create and assign variables from input file
             for var in varlist:
                 tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
-                tmp.long_name = ncf.variables[var].long_name
-                tmp.units     = ncf.variables[var].units
+                for attr in ['long_name', 'units']:  
+                    if attr in ncf.variables[var].ncattrs():
+                        tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
 
             # add air pressure as new variable
             var = 'air_pressure'
@@ -297,7 +302,6 @@ class MERRAinterpolate(GenericInterpolate):
                     if var in str(rootgrp.vars_written).split(" "):
                             logger.debug(f"Skipping {var}")
                             continue
-                    
                     if var == 'air_pressure':
                         # pressure [hPa] variable from levels, shape: (time, level)
                         data = np.repeat([ncf.variables['level'][:]],

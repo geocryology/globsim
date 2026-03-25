@@ -171,7 +171,8 @@ class ERA5interpolate(GenericInterpolate):
                                               time_units=ncf_in[self.vn_time].units,  # 'hours since 1900-01-01 00:00:0.0'
                                               calendar=ncf_in[self.vn_time].calendar,
                                               level_var=level_var,
-                                              n_time = len(time_in))
+                                              n_time = len(time_in),
+                                              station_names=self.stations['station_name'])
             
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
@@ -260,7 +261,7 @@ class ERA5interpolate(GenericInterpolate):
         # list variables
         varlist = [key for key in ncf.variables.keys()]
         for V in ['time', 'station', 'latitude', 'longitude',
-                  'level','height','z','expver', 'number']:
+                  'level','height','z','expver', 'number', 'station_name']:
             if V in varlist:
                 varlist.remove(V)
 
@@ -271,7 +272,7 @@ class ERA5interpolate(GenericInterpolate):
         # stations are integer numbers
         # create a file (Dataset object, also the root group).
         if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = netcdf_base(ncfile_out, len(height), nt,
+            rootgrp = netcdfq_base(ncfile_out, len(height), nt,
                                 time_units=ncf['time'].units,
                                 nc_in=ncf,
                                 calendar=ncf['time'].calendar)
@@ -283,6 +284,7 @@ class ERA5interpolate(GenericInterpolate):
             latitude = rootgrp['latitude']
             longitude = rootgrp['longitude']
             height = rootgrp['height']
+            station_name = rootgrp['station_name'] if 'station_name' in rootgrp.variables else None
 
             # assign base variables
             time[:]      = ncf.variables['time'][:]
@@ -290,6 +292,8 @@ class ERA5interpolate(GenericInterpolate):
             latitude[:]  = ncf.variables['latitude'][:]
             longitude[:] = ncf.variables['longitude'][:]
             height[:]    = ncf.variables['height'][:]
+            if station_name is not None:
+                station_name[:] = ncf.variables['station_name'][:]
 
             rootgrp.globsim_interpolate_success = 0
             rootgrp.last_station_written = -1
@@ -302,9 +306,9 @@ class ERA5interpolate(GenericInterpolate):
                                                 'f4',('time','number','station'))
                 else:
                     tmp = rootgrp.createVariable(var,'f4',('time', 'station'))
-
-                tmp.long_name = ncf[var].long_name
-                tmp.units     = ncf[var].units
+                for attr in ['long_name', 'units']:
+                    if attr in ncf.variables[var].ncattrs():
+                        tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
 
             # add air pressure as new variable
             var = 'air_pressure'
