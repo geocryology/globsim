@@ -40,12 +40,12 @@ class JRAscale(GenericScale):
         par = self.par
 
         # input file names
-        self.nc_pl_sur = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_pl_{self.list_name}_surface.nc'), 'r')
-        self.nc_pl = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_pl_{self.list_name}.nc'), 'r')
-        self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
-        self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
+        self.nc_pl_sur = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_pl = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_pl_{self.list_name}.nc'), 'r')
+        self.nc_sa = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
+        self.nc_sf = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
         try:
-            self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_to_{self.list_name}.nc'), 'r')
+            self.nc_to = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_to_{self.list_name}.nc'), 'r')
         except AttributeError:
             logger.error("Missing invariant ('*_to') file. Some scaling kernels may fail. ")
 

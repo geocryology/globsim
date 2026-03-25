@@ -193,9 +193,9 @@ class GenericScale:
 
     def set_valid_stations(self, interpolated_ncf: nc.Dataset):
         ipl_station_ix=self.nc_pl_sur['station'][:]
-        ipl_station_lon=self.get_values('pl_sur', 'longitude')
-        ipl_station_lat=self.get_values('pl_sur', 'latitude')
-        ipl_station_elev=self.get_values('pl_sur', 'height')
+        ipl_station_lon=self.get_values('pl_sur', SN.longitude)
+        ipl_station_lat=self.get_values('pl_sur', SN.latitude)
+        ipl_station_elev=self.get_values('pl_sur', SN.elevation)
 
         try:
             ipl_station_name=self.nc_pl_sur['station_name'][:]
@@ -275,7 +275,7 @@ class GenericScale:
         return f  
 
     def set_parameters(self, par):
-        self.intpdir = path.join(par['project_directory'], 'interpolated')
+        self.interp_dir = path.join(par['project_directory'], 'interpolated')
         self.output_dir = self.make_output_directory(par)
         self.list_name  = path.basename(path.normpath(par['station_list'])).split(path.extsep)[0]
 
@@ -674,8 +674,8 @@ class GenericScale:
         py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.scaled_t_cal, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
         
-        lat = self.get_values('pl_sur', 'latitude')
-        lon = self.get_values('pl_sur', 'longitude')
+        lat = self.get_values('pl_sur', SN.latitude)
+        lon = self.get_values('pl_sur', SN.longitude)
 
         svf = self.get_sky_view()
         slope = self.get_slope()
@@ -756,7 +756,7 @@ class GenericScale:
 
             T_sur_in = self.get_station_values("sa", SN.temperature, interp_ix, preserve_dims=True, units='degree_K')            
 
-            mtrcs = dreamit.dreamit_metrics(reanalysis=self.NAME,
+            mtrcs = dreamit.dreamit_metrics(reanalysis=self.REANALYSIS,
                                             T_pl_in=T_pl_in,
                                             h_pl_in=h_pl_in,
                                             T_pl_surface_in=T_pl_surface_in,
@@ -773,19 +773,34 @@ class GenericScale:
                                                             time_frac_year=time_frac_year,
                                                             hyps=np.atleast_1d(hypsometry),
                                                             params=list_params)
-
-            self.rg.variables['z_top_inversion_m'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, z_top_inversion_m)
-            self.rg.variables['T_lapse_grid_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, T_lapse_grid_C) - 273.15
-            self.rg.variables['T_lapse_station_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, T_lapse_station_C) - 273.15
-            self.rg.variables['lapse_Cperm'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, lapse_Cperm)
-            self.rg.variables['AIRT_DReaMIT_C'][:, siteslist_ix] = np.interp(self.times_out_nc,
-                                                                     time_in, AIRT_DReaMIT_C) - 273.15
-        self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
-                                                     time_in, beta_t_C[:])   
+            
+            var_ztop = self.rg.variables['z_top_inversion_m']
+            var_ztop[:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                  time_in, 
+                                                  np.squeeze(z_top_inversion_m))
+            
+            var_tl_grid = self.rg.variables['T_lapse_grid_C']
+            var_tl_grid[:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                     time_in, 
+                                                     np.squeeze(T_lapse_grid_C) - 273.15)
+            
+            var_tl_stn = self.rg.variables['T_lapse_station_C']
+            var_tl_stn[:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                    time_in, 
+                                                    np.squeeze(T_lapse_station_C) - 273.15)
+            
+            var_lapse = self.rg.variables['lapse_Cperm']
+            var_lapse[:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                   time_in, 
+                                                   np.squeeze(lapse_Cperm))
+            
+            var_airt_drm = self.rg.variables['AIRT_DReaMIT_C']
+            var_airt_drm[:, siteslist_ix] = np.interp(self.times_out_nc,
+                                                      time_in, 
+                                                      np.squeezeAIRT_DReaMIT_C) - 273.15
+        
+        var_beta = self.rg.variables['beta_t_C']
+        var_beta[:] = np.interp(self.times_out_nc, time_in, beta_t_C[:])   
 
 def _check_timestep_length(nctime: "nc.Variable", source:str) -> None:
     """ Ensure that input data has a consistent timestep

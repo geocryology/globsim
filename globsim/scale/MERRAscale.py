@@ -37,26 +37,36 @@ class MERRAscale(GenericScale):
     REANALYSIS = "merra2"
     VARNAMES = {
         "sa":     {SN.time:        "time",
+                   SN.longitude:     "longitude",
+                   SN.latitude:      "latitude",
                    SN.temperature: "T2M",
                    SN.specific_humidity: "QV2M",
                    SN.rh:          "T2M",
                    SN.u_wind:      "U10M",
                    SN.v_wind:      "V10M"},
         "sf":     {SN.time:        "time",
+                   SN.longitude:     "longitude",
+                   SN.latitude:      "latitude",
                    SN.dewpoint:      "T2MDEW",
                    SN.sw_down_flux:       "SWGDN",
                    SN.lw_down_flux:       "LWGDN",
                    SN.precipitation_rate: "PRECTOT"},
         "pl":     {SN.time:          "time",
+                   SN.longitude:     "longitude",
+                   SN.latitude:      "latitude",
                    SN.temperature:   "T",
                    SN.rh:            "RH",
                    SN.elevation:     "H"},
         "pl_sur": {SN.time:          "time",
+                   SN.longitude:     "longitude",
+                   SN.latitude:      "latitude",
                    SN.temperature:   "T",
                    SN.elevation:     "height",
                    SN.pressure:      "air_pressure",
                    SN.rh:            "RH"},
         "to":     {SN.time:          "time",
+                   SN.longitude:     "longitude",
+                   SN.latitude:      "latitude",
                    SN.geopotential:  "PHIS",
                    SN.elevation:     "PHIS"},
     }
@@ -78,11 +88,11 @@ class MERRAscale(GenericScale):
         par = self.par
 
         # input file names
-        self.nc_pl_sur = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
-        self.nc_pl = nc.Dataset(path.join(self.intpdir, f'merra2_pl_{self.list_name}.nc'), 'r')
-        self.nc_sa = nc.Dataset(path.join(self.intpdir, f'merra2_sa_{self.list_name}.nc'), 'r')
-        self.nc_sf = nc.Dataset(path.join(self.intpdir, f'merra2_sf_{self.list_name}.nc'), 'r')
-        self.nc_sc = nc.Dataset(path.join(self.intpdir, f'merra2_sc_{self.list_name}.nc'), 'r')
+        self.nc_pl_sur = nc.Dataset(path.join(self.interp_dir, f'merra2_pl_{self.list_name}_surface.nc'), 'r')
+        self.nc_pl = nc.Dataset(path.join(self.interp_dir, f'merra2_pl_{self.list_name}.nc'), 'r')
+        self.nc_sa = nc.Dataset(path.join(self.interp_dir, f'merra2_sa_{self.list_name}.nc'), 'r')
+        self.nc_sf = nc.Dataset(path.join(self.interp_dir, f'merra2_sf_{self.list_name}.nc'), 'r')
+        self.nc_sc = nc.Dataset(path.join(self.interp_dir, f'merra2_sc_{self.list_name}.nc'), 'r')
         self.nc_to = self.nc_sc  # alias 
 
         # Check data integrity
@@ -91,7 +101,7 @@ class MERRAscale(GenericScale):
         _check_timestep_length(self.nc_sa.variables['time'], "sa")
         _check_timestep_length(self.nc_sf.variables['time'], "sf")
 
-        # self.nc_sc = nc.Dataset(path.join(self.intpdir,
+        # self.nc_sc = nc.Dataset(path.join(self.interp_dir,
         #                                  'merra2_to_' +
         #                        self.list_name + '.nc'), 'r')
 

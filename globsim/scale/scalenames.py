@@ -4,13 +4,15 @@ import enum
 class ScaleNames(enum.Enum):
     """Canonical variable names for scaling."""
     time = "time"
+    latitude = "latitude"
+    longitude = "longitude"
     pressure = "pressure"
     temperature = "temperature"
     dewpoint = "dewpoint"
     u_wind = "u_wind"
     v_wind = "v_wind"
     geopotential = "geopotential"
-    elevation = "elevation"  # elevation [L], not geopotential height
+    elevation = "elevation"  # NB: elevation [L], not geopotential height
     ozone = "ozone"
     water_vapour = "water_vapour"
     rh = "relative_humidity"

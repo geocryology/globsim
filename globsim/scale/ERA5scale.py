@@ -62,7 +62,9 @@ class ERA5scale(GenericScale):
                "pl_sur": {}}
     
     VARNAMES = {
-    "sa":     {SN.time:        "time",
+    "sa":     { SN.time:        "time",
+                SN.longitude:     "longitude",
+                SN.latitude:      "latitude",
                 SN.temperature: "t2m",
                 SN.dewpoint:    "d2m",
                 SN.rh:           "d2m", # calculate from dewpoint and temperature
@@ -72,6 +74,8 @@ class ERA5scale(GenericScale):
                 SN.ozone:       "tco3",
                 SN.water_vapour:"tcwv"},
     "sf":     {SN.time:        "time",
+               SN.longitude:     "longitude",
+               SN.latitude:      "latitude",
                SN.sw_down_flux:       "ssrd",
                SN.sw_down_accumulated:"ssrd",
                SN.lw_down_flux:       "strd",
@@ -79,16 +83,22 @@ class ERA5scale(GenericScale):
                SN.precipitation_total: "tp",
                SN.precipitation_rate: "tp"},
     "pl":     {SN.time:        "time",
+               SN.longitude:     "longitude",
+               SN.latitude:      "latitude",
                SN.temperature:   "t",
                SN.rh:            "r",
                SN.geopotential:  "z",
                SN.elevation:     "z"},
-    "pl_sur": {SN.time:        "time",
+    "pl_sur": {SN.time:        "time",   
+               SN.longitude:     "longitude",
+               SN.latitude:      "latitude",
                SN.temperature:   "t",
                SN.rh:            "r",
                SN.elevation:     "height",
                SN.pressure:      "air_pressure"},
-    "to":     {SN.geopotential:  "z",
+    "to":     {SN.longitude:     "longitude",
+               SN.latitude:      "latitude",
+               SN.geopotential:  "z",
                SN.elevation:     "z"},
 }
     
@@ -106,11 +116,11 @@ class ERA5scale(GenericScale):
         par = self.par
 
         # input file handles
-        self.nc_pl_sur = nc.Dataset(Path(self.intpdir, f"{self.REANALYSIS}_pl_{self.list_name}_surface.nc"), 'r')
-        self.nc_pl = nc.Dataset(Path(self.intpdir, f"{self.REANALYSIS}_pl_{self.list_name}.nc"), 'r')
-        self.nc_sa = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
-        self.nc_sf = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
-        self.nc_to = nc.Dataset(Path(self.intpdir, f'{self.REANALYSIS}_to_{self.list_name}.nc'), 'r')
+        self.nc_pl_sur = nc.Dataset(Path(self.interp_dir, f"{self.REANALYSIS}_pl_{self.list_name}_surface.nc"), 'r')
+        self.nc_pl = nc.Dataset(Path(self.interp_dir, f"{self.REANALYSIS}_pl_{self.list_name}.nc"), 'r')
+        self.nc_sa = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
+        self.nc_sf = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
+        self.nc_to = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_to_{self.list_name}.nc'), 'r')
 
         # Check data integrity
         _check_timestep_length(self.nc_pl_sur.variables['time'], "pl")
@@ -167,7 +177,7 @@ class ERA5scale(GenericScale):
         converted_units = input_units / Units("s")
 
         return converted_data, converted_units.units
-    
+'''    
     def AIRT_DReaMIT(self):
         """
         Air temperature derived from surface data, pressure level data, and
@@ -228,3 +238,4 @@ class ERA5scale(GenericScale):
         self.rg.variables['beta_t_C'][:] = np.interp(self.times_out_nc,
                                                      time_in, beta_t_C[:])                        
     
+'''

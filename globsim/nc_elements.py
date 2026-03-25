@@ -102,7 +102,8 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
  
     # dimensions
-    n_station = len(nc_interpol.variables['station'][:])
+    n_station = valid_indices.shape[0] 
+
     if station_names is not None and len(station_names) != n_station:
         n_station = len(station_names.values)  # override n_station if station names are provided.
         logger.warning(f"Number of station names provided ({len(station_names)}) does not match number of stations in interpolated netCDF ({n_station}).")
