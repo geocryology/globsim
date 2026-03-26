@@ -198,8 +198,8 @@ class GenericScale:
         ipl_station_elev=self.get_values('pl_sur', SN.elevation)
 
         try:
-            ipl_station_names=nc.chartostring(self.nc_pl['station_name'][:])
-        except IndexError:
+            ipl_station_names = nc.chartostring(self.nc_pl_sur['station_name'][:])
+        except (IndexError, KeyError):
             logger.warning("No station_name variable in interpolated netCDF.")
             ipl_station_names = None
         
