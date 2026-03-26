@@ -221,7 +221,7 @@ class GenericScale:
             station_df = stations.merge(interpolated_stations, on='station_number', how='inner', suffixes=('_scale', '_interpolate'))
 
         station_df['lon_matches'] = np.isclose(station_df['longitude_dd_scale'] % 360, station_df['longitude_dd_interpolate'] % 360, atol=1e-6)
-        station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'] % 360, station_df['latitude_dd_interpolate'] % 360, atol=1e-6)
+        station_df['lat_matches'] = np.isclose(station_df['latitude_dd_scale'], station_df['latitude_dd_interpolate'], atol=1e-6)
         station_df['elev_matches'] = np.isclose(station_df['elevation_m_scale'], station_df['elevation_m_interpolate'], atol=1e-4)
         station_df['coordinates_match'] = station_df['lon_matches'] & station_df['lat_matches'] & station_df['elev_matches']
         
