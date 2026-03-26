@@ -27,13 +27,13 @@ class J3QSjma(JRAscale):
 class J3QS(JRAscale):
     NAME = "JRA-3Q"
     REANALYSIS = "jra3q"
+    VARNAMES = {}
     CONVERTERS = {}
 
 
 class J3QgS(JRAscale):
     NAME = "JRA-3QG"
     REANALYSIS = "jra3qg"
-
     VARNAMES = {
         "sa":     {SN.time:        "time",
                    SN.longitude:     "longitude",
