@@ -767,12 +767,12 @@ class GenericScale:
                                             h_pl_surface_in=h_pl_surface_in,
                                             grid_elev_in=grid_elev_in)
             
-            z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = mtrcs
+            z_top_inversion_m, T_lapse_grid_K, T_lapse_station_K, lapse_Cperm = mtrcs
 
 
 
-            AIRT_DReaMIT_C, beta_t_C = dreamit.dreamit_air_T(T_lapse_grid=T_lapse_grid_C,
-                                                            T_lapse_station=T_lapse_station_C,
+            AIRT_DReaMIT_K, beta_t_C = dreamit.dreamit_air_T(T_lapse_grid=T_lapse_grid_K,
+                                                            T_lapse_station=T_lapse_station_K,
                                                             T_sur=T_sur_in,
                                                             time_frac_year=time_frac_year,
                                                             hyps=np.atleast_1d(hypsometry),
@@ -786,12 +786,12 @@ class GenericScale:
             var_tl_grid = self.rg.variables['T_lapse_grid_C']
             var_tl_grid[:, siteslist_ix] = np.interp(self.times_out_nc,
                                                      time_in, 
-                                                     np.squeeze(T_lapse_grid_C) - 273.15)
+                                                     np.squeeze(T_lapse_grid_K) - 273.15)
             
             var_tl_stn = self.rg.variables['T_lapse_station_C']
             var_tl_stn[:, siteslist_ix] = np.interp(self.times_out_nc,
                                                     time_in, 
-                                                    np.squeeze(T_lapse_station_C) - 273.15)
+                                                    np.squeeze(T_lapse_station_K) - 273.15)
             
             var_lapse = self.rg.variables['lapse_Cperm']
             var_lapse[:, siteslist_ix] = np.interp(self.times_out_nc,
@@ -801,7 +801,7 @@ class GenericScale:
             var_airt_drm = self.rg.variables['AIRT_DReaMIT_C']
             var_airt_drm[:, siteslist_ix] = np.interp(self.times_out_nc,
                                                       time_in, 
-                                                      np.squeeze(AIRT_DReaMIT_C) - 273.15)
+                                                      np.squeeze(AIRT_DReaMIT_K) - 273.15)
         
         var_beta = self.rg.variables['beta_t_C']
         var_beta[:] = np.interp(self.times_out_nc, time_in, beta_t_C[:])   

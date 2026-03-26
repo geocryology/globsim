@@ -20,7 +20,7 @@ def add_var_z_top_inversion(group: nc.Dataset):
 
 def add_var_T_lapse_grid(group: nc.Dataset):
     """ Add DReaMIT lapse temperature at grid level to the netCDF file"""
-    vn  = 'T_lapse_grid_C'  # variable name
+    vn  = 'T_lapse_grid_K'  # variable name
     var = group.createVariable(vn,'f4',('time', 'station'))
     var.long_name = 'Temperature at grid level if solely determined by dynamically-computed linear lapse rate'
     var.comment   = ref_dreamit
@@ -30,7 +30,7 @@ def add_var_T_lapse_grid(group: nc.Dataset):
 
 def add_var_T_lapse_station(group: nc.Dataset):
     """ Add DReaMIT lapse temperature at station level to the netCDF file"""
-    vn  = 'T_lapse_station_C'  # variable name
+    vn  = 'T_lapse_station_K'  # variable name
     var = group.createVariable(vn,'f4',('time', 'station'))
     var.long_name = 'Temperature at station level if solely determined by dynamically-computed linear lapse rate'
     var.comment   = ref_dreamit
@@ -68,7 +68,7 @@ def add_var_beta_t(group: nc.Dataset):
     
     return group[vn]
 
-def format_temp_elev_inversions(reanalysis: str, T_pl_in: np.ndarray, h_pl_in: np.ndarray, T_pl_surface_in: np.ndarray, h_pl_surface_in: np.ndarray, grid_elev_in: np.ndarray):
+def format_temp_elev_inversions(T_pl_in: np.ndarray, h_pl_in: np.ndarray, T_pl_surface_in: np.ndarray, h_pl_surface_in: np.ndarray, grid_elev_in: np.ndarray):
     """
     Formatting of the interpolated GlobSim values to only account for elevations between 
     maximal elevation (5000m) and minimal elevation (lowest of grid or station)
@@ -105,12 +105,10 @@ def format_temp_elev_inversions(reanalysis: str, T_pl_in: np.ndarray, h_pl_in: n
         all values for elevations outside the prescribed range are nans
     grid_elev : np.ndarray
         Time-invariant grid elevation [m] with dimensions (time, station)
-        all values for elevations outside the prescribed range are nans
     """
     num_station = grid_elev_in.shape[-1]
-    grid_elev = float(grid_elev_in[0,0])/const.G
+    grid_elev = grid_elev_in
     zmax = 5000 ############# !!!!!!!!!!!!!!!!!!! #############
-    h_pl_in = h_pl_in[:]/(const.G if reanalysis=='era5' else 1)
     zmin = {station: np.min([h_pl_surface_in[station],grid_elev]) for station in range(num_station)}
 
     T_pl = {station: [] for station in range(num_station)}
@@ -137,9 +135,125 @@ def lin(X, a=0, b=0):
     T_lin = a * X + b
     return T_lin 
 
-def quad(X, a=0, b=0, c=0):
-    T_lin = a * X**2 + b * X + c
-    return T_lin 
+def fit_linear(y, x):
+    # x = a*y + b
+    A = np.vstack([y, np.ones_like(y)]).T
+    a, b = np.linalg.lstsq(A, x, rcond=None)[0]
+    return a, b
+
+def quad_vertex(y, x):
+    # fit x = a*y^2 + b*y + c using np.polyfit
+    a, b, _ = np.polyfit(y, x, 2)
+    if a == 0:
+        return np.nan
+    return -b / (2 * a)
+
+def compute_aic(y, x, a, b):
+    pred = a*y + b
+    resid = x - pred
+    n = len(x)
+    rss = np.sum(resid**2)
+    if rss == 0:
+        return -np.inf
+    k = 2
+    return n * np.log(rss / n) + 2 * k
+    
+def determining_top_inversion(x,y):
+    """
+    Calculates the top of inversion dynamically
+    
+    Parameters
+    ----------
+    x : np.ndarray
+        Pressure-level air temperature [K] with dimensions (level, ) (given time and station)
+    y : np.ndarray
+        Pressure-level elevation [m] with dimensions (level, ) (given time and station)
+
+    Returns
+    ------- 
+    top_inv : float
+        Top of inversion elevation [m] 
+    """
+    #####################################
+    # DETERMINGING THE TOP OF INVERSION #
+    #####################################
+
+    # we find where the evolution of x changes signs (e.g., goes from increasing to decreasing with elevation)
+    # this will lossely correspond to the top of the inversion event, if it exists, but then we need to refine it
+    loc_ind = np.argmax(np.diff(x)<0)
+
+    if loc_ind == 0: # no inversion
+        return np.nan
+    else: # inversion 
+        # we identify a 'band' around the turning point identified by y[loc_ind]
+        # we look at this particular elevation, one above, and one beyond
+        # the y spacing is variable with 100m to 300m
+        # here the integration into GlobSim will need to involve some thinking
+        band = np.array([x[loc_ind-1:loc_ind+2], y[loc_ind-1:loc_ind+2]])
+        # then, we 'model' the turning point as a quadratic function of elevation and find
+        # the actual turning point
+        top_inv = quad_vertex(band[1], band[0])
+        if (top_inv > np.max(y)) or (top_inv < np.min(y)):
+            return np.nan
+
+    return top_inv
+
+def fitting_linear_lapse(x,y,top_inv):
+    """
+    Fits the linear lapse rate dynamically
+    
+    Parameters
+    ----------
+    x : np.ndarray
+        Pressure-level air temperature [K] with dimensions (level, ) (given time and station)
+    y : np.ndarray
+        Pressure-level elevation [m] with dimensions (level, ) (given time and station)
+    top_inv : float
+        Top of inversion elevation [m] 
+
+    Returns
+    -------
+    best_params : np.ndarray
+        First member of the array: lapse rate [K/m]
+        Second member of the array: linear continuation of the laspe rate at sea level: T_lapse_sea_level [K]
+    """
+    ############################
+    # FITTING THE LINEAR LAPSE #
+    ############################
+
+    # here we will try to find the optimal range to fit the linear lapse rate
+    # this is dne by including more and more points into the linear fitting
+    # routine and stopping when AIC is the best   
+
+    # iteratively adding elevation points (starting from top of column)
+    # to fit the linear lapse rate, while staying above the top of inversion z_top
+    # we stop when AIC is the best
+
+    best_aic = np.inf
+
+    default_lapse = -6.5e-3
+    # in the rare case we cannot determine the linear lapse rate, we use standard -6.5C/km
+    best_params = (default_lapse, x[0] - default_lapse*y[0])
+
+    index=3 # we need at least 3 points to fit the lapse rate
+    ymin = np.min(y)
+
+    while index < len(y) and y[index] > np.nanmax([ymin, top_inv]):
+        xi = x[:index]
+        yi = y[:index]
+
+        a, b = fit_linear(yi, xi)
+        aic = compute_aic(yi, xi, a, b)
+
+        if aic > best_aic:
+            break
+
+        best_aic = aic
+        best_params = (a, b)
+
+        index += 1
+
+    return best_params
 
 def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, grid_elev):
     """
@@ -156,7 +270,6 @@ def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, 
     h_pl : np.ndarray
         Pressure-level elevation [m] with dimensions (time, level, station)
         all values for elevations outside the prescribed range are nans
-        converted to meters for ERA5
     T_pl_surface : np.ndarray
         Pressure-level air temperature at surface (station) [K] with dimensions (time, station)
         all values for elevations outside the prescribed range are nans
@@ -165,15 +278,14 @@ def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, 
         all values for elevations outside the prescribed range are nans
     grid_elev : np.ndarray
         Time-invariant grid elevation [m] with dimensions (time, station)
-        all values for elevations outside the prescribed range are nans
 
     Returns
     ------- 
     z_top_inversion_m : np.ndarray
         Top of inversion elevation [m] with dimensions (time, station)
-    T_lapse_grid_C : np.ndarray
+    T_lapse_grid_K : np.ndarray
         Temperature at grid level if solely determined by dynamically-computed linear lapse rate [K] with dimensions (time, station)
-    T_lapse_station_C : np.ndarray
+    T_lapse_station_K : np.ndarray
         Temperature at station level if solely determined by dynamically-computed linear lapse rate [K] with dimensions (time, station)
     lapse_Cperm : np.ndarray
         Lower atmosphere dynamically-computed linear lapse rate [K/m] with dimensions (time, station)
@@ -181,7 +293,8 @@ def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, 
     num_station = len(h_pl_surface)
 
     df_inversion = {station: [] for station in range(num_station)}
-
+    flip = not const.behaviours[reanalysis]['elevations_decreasing']
+    
     for station in range(num_station):
         # initializing empty lists to be filled iteratively
         list_z_top, list_T_lapse_grid, list_T_lapse_station, list_lapse, list_sea_level_temp = [], [], [], [], []
@@ -194,7 +307,7 @@ def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, 
             x = T_pl[loc,:,station]
             x = x[~np.isnan(x)]
 
-            if reanalysis == 'era5': # flip so that we have decreasing elevations (already True for jra3qg)
+            if flip: # flip so that we have decreasing elevations (already True for jra3qg)
                 y = y[::-1]
                 x = x[::-1]
             
@@ -205,79 +318,37 @@ def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, 
             # DETERMINGING THE TOP OF INVERSION #
             #####################################
 
-            # we find where the evolution of x changes signs (e.g., goes from increasing to decreasing with elevation)
-            # this will lossely correspond to the top of the inversion event, if it exists, but then we need to refine it
-            loc_ind = np.argmax(np.diff(x)<0)
-
-            if loc_ind == 0: # no inversion
-                top_inv = np.nan
-            else: # inversion 
-                # we identify a 'band' around the turning point identified by y[loc_ind]
-                # we look at this particular elevation, one above, and one beyond
-                # the y spacing is variable with 100m to 300m
-                # here the integration into GlobSim will need to involve some thinking
-                band = np.array([x[loc_ind-1:loc_ind+2], y[loc_ind-1:loc_ind+2]])
-                # then, we 'model' the turning point as a quadratic function of elevation and find
-                # the actual turning point
-                gmodel_quad = Model(quad)
-                params_quad = gmodel_quad.make_params()
-                a_quad = gmodel_quad.fit(band[0], params_quad, X=band[1])
-                # top of inversion z_top [m]
-                top_inv = -a_quad.params['b']/(2*a_quad.params['a'])
-                if top_inv > np.max(y):
-                    top_inv = np.nan
-                if top_inv < np.min(y):
-                    top_inv = np.nan
-
+            top_inv = determining_top_inversion(x,y)
             list_z_top.append(top_inv)
 
             ############################
             # FITTING THE LINEAR LAPSE #
             ############################
 
-            # here we will try to find the optimal range to fit the linear lapse rate
-            # this is dne by including more and more points into the linear fitting
-            # routine and stopping when AIC is the best   
-
-            # iteratively adding elevation points (starting from top of column)
-            # to fit the linear lapse rate, while staying above the top of inversion z_top
-            # we stop when AIC is the best
-            index=3 # we need at least 3 points to fit the lapse rate
-            while y[index] > np.nanmax([np.min(y), top_inv]):
-                gmodel_lin = Model(lin)
-                params_lin = gmodel_lin.make_params()
-                a_lin = gmodel_lin.fit(x[:index], params_lin, X=y[:index])
-                best_aic_lin = 1e10 # ridiculously high AIC to begin with, mark to beat (easy)
-                if a_lin.aic > best_aic_lin:
-                    break
-                else:
-                    best_aic_lin = a_lin.aic
-                    best_params_lin = a_lin.params.valuesdict().values()
-                index+=1
-
-            # lapse rate [C/m]
+            best_params_lin = fitting_linear_lapse(x,y,top_inv)
+            # lapse rate [K/m]=[C/m]
             list_lapse.append(list(best_params_lin)[0])
-            # linear continuation of the laspe rate at sea level: T_lapse_sea_level [C]
+            # linear continuation of the laspe rate at sea level: T_lapse_sea_level [K]
             list_sea_level_temp.append(list(best_params_lin)[1])
 
-        # surface temperature from reanalysis data T_sur [C]
+        # surface temperature from reanalysis data T_sur [K]
         list_T_lapse_grid = lin(grid_elev, np.array(list_lapse), np.array(list_sea_level_temp))
         list_T_lapse_station = lin(np.min(y), np.array(list_lapse), np.array(list_sea_level_temp))
 
         # we create the panda dataframe putting everything together
         df_inversion[station] = pd.DataFrame([list_z_top, list_T_lapse_grid, list_T_lapse_station, list_lapse]).T
-        list_new_cols = ['z_top_inversion_m', 'T_lapse_grid_C', 'T_lapse_station_C', 'lapse_Cperm']
+        list_new_cols = ['z_top_inversion_m', 'T_lapse_grid_K', 'T_lapse_station_K', 'lapse_Cperm']
         df_inversion[station] = df_inversion[station].rename(columns={k:v for k,v in zip(list(df_inversion[station].columns), list_new_cols)})
 
         # we make sure we are using good variable types
         df_inversion[station] = df_inversion[station].apply(pd.to_numeric, errors='coerce')
 
     z_top_inversion_m = np.stack([i['z_top_inversion_m'] for i in df_inversion.values()], axis=-1)
-    T_lapse_grid_C    = np.stack([i['T_lapse_grid_C'] for i in df_inversion.values()], axis=-1)
-    T_lapse_station_C = np.stack([i['T_lapse_station_C'] for i in df_inversion.values()], axis=-1)
-    lapse_Cperm       = np.stack([i['lapse_Cperm'] for i in df_inversion.values()], axis=-1)
+    T_lapse_grid_K    = np.stack([i['T_lapse_grid_K']    for i in df_inversion.values()], axis=-1)
+    T_lapse_station_K = np.stack([i['T_lapse_station_K'] for i in df_inversion.values()], axis=-1)
+    lapse_Cperm       = np.stack([i['lapse_Cperm']       for i in df_inversion.values()], axis=-1)
     
-    return z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm
+    return z_top_inversion_m, T_lapse_grid_K, T_lapse_station_K, lapse_Cperm
 
 def dreamit_metrics(reanalysis:str, T_pl_in: np.ndarray, h_pl_in: np.ndarray, T_pl_surface_in: np.ndarray, h_pl_surface_in: np.ndarray, grid_elev_in: np.ndarray):
     """
@@ -303,17 +374,17 @@ def dreamit_metrics(reanalysis:str, T_pl_in: np.ndarray, h_pl_in: np.ndarray, T_
     ------- 
     z_top_inversion_m : np.ndarray
         Top of inversion elevation [m] with dimensions (time, station)
-    T_lapse_grid_C : np.ndarray
+    T_lapse_grid_K : np.ndarray
         Temperature at grid level if solely determined by dynamically-computed linear lapse rate [K] with dimensions (time, station)
-    T_lapse_station_C : np.ndarray
+    T_lapse_station_K : np.ndarray
         Temperature at station level if solely determined by dynamically-computed linear lapse rate [K] with dimensions (time, station)
     lapse_Cperm : np.ndarray
         Lower atmosphere dynamically-computed linear lapse rate [K/m] with dimensions (time, station)
     """
-    T_pl, h_pl, T_pl_surface, h_pl_surface, grid_elev = format_temp_elev_inversions(reanalysis, T_pl_in, h_pl_in, T_pl_surface_in, h_pl_surface_in, grid_elev_in)
-    z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm = compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, grid_elev)
+    T_pl, h_pl, T_pl_surface, h_pl_surface, grid_elev = format_temp_elev_inversions(T_pl_in, h_pl_in, T_pl_surface_in, h_pl_surface_in, grid_elev_in)
+    z_top_inversion_m, T_lapse_grid_K, T_lapse_station_K, lapse_Cperm = compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, grid_elev)
 
-    return z_top_inversion_m, T_lapse_grid_C, T_lapse_station_C, lapse_Cperm
+    return z_top_inversion_m, T_lapse_grid_K, T_lapse_station_K, lapse_Cperm
 
 def get_model_params(reanalysis:str):
     """
@@ -380,8 +451,8 @@ def dreamit_air_T(T_lapse_grid: np.ndarray, T_lapse_station: np.ndarray, T_sur: 
 
     Returns
     ------- 
-    AIRT_DReaMIT_C : np.ndarray
-        DReaMIT model air temperature corrected for surface-based inversions [C], with dimensions (time,station)
+    AIRT_DReaMIT_K : np.ndarray
+        DReaMIT model air temperature corrected for surface-based inversions [K], with dimensions (time,station)
     beta_t_C : np.ndarray
         reanalysis bias independent of stations [C], with dimensions (time,)
     """
@@ -397,6 +468,6 @@ def dreamit_air_T(T_lapse_grid: np.ndarray, T_lapse_station: np.ndarray, T_sur: 
     
         T_mod[n] = (alpha_h * DT_grid + beta_t_C + T_lapse_station[:,n])
 
-    AIRT_DReaMIT_C = np.stack(list(T_mod.values()), axis=-1)
+    AIRT_DReaMIT_K = np.stack(list(T_mod.values()), axis=-1)
     
-    return AIRT_DReaMIT_C, beta_t_C
+    return AIRT_DReaMIT_K, beta_t_C
