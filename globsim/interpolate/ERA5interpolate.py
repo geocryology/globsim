@@ -8,6 +8,7 @@ import urllib3
 from os import path
 from pathlib import Path
 
+from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
 from globsim.common_utils import variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import new_interpolated_netcdf
@@ -392,5 +393,71 @@ class ERA5EnsembleInterpolate(ERA5interpolate):
                     sfield_list[ni].data[:,:,n,:] = vi.transpose((2,1,0))
 
             logger.debug(f"Wrote {var} data to source field for regridding")
+
+    def create_pl_output_variables(self, rootgrp, ncf, varlist):
+        """
+        Same as base, but output dimensions are (time, number, station)
+        instead of (time, station).
+        """
+        # create 'number' dimension if it doesn't exist
+        if 'number' not in rootgrp.dimensions:
+            num = ncf.variables['number'][:]
+            rootgrp.createDimension('number', len(num))
+            rootgrp.createVariable('number', 'i4', ('number',))
+            rootgrp['number'][:] = num
+
+        for var in varlist:
+            tmp = rootgrp.createVariable(var, 'f4',
+                                         ('time', 'number', 'station'))
+            for attr in ['long_name', 'units']:
+                if attr in ncf.variables[var].ncattrs():
+                    tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
+
+        var = 'air_pressure'
+        varlist.append(var)
+        tmp = rootgrp.createVariable(var, 'f4',
+                                     ('time', 'number', 'station'))
+        tmp.long_name = 'Air pressure'
+        tmp.units = 'hPa'
+
+    def get_elevation(self, ncf, station_index):
+        """
+        For ensemble data, returns a dict keyed by ensemble member number,
+        each value being a (time, level) elevation array in meters.
+        """
+        import globsim.constants as const
+        num = ncf.variables['number'][:]
+        return {ni: ncf.variables['z'][:, ni, :, station_index] / const.G
+                for ni in num}
+
+    def interpolate_and_write_station(self, ncf, rootgrp, n, h,
+                                       elevation_dict, varlist, nl, time):
+        """
+        Loop over ensemble members, interpolate each independently,
+        and write to the (time, number, station) output.
+        """
+        for ni, elevation in elevation_dict.items():
+            elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+            wa, wb = calculate_weights(elev_diff, va, vb)
+
+            for var in varlist:
+                if var == 'air_pressure':
+                    data = np.repeat([ncf.variables['level'][:]],
+                                     len(time), axis=0).ravel()
+                else:
+                    data = ncf.variables[var][:, ni, :, n].ravel()
+
+                ipol = data[va] * wa + data[vb] * wb
+
+                if self.extrapolate_below_grid:
+                    extrapolated_values = extrapolate_below_grid(
+                        elevation, data, h)
+                    ipol = np.where(~extrapolated_values.mask,
+                                    extrapolated_values, ipol)
+
+                rootgrp.variables[var][:, ni, n] = ipol
+
+        rootgrp.vars_written = ""
+        rootgrp.last_station_written = n
     
     
