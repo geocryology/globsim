@@ -78,7 +78,7 @@ register(ReanalysisBackend(
     key="JRA",
     download_cls="globsim.download.JRAdownload.JRAdownload",
     interpolate_cls="globsim.interpolate.JRAinterpolate.JRAinterpolate",
-    scale_cls="globsim.scale.JRA3Qscale.JRA55",
+    scale_cls="globsim.scale.JRAscale.JRA55",
 ))
 
 register(ReanalysisBackend(

@@ -5,13 +5,6 @@ from globsim.scale.JRAscale import JRAscale
 from globsim.scale.scalenames import ScaleNames as SN
 
 
-class JRA55(JRAscale):
-      NAME = "JRA-55"
-      REANALYSIS = "jra55"
-      
-      CONVERTERS = {}
-
-
 class J3QSjma(JRAscale):
     NAME = "JRA-3Q-JMA"
     REANALYSIS = "jra3q-jma"

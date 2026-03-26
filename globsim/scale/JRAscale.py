@@ -55,3 +55,10 @@ class JRAscale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.scaled_t_cal)
+        
+
+class JRA55(JRAscale):
+      NAME = "JRA-55"
+      REANALYSIS = "jra55"
+      
+      CONVERTERS = {}
