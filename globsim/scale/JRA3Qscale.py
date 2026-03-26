@@ -78,7 +78,9 @@ class J3QgS(JRAscale):
                   }  # note: pl already in m
     
     def _gpm_to_m_approx(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
-        """Convert geopotential height in gpm to elevation in m, using an approximation that divides by g. This is not exact but is close enough for scaling purposes and avoids needing to read the surface pressure to get the actual gravity at each point."""
+        """Convert geopotential height in gpm to elevation in m, using an approximation that 
+        they are equal. This is not exact but is close enough for scaling purposes and avoids 
+        needing to read the surface pressure to get the actual gravity at each point."""
         converted_data = data  # geopotential height in gpm is approximately equal to elevation in m
         converted_units = "m"
 
