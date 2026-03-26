@@ -88,7 +88,7 @@ class GenericScale:
     def process(self):
         """Run all relevant processes and save data. Each kernel processes one variable and adds it to the netCDF file."""
         if not path.isdir(path.dirname(self.output_file)):
-            makedirs(path.dirname(self.outfile))
+            makedirs(path.dirname(self.output_file), exist_ok=True)
         
         self.set_valid_stations()
         valid_indices = self.valid_stations['nc_index']
