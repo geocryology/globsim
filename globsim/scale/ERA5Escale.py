@@ -1,25 +1,3 @@
-# -*- coding: utf-8 -*-
-#
-# Methods for downloading ERA5 data from the ECMWF server for limited
-# areas and limited times.
-#
-#  OVERALL WORKFLOW
-#
-#  See: https://github.com/geocryology/globsim/wiki/Globsim
-#       and the examples directory on github
-#
-# ECMWF and netCDF information:
-# https://software.ecmwf.int/wiki/display/WEBAPI/Python+ERA-interim+examples
-#
-# For variable codes and units, see:
-#     http://www.ecmwf.int/publications/manuals/d/gribapi/param/
-#
-# Check ECMWF job status: http://apps.ecmwf.int/webmars/joblist/
-#
-#  CF-Convention: this is how you check netcdf file conformity:
-#  http://pumatest.nerc.ac.uk/cgi-bin/cf-checker-dev.pl
-#
-# ===============================================================================
 import urllib3
 import logging
 
@@ -65,9 +43,10 @@ class ERA5Escale(ERA5scale):
         else:
             raise ValueError(f"Ensemble member number {ni} not in {self.nc_sa['number']}")
 
-    def getValues(self, ncf, varStr):  # must redefine
-        ni = self.current_member
-        return ncf.variables[varStr][:, ni, :]
+    def get_values(self, *args, **kwargs):
+        ni = self.current_member  # get current ensemble member number
+        # ncf.variables[varStr][:, ni, :]  # additional subsetting for ensemble member
+        raise RuntimeError("get_values is not yet implemented for ERA5-ensemble.")
 
     def process(self):
         """
@@ -85,8 +64,9 @@ class ERA5Escale(ERA5scale):
             self.rg = new_scaled_netcdf(self.output_file,
                                         self.nc_pl_sur, self.times_out_nc,
                                         t_unit=self.scaled_t_units,
-                                        station_names=stations)
-            self.indProcess()
+                                        station_names=stations,
+                                        valid_indices=self.valid_indices)
+            self.run_kernels()
             logger.info(f"Created scaled output file {self.output_file}")
 
         # close netCDF files

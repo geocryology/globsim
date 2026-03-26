@@ -4,7 +4,6 @@ Adding a new reanalysis = adding one entry here + writing the three classes.
 """
 from dataclasses import dataclass, field
 from importlib import import_module
-from typing import Type, Optional
 
 
 def _resolve_class(dotted_path: str):
@@ -79,7 +78,7 @@ register(ReanalysisBackend(
     key="JRA",
     download_cls="globsim.download.JRAdownload.JRAdownload",
     interpolate_cls="globsim.interpolate.JRAinterpolate.JRAinterpolate",
-    scale_cls="globsim.scale.JRAscale.JRAscale",
+    scale_cls="globsim.scale.JRAscale.JRA55",
 ))
 
 register(ReanalysisBackend(

@@ -537,7 +537,7 @@ class GenericInterpolate:
         
         for n, v in enumerate(variables):
             var = ncf_in[v]
-
+            
             if pl:
                 logger.debug(f"Reading {v} data from source.")
                 if self._plarray.shape[0] == dtime:
@@ -545,7 +545,11 @@ class GenericInterpolate:
                 else:
                     self._plarray = self.r4d(var, {self.dn_time:time_slice, self.dn_lat:lat_slice, self.dn_lon:lon_slice}).values
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
-                sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
+                try:
+                    sfield.data[:, :, n, :, :] = self._plarray.transpose((3,2,0,1))
+                except ValueError as e:
+                    logger.error(f"Error assigning data to source field for variable {v}. Check that dimensions are correct and that 'reordered' parameter is properly set (currently {self._reordered}). {e}")
+                    raise
 
             else:
                 logger.debug(f"Reading {v} data from source")
@@ -555,8 +559,11 @@ class GenericInterpolate:
                     self._array = self.r3d(var, {self.dn_time:time_slice, self.dn_lat:lat_slice, self.dn_lon:lon_slice}).values
                 
                 # logger.debug(f"Chunksize {(self._plarray.size * self._plarray.itemsize * 1e-6)} Megabytes")
-                
-                sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
+                try:
+                    sfield.data[:, :, n, :] = self._array.transpose((2,1,0))
+                except ValueError as e:
+                    logger.error(f"Error assigning data to source field for variable {v}. Check that 'reordered'  TOML parameter is properly set. {e}")
+                    raise
 
         filltime = (datetime.now() - t0).total_seconds()
         logger.debug(f"Finished reading source data for chunk ({filltime} seconds)")
