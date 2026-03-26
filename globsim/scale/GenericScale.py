@@ -260,7 +260,7 @@ class GenericScale:
         time_in = time_var[:]
         t1 = nc.num2date(time_in[1], units=time_var.units, calendar=time_var.calendar)
         t0 = nc.num2date(time_in[0], units=time_var.units, calendar=time_var.calendar)
-        return (t1 - t0).seconds 
+        return int(abs((t1 - t0).total_seconds()))
 
     def get_file(self, file:str) -> "nc.Dataset":
         if file == "sa":
