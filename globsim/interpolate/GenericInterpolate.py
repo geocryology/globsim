@@ -698,18 +698,25 @@ class GenericInterpolate:
         # --- station loop ---
         with nc.Dataset(ncfile_out, 'a') as rootgrp:
             time = ncf.variables['time'][:]
-            for n, h in enumerate(height):
-                if self.resume and n <= rootgrp.last_station_written:
-                    if n == rootgrp.last_station_written:
-                        logger.info(f"Resuming at station {n+1}")
-                    continue
+            try:
+                for n, h in enumerate(height):
+                    if self.resume and n <= rootgrp.last_station_written:
+                        if n == rootgrp.last_station_written:
+                            logger.info(f"Resuming at station {n+1}")
+                        continue
 
-                self.require_safe_mem_usage()
-                logger.debug(f"Interpolating station {n+1} ({nc.chartostring(ncf['station_name'][n])}, elevation {int(h)} m)")
+                    self.require_safe_mem_usage()
+                    logger.debug(f"Interpolating station {n+1} ({nc.chartostring(ncf['station_name'][n])}, elevation {int(h)} m)")
 
-                elevation = self.get_elevation(ncf, n)
-                self.interpolate_and_write_station(
-                    ncf, rootgrp, n, h, elevation, varlist, nl, time)
+                    elevation = self.get_elevation(ncf, n)
+                    self.interpolate_and_write_station(
+                        ncf, rootgrp, n, h, elevation, varlist, nl, time)
+            except Exception:
+                logger.exception("Error during levels2elevation station loop; leaving globsim_interpolate_success=0")
+                raise
+            else:
+                # Mark interpolation as successfully completed
+                rootgrp.globsim_interpolate_success = 1
 
         ncf.close()
 
