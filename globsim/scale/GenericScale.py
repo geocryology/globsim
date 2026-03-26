@@ -473,7 +473,7 @@ class GenericScale:
         """
         Convert time in input data to time in Globsim.
         """
-        raw = ncf['time'][:].astype(np.int64)
+        raw = self.get_values(ncf, SN.time).astype(np.int64)
         time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
         converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.scaled_t_cal)
         return converted.astype(np.int64)
@@ -493,7 +493,7 @@ class GenericScale:
         """
         vn = kt.PRESS_Pa_pl(self.rg, self.NAME)
         
-        time_in = self.get_values("pl_sur", SN.time).astype(np.int64)
+        time_in = self.input_times_in_output_units("pl_sur").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("pl_sur", SN.pressure, interp_ix, units="Pa") 
@@ -510,7 +510,7 @@ class GenericScale:
         Air temperature derived from pressure levels, exclusively.
         """
         vn = kt.AIRT_C_pl(self.rg, self.NAME)
-        time_in = self.get_values("pl_sur","time")
+        time_in = self.input_times_in_output_units("pl_sur").astype(np.int64)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("pl_sur", SN.temperature, interp_ix, units="degree_C")
@@ -522,7 +522,7 @@ class GenericScale:
         """
         vn = kt.AIRT_C_sur(self.rg, self.NAME)
         var = self.rg.variables[vn] 
-        time_in = self.get_values("sa", SN.time)
+        time_in = self.input_times_in_output_units("sa").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", SN.temperature, interp_ix, units=var.units)
@@ -536,7 +536,7 @@ class GenericScale:
         logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
 
         var = redcapp.add_var_delta_T(self.rg)
-        time_in = self.input_times_in_output_units(self.nc_sa)
+        time_in = self.input_times_in_output_units("sa").astype(np.int64)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             T_sa  = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", preserve_dims=True, units="degree_K")  
@@ -559,7 +559,7 @@ class GenericScale:
         """
         vn  = kt.PREC_mm_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("sf", SN.time)
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units=var.units)
@@ -571,7 +571,7 @@ class GenericScale:
         """
         vn = kt.RH_per_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("sa", SN.time)
+        time_in = self.input_times_in_output_units("sa").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", SN.rh, interp_ix, units=var.units)
@@ -583,7 +583,7 @@ class GenericScale:
         """
         vn = kt.RH_per_pl(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("pl_sur", SN.time)
+        time_in = self.input_times_in_output_units("pl_sur").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("pl_sur", SN.rh, interp_ix, units=var.units)
@@ -595,7 +595,7 @@ class GenericScale:
         '''
         vn = kt.SH_kgkg_sur(self.rg, self.NAME) 
         var = self.rg.variables[vn]
-        time_in = self.get_values("sa", SN.time)
+        time_in = self.input_times_in_output_units("sa").astype(np.int64)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sa", SN.specific_humidity, interp_ix, units=var.units)
@@ -607,7 +607,7 @@ class GenericScale:
         """
         vn = kt.SW_Wm2_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
-        time_in = self.get_values("sf", SN.time)
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", SN.sw_down_flux, interp_ix, units=var.units)
@@ -619,7 +619,7 @@ class GenericScale:
         """
         vn = kt.LW_Wm2_sur(self.rg, self.NAME) 
         var = self.rg.variables[vn]
-        time_in = self.get_values("sf","time")
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", SN.lw_down_flux, interp_ix, units=var.units)
@@ -635,7 +635,7 @@ class GenericScale:
         var_wspd = self.rg.variables[vn_spd]
         var_wdir = self.rg.variables[vn_dir]
 
-        time_in = self.get_values("sa", SN.time)
+        time_in = self.input_times_in_output_units("sa").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values_u  = self.get_station_values("sa", SN.u_wind, interp_ix, units=var_u.units)
@@ -710,7 +710,7 @@ class GenericScale:
         """ Long-wave downwelling scaled using TOPOscale with surface- and pressure-level data"""
         vn = kt.LW_Wm2_topo(self.rg, self.NAME)
 
-        time_in = self.input_times_in_output_units(self.nc_sf)
+        time_in = self.input_times_in_output_units("sf")
         svf = self.get_sky_view()
 
         for siteslist_ix, interp_ix in self.iterate_stations():
@@ -733,7 +733,7 @@ class GenericScale:
         kt.AIRT_DReaMIT(self.rg)
 
         nc_time = self.nc_sa.variables['time']
-        time_in = self.input_times_in_output_units(self.nc_sa)
+        time_in = self.input_times_in_output_units("sa")
 
         hypsometry = self.get_hypsometry()
         list_params = dreamit.get_model_params(self.REANALYSIS)
