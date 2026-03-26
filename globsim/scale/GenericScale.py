@@ -216,6 +216,7 @@ class GenericScale:
         
         if ipl_station_names is None:
             station_df['station_name_scale'] = None
+            station_df['station_name'] = None
             station_df['name_matches'] = station_df['station_name_scale'] == station_df['station_name_interpolate']
 
             for _, row in station_df[~station_df['coordinates_match']].iterrows():
@@ -473,8 +474,9 @@ class GenericScale:
         """
         Convert time in input data to time in Globsim.
         """
+        dataset = self.get_file(ncf)
         raw = self.get_values(ncf, SN.time).astype(np.int64)
-        time = nc.num2date(raw, units=ncf['time'].units, calendar=ncf['time'].calendar)
+        time = nc.num2date(raw, units=dataset['time'].units, calendar=dataset['time'].calendar)
         converted = nc.date2num(time, units=self.scaled_t_units, calendar=self.scaled_t_cal)
         return converted.astype(np.int64)
 
@@ -536,7 +538,7 @@ class GenericScale:
         logger.warning(f"Globsim implementation of REDCAPP only provides Delta_T_c")
 
         var = redcapp.add_var_delta_T(self.rg)
-        time_in = self.input_times_in_output_units("sa").astype(np.int64)
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             T_sa  = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", preserve_dims=True, units="degree_K")  
@@ -663,7 +665,7 @@ class GenericScale:
         """
         vn_dir, vn_diff, vn_glob = kt.SW_Wm2_topo(self.rg, self.NAME)
 
-        nc_time = self.input_times_in_output_units(self.nc_sf)
+        nc_time = self.input_times_in_output_units("sf")
         py_time = nc.num2date(nc_time[:], self.scaled_t_units, self.scaled_t_cal, only_use_cftime_datetimes=False)
         py_time = np.array([pytz.utc.localize(t) for t in py_time])
         
