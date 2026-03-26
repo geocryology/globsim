@@ -613,17 +613,16 @@ class GenericInterpolate:
     def create_pl_output_variables(self, rootgrp, ncf, varlist):
         """Create output variables in the netCDF file. Override for ensemble support."""
         for var in varlist:
-            tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
-            for attr in ['long_name', 'units']:
-                if attr in ncf.variables[var].ncattrs():
-                    tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
-
-        # add air pressure
-        var = 'air_pressure'
-        varlist.append(var)
-        tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
-        tmp.long_name = 'Air pressure'
-        tmp.units = 'hPa'
+            if var in ncf.variables:
+                tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
+                for attr in ['long_name', 'units']:
+                    if attr in ncf.variables[var].ncattrs():
+                        tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
+            
+            elif var == 'air_pressure':
+                tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
+                tmp.long_name = 'Air pressure'
+                tmp.units = 'hPa'
 
     def interpolate_and_write_station(self, ncf, rootgrp, n, h,
                                        elevation, varlist, nl, time):
@@ -669,6 +668,7 @@ class GenericInterpolate:
         # build variable list, removing metadata
         varlist = [k for k in ncf.variables.keys()
                    if k not in self.PL_SKIP_VARS]
+        varlist.append('air_pressure')
 
         # --- create output file (skip if resuming) ---
         if not (self.resume and Path(ncfile_out).exists()):
