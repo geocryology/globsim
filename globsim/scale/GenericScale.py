@@ -32,12 +32,6 @@ logger = logging.getLogger('globsim.scale')
 
 class GenericScale:
     REANALYSIS: str = ''
-
-    SCALING = {"sf": {},
-               "sa": {},
-               "pl": {},
-               "to": {},
-               "pl_sur": {}}
     
     VARNAMES ={"sf": {},  # translates scaling canonical names to input variable names
                "sa": {},
@@ -146,11 +140,6 @@ class GenericScale:
 
         if (units is not None) and (effective_units != units):  # Equivalent units conversion
             v = Units.conform(v, Units(effective_units), Units(units), inplace=True)
-
-        elif name in self.SCALING.get(file).keys():  # (Legacy) Scaling factors available
-            scale, offset = self.SCALING.get(file).get(name)
-            v *= scale
-            v += offset
 
         return v
     

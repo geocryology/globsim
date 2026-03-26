@@ -31,11 +31,6 @@ class ERA5scale(GenericScale):
     src = 'era5'
     REANALYSIS = 'era5'
     NAME = "ERA-5"
-    SCALING = {"sf": {}, 
-               "sa": {},
-               "pl": {},
-               "to": {},
-               "pl_sur": {}}
     
     VARNAMES = {
     "sa":     { SN.time:        "time",
