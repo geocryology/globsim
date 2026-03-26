@@ -764,7 +764,7 @@ class GenericScale:
                                                             T_lapse_station=T_lapse_station_C,
                                                             T_sur=T_sur_in,
                                                             time_frac_year=time_frac_year,
-                                                            hyps=np.atleast_1d(hypsometry),
+                                                            hyps=np.atleast_1d(hypsometry[siteslist_ix]),
                                                             params=list_params)
             
             var_ztop = self.rg.variables['z_top_inversion_m']
