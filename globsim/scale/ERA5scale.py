@@ -122,11 +122,14 @@ class ERA5scale(GenericScale):
                                                       output_calendar=self.scaled_t_cal)
     
     def _precip_tot_to_flux(self, data, nc_var, _slice) -> tuple[np.ndarray, str]:
-        """Convert total precipitation to precipitation rate by dividing by time step."""
+        """Convert total precipitation (depth) to precipitation rate (mass flux)."""
         input_units = Units(nc_var.units)
-        water_density = Units("kg m-3")
-        converted_data = data / self.get_time_step("sf")
-        converted_units = input_units * water_density / Units("s") 
+        # Water density: 1000 kg m-3 converts depth in meters to mass per unit area.
+        water_density_value = 1000.0  # kg m-3
+        water_density_units = Units("kg m-3")
+        timestep = self.get_time_step("sf")
+        converted_data = data * water_density_value / timestep
+        converted_units = input_units * water_density_units / Units("s")
 
         return converted_data, converted_units.units
     
