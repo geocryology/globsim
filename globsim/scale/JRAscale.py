@@ -60,5 +60,5 @@ class JRAscale(GenericScale):
 class JRA55(JRAscale):
       NAME = "JRA-55"
       REANALYSIS = "jra55"
-      
       CONVERTERS = {}
+      VARNAMES = {}

@@ -1,5 +1,4 @@
 import numpy as np
-from cfunits import Units
 
 from globsim.scale.JRAscale import JRAscale
 from globsim.scale.scalenames import ScaleNames as SN
@@ -10,15 +9,15 @@ class J3QSjma(JRAscale):
     REANALYSIS = "jra3q-jma"
 
     # translator for JRA-55 names
-    J55T = {"sa":{"Temperature": "2t",
-                  "Specific humidity": "sp",
-                  "Relative humidity": "2r",
-                  "u-component of wind": "10u",
-                  "v-component of wind": "10v"},
-            "sf":{"Total precipitation": "mtpf",
-                  'Downward solar radiation flux': "dswrf",
-                  'Downward longwave radiation flux': "dswrf",},
-            "pl":{"Temperature": "t",
+    VARNAMES = {"sa":{SN.temperature: "2t",
+                      SN.specific_humidity: "sp",
+                      SN.rh: "2r",
+                      SN.u_wind: "10u",
+                      SN.v_wind: "10v"},
+            "sf":{SN.precipitation_total: "mtpf",
+                  SN.sw_down_flux: "dswrf",
+                  SN.lw_down_flux: "dswrf",},
+            "pl":{SN.temperature: "t",
                   },
             "pl_sur":{},
             "to":{}}
@@ -29,7 +28,6 @@ class J3QS(JRAscale):
     NAME = "JRA-3Q"
     REANALYSIS = "jra3q"
     CONVERTERS = {}
-
 
 
 class J3QgS(JRAscale):
