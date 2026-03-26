@@ -650,7 +650,7 @@ class GenericScale:
         # v is the MERIDIONAL VELOCITY, i.e. horizontal wind TOWARDS NORTH.
         V = self.rg.variables['10 metre V wind component'][:]
         U = self.rg.variables['10 metre U wind component'][:]
-        
+
         WS = np.sqrt(np.power(V, 2) + np.power(U, 2))
         WD = 90 - (np.arctan2(V, U) * (180 / np.pi)) + 180
         WD = np.mod(WD, 360)

@@ -19,6 +19,8 @@ from globsim.boundingbox import stations_bbox, netcdf_bbox, BoundingBox
 from globsim.gap_checker import check_time_integrity
 from globsim.decorators import check
 from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
+from globsim.nc_elements import netcdf_base
+from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -29,7 +31,9 @@ if logger.level < 10:  # (DEBUG)
 class GenericInterpolate:
     REANALYSIS = ''
     SAFE_MEM_LIMIT_PERCENT = 90
-
+    PL_SKIP_VARS = {'time', 'station', 'latitude', 'longitude',
+                    'level', 'height', 'station_name'}
+    
     def __init__(self, ifile: str, **kwargs):
         # read parameter file
         self.ifile = ifile
@@ -62,6 +66,7 @@ class GenericInterpolate:
         self._skip_sa = kwargs.get('skip_sa', False)
         self._skip_sf = kwargs.get('skip_sf', False)
         self._skip_pl = kwargs.get('skip_pl', False)
+        self._skip_pl_sur = kwargs.get('skip_pl_sur', False)
         self.resume = bool(self.read_and_report(kwargs, 'resume', False))
         self._reordered = bool(self.read_and_report(kwargs, 'reordered', False))
         self.extrapolate_below_grid = bool(self.read_and_report(kwargs, 'extrapolate_below_grid', True))
@@ -227,6 +232,12 @@ class GenericInterpolate:
         else:
             logger.info("skipping interpolation of _pl file")
 
+        if not self._skip_pl_sur:
+            self.require_safe_mem_usage(logging.INFO)
+            self._process_pl_sur()
+        else:
+            logger.info("skipping interpolation of _pl_sur file")
+
         duration = human_readable_time(datetime.now() - t_start)
         self._finished_successfully_message(duration)
 
@@ -246,6 +257,9 @@ class GenericInterpolate:
         pass
 
     def _process_pl(self):
+        pass
+
+    def _process_pl_sur(self):
         pass
 
     def _set_input_directory(self, name):
@@ -588,6 +602,123 @@ class GenericInterpolate:
             varlist.remove('number')
         if 'expver' in varlist:
             varlist.remove('expver')
+
+    def get_elevation(self, nc_pl_interp, station_index):
+        """
+        Return elevation array with shape (time, level) in meters
+        for a single station. Override in subclasses.
+        """
+        raise NotImplementedError
+
+    def create_pl_output_variables(self, rootgrp, ncf, varlist):
+        """Create output variables in the netCDF file. Override for ensemble support."""
+        for var in varlist:
+            if var in ncf.variables:
+                tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
+                for attr in ['long_name', 'units']:
+                    if attr in ncf.variables[var].ncattrs():
+                        tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
+            
+            elif var == 'air_pressure':
+                tmp = rootgrp.createVariable(var, 'f4', ('time', 'station'))
+                tmp.long_name = 'Air pressure'
+                tmp.units = 'hPa'
+
+    def interpolate_and_write_station(self, ncf, rootgrp, n, h,
+                                       elevation, varlist, nl, time):
+        """Interpolate all variables for one station and write to output."""
+        elev_diff, va, vb = ele_interpolate(elevation, h, nl)
+        wa, wb = calculate_weights(elev_diff, va, vb)
+
+        for var in varlist:
+            if var in str(rootgrp.vars_written).split(" "):
+                logger.debug(f"Skipping {var}")
+                continue
+
+            if var == 'air_pressure':
+                data = np.repeat([ncf.variables['level'][:]],
+                                 len(time), axis=0).ravel()
+            else:
+                data = ncf.variables[var][:, :, n].ravel()
+
+            ipol = data[va] * wa + data[vb] * wb
+
+            if self.extrapolate_below_grid:
+                extrapolated_values = extrapolate_below_grid(elevation, data, h)
+                ipol = np.where(~extrapolated_values.mask,
+                                extrapolated_values, ipol)
+
+            rootgrp.variables[var][:, n] = ipol
+            rootgrp.vars_written = " ".join(
+                set(str(rootgrp.vars_written).split(" ") + [var]))
+
+        rootgrp.vars_written = ""
+        rootgrp.last_station_written = n
+
+    def levels2elevation(self, ncfile_in, ncfile_out):
+        """
+        Linear 1D interpolation from interpolated pressure level data to
+        individual stations at station elevation.
+        """
+        ncf = nc.Dataset(ncfile_in, 'r')
+        height = ncf.variables['height'][:]
+        nt = len(ncf.variables['time'][:])
+        nl = len(ncf.variables['level'][:])
+
+        # build variable list, removing metadata
+        varlist = [k for k in ncf.variables.keys()
+                   if k not in self.PL_SKIP_VARS]
+        varlist.append('air_pressure')
+
+        # --- create output file (skip if resuming) ---
+        if not (self.resume and Path(ncfile_out).exists()):
+            rootgrp = netcdf_base(ncfile_out, 
+                                  n_stations=len(height),
+                                  n_time=nt,
+                                  time_units=ncf.variables['time'].units,
+                                  nc_in=ncf,
+                                  calendar=ncf.variables['time'].calendar) 
+            
+            rootgrp.source = (f'{self.REANALYSIS}, interpolated '
+                              f'(bi)linearly to stations')
+
+            # copy base variables
+            for v in ['time', 'station', 'latitude', 'longitude', 'height']:
+                rootgrp[v][:] = ncf.variables[v][:]
+            if 'station_name' in rootgrp.variables:
+                rootgrp['station_name'][:] = ncf.variables['station_name'][:]
+
+            rootgrp.globsim_interpolate_success = 0
+            rootgrp.last_station_written = -1
+            rootgrp.vars_written = ""
+
+            self.create_pl_output_variables(rootgrp, ncf, varlist)
+            rootgrp.close()
+
+        # --- station loop ---
+        with nc.Dataset(ncfile_out, 'a') as rootgrp:
+            time = ncf.variables['time'][:]
+            try:
+                for n, h in enumerate(height):
+                    if self.resume and n <= rootgrp.last_station_written:
+                        if n == rootgrp.last_station_written:
+                            logger.info(f"Resuming at station {n+1}")
+                        continue
+
+                    self.require_safe_mem_usage()
+                    logger.debug(f"Interpolating station {n+1} ({nc.chartostring(ncf['station_name'][n])}, elevation {int(h)} m)")
+
+                    elevation = self.get_elevation(ncf, n)
+                    self.interpolate_and_write_station(
+                        ncf, rootgrp, n, h, elevation, varlist, nl, time)
+            except Exception:
+                logger.exception("Error during levels2elevation station loop; leaving globsim_interpolate_success=0")
+                raise
+            else:
+                # Mark interpolation as successfully completed
+                rootgrp.globsim_interpolate_success = 1
+
+        ncf.close()
 
     @check
     def ensure_datset_integrity(self, time: "nc.Variable", interval: float):
