@@ -10,8 +10,7 @@ from pathlib import Path
 
 from globsim.common_utils import variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
-from globsim.nc_elements import new_interpolated_netcdf, netcdf_base
-from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
+from globsim.nc_elements import new_interpolated_netcdf
 import globsim.constants as const
 
 logger = logging.getLogger('globsim.interpolate')
@@ -26,6 +25,9 @@ class ERA5interpolate(GenericInterpolate):
     coordinates. All variables retain their original units and time stepping.
     """
     REANALYSIS = 'era5'
+    PL_SKIP_VARS = {'time', 'station', 'latitude', 'longitude',
+                    'level', 'height', 'z', 'expver', 'number',
+                    'station_name'}
 
     def __init__(self, ifile,  **kwargs):
         super().__init__(ifile=ifile, **kwargs)
@@ -239,158 +241,10 @@ class ERA5interpolate(GenericInterpolate):
 
         ncf_in.close()
 
-    def levels2elevation(self, ncfile_in, ncfile_out):
-        """
-        ncfile_in : nc.Dataset
-            2-d Interpolated ERA5 file on pressure-levels
-        ncfile_out : str
-            output file name
-        Linear 1D interpolation of pressure level data available for individual
-        stations to station elevation. Where and when stations are below the
-        lowest pressure level, they are assigned the value of the lowest
-        pressure level.
-
-        """
-        # open file
-        ncf = nc.Dataset(ncfile_in)
-        height = ncf.variables['height'][:]
-
-        nt = len(ncf.variables['time'][:])  # these are reading from a globsim file, not an ERA5 file
-        nl = len(ncf.variables['level'][:])
-
-        # list variables
-        varlist = [key for key in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude',
-                  'level','height','z','expver', 'number', 'station_name']:
-            if V in varlist:
-                varlist.remove(V)
-
-        # === open and prepare output netCDF file ==============================
-        # dimensions: station, time
-        # variables: latitude(station), longitude(station), elevation(station)
-        #            others: ...(time, station)
-        # stations are integer numbers
-        # create a file (Dataset object, also the root group).
-        if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = netcdf_base(ncfile_out, len(height), nt,
-                                time_units=ncf['time'].units,
-                                nc_in=ncf,
-                                calendar=ncf['time'].calendar)
-            
-            rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
-
-            time = rootgrp['time']
-            station = rootgrp['station']
-            latitude = rootgrp['latitude']
-            longitude = rootgrp['longitude']
-            height = rootgrp['height']
-            station_name = rootgrp['station_name'] if 'station_name' in rootgrp.variables else None
-
-            # assign base variables
-            time[:]      = ncf.variables['time'][:]
-            station[:]   = ncf.variables['station'][:]
-            latitude[:]  = ncf.variables['latitude'][:]
-            longitude[:] = ncf.variables['longitude'][:]
-            height[:]    = ncf.variables['height'][:]
-            if station_name is not None:
-                station_name[:] = ncf.variables['station_name'][:]
-
-            rootgrp.globsim_interpolate_success = 0
-            rootgrp.last_station_written = -1
-            rootgrp.vars_written = ""
-
-            # create and assign variables from input file
-            for var in varlist:
-                if self.ens:
-                    tmp = rootgrp.createVariable(var,
-                                                'f4',('time','number','station'))
-                else:
-                    tmp = rootgrp.createVariable(var,'f4',('time', 'station'))
-                for attr in ['long_name', 'units']:
-                    if attr in ncf.variables[var].ncattrs():
-                        tmp.setncattr(attr, ncf.variables[var].getncattr(attr))
-
-            # add air pressure as new variable
-            var = 'air_pressure'
-            varlist.append(var)
-            if self.ens:
-                tmp = rootgrp.createVariable(var,'f4',('time','number','station'))
-            else:
-                tmp = rootgrp.createVariable(var,'f4',('time','station'))
-            tmp.long_name = var.encode('UTF8')
-            tmp.units = 'hPa'.encode('UTF8')
-
-            rootgrp.close()
-            # end file prepation ===================================================
-
-        with nc.Dataset(ncfile_out, 'a') as rootgrp:
-            # loop over stations
-            for n, h in enumerate(height):
-                if self.resume and n <= rootgrp.last_station_written:
-                        if n == rootgrp.last_station_written:
-                            logger.info(f"Resuming interpolation at station {n+1}")
-                        continue
-
-                self.require_safe_mem_usage()
-                logger.debug(f"Interpolating station {n+1} to station elevation using pressure-level data")
-
-                if self.ens:
-                    num = ncf.variables['number'][:]
-                    for ni in num:
-                        elevation = ncf.variables['z'][:,ni,:,n] / const.G
-                        elev_diff, va, vb = ele_interpolate(elevation, h, nl)
-                        wa, wb = calculate_weights(elev_diff, va, vb)
-                        for v, var in enumerate(varlist):
-                            if var == 'air_pressure':
-                                # pressure [Pa] variable from levels, shape: (time, level)
-                                data = np.repeat([ncf.variables['level'][:]],
-                                                len(time),axis=0).ravel()
-                            else:
-                                # read data from netCDF
-                                data = ncf.variables[var][:,ni,:,n].ravel()
-
-                            ipol = data[va] * wa + data[vb] * wb   # interpolated value
-                            rootgrp.variables[var][:,ni,n] = ipol  # assign to file
-                else:
-                    # convert geopotential [mbar] to height [m], shape: (time, level)
-                    elevation = ncf.variables['z'][:,:,n] / const.G
-                    elev_diff, va, vb = ele_interpolate(elevation, h, nl)
-                    wa, wb = calculate_weights(elev_diff, va, vb)
-
-                    # loop over variables and apply interpolation weights
-                    for v, var in enumerate(varlist):
-                        if var in str(rootgrp.vars_written).split(" "):
-                            logger.debug(f"Skipping {var}")
-                            continue
-                        
-                        if var == 'air_pressure':
-                            # pressure [Pa] variable from levels, shape: (time, level)
-                            data = np.repeat([ncf.variables['level'][:]],
-                                            len(time),axis=0).ravel()
-                        else:
-                            # read data from netCDF
-                            logger.debug(f"Reading {var}")
-                            data = ncf.variables[var][:,:,n].ravel()
-                        
-                        ipol = data[va] * wa + data[vb] * wb   # interpolated value
-                        
-                        if self.extrapolate_below_grid:
-                            extrapolated_values = extrapolate_below_grid(elevation, data, h)
-                            ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
-
-                        rootgrp.variables[var][:,n] = ipol  # write to file
-                    
-                        rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
-                
-                rootgrp.vars_written = ""
-                rootgrp.last_station_written = n
-                
-            
-            rootgrp.globsim_interpolate_success = 1
-
-        ncf.close()
-        # closed file ==========================================================
-
+    def get_elevation(self, nc_pl_interp, station_index):
+        # geopotential → meters
+        return nc_pl_interp.variables['z'][:, :, station_index] / const.G
+    
     def _preprocess(self):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
@@ -434,7 +288,8 @@ class ERA5interpolate(GenericInterpolate):
             with xr.open_mfdataset(self.get_input_file_paths('pl'), decode_times=False) as pl:
                 self.ERA2station(pl, self.getOutFile('pl'),
                                 self.stations, varlist, date=self.date)
-
+    
+    def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Data
         outf = self.getOutFile('pl')[:-3] + "_surface.nc"
   
