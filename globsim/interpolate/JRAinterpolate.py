@@ -9,31 +9,13 @@ from datetime import datetime
 from os import path
 from pathlib import Path
 
-from globsim.common_utils import variables_skip
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
-from globsim.nc_elements import netcdf_base, new_interpolated_netcdf
-from globsim.interp import calculate_weights, ele_interpolate, extrapolate_below_grid
+from globsim.nc_elements import new_interpolated_netcdf
 
 logger = logging.getLogger('globsim.interpolate')
 
 
 class JRAinterpolate(GenericInterpolate):
-    """
-    Algorithms to interpolate JRA55 netCDF files to station coordinates.
-    All variables retains their original units and time-steps.
-
-    Referenced from era_interim.py (Dr.Stephan Gruber): Class ERAinterpolate()
-
-    Args:
-        ifile: Full path to a Globsim Interpolate Paramter file
-        JRAinterpolate(ifile)
-
-
-    Example:
-        ifile = '/home/xquan/src/globsim/examples/par/examples.globsim_interpolate'
-        JRAinterpolate(ifile)
-
-    """
     REANALYSIS = "jra55"
     SA_INTERVAL = 6
     PL_INTERVAL = 6
@@ -167,7 +149,8 @@ class JRAinterpolate(GenericInterpolate):
             rootgrp = new_interpolated_netcdf(ncfile_out, self.stations, ncf_in,
                                                 time_units=self.T_UNITS,
                                                 level_var=level_var,
-                                                n_time = len(time_in))
+                                                n_time = len(time_in),
+                                                station_names=self.stations['station_name'])
             rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
@@ -233,129 +216,20 @@ class JRAinterpolate(GenericInterpolate):
 
         ncf_in.close()
 
-    def levels2elevation(self, ncfile_in, ncfile_out):
-        """
-        Linear 1D interpolation of pressure level data available for individual
-        stations to station elevation. Where and when stations are below the
-        lowest pressure level, they are assigned the value of the lowest
-        pressure level.
-
-        """
-        # open file
-
-        ncf = nc.Dataset(ncfile_in, 'r')
-        height = ncf.variables['height'][:]
-        nt = len(ncf.variables['time'][:])
-        nl = len(ncf.variables['level'][:])
-
-        # list variables
-        varlist = [x for x in ncf.variables.keys()]
-        for V in ['time', 'station', 'latitude', 'longitude', 'level', 'height']:
-            varlist.remove(V)
-
-        # === open and prepare output netCDF file =============================
-        # dimensions: station, time
-        # variables: latitude(station), longitude(station), elevation(station)
-        #            others: ...(time, station)
-        # stations are integer numbers
-        # create a file (Dataset object, also the root group).
-        if not (self.resume and Path(ncfile_out).exists()):
-            rootgrp = netcdf_base(ncfile_out, 
-                                  len(height), 
-                                  nt,
-                                  self.T_UNITS)
-            rootgrp.source = f'{self.REANALYSIS}, interpolated (bi)linearly to stations'
-
-            # access variables
-            time = rootgrp['time']
-            station = rootgrp['station']
-            latitude = rootgrp['latitude']
-            longitude = rootgrp['longitude']
-            height = rootgrp['height']
-
-            # assign base variables
-            time[:]      = ncf.variables['time'][:]
-            station[:]   = ncf.variables['station'][:]
-            latitude[:]  = ncf.variables['latitude'][:]
-            longitude[:] = ncf.variables['longitude'][:]
-            height[:]    = ncf.variables['height'][:]
-
-            rootgrp.globsim_interpolate_success = 0
-            rootgrp.last_station_written = -1
-            rootgrp.vars_written = ""
-
-            # create and assign variables from input file
-            for var in varlist:
-                vname = var  # ncf.variables[var].long_name
-                tmp   = rootgrp.createVariable(vname, 'f4',('time', 'station'))
-                tmp.long_name = ncf.variables[var].long_name
-                tmp.units     = ncf.variables[var].units
-
-            # add air pressure as new variable
-            var = 'air_pressure'
-            varlist.append(var)
-            tmp   = rootgrp.createVariable(var,'f4',('time', 'station'))
-            tmp.long_name = "Air pressure"
-            tmp.units     = 'hPa'
-
-            rootgrp.close()
-        # end file preparation ================================================
-        
-        with nc.Dataset(ncfile_out, 'a') as rootgrp:
-            # loop over stations
-            for n, h in enumerate(height):
-                
-                if self.resume and n <= rootgrp.last_station_written:
-                    if n == rootgrp.last_station_written:
-                        logger.info(f"Resuming interpolation at station {n+1}")
-                    continue
-
-                self.require_safe_mem_usage()
-                logger.debug(f"Interpolating station {n+1} to station elevation using pressure-level data")
-                # convert geopotential [millibar] to height [m]
-                # shape: (time, level)
-                elevation = ncf.variables[self.GEOPOTENTIAL][:,:,n]
-
-                elev_diff, va, vb = ele_interpolate(elevation, h, nl)
-                wa, wb = calculate_weights(elev_diff, va, vb)
-
-                # loop over variables and apply interpolation weights
-                for v, var in enumerate(varlist):
-                    if var in str(rootgrp.vars_written).split(" "):
-                            logger.debug(f"Skipping {var}")
-                            continue
-                    
-                    if var == 'air_pressure':
-                        # pressure [Pa] variable from levels, shape: (time, level)
-                        data = np.repeat([ncf.variables['level'][:]],
-                                        len(time),axis=0).ravel()
-                    else:
-                        data = ncf.variables[var][:,:,n].ravel()
-
-                    ipol = np.multiply(data[va], wa) + np.multiply(data[vb], wb)
-
-                    if self.extrapolate_below_grid:
-                        extrapolated_values = extrapolate_below_grid(elevation, data, h)
-                        ipol = np.where(~extrapolated_values.mask, extrapolated_values, ipol)
-                            
-                    rootgrp.variables[var][:,n] = ipol  # assign to file
-                    rootgrp.vars_written = " ".join(set(str(rootgrp.vars_written).split(" ") + [var]))
-                
-                rootgrp.vars_written = ""
-                rootgrp.last_station_written = n
-                
-            rootgrp.globsim_interpolate_success = 1
-
-        ncf.close()  # close input file
+    def get_elevation(self, nc_pl_interp, station_index):
+        return nc_pl_interp.variables[self.GEOPOTENTIAL][:,:,station_index] # already meters (gpm)
 
     def _preprocess(self):
-        try:
-            self.JRA2station(self.mf_to,
-                             path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
-                             self.stations, ['Geopotential'], date=None)
-        except OSError:
-            logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
-                         "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+            logger.info("Skipping invariant interpolation")
+        else:
+            try:
+                self.JRA2station(self.mf_to,
+                                path.join(self.output_dir,f'{self.REANALYSIS}_to_{self.list_name}.nc'),
+                                self.stations, ['Geopotential'], date=None)
+            except OSError:
+                logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
+                            "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
 
     def _process_sa(self):
         # === 2D Interpolation for Surface  Data ===
@@ -395,6 +269,7 @@ class JRAinterpolate(GenericInterpolate):
                             varlist,
                             date=self.date)
 
+    def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Data
         self.levels2elevation(self.getOutFile('pl'),
                               path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '_surface.nc'))

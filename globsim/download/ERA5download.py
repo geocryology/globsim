@@ -9,7 +9,6 @@ from fnmatch import filter
 from math import floor
 from os import path, listdir
 
-from globsim.common_utils import str_encode
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
@@ -514,7 +513,7 @@ class ERA5download(GenericDownload, ERA5generic):
                 ncf = nc.MFDataset(infile, 'r', aggdim='time')
 
                 # list variables
-                keylist = [str_encode(x) for x in ncf.variables.keys()]
+                keylist = [x for x in ncf.variables.keys()]
                 logger.info("VARIABLES:")
                 logger.info(f"Found {str(len(keylist))} variables, including dimensions")
                 for key in keylist:

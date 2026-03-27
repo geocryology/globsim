@@ -23,40 +23,24 @@
 import argparse
 
 from globsim.globsim_main import GlobsimInterpolateStation
-
+from globsim.registry import parse_enabled
+from globsim.registry import all_keys
 
 def main(args):
-    pfile = args.f
-
-    ERA5     =  bool(args.d is None or "ERA5"  in args.d)
-    ERA5ENS =  bool(args.d is None or "ERA5ENS"  in args.d)
-    JRA     =  bool(args.d is None or "JRA"   in args.d)
-    JRA3Q   = bool(args.d is None or "JRA3Q"   in args.d)
-    JRA3QG   = bool(args.d is None or "JRA3QG"   in args.d)
-    MERRA     = bool(args.d is None or "MERRA" in args.d)
-
-    if sum([ERA5, ERA5ENS, JRA, MERRA, JRA3Q, JRA3QG]) > 0:
-
-        GlobsimInterpolateStation(pfile,
-                                  ERA5=ERA5,
-                                  ERA5ENS=ERA5ENS,
-                                  JRA=JRA,
-                                  MERRA=MERRA,
-                                  JRA3Q=JRA3Q,
-                                  JRA3QG=JRA3QG,
-                                  **vars(args))
-
-    else: print("Failed! Reanalysis source should be  ERA5, MERRA, JRA, JRA3Q, please check")
+    enabled = parse_enabled(args.d)
+    if not any(enabled.values()):
+        print("No reanalysis source selected. Use -d to specify one.")
+        return
+    GlobsimInterpolateStation(args.f, **enabled, **vars(args))
 
 
-# ===interpolate the variables from multiple re-analysis data to individual stations===
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Interpolate reanalysis data",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-f',    default=None, type=str, 
                         help="file path to download parameter file")
-    parser.add_argument('-d',    default=None, nargs="*", type=str, 
-                        help="What data sources should run?  ERA5, MERRA, JRA, JRA3Q, JRA3QG")
+    parser.add_argument('-d',    default=None, nargs="*", type=str.upper, choices=all_keys(),
+                        help="What data sources should run?")
 
     args = parser.parse_args()
 

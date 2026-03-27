@@ -62,11 +62,11 @@ def StationListRead(sfile: "str | Path") -> "pd.DataFrame":
     return(raw)
 
 
-def convert_cummulative(data):
+def convert_cumulative(data):
     """
-    Convert values that are serially cummulative, such as precipitation or
-    radiation, into a cummulative series from start to finish that can be
-    interpolated on for sacling.
+    Convert values that are serially cumulative, such as precipitation or
+    radiation, into a cumulative series from start to finish that can be
+    interpolated on for scaling.
     data: 1-dimensional time series
     """
     # get increment per time step
@@ -78,15 +78,15 @@ def convert_cummulative(data):
     mask = diff < 0
     diff[mask] = data[mask]
 
-    # get full cummulative sum
+    # get full cumulative sum
     return np.cumsum(diff, dtype=np.float64)
 
 
-def cummulative2total(data, time):
+def cumulative2total(data, time):
     """
-    Convert values that are serially cummulative, such as precipitation or
-    radiation, into a cummulative series from start to finish that can be
-    interpolated on for sacling.
+    Convert values that are serially cumulative, such as precipitation or
+    radiation, into a cumulative series from start to finish that can be
+    interpolated on for scaling.
     data: 1-dimensional time series
     """
     # get increment per time step
@@ -113,35 +113,23 @@ def series_interpolate(time_out, time_in, value_in, cum=False):
     time_out: Array of times [s] for which output is desired. Integer.
     time_in:  Array of times [s] for which value_in is given. Integer.
     value_in: Value time series. Must have same length as time_in.
-    cum:      Is valiable serially cummulative like LWin? Default: False.
+    cum:      Is valiable serially cumulative like LWin? Default: False.
     """
     time_step_sec = time_out[1] - time_out[0]
 
-    # convert to continuous cummulative, if values are serially cummulative
+    # convert to continuous cumulative, if values are serially cumulative
     if cum:
-        value_in = convert_cummulative(value_in)
+        value_in = convert_cumulative(value_in)
 
     # interpolate
     vi = np.interp(time_out, time_in, value_in)
 
-    # convert from cummulative to normal time series if needed
+    # convert from cumulative to normal time series if needed
     if cum:
         vi = np.diff(vi) / time_step_sec
         vi = np.float32(np.concatenate(([vi[0]], vi)))
 
     return vi
-
-
-def str_encode(value, encoding="UTF8"):
-    """
-    handles encoding to allow compatibility between python 2 and 3
-    specifically with regards to netCDF variables. Python 2 imports
-    variable names as unicode, whereas python 3 imports them as str.
-    """
-    if type(value) == str:
-        return(value)
-    else:
-        return(value.encode(encoding))
 
 
 def create_globsim_directory(target_dir, name):

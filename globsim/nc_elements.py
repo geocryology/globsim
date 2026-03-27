@@ -4,11 +4,12 @@ functions for creating netcdf files
 import logging
 import netCDF4 as nc
 import numpy as np
+import pandas as pd
 from os import path
 from typing import Optional
 import xarray as xr
 
-from globsim.common_utils import variables_skip, str_encode
+from globsim.common_utils import variables_skip
 from globsim import __version__ as globsim_version
 
 
@@ -82,12 +83,30 @@ def ncvar_add_ellipsoid_height(rootgrp, dimensions=('station')):
     return height
 
 
+def add_names(rootgrp, station_names:pd.Series):
+    """Add station names to netCDF file if provided."""
+    # first convert to character array
+    names_out = nc.stringtochar(np.array(station_names, 'S32'))
+
+    # create space in the netcdf
+    maxlen = 32
+    _            = rootgrp.createDimension('name_strlen', maxlen)
+    st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
+    st.standard_name = 'platform_name'
+    st.units     = ''
+
+    # add data
+    st[:] = names_out
+
+
 def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
-                      t_unit, station_names=None):
+                      t_unit, valid_indices:pd.Series, 
+                      station_names:pd.Series=None):
     """
     Create netCDF file for scaled results (same for all reanalyses)
     Returns the file object so that kernel functions can
     successively write variables to it.
+    valid_indices: series of indices corresponding to the stations that will be used
 
     """
 
@@ -97,9 +116,13 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
     # make netCDF outfile, variables are written in kernels
     rootgrp = nc_new_file(ncfile_out, fmt='NETCDF4')
     rootgrp.source      = 'Reanalysis data interpolated and scaled to stations'
-
+ 
     # dimensions
-    n_station = len(nc_interpol.variables['station'][:])
+    n_station = valid_indices.shape[0] 
+
+    if station_names is not None and len(station_names) != n_station:
+        n_station = len(station_names.values)  # override n_station if station names are provided.
+        logger.warning(f"Number of station names provided ({len(station_names)}) does not match number of stations in interpolated netCDF ({n_station}).")
     station = rootgrp.createDimension('station', n_station)
     time    = rootgrp.createDimension('time', len(times_out))
 
@@ -122,24 +145,13 @@ def new_scaled_netcdf(ncfile_out, nc_interpol, times_out,
 
     # assign base variables
     time[:]      = times_out
-    station[:]   = nc_interpol.variables['station'][:]
-    latitude[:]  = nc_interpol.variables['latitude'][:]
-    longitude[:] = nc_interpol.variables['longitude'][:]
-    height[:]    = nc_interpol.variables['height'][:]
-
-    # add station names to netcdf
+    station[:]   = nc_interpol.variables['station'][valid_indices.values]
+    latitude[:]  = nc_interpol.variables['latitude'][valid_indices.values]
+    longitude[:] = nc_interpol.variables['longitude'][valid_indices.values]
+    height[:]    = nc_interpol.variables['height'][valid_indices.values]
+    
     if station_names is not None:
-        # first convert to character array
-        names_out = nc.stringtochar(np.array(station_names, 'S32'))
-
-        # create space in the netcdf
-        _            = rootgrp.createDimension('name_strlen', 32)
-        st           = rootgrp.createVariable('station_name', "S1", ('station', 'name_strlen'))
-        st.standard_name = 'platform_name'
-        st.units     = ''
-
-        # add data
-        st[:] = names_out
+        add_names(rootgrp, station_names)
 
     return rootgrp
 
@@ -148,7 +160,8 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
                             nc_in:xr.Dataset, time_units:str, 
                             calendar:Optional[str]=None,
                             level_var:Optional[str]=None,
-                            n_time=None) -> nc.Dataset:
+                            n_time=None,
+                            station_names:Optional[pd.Series]=None) -> nc.Dataset:
     """
     Creates an empty station file to hold interpolated reults. The number of
     stations is defined by the variable stations, variables are determined by
@@ -201,17 +214,18 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
         # extra treatment for pressure level files
         if len(num):
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4',('time', 'number',
-                                                       'level', 'station'))
+                tmp = rootgrp.createVariable(var,'f4',('time', 'number', 'level', 'station'),
+                                             chunksizes=(n_time, 1, len(lev), 1))
             else:
-                tmp = rootgrp.createVariable(var,'f4',('time','number',
-                                                       'station'))
+                tmp = rootgrp.createVariable(var,'f4',('time','number', 'station'),
+                                             chunksizes=(n_time, 1, 1))
         else:
             if len(lev):
-                tmp = rootgrp.createVariable(var,'f4', ('time','level',
-                                                        'station'))
+                tmp = rootgrp.createVariable(var,'f4', ('time','level','station'),
+                                              chunksizes=(n_time, len(lev), 1))
             else:
-                tmp = rootgrp.createVariable(var,'f4', ('time','station'))
+                tmp = rootgrp.createVariable(var,'f4', ('time','station'),
+                                             chunksizes=(n_time, 1))
 
         # copy attributes
         input_var = nc_in.variables[var]
@@ -227,8 +241,11 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
                     continue
                 tmp.setncattr(key, getattr(input_var, key))
         units = tmp.units if hasattr(tmp, 'units') else '??'
-        logger.info(f"Created new empty variable: {str_encode(var)} [{units}]")
+        logger.info(f"Created new empty variable: {var} [{units}]")
     
+    if station_names is not None:
+        add_names(rootgrp, station_names)
+               
     return rootgrp
 
 

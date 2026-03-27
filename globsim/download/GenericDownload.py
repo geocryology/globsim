@@ -14,6 +14,7 @@ class GenericDownload(ABC):
     """
     Generic functionality for download classes
     """
+    REANALYSIS: str = ''
     retry_delay_min = 0.5
     
     def __init__(self, pfile):
