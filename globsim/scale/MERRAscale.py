@@ -123,7 +123,7 @@ class MERRAscale(GenericScale):
         """
         vn  = kt.PRECCORR_mm_sur(self.rg, self.NAME)
 
-        time_in = self.input_times_in_output_units(self.nc_sf)
+        time_in = self.input_times_in_output_units("sf")
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", "PRECTOTCORR", interp_ix) * self.scf

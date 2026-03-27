@@ -64,7 +64,8 @@ class ERA5Escale(ERA5scale):
             self.rg = new_scaled_netcdf(self.output_file,
                                         self.nc_pl_sur, self.times_out_nc,
                                         t_unit=self.scaled_t_units,
-                                        station_names=stations)
+                                        station_names=stations,
+                                        valid_indices=self.valid_indices)
             self.run_kernels()
             logger.info(f"Created scaled output file {self.output_file}")
 

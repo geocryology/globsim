@@ -38,11 +38,8 @@ class JRAscale(GenericScale):
         self.nc_pl = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_pl_{self.list_name}.nc'), 'r')
         self.nc_sa = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_sa_{self.list_name}.nc'), 'r')
         self.nc_sf = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_sf_{self.list_name}.nc'), 'r')
-        try:
-            self.nc_to = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_to_{self.list_name}.nc'), 'r')
-        except AttributeError:
-            logger.error("Missing invariant ('*_to') file. Some scaling kernels may fail. ")
-
+        self.nc_to = nc.Dataset(Path(self.interp_dir, f'{self.REANALYSIS}_to_{self.list_name}.nc'), 'r')
+        
         # Check data integrity
         _check_timestep_length(self.nc_pl_sur.variables['time'], "pl_sur")
         _check_timestep_length(self.nc_pl.variables['time'], "pl")
@@ -58,3 +55,10 @@ class JRAscale(GenericScale):
                                                       num_times=self.nt,
                                                       output_units=self.scaled_t_units,
                                                       output_calendar=self.scaled_t_cal)
+        
+
+class JRA55(JRAscale):
+      NAME = "JRA-55"
+      REANALYSIS = "jra55"
+      CONVERTERS = {}
+      VARNAMES = {}
