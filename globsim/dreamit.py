@@ -20,7 +20,7 @@ def add_var_z_top_inversion(group: nc.Dataset):
 
 def add_var_T_lapse_grid(group: nc.Dataset):
     """ Add DReaMIT lapse temperature at grid level to the netCDF file"""
-    vn  = 'T_lapse_grid_K'  # variable name
+    vn  = 'T_lapse_grid_C'  # variable name
     var = group.createVariable(vn,'f4',('time', 'station'))
     var.long_name = 'Temperature at grid level if solely determined by dynamically-computed linear lapse rate'
     var.comment   = ref_dreamit
@@ -30,7 +30,7 @@ def add_var_T_lapse_grid(group: nc.Dataset):
 
 def add_var_T_lapse_station(group: nc.Dataset):
     """ Add DReaMIT lapse temperature at station level to the netCDF file"""
-    vn  = 'T_lapse_station_K'  # variable name
+    vn  = 'T_lapse_station_C'  # variable name
     var = group.createVariable(vn,'f4',('time', 'station'))
     var.long_name = 'Temperature at station level if solely determined by dynamically-computed linear lapse rate'
     var.comment   = ref_dreamit
@@ -231,9 +231,8 @@ def fitting_linear_lapse(x,y,top_inv):
 
     best_aic = np.inf
 
-    default_lapse = -6.5e-3
     # in the rare case we cannot determine the linear lapse rate, we use standard -6.5C/km
-    best_params = (default_lapse, x[0] - default_lapse*y[0])
+    best_params = (const.default_lapse, x[0] - const.default_lapse*y[0])
 
     index=3 # we need at least 3 points to fit the lapse rate
     ymin = np.min(y)
