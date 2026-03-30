@@ -109,7 +109,7 @@ def format_temp_elev_inversions(T_pl_in: np.ndarray, h_pl_in: np.ndarray, T_pl_s
     num_station = grid_elev_in.shape[-1]
     grid_elev = grid_elev_in
     zmax = 5000 ############# !!!!!!!!!!!!!!!!!!! #############
-    zmin = {station: np.min([h_pl_surface_in[station],grid_elev]) for station in range(num_station)}
+    zmin = {station: np.min([np.min(h_pl_surface_in[station]),np.min(grid_elev)]) for station in range(num_station)}
 
     T_pl = {station: [] for station in range(num_station)}
     h_pl = {station: [] for station in range(num_station)}
@@ -331,7 +331,7 @@ def compute_dreamit_metrics(reanalysis, T_pl, h_pl, T_pl_surface, h_pl_surface, 
             list_sea_level_temp.append(list(best_params_lin)[1])
 
         # surface temperature from reanalysis data T_sur [K]
-        list_T_lapse_grid = lin(grid_elev, np.array(list_lapse), np.array(list_sea_level_temp))
+        list_T_lapse_grid = lin(grid_elev[station], np.array(list_lapse), np.array(list_sea_level_temp))
         list_T_lapse_station = lin(np.min(y), np.array(list_lapse), np.array(list_sea_level_temp))
 
         # we create the panda dataframe putting everything together
