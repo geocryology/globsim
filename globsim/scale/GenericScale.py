@@ -93,7 +93,7 @@ class GenericScale:
                                     valid_indices=valid_indices,
                                     station_names=self.valid_stations['station_name'],)
         
-        elev = np.squeeze(self.get_values("to", SN.elevation, units='m'))
+        elev = np.atleast_1d(np.squeeze(self.get_values("to", SN.elevation, units='m')))
         self.add_grid_elevation(self.rg, elev[valid_indices.values])
         
         self.run_kernels()
@@ -676,7 +676,7 @@ class GenericScale:
         slope = self.get_slope()
         aspect = self.get_aspect()
 
-        grid_elev = np.squeeze(self.get_values('to', SN.elevation, units='m'))
+        grid_elev = np.atleast_1d(np.squeeze(self.get_values('to', SN.elevation, units='m')))
         station_elev = self.get_values("pl_sur", SN.elevation, units='m')
 
         for siteslist_ix, interp_ix in self.iterate_stations():
