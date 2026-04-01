@@ -105,8 +105,10 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
         Path to scaled globsim netCDF file, or an already-opened Dataset.
     out_dir : str
         Directory where the output netCDF files will be written.
-    site : str, int, or None
-        Site name or index to export.  ``None`` exports all sites.
+    site : str, int, list, or None
+        Site name(s) or index to export.  May be a single value or a list
+        of site names (as returned by CLI ``nargs="*"``).  ``None`` exports
+        all sites.
     export_profile : str or None
         Path to a TOML export-profile file.  When *None* a default profile
         is created / used at ``~/.globsim/classic_profile.toml``.
@@ -176,8 +178,12 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
     # --- iterate sites ------------------------------------------------------
     files = []
     for i in range(nstn):
-        if (site is not None) and (site != i) and (site != names[i]):
-            continue
+        if site is not None:
+            if isinstance(site, list):
+                if (i not in site) and (names[i] not in site):
+                    continue
+            elif (site != i) and (site != names[i]):
+                continue
 
         st_name = names[i]
         site_dir = path.join(out_dir, str(st_name))
