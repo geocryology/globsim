@@ -564,8 +564,10 @@ class GenericScale:
         time_in = self.input_times_in_output_units("sf").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units=var.units)
-            var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values) * self.scf
+            precip  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units=var.units)
+            airt = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", preserve_dims=True, units="degree_C")
+            values = np.where(airt < 0, precip * self.scf, precip)  # only apply SCF to solid precipitation
+            var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
     
     def RH_per_sur(self):
         """
@@ -612,7 +614,7 @@ class GenericScale:
         time_in = self.input_times_in_output_units("sf").astype(np.int64)
         
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", SN.sw_down_flux, interp_ix, units=var.units)
+            values  = self.get_station_values("sf", SN.sw_down_flux, interp_ix, units=var.units).clip(min=0)  
             var[:, siteslist_ix] = np.interp(self.times_out_nc, time_in, values)
 
     def LW_Wm2_sur(self):
