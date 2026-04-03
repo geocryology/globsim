@@ -220,7 +220,7 @@ class JRAinterpolate(GenericInterpolate):
         return nc_pl_interp.variables[self.GEOPOTENTIAL][:,:,station_index] # already meters (gpm)
 
     def _preprocess(self):
-        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.get_output_file('to'))):
             logger.info("Skipping invariant interpolation")
         else:
             try:
@@ -236,11 +236,11 @@ class JRAinterpolate(GenericInterpolate):
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
         varlist = self.TranslateCF2short(self.dpar_sa)
-        if self.resume and self.completed_successfully(self.getOutFile('sa')):
+        if self.resume and self.completed_successfully(self.get_output_file('sa')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.JRA2station(self.mf_sa,
-                            self.getOutFile('sa'),
+                            self.get_output_file('sa'),
                             self.stations,
                             varlist, date=self.date)
     
@@ -249,27 +249,27 @@ class JRAinterpolate(GenericInterpolate):
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
         varlist = self.TranslateCF2short(self.dpar_sf)
-        if self.resume and self.completed_successfully(self.getOutFile('sf')):
+        if self.resume and self.completed_successfully(self.get_output_file('sf')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.JRA2station(self.mf_sf,
-                            self.getOutFile('sf'),
+                            self.get_output_file('sf'),
                             self.stations,
                             varlist,
                             date=self.date)
     
     def _process_pl(self):
         varlist = self.TranslateCF2short(self.dpar_pl).append('geopotential_height')
-        if self.resume and self.completed_successfully(self.getOutFile('pl')):
+        if self.resume and self.completed_successfully(self.get_output_file('pl')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.JRA2station(self.mf_pl,
-                            self.getOutFile('pl'),
+                            self.get_output_file('pl'),
                             self.stations,
                             varlist,
                             date=self.date)
 
     def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(self.getOutFile('pl'),
+        self.levels2elevation(self.get_output_file('pl'),
                               path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '_surface.nc'))

@@ -9,6 +9,7 @@ and carries metadata (units, long_name, output filename, scale_factor, offset).
 """
 from os import path, makedirs
 from pathlib import Path
+from globsim import __version__
 
 import logging
 import netCDF4 as nc
@@ -24,8 +25,25 @@ logger = logging.getLogger("globsim.convert")
 # Helper – create a single CLASSIC-style netCDF file
 # ---------------------------------------------------------------------------
 
-def _create_classic_nc(filepath, time_values, time_units, time_calendar,
-                       lat, lon, var_name, var_data, var_units, var_long_name):
+def _format_cftime_fractional_day(t) ->float:
+    """
+    Format a cftime datetime as YYYYMMDD.FFFF
+    where FFFF is the fraction of the day (4 decimals).
+    """
+    sec = (
+        t.hour * 3600 +
+        t.minute * 60 +
+        t.second +
+        t.microsecond / 1e6
+    )
+
+    frac = sec / 86400.0
+ 
+    return float(f"{t.year:04d}{t.month:02d}{t.day:02d}") + frac
+                                                                       
+
+def _create_classic_nc(filepath, time_values,
+                       lat, lon, var_name, var_data, var_units, var_long_name, title=None):
     """Write a single CLASSIC meteorological forcing netCDF file.
 
     Parameters
@@ -34,10 +52,6 @@ def _create_classic_nc(filepath, time_values, time_units, time_calendar,
         Full path for the output netCDF file.
     time_values : array-like
         Numeric time values (in *time_units* / *time_calendar*).
-    time_units : str
-        CF-compliant time units string, e.g. ``'minutes since 1970-01-01 …'``.
-    time_calendar : str
-        CF calendar name, e.g. ``'standard'``.
     lat, lon : float
         Station latitude / longitude.
     var_name : str
@@ -49,43 +63,49 @@ def _create_classic_nc(filepath, time_values, time_units, time_calendar,
     var_long_name : str
         Human-readable description of the variable.
     """
-    ds = nc.Dataset(filepath, "w", format="NETCDF4_CLASSIC")
+    ds = nc.Dataset(filepath, "w", format="NETCDF3_CLASSIC")
 
     # dimensions
-    ds.createDimension("time", None)  # unlimited
+    ds.createDimension("time", len(time_values))  
     ds.createDimension("lat", 1)
     ds.createDimension("lon", 1)
 
     # coordinate variables
     t_var = ds.createVariable("time", "f8", ("time",))
-    t_var.units = time_units
-    t_var.calendar = time_calendar
+    t_var.units = "day as YYYYMMDD.FFFF"
+    t_var.calendar = "proleptic_gregorian"
     t_var.axis = "T"
     t_var.long_name = "time"
     t_var[:] = time_values
 
     lat_var = ds.createVariable("lat", "f8", ("lat",))
     lat_var.units = "degrees_north"
-    lat_var.long_name = "latitude"
+    lat_var.long_name = "Latitude"
+    lat_var.standard_name = "latitude"
     lat_var.axis = "Y"
     lat_var[:] = [lat]
 
     lon_var = ds.createVariable("lon", "f8", ("lon",))
     lon_var.units = "degrees_east"
-    lon_var.long_name = "longitude"
+    lon_var.standard_name = "longitude"
+    lon_var.long_name = "Longitude"
     lon_var.axis = "X"
     lon_var[:] = [lon]
 
     # data variable
     v = ds.createVariable(var_name, "f4", ("time", "lat", "lon"),
-                          fill_value=1.0e20)
+                          fill_value=1.0e38)
     v.units = var_units
     v.long_name = var_long_name
     v[:, 0, 0] = var_data
 
     # global attributes
+    ds.title = title if title is not None else var_long_name
+    ds.units = var_units
+    ds.grid_type = "gaussian"
+    ds._FillValue = v._FillValue
     ds.Conventions = "CF-1.6"
-    ds.history = "Created by globsim CLASSIC export"
+    ds.history = f"Created by globsim (v{__version__}) CLASSIC export"
 
     ds.close()
     logger.info(f"Wrote {filepath}")
@@ -146,6 +166,8 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
     time_values = ncd["time"][:]
     time_units = ncd["time"].units
     time_calendar = ncd["time"].calendar
+    converted_time = nc.num2date(time_values, units=time_units, calendar=time_calendar)
+    formatted_time = [_format_cftime_fractional_day(t) for t in converted_time]
 
     # station names
     try:
@@ -201,6 +223,7 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
             output_file = cfg.get("output_file", f"metVar_{out_var}.nc")
             units = cfg.get("units", "")
             long_name = cfg.get("long_name", out_var)
+            title = cfg.get("title", None)
 
             try:
                 data = ncd[input_name][:, i] * scale_factor + offset
@@ -213,15 +236,14 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
             filepath = path.join(site_dir, output_file)
             _create_classic_nc(
                 filepath=filepath,
-                time_values=time_values,
-                time_units=time_units,
-                time_calendar=time_calendar,
+                time_values=formatted_time,
                 lat=lat,
                 lon=lon,
                 var_name=out_var,
                 var_data=data,
                 var_units=units,
                 var_long_name=long_name,
+                title=title
             )
             files.append(filepath)
 

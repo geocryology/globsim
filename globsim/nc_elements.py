@@ -212,20 +212,21 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
             continue
         
         # extra treatment for pressure level files
+        c_time, c_lev, c_stat = calculate_chunks_for_interpolation_writing(n_time, len(lev), len(stations))
         if len(num):
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'number', 'level', 'station'),
-                                             chunksizes=(n_time, 1, len(lev), 1))
+                                             chunksizes=(c_time, 1, c_lev, c_stat))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time','number', 'station'),
-                                             chunksizes=(n_time, 1, 1))
+                                             chunksizes=(c_time, 1, c_stat))
         else:
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4', ('time','level','station'),
-                                              chunksizes=(n_time, len(lev), 1))
+                                              chunksizes=(c_time, c_lev, c_stat))
             else:
                 tmp = rootgrp.createVariable(var,'f4', ('time','station'),
-                                             chunksizes=(n_time, 1))
+                                             chunksizes=(c_time, c_stat))
 
         # copy attributes
         input_var = nc_in.variables[var]
@@ -247,6 +248,39 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
         add_names(rootgrp, station_names)
                
     return rootgrp
+
+
+def calculate_chunks_for_interpolation_writing(nt, nl, ns, bytes_per_element=4) -> tuple[int, int, int]:
+    """ Calculate chunk sizes for netCDF variables based on the number of time steps (nt), levels (nl), and stations (ns).
+    The goal is to optimize read/write performance by keeping chunk sizes around 40MB. """
+    target_elements = 40 * 1024 * 1024 // bytes_per_element  # target number of elements per chunk
+    
+    c_lev = max(nl, 1)  # if there are no levels, we set c_lev to 1 to avoid division by zero
+    
+    # Divide the remaining 'space' between Time and Station
+    # We use a square root to keep them somewhat balanced
+    remaining = target_elements / c_lev
+    
+    # c_stat will be the square root, but capped by actual number of stations
+    c_stat = int(min(ns, np.sqrt(remaining)))
+    # c_time fills the rest
+    c_time = int(min(nt, remaining / c_stat))
+    
+    return (c_time, c_lev, c_stat)
+
+
+def calculate_chunks_for_scaling(nt, nl, ns, bytes_per_element=4) -> tuple[int, int, int]:
+    """ Calculate chunk sizes for netCDF variables based on the number of time steps (nt), levels (nl), and stations (ns).
+    For scaling, we want all levels in one chunk, one station per chunk, and the rest in time. """
+    nl = max(nl, 1)  # if there are no levels, we set nl to 1 to avoid division by zero
+    c_stat = 1  # one station per chunk
+    c_lev = nl  # all levels in one chunk
+    target_elements = 40 * 1024 * 1024 // bytes_per_element  # target number of elements per chunk
+    
+    # Time chunk size is whatever is left after accounting for levels and station
+    c_time = int(min(nt, target_elements / (c_lev * c_stat)))
+    
+    return (c_time, c_lev, c_stat)
 
 
 def netcdf_base(ncfile_out, n_stations, n_time, time_units, nc_in=None, calendar=None):

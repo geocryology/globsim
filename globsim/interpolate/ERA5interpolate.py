@@ -85,7 +85,7 @@ class ERA5interpolate(GenericInterpolate):
         infiles = self.prefilter_mf_paths(glob)
         return infiles
     
-    def getOutFile(self, levStr):
+    def get_output_file(self, levStr):
         nome = 'era5_{}_'.format(levStr) + self.list_name + '.nc'
         outfile = path.join(self.output_dir, nome)
         return outfile
@@ -250,10 +250,10 @@ class ERA5interpolate(GenericInterpolate):
         # 2D Interpolation for Invariant Data
         # dictionary to translate CF Standard Names into ERA5
         # pressure level variable keys.
-        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.get_output_file('to'))):
             logger.info("Skipping invariant interpolation")
         else:
-            self.ERA2station(self.mf_to, self.getOutFile('to'),
+            self.ERA2station(self.mf_to, self.get_output_file('to'),
                             self.stations, ['z', 'lsm'], date=None)
         
     def _process_sa(self):
@@ -268,11 +268,11 @@ class ERA5interpolate(GenericInterpolate):
                 'wind_speed': ['u10', 'v10']}   # [m s-1] 10m values
         varlist = self.TranslateCF2short(dpar)
         
-        if self.resume and self.completed_successfully(self.getOutFile('sa')):
+        if self.resume and self.completed_successfully(self.get_output_file('sa')):
             logger.info("Skipping surface analysis interpolation")
         else:
             with xr.open_mfdataset(self.get_input_file_paths('sa'), decode_times=False) as sa:
-                self.ERA2station(sa, self.getOutFile('sa'),
+                self.ERA2station(sa, self.get_output_file('sa'),
                                  self.stations, varlist, date=self.date)
     
     def _process_pl(self):
@@ -283,21 +283,21 @@ class ERA5interpolate(GenericInterpolate):
                 'relative_humidity' : ['r'],           # [%]
                 'wind_speed'        : ['u', 'v']}      # [m s-1]
         varlist = self.TranslateCF2short(dpar).append('z')
-        if self.resume and self.completed_successfully(self.getOutFile('pl')):
+        if self.resume and self.completed_successfully(self.get_output_file('pl')):
             logger.info("Skipping pressure level interpolation")
         else:
             with xr.open_mfdataset(self.get_input_file_paths('pl'), decode_times=False) as pl:
-                self.ERA2station(pl, self.getOutFile('pl'),
+                self.ERA2station(pl, self.get_output_file('pl'),
                                 self.stations, varlist, date=self.date)
     
     def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Data
-        outf = self.getOutFile('pl')[:-3] + "_surface.nc"
+        outf = self.get_output_file('pl')[:-3] + "_surface.nc"
   
         if self.resume and self.completed_successfully(outf):
             logger.info("Skipping pl surface interpolation")
         else:
-            self.levels2elevation(self.getOutFile('pl'), outf)
+            self.levels2elevation(self.get_output_file('pl'), outf)
     
     def _process_sf(self):
         # 2D Interpolation for Surface Forecast Data    'tp', 'strd', 'ssrd'
@@ -310,11 +310,11 @@ class ERA5interpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air' : ['ssrd'],
                 'downwelling_longwave_flux_in_air'  : ['strd']}
         varlist = self.TranslateCF2short(dpar)
-        if self.resume and self.completed_successfully(self.getOutFile('sf')):
+        if self.resume and self.completed_successfully(self.get_output_file('sf')):
             logger.info("Skipping surface forecast interpolation")
         else:
             with xr.open_mfdataset(self.get_input_file_paths('sf'), decode_times=False) as sf:
-                self.ERA2station(sf, self.getOutFile('sf'),
+                self.ERA2station(sf, self.get_output_file('sf'),
                                 self.stations, varlist, date=self.date)
 
 
@@ -334,7 +334,7 @@ class ERA5EnsembleInterpolate(ERA5interpolate):
         base = super(ERA5EnsembleInterpolate, self).get_input_file_glob(levStr)
         return base.replace('era5', 'era5_ens')
     
-    def getOutFile(self, levStr):
+    def get_output_file(self, levStr):
         nome = 'era5_ens_{}_'.format(levStr) + self.list_name + '.nc'
         outfile = path.join(self.output_dir, nome)
         return outfile

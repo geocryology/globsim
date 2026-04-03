@@ -21,6 +21,8 @@ from globsim.decorators import check
 from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
 from globsim.nc_elements import netcdf_base
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
+from globsim.interpolate.chunking import rechunk_for_scaling
+from globsim.interpolate.memsafe import require_safe_mem_usage, require_memory_overhead
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -37,6 +39,8 @@ class GenericInterpolate:
     def __init__(self, ifile: str, **kwargs):
         # read parameter file
         self.ifile = ifile
+        # try some speed ups to offset the chunking strategy
+        nc.set_chunk_cache(size=1024 * 1024 * 1024, nelems=500, preemption=1.0) 
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config.get('interpolate')
@@ -204,7 +208,7 @@ class GenericInterpolate:
         except KeyError:
             logger.error("Could not verify whether stations are within downloaded netcdf")
 
-    def getOutFile(self, kind):
+    def get_output_file(self, kind):
         """
         Get the output file name for the given kind of interpolation.
         """
@@ -238,6 +242,8 @@ class GenericInterpolate:
         else:
             logger.info("skipping interpolation of _pl_sur file")
 
+        self.rechunk()
+
         duration = human_readable_time(datetime.now() - t_start)
         self._finished_successfully_message(duration)
 
@@ -264,6 +270,15 @@ class GenericInterpolate:
 
     def _set_input_directory(self, name):
         self.input_dir = path.join(self.par.get('project_directory'), name)
+
+    def rechunk(self):
+        """ Rechunk the output files to have a more efficient chunking strategy for scaling. 
+        This is done as a separate step at the end to avoid the overhead of writing many small chunks during interpolation. """
+        # read file to obtain time dimension size 
+        sa_file = self.get_output_file('sa')
+        rechunk_for_scaling(sa_file)
+        
+
 
     def TranslateCF2short(self, dpar):
         """
@@ -473,19 +488,36 @@ class GenericInterpolate:
                              beg:int,
                              end:int,
                              pl:bool):
-
-        for i, var in enumerate(variables):
+        var_map = {}
+        valid_vars = []
+        
+        for var in variables:
             if variables_skip(var):
                 continue
-                        
-            else:
-                if pl:
-                    vi = dfield.data[:,i,:,:].transpose((1,2,0))
-                    ncf_out.variables[var][beg:end + 1,:,:] = vi
-                else:
-                    vi = dfield.data[:,i,:].transpose((1,0))
-                    ncf_out.variables[var][beg:end + 1,:] = vi
+            
+            v_obj = ncf_out.variables[var]
 
+            if not hasattr(v_obj, 'scale_factor'):
+                v_obj.set_auto_maskandscale(False)
+            
+            var_map[var] = v_obj
+            valid_vars.append(var)        
+            
+            for i, var in enumerate(valid_vars):
+                v_obj = var_map[var]
+                
+                # Current layout: dfield.data[station, var_idx, time, (level)]
+                data_to_write = dfield.data[:, i, ...] 
+
+                if pl:
+                    # Target NetCDF: [time, level, station]
+                    v_obj[beg:end + 1, :, :] = data_to_write.transpose((1, 2, 0))
+                else:
+                    # Target NetCDF: [time, station] 
+                    v_obj[beg:end + 1, :] = data_to_write.transpose((1, 0))
+
+            ncf_out.sync()
+            
     @staticmethod
     def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
         # regridding function, consider ESMF.UnmappedAction.ERROR
@@ -624,9 +656,17 @@ class GenericInterpolate:
                 tmp.long_name = 'Air pressure'
                 tmp.units = 'hPa'
 
-    def interpolate_and_write_station(self, ncf, rootgrp, n, h,
-                                       elevation, varlist, nl, time):
-        """Interpolate all variables for one station and write to output."""
+    def interpolate_and_write_station(self, ncf: nc.Dataset, rootgrp: nc.Dataset, n: int, h: float,
+                                       elevation: np.ndarray, varlist: list, nl: int, time):
+        """Interpolate all variables for one station and write to output.
+        ncf : nc.Dataset for input file
+        rootgrp : nc.Dataset for output file
+        n : station index
+        h : station elevation
+        elevation : array of station elevations
+        varlist : list of variables to interpolate
+        nl : number of levels in input file
+        """
         elev_diff, va, vb = ele_interpolate(elevation, h, nl)
         wa, wb = calculate_weights(elev_diff, va, vb)
 
@@ -766,12 +806,7 @@ class GenericInterpolate:
             
     def require_safe_mem_usage(self, level=logging.DEBUG):
         """ Check if memory usage is safe. Kill globsim if not """
-        mem = psutil.virtual_memory()
-        logger.log(level, f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
-        safe = mem.percent < self.SAFE_MEM_LIMIT_PERCENT
-        if not safe:
-            logger.critical(f"Memory use exceeds safe limit of {self.SAFE_MEM_LIMIT_PERCENT}%. Exiting safely")
-            sys.exit(1)
+        require_safe_mem_usage(self.SAFE_MEM_LIMIT_PERCENT, level=level)
 
     def file_can_be_resumed(self, file:str, fail_on_missing=False):
         ''' check if file can be resumed '''

@@ -1,55 +1,62 @@
-[Fss]
+[sw]
 input = "SW_sur"
 scale_factor = 1
 offset = 0
 output_file = "metVar_sw.nc"
 units = "W m-2"
 long_name = "Incoming shortwave radiation"
+title = "Incoming short wave radiation"
 
-[Fdl]
+[lw]
 input = "LW_sur"
 scale_factor = 1
 offset = 0
 output_file = "metVar_lw.nc"
 units = "W m-2"
 long_name = "Incoming longwave radiation"
+title = "Incoming long wave radiation"
 
-[Pre]
+[pr]
 input = "PREC_sur"
 scale_factor = 1
 offset = 0
 output_file = "metVar_pr.nc"
 units = "kg m-2 s-1"
 long_name = "Precipitation rate"
+title = "Total precipitation"
 
-[Ta]
+[ta]
 input = "AIRT_sur"
 scale_factor = 1
-offset = 273.15
+offset = 0
 output_file = "metVar_ta.nc"
-units = "K"
+units = "degrees_C"
 long_name = "Air temperature"
+title = "Temperature"
 
-[Qa]
+[qa]
 input = "SH_sur"
 scale_factor = 1
 offset = 0
 output_file = "metVar_qa.nc"
 units = "kg kg-1"
 long_name = "Specific humidity"
+title = "Air specific humidity"
 
-[Uv]
+[wi]
 input = "WSPD_sur"
 scale_factor = 1
 offset = 0
 output_file = "metVar_wi.nc"
 units = "m s-1"
 long_name = "Wind speed"
+title = "Wind"
 
-[Pres]
+[ap]
 input = "PRESS_pl"
 scale_factor = 1
 offset = 0
 output_file = "metVar_ap.nc"
 units = "Pa"
 long_name = "Atmospheric pressure"
+title = "Atmospheric pressure"
