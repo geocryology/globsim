@@ -13,7 +13,7 @@ from pathlib import Path
 import logging
 import netCDF4 as nc
 import numpy as np
-import pkg_resources
+import importlib.resources
 import shutil
 import tomlkit
 
@@ -124,9 +124,8 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
         export_profile = Path("~/.globsim/classic_profile.toml").expanduser()
 
         if not Path(export_profile).is_file():
-            default = pkg_resources.resource_filename(
-                "globsim", "data/classic_profile_default.toml")
-
+            ref = importlib.resources.files("globsim") / "data/classic_profile_default.toml"
+    with importlib.resources.as_file(ref) as default:
             if not export_profile.parent.is_dir():
                 makedirs(export_profile.parent)
 

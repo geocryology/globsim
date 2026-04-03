@@ -9,7 +9,7 @@ import logging
 import netCDF4 as nc
 import numpy as np
 import pandas as pd
-import pkg_resources
+import importlib.resources
 import tomlkit
 import shutil
 
@@ -178,8 +178,8 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
         export_profile = Path("~/.globsim/geotop_profile.toml").expanduser()
 
         if not Path(export_profile).is_file():
-            default = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
-            
+            ref = importlib.resources.files("globsim") / "data/geotop_profile_default.toml"
+    with importlib.resources.as_file(ref) as default:
             if not export_profile.parent.is_dir():
                 makedirs(export_profile.parent)
             
