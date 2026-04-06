@@ -197,6 +197,7 @@ class MERRAinterpolate(GenericInterpolate):
                 self.write_dfield_to_file(dfield, variables, ncf_out, beg, end, pl)
                 ncf_out.globsim_last_chunk_written = n
 
+                dfield.destroy()
                 del dfield, tmask_chunk
                 gc.collect()
                 
