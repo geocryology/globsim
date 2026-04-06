@@ -40,7 +40,7 @@ class GenericInterpolate:
         # read parameter file
         self.ifile = ifile
         # try some speed ups to offset the chunking strategy
-        nc.set_chunk_cache(size=1024 * 1024 * 1024, nelems=500, preemption=1.0) 
+        nc.set_chunk_cache(size=1024 * 1024 * 1024, nelems=5000, preemption=0.75) 
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config.get('interpolate')
@@ -490,7 +490,8 @@ class GenericInterpolate:
                              pl:bool):
         var_map = {}
         valid_vars = []
-        
+
+        t0 = datetime.now()
         for var in variables:
             if variables_skip(var):
                 continue
@@ -517,6 +518,8 @@ class GenericInterpolate:
                     v_obj[beg:end + 1, :] = data_to_write.transpose((1, 0))
 
             ncf_out.sync()
+        filltime = (datetime.now() - t0).total_seconds()
+        logger.debug(f"Finished writing to file in ({filltime} seconds)")
             
     @staticmethod
     def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
@@ -531,8 +534,10 @@ class GenericInterpolate:
         dfield = regrid2D(sfield, dfield)
         logger.debug("Regridding complete")
 
-        sfield.destroy()  # free memory
-
+        # free memory
+        sfield.destroy()  
+        regrid2D.destroy()
+        
         return dfield
 
     @staticmethod
