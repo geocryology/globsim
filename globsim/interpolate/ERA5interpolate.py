@@ -241,7 +241,8 @@ class ERA5interpolate(GenericInterpolate):
             # Write success flag
             ncf_out.globsim_interpolate_success = 1
 
-        ncf_in.close()
+        sgrid.destroy()
+        subset_grid.destroy()
 
     def get_elevation(self, nc_pl_interp, station_index):
         # geopotential → meters
@@ -256,6 +257,7 @@ class ERA5interpolate(GenericInterpolate):
         else:
             self.ERA2station(self.mf_to, self.get_output_file('to'),
                             self.stations, ['z', 'lsm'], date=None)
+        self.mf_to.close()
         
     def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===

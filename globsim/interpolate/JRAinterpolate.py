@@ -157,7 +157,6 @@ class JRAinterpolate(GenericInterpolate):
             rootgrp.globsim_chunk_size = self.cs
             rootgrp.globsim_interpolate_success = 0
             rootgrp.globsim_last_chunk_written = -1
-            rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:
@@ -210,11 +209,14 @@ class JRAinterpolate(GenericInterpolate):
                 ncf_out.globsim_last_chunk_written = n
 
                 dfield.destroy()
+                
                 del dfield, tmask_chunk
                 gc.collect()
 
             ncf_out.globsim_interpolate_success = 1
 
+        sgrid.destroy()
+        subset_grid.destroy()
         ncf_in.close()
 
     def get_elevation(self, nc_pl_interp, station_index):
@@ -231,7 +233,8 @@ class JRAinterpolate(GenericInterpolate):
             except OSError:
                 logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
                             "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
-
+        self.mf_to.close()
+        
     def _process_sa(self):
         # === 2D Interpolation for Surface  Data ===
         # dictionary to translate CF Standard Names into JRA55
@@ -244,6 +247,7 @@ class JRAinterpolate(GenericInterpolate):
                             self.get_output_file('sa'),
                             self.stations,
                             varlist, date=self.date)
+        self.mf_sa.close()
     
     def _process_sf(self):
         # 2D Interpolation for Radiation Data
@@ -258,7 +262,8 @@ class JRAinterpolate(GenericInterpolate):
                             self.stations,
                             varlist,
                             date=self.date)
-    
+        self.mf_sf.close()
+
     def _process_pl(self):
         varlist = self.TranslateCF2short(self.dpar_pl).append('geopotential_height')
         if self.resume and self.completed_successfully(self.get_output_file('pl')):
@@ -269,6 +274,7 @@ class JRAinterpolate(GenericInterpolate):
                             self.stations,
                             varlist,
                             date=self.date)
+        self.mf_pl.close()
 
     def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Data

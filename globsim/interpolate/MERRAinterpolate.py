@@ -143,7 +143,6 @@ class MERRAinterpolate(GenericInterpolate):
             rootgrp.globsim_chunk_size = self.cs
             rootgrp.globsim_interpolate_success = 0
             rootgrp.globsim_last_chunk_written = -1
-            rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:
@@ -203,7 +202,9 @@ class MERRAinterpolate(GenericInterpolate):
                 
             # Write success flag
             ncf_out.globsim_interpolate_success = 1
-        
+
+        sgrid.destroy()
+        subset_grid.destroy()     
         ncf_in.close()
 
     def get_elevation(self, ncf, station_index):
@@ -219,6 +220,7 @@ class MERRAinterpolate(GenericInterpolate):
             self.MERRA2station(self.mf_sc.isel(time=slice(0,1)),  # only first time step (NB: doing this to solve a problem of extra blank time steps... maybe a download bug?)
                                path.join(self.output_dir,'merra2_sc_' + self.list_name + '.nc'),
                                self.stations, ['PHIS','FRLAND'], date=None)
+        self.mf_sc.close()
     
     def _process_sa(self):
         # === 2D Interpolation for Surface Analysis Data ===
@@ -228,12 +230,14 @@ class MERRAinterpolate(GenericInterpolate):
                 'wind_speed' : ['U2M', 'V2M', 'U10M','V10M'],   # [m s-1] 2m & 10m values
                 'relative_humidity' : ['QV2M']}  # 2m value
         varlist = self.TranslateCF2short(dpar)
+        
         if self.resume and self.completed_successfully(self.get_output_file('sa')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.MERRA2station(self.mf_sa,
                             self.get_output_file('sa'),
                             self.stations, varlist, date=self.date)
+        self.mf_sa.close()
     
     def _process_sf(self):
         # 2D Interpolation for Single-level Radiation Diagnostics Data 'SWGDN',
@@ -247,13 +251,15 @@ class MERRAinterpolate(GenericInterpolate):
                 'downwelling_shortwave_flux_in_air_assuming_clear_sky': ['SWGDNCLR'],  # [W/m2] short-wave downward assuming clear sky
                 'downwelling_longwave_flux_in_air_assuming_clear_sky': ['LWGDNCLR']}  # [W/m2] long-wave downward assuming clear sky
         varlist = self.TranslateCF2short(dpar)
+        
         if self.resume and self.completed_successfully(self.get_output_file('sf')):
             logger.info("Skipping surface forecast interpolation")
         else:
             self.MERRA2station(self.mf_sf,
                             self.get_output_file('sf'),
                             self.stations, varlist, date=self.date)
-            
+        self.mf_sf.close()
+
     def _process_pl(self):
         # NEED ADD 'H' in it!
         # === 2D Interpolation for Pressure-Level, Analyzed Meteorological DATA ===
@@ -263,12 +269,14 @@ class MERRAinterpolate(GenericInterpolate):
                 'wind_speed'        : ['U', 'V'],      # [m s-1]
                 'relative_humidity' : ['RH']}          # [1]
         varlist = self.TranslateCF2short(dpar).append('H')
+        
         if self.resume and self.completed_successfully(self.get_output_file('pl')):
             logger.info("Skipping pressure level interpolation")
         else:
             self.MERRA2station(self.mf_pl,
                             self.get_output_file('pl'),
                             self.stations, varlist, date=self.date)
+        self.mf_pl.close()
     
     def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Analyzed Meteorological Data

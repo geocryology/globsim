@@ -392,6 +392,8 @@ class GenericInterpolate:
             dfield = self.regrid(sfield, dfield)
         
         # clean up and GC
+        locstream.destroy()
+        sfield.destroy()
         del sfield, locstream, ncf_in
         gc.collect()
 
