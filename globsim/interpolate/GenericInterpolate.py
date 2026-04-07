@@ -64,7 +64,7 @@ class GenericInterpolate:
         chunk_mb = self.cs * 4 * self.stations.shape[0] / 1024**2
         logger.info(f"Chunk size set to {self.cs} time steps (~{chunk_mb:.2f} MB)." \
                     " Adjust chunk_size parameter in TOML file to change this (smaller is safer but slower)." \
-                    "Note that many stations or widely spaced stations may require smaller chunk sizes to avoid memory errors.")
+                    " Note that many stations or widely spaced stations may require smaller chunk sizes to avoid memory errors.")
 
         self._array = np.array([])  # recycled numpy array
         self._plarray = np.array([])
