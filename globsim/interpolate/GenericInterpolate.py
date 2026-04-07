@@ -31,20 +31,22 @@ if logger.level < 10:  # (DEBUG)
 class GenericInterpolate:
     REANALYSIS = ''
     SAFE_MEM_LIMIT_PERCENT = 90
+    DEFAULT_NC_CACHE = 1024**3 
     PL_SKIP_VARS = {'time', 'station', 'latitude', 'longitude',
                     'level', 'height', 'station_name'}
     
     def __init__(self, ifile: str, **kwargs):
         # read parameter file
         self.ifile = ifile
-        # try some speed ups to offset the chunking strategy
-        nc.set_chunk_cache(size=1024 * 1024 * 1024, nelems=5000, preemption=0.75) 
+        
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
         self.skip_checks = kwargs.get('skip_checks', par.get("skip_checks", False))
+        cache = par.get('nc_chunk_cache', self.DEFAULT_NC_CACHE)
+        nc.set_chunk_cache(size=cache, nelems=5000, preemption=0.75)
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
 
