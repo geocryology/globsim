@@ -44,9 +44,6 @@ class JRAinterpolate(GenericInterpolate):
 
         self.input_dir = path.join(par['project_directory'], self.REANALYSIS)
 
-        # Override inherited chunk size
-        self.cs *= 200
-
         # Load MF Datasets
         p = path.join(self.input_dir, f'{self.REANALYSIS}' + '{}')
 
@@ -56,13 +53,14 @@ class JRAinterpolate(GenericInterpolate):
         self.mf_pl = xr.open_mfdataset(self.prefilter_mf_paths(p.format('_pl_*.nc')), decode_times=False)
         
         # Check dataset integrity
-        logger.info("Check data integrity (sa)")
-        self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
-        logger.info("Check data integrity (sf)")
-        self.ensure_datset_integrity(self.mf_sf['time'], self.SF_INTERVAL)
-        logger.info("Check data integrity (pl)")
-        self.ensure_datset_integrity(self.mf_pl['time'], self.PL_INTERVAL)
-        logger.info("Data integrity ok")
+        if not self.skip_checks:
+            logger.info("Check data integrity (sa)")
+            self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
+            logger.info("Check data integrity (sf)")
+            self.ensure_datset_integrity(self.mf_sf['time'], self.SF_INTERVAL)
+            logger.info("Check data integrity (pl)")
+            self.ensure_datset_integrity(self.mf_pl['time'], self.PL_INTERVAL)
+            logger.info("Data integrity ok")
 
     def JRA2station(self, ncf_in: "nc.MFDataset", ncfile_out, points,
                     variables=None, date=None):
@@ -108,6 +106,11 @@ class JRAinterpolate(GenericInterpolate):
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.sizes.keys()
 
+        # reduce chunk size for pressure-level interpolation
+        cs = self.cs
+        if pl:
+            cs = cs // len(ncf_in.variables[self.vn_level][:])  # get actual number of levels
+
         # build the output of empty netCDF file
         level_var = 'level' if pl else None
 
@@ -135,8 +138,8 @@ class JRAinterpolate(GenericInterpolate):
         
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter = len(time_in) // self.cs
-        niter += ((len(time_in) % self.cs) > 0)
+        niter = len(time_in) // cs
+        niter += ((len(time_in) % cs) > 0)
 
         # Create source grid
         sgrid = self.create_source_grid(ncf_in)
@@ -173,12 +176,12 @@ class JRAinterpolate(GenericInterpolate):
                 self.require_safe_mem_usage()
 
                 # indices
-                beg = n * self.cs
+                beg = n * cs
                 # restrict last chunk to lenght of tmask plus one (to get last time)
                 if invariant:
                     end = beg
                 else:
-                    end = min(n * self.cs + self.cs, len(time_in)) - 1
+                    end = min(n * cs + cs, len(time_in)) - 1
 
                 # time to make tmask for chunk
                 beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)

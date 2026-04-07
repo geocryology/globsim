@@ -21,7 +21,7 @@ from globsim.decorators import check
 from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
 from globsim.nc_elements import netcdf_base
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
-from globsim.interpolate.chunking import rechunk_for_scaling
+from globsim.chunking import rechunk_for_scaling
 from globsim.interpolate.memsafe import require_safe_mem_usage, require_memory_overhead
 
 logger = logging.getLogger('globsim.interpolate')
@@ -62,6 +62,11 @@ class GenericInterpolate:
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs = int(par.get('chunk_size'))
+
+        chunk_mb = self.cs * 4 * self.stations.shape[0] / 1024**2
+        logger.info(f"Chunk size set to {self.cs} time steps (~{chunk_mb:.2f} MB)." \
+                    " Adjust chunk_size parameter in TOML file to change this (smaller is safer but slower)." \
+                    "Note that many stations or widely spaced stations may require smaller chunk sizes to avoid memory errors.")
 
         self._array = np.array([])  # recycled numpy array
         self._plarray = np.array([])
@@ -236,6 +241,11 @@ class GenericInterpolate:
         else:
             logger.info("skipping interpolation of _pl file")
 
+        # rechunk for scaling here, as pl_sur will take advantage of single-station chunking
+        self.rechunk(self.get_output_file('sa'))
+        self.rechunk(self.get_output_file('sf'))
+        self.rechunk(self.get_output_file('pl'))
+
         if not self._skip_pl_sur:
             self.require_safe_mem_usage(logging.INFO)
             self._process_pl_sur()
@@ -270,15 +280,6 @@ class GenericInterpolate:
 
     def _set_input_directory(self, name):
         self.input_dir = path.join(self.par.get('project_directory'), name)
-
-    def rechunk(self):
-        """ Rechunk the output files to have a more efficient chunking strategy for scaling. 
-        This is done as a separate step at the end to avoid the overhead of writing many small chunks during interpolation. """
-        # read file to obtain time dimension size 
-        sa_file = self.get_output_file('sa')
-        rechunk_for_scaling(sa_file)
-        
-
 
     def TranslateCF2short(self, dpar):
         """
@@ -393,7 +394,6 @@ class GenericInterpolate:
         
         # clean up and GC
         locstream.destroy()
-        sfield.destroy()
         del sfield, locstream, ncf_in
         gc.collect()
 
@@ -853,7 +853,7 @@ class GenericInterpolate:
 
         if not self.file_can_be_resumed(file, fail_on_missing=fail_on_missing):
             logger.critical(f"Cannot resume interpolation from file {file}. Exiting safely.")
-            sys.exit(1)
+            sys.exit(2)
         
 
 def prefilter_mf_paths(pattern:str, beg: "datetime", end: "datetime") -> list:
@@ -924,7 +924,7 @@ def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> 
             field = ESMF.Field(sgrid, name='sgrid',
                                staggerloc=ESMF.StaggerLoc.CENTER,
                                ndbounds=[nvar, nt])
-    except TypeError as e:
+    except (TypeError, ValueError) as e:
         msg = "Tried to create a ESMF.Field that was too big. Try reducing the chunk_size in your configuration."
         logger.error(f"{msg} Currently there are {nt} time-steps (chunk size) {nvar} variables and {nlev} levels on a {sgrid.size[0][0]}-by-{sgrid.size[0][1]} grid (total size of {nt * nvar * nlev * sgrid.size[0][0] * sgrid.size[0][1]})")
         raise Exception(msg).with_traceback(e.__traceback__)

@@ -87,6 +87,11 @@ class MERRAinterpolate(GenericInterpolate):
 
         # is it a file with pressure levels?
         pl = self.vn_level in ncf_in.sizes.keys()
+
+        # reduce chunk size for pressure-level interpolation
+        cs = self.cs
+        if pl:
+            cs = cs // len(ncf_in.variables[self.vn_level][:])  # get actual number of levels
         
         level_var = self.vn_level if pl else None
         
@@ -120,8 +125,8 @@ class MERRAinterpolate(GenericInterpolate):
         
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter  = len(time_in) // self.cs
-        niter += ((len(time_in) % self.cs) > 0)
+        niter  = len(time_in) // cs
+        niter += ((len(time_in) % cs) > 0)
 
         # Create source grid
         sgrid = self.create_source_grid(ncf_in)
@@ -159,12 +164,12 @@ class MERRAinterpolate(GenericInterpolate):
                 self.require_safe_mem_usage()
 
                 # indices
-                beg = n * self.cs
+                beg = n * cs
                 # restrict last chunk to lenght of tmask plus one (to get last time)
                 if invariant:
                     end = beg
                 else:
-                    end = min(n * self.cs + self.cs, len(time_in)) - 1
+                    end = min(n * cs + cs, len(time_in)) - 1
 
                 # make tmask for chunk
                 beg_time = time_in[beg]
