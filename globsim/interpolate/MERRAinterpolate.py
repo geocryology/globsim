@@ -148,6 +148,7 @@ class MERRAinterpolate(GenericInterpolate):
             rootgrp.globsim_chunk_size = self.cs
             rootgrp.globsim_interpolate_success = 0
             rootgrp.globsim_last_chunk_written = -1
+            rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:

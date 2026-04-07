@@ -176,15 +176,13 @@ class ERA5interpolate(GenericInterpolate):
                                               level_var=level_var,
                                               n_time = len(time_in),
                                               station_names=self.stations['station_name'])
-            
+            rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
             rootgrp.globsim_interpolate_start = self.par['beg']
             rootgrp.globsim_interpolate_end = self.par['end']
             rootgrp.globsim_chunk_size = self.cs
             rootgrp.globsim_interpolate_success = 0
             rootgrp.globsim_last_chunk_written = -1
-            rootgrp.source = f'{self.REANALYSIS}, interpolated bilinearly to stations'
-
-            rootgrp.close()  # close the file to write the header (needed for appending?)
+            rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:
