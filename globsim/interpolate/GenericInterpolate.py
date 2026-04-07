@@ -504,20 +504,20 @@ class GenericInterpolate:
             var_map[var] = v_obj
             valid_vars.append(var)        
             
-            for i, var in enumerate(valid_vars):
-                v_obj = var_map[var]
-                
-                # Current layout: dfield.data[station, var_idx, time, (level)]
-                data_to_write = dfield.data[:, i, ...] 
+        for i, var in enumerate(valid_vars):
+            v_obj = var_map[var]
+            
+            # Current layout: dfield.data[station, var_idx, time, (level)]
+            data_to_write = dfield.data[:, i, ...] 
 
-                if pl:
-                    # Target NetCDF: [time, level, station]
-                    v_obj[beg:end + 1, :, :] = data_to_write.transpose((1, 2, 0))
-                else:
-                    # Target NetCDF: [time, station] 
-                    v_obj[beg:end + 1, :] = data_to_write.transpose((1, 0))
+            if pl:
+                # Target NetCDF: [time, level, station]
+                v_obj[beg:end + 1, :, :] = data_to_write.transpose((1, 2, 0))
+            else:
+                # Target NetCDF: [time, station] 
+                v_obj[beg:end + 1, :] = data_to_write.transpose((1, 0))
 
-            ncf_out.sync()
+        ncf_out.sync()
         filltime = (datetime.now() - t0).total_seconds()
         logger.debug(f"Finished writing to file in ({filltime} seconds)")
             
