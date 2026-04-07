@@ -109,7 +109,8 @@ class JRAinterpolate(GenericInterpolate):
         # reduce chunk size for pressure-level interpolation
         cs = self.cs
         if pl:
-            cs = cs // len(ncf_in.variables[self.vn_level][:])  # get actual number of levels
+            n_levels = ncf_in.variables[self.vn_level].shape[0]  # get actual number of levels
+            cs = max(1, cs // n_levels)
 
         # build the output of empty netCDF file
         level_var = 'level' if pl else None
