@@ -7,7 +7,6 @@ import tomlkit
 import warnings
 import logging
 import sys
-import psutil
 import xarray as xr
 
 from datetime import datetime, timedelta
@@ -21,8 +20,7 @@ from globsim.decorators import check
 from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
 from globsim.nc_elements import netcdf_base
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
-from globsim.chunking import rechunk_for_scaling
-from globsim.interpolate.memsafe import require_safe_mem_usage, require_memory_overhead
+from globsim.memsafe import require_safe_mem_usage
 
 logger = logging.getLogger('globsim.interpolate')
 
