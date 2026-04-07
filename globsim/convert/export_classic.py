@@ -37,11 +37,9 @@ def _format_cftime_fractional_day(t) ->float:
         t.microsecond / 1e6
     )
 
-    frac = sec / 86400.0
- 
-    return float(f"{t.year:04d}{t.month:02d}{t.day:02d}") + frac
-                                                                       
+    frac = round(sec / 86400.0, 4)
 
+    return float(f"{t.year:04d}{t.month:02d}{t.day:02d}") + frac
 def _create_classic_nc(filepath, time_values,
                        lat, lon, var_name, var_data, var_units, var_long_name, title=None):
     """Write a single CLASSIC meteorological forcing netCDF file.
