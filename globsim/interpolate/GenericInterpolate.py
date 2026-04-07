@@ -250,8 +250,6 @@ class GenericInterpolate:
         else:
             logger.info("skipping interpolation of _pl_sur file")
 
-        self.rechunk()
-
         duration = human_readable_time(datetime.now() - t_start)
         self._finished_successfully_message(duration)
 
