@@ -126,6 +126,6 @@ class MERRAscale(GenericScale):
         time_in = self.input_times_in_output_units("sf")
 
         for siteslist_ix, interp_ix in self.iterate_stations():
-            values  = self.get_station_values("sf", "PRECTOTCORR", interp_ix) * self.scf
+            values  = self.get_station_values("sf", "PRECTOTCORR", interp_ix) * self.get_scf(siteslist_ix)
             self.rg.variables[vn][:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
 

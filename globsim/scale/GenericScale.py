@@ -47,11 +47,13 @@ class GenericScale:
         with open(self.sfile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = config['scale']
+        self._global_scf: float = None
         self.set_parameters(self.par)
         self.scaled_t_units = 'minutes since 1970-01-01 00:00:00+00:00'
         self.scaled_t_cal = 'standard'
         # check if output file exists and remove if overwrite parameter is set
         self.output_file = self.getOutNCF(self.par, f'{self.REANALYSIS}')
+        
 
     def upscale(self, time_in, values:np.ndarray, times_out):
         """"""
@@ -108,7 +110,7 @@ class GenericScale:
         self.nc_sa.close()
         self.nc_to.close()
         self.nc_pl.close()
-    
+        
     def get_name(self, file:str, name:str):
         """ Globsim translation of variable names. If no translation is found, returns the original name. """
         if name in self.VARNAMES.get(file, {}).keys():
@@ -294,13 +296,14 @@ class GenericScale:
             logger.debug(f"Overwriting of output files set to '{self._overwrite_output}'")
 
         # read snow correction info
-        try:
-            self.scf = par['scf']
-        except KeyError:
-            logger.warning("Missing snow correction factor parameter in control file. Reverting to default (scf = 1).")
-            self.scf = 1
-        finally:
-            logger.debug(f"Snow correction factor for scaling set to {self.scf}")
+        self._global_scf: float = par.get("scf", None)
+        if self._global_scf is not None:
+            try:
+                self._global_scf = float(self._global_scf)
+                logger.info(f"Global snow correction factor for scaling set to {self._global_scf} from control file. Station-specific scf values in station list will be ignored.")
+            except ValueError:
+                logger.error(f"Invalid global snow correction factor (scf) value '{self._global_scf}' in control file. Must be a number. Ignoring global scf and using station-specific scf values if available.")
+                self._global_scf = None
 
         # read RH approximation
         try:
@@ -316,7 +319,7 @@ class GenericScale:
         """make out file name"""
 
         timestep = str(par['time_step']) + 'h'
-        snowCor  = 'scf' + str(self.scf)
+        snowCor  = 'scf' + str(self.get_scf())
         src = '_'.join(['scaled', data_source_name, timestep, snowCor])
 
         src = src + '.nc'
@@ -359,6 +362,22 @@ class GenericScale:
         self.__aspect = np.atleast_1d(aspect)  # Cache for later use
 
         return self.__aspect
+
+    def get_scf(self, station_index=None) -> float:
+        """Get snow correction factor for a station. Overridden by global scf if provided in toml."""
+        if self._global_scf is not None:
+            return self._global_scf
+        
+        if station_index is None:
+            return 1.0  # Default scf if no station index provided and no global scf set
+        
+        elif 'scf' in self.stations.columns:
+            scf = self.stations['scf'].iloc[station_index]
+            if np.isnan(scf):
+                logger.warning(f"Station {self.stations['station_name'].iloc[station_index]} has NaN scf value. Using default scf of 1.0.")
+                return 1.0
+            else:
+                return scf
 
     def get_sky_view(self) -> "np.ndarray":
         if hasattr(self, "__skyview"):
@@ -424,10 +443,16 @@ class GenericScale:
         max_time = nc.num2date(max(nctime), units=t_unit, calendar=t_cal)
         t1 = nc.num2date(nctime[1], units=t_unit, calendar=t_cal)
         t0 = nc.num2date(nctime[0], units=t_unit, calendar=t_cal)
-        interval_in = (t1 - t0).seconds
-        
-        # number of time steps
-        self.nt = floor((max_time - self.min_time).total_seconds() / (3600 * time_step)) + 1
+        interval_in_s = (t1 - t0).total_seconds()
+        interval_out_s = 3600 * time_step
+
+        # The last input timestep covers [max_time, max_time + interval_in).
+        # We want output times up to but NOT including max_time + interval_in.
+        total_span_s = (max_time - self.min_time).total_seconds() + interval_in_s
+
+        # number of output time steps (excluding the endpoint)
+        self.nt = max(1, floor(total_span_s / interval_out_s))
+
         logger.debug(f"Output time array has {self.nt} elements between "
                      f"{self.min_time.strftime('%Y-%m-%d %H:%M:%S')} and "
                      f"{max_time.strftime('%Y-%m-%d %H:%M:%S')}"
@@ -562,14 +587,19 @@ class GenericScale:
         vn  = kt.PREC_mm_sur(self.rg, self.NAME)
         var = self.rg.variables[vn]
         time_in = self.input_times_in_output_units("sf").astype(np.int64)
+        scfs = []
         
         for siteslist_ix, interp_ix in self.iterate_stations():
             values  = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units=var.units)
             airt = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", units="degree_C")
             mask = airt < 0
-            values[mask] *= self.scf
+            site_scf = self.get_scf(siteslist_ix)
+            scfs.append(site_scf)
+            values[mask] *= site_scf
             var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
-    
+        
+        var.setncattr('snow_correction_factors', ",".join(map(str, scfs)))
+
     def RH_per_sur(self):
         """
         Relative Humidity derived from surface data, exclusively.
