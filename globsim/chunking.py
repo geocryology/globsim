@@ -44,8 +44,8 @@ def _already_chunked_for_scaling(ncf:nc.Dataset | str, bytes_per_element:int=4) 
                     return False 
                 else:
                     min_elements //= cksz
-            elif dim == 'time' and cksz != ncf.dimensions['time'].size and cksz < min_elements:
-                return False
+            #elif dim == 'time' and cksz != ncf.dimensions['time'].size and cksz < min_elements:
+            #    return False
             
         return True
 

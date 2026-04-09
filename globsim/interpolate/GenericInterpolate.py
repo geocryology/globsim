@@ -21,6 +21,7 @@ from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped
 from globsim.nc_elements import netcdf_base
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
 from globsim.memsafe import require_safe_mem_usage
+from globsim.chunking import rechunk_for_scaling
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -242,15 +243,16 @@ class GenericInterpolate:
             logger.info("skipping interpolation of _pl file")
 
         # rechunk for scaling here, as pl_sur will take advantage of single-station chunking
-        self.rechunk(self.get_output_file('sa'))
-        self.rechunk(self.get_output_file('sf'))
-        self.rechunk(self.get_output_file('pl'))
+        rechunk_for_scaling(self.get_output_file('sa'))
+        rechunk_for_scaling(self.get_output_file('sf'))
+        rechunk_for_scaling(self.get_output_file('pl'))
 
         if not self._skip_pl_sur:
             self.require_safe_mem_usage(logging.INFO)
             self._process_pl_sur()
         else:
             logger.info("skipping interpolation of _pl_sur file")
+        rechunk_for_scaling(self.get_output_file('pl').replace('.nc', '_surface.nc'))
 
         duration = human_readable_time(datetime.now() - t_start)
         self._finished_successfully_message(duration)
