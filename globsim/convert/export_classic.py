@@ -28,7 +28,7 @@ logger = logging.getLogger("globsim.convert")
 def _format_cftime_fractional_day(t) ->float:
     """
     Format a cftime datetime as YYYYMMDD.FFFF
-    where FFFF is the fraction of the day (4 decimals).
+    where FFFF is the fraction of the day (7 decimals).
     """
     sec = (
         t.hour * 3600 +
@@ -37,9 +37,10 @@ def _format_cftime_fractional_day(t) ->float:
         t.microsecond / 1e6
     )
 
-    frac = round(sec / 86400.0, 4)
+    frac = round(sec / 86400.0, 7)
 
     return float(f"{t.year:04d}{t.month:02d}{t.day:02d}") + frac
+
 def _create_classic_nc(filepath, time_values,
                        lat, lon, var_name, var_data, var_units, var_long_name, title=None):
     """Write a single CLASSIC meteorological forcing netCDF file.
