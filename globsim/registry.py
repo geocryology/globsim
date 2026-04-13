@@ -54,7 +54,7 @@ register(ReanalysisBackend(
     download_cls="globsim.download.era5_monthly.ERA5MonthlyDownload",
     interpolate_cls="globsim.interpolate.ERA5interpolate.ERA5interpolate",
     scale_cls="globsim.scale.ERA5scale.ERA5scale",
-    download_args={"ens": False},
+    download_args={"ensemble": False},
 ))
 
 register(ReanalysisBackend(
