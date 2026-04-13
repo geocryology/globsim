@@ -88,6 +88,7 @@ class GenericScale:
         
         self.set_valid_stations()
         valid_indices = self.valid_stations['nc_index']
+
         self.rg = new_scaled_netcdf(ncfile_out=self.output_file, 
                                     nc_interpol=self.nc_pl_sur,
                                     times_out=self.times_out_nc, 
@@ -189,7 +190,7 @@ class GenericScale:
         ipl_station_elev=self.get_values('pl_sur', SN.elevation)
 
         try:
-            ipl_station_names = nc.chartostring(self.nc_pl_sur['station_name'][:])
+            ipl_station_names = nc.chartostring(self.nc_pl['station_name'][:])  # chance to pl_sur once bug is fixed (pl_sur not getting names atm)
         except (IndexError, KeyError):
             logger.warning("No station_name variable in interpolated netCDF.")
             ipl_station_names = None
