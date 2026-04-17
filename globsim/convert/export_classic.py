@@ -12,6 +12,7 @@ from pathlib import Path
 from globsim import __version__
 
 import logging
+import datetime
 import netCDF4 as nc
 import numpy as np
 import pkg_resources
@@ -25,6 +26,22 @@ logger = logging.getLogger("globsim.convert")
 # Helper – create a single CLASSIC-style netCDF file
 # ---------------------------------------------------------------------------
 
+def _fractional_day_to_cftime(value):
+    ymd = int(value)
+    frac = value - ymd
+    
+    year = ymd // 10000
+    month = (ymd % 10000) // 100
+    day = ymd % 100
+    
+    base_date = datetime.datetime(year, month, day)
+    
+    #Calculate total seconds and round to the nearest minut
+    total_seconds = round(frac * 86400 / 60) * 60
+    
+    return base_date + datetime.timedelta(seconds=total_seconds)
+
+
 def _format_cftime_fractional_day(t) ->float:
     """
     Format a cftime datetime as YYYYMMDD.FFFF
@@ -36,13 +53,14 @@ def _format_cftime_fractional_day(t) ->float:
         t.second +
         t.microsecond / 1e6
     )
-
+    
     frac = round(sec / 86400.0, 7)
-
+    
     return float(f"{t.year:04d}{t.month:02d}{t.day:02d}") + frac
 
+
 def _create_classic_nc(filepath, time_values,
-                       lat, lon, var_name, var_data, var_units, var_long_name, title=None):
+                       lat, lon, var_name, var_data, var_units, var_long_name, title=None, extra_timestep=True):
     """Write a single CLASSIC meteorological forcing netCDF file.
 
     Parameters
@@ -61,11 +79,24 @@ def _create_classic_nc(filepath, time_values,
         CF units string for the variable.
     var_long_name : str
         Human-readable description of the variable.
+    extra_timestep : bool
+        Whether to add an extra timestep at the end of the file with the same value as the last real timestep. 
+        This is a workaround for CLASSIC expecting one more timestep than the number of time values in the input file.
     """
     ds = nc.Dataset(filepath, "w", format="NETCDF3_CLASSIC")
 
+    if extra_timestep:
+        dt = round((time_values[-1] - time_values[-2]) * 24 * 3600, 0)
+        last_date = _fractional_day_to_cftime(time_values[-1])
+        next_date = last_date + datetime.timedelta(seconds=dt)
+        next_time = _format_cftime_fractional_day(next_date)
+        var_data = np.append(var_data, var_data[-1])
+        
+        time_values = np.append(time_values, next_time)
+    
     # dimensions
-    ds.createDimension("time", len(time_values))  
+    nt = len(time_values)
+    ds.createDimension("time", nt)  
     ds.createDimension("lat", 1)
     ds.createDimension("lon", 1)
 
