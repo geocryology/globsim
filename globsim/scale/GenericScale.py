@@ -320,7 +320,7 @@ class GenericScale:
         """make out file name"""
 
         timestep = str(par['time_step']) + 'h'
-        snowCor  = 'scf' + str(self.get_scf())
+        snowCor  = 'scf' + str(self._global_scf)
         src = '_'.join(['scaled', data_source_name, timestep, snowCor])
 
         src = src + '.nc'
@@ -347,7 +347,8 @@ class GenericScale:
             slope = np.zeros_like(self.stations['longitude_dd'].values)
         
         self.__slope = np.atleast_1d(slope)  # Cache for later use
-
+        self.__slope[pd.isna(self.__slope)] = 0  # Replace NaN slope values with 0 (horizontal)
+        
         return self.__slope
 
     def get_aspect(self) -> "np.ndarray":
@@ -361,6 +362,7 @@ class GenericScale:
             aspect = np.zeros_like(self.stations['longitude_dd'].values)
         
         self.__aspect = np.atleast_1d(aspect)  # Cache for later use
+        self.__aspect[pd.isna(self.__aspect)] = 0  # Replace NaN aspect values with 0 (north-facing)
 
         return self.__aspect
 
@@ -725,6 +727,12 @@ class GenericScale:
                                                                sub_elevation=np.ones_like(sw) * station_elev[interp_ix])
 
             diffuse = diffuse * svf[siteslist_ix]  # apply sky-view factor
+
+            # if slope or aspect are nan, set to zero
+            if np.isnan(slope[siteslist_ix]) or np.isnan(aspect[siteslist_ix]):
+                logger.warning(f"Station {self.stations['station_name'].iloc[siteslist_ix]} has NaN slope or aspect. Assuming horizontal surface for shading correction.")  
+                slope[siteslist_ix] = 0
+                aspect[siteslist_ix] = 0
 
             if slope[siteslist_ix] != 0:
                 azimuth = get_azimuth_fast(lat[interp_ix], lon[interp_ix], py_time)
