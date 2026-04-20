@@ -86,13 +86,20 @@ def _create_classic_nc(filepath, time_values,
     ds = nc.Dataset(filepath, "w", format="NETCDF3_CLASSIC")
 
     if extra_timestep:
-        dt = round((time_values[-1] - time_values[-2]) * 24 * 3600, 0)
-        last_date = _fractional_day_to_cftime(time_values[-1])
-        next_date = last_date + datetime.timedelta(seconds=dt)
-        next_time = _format_cftime_fractional_day(next_date)
-        var_data = np.append(var_data, var_data[-1])
+        dt_seconds = round((time_values[-1] - time_values[-2]) * 24 * 3600, 0)
+        dt_delta = datetime.timedelta(seconds=dt_seconds)
         
-        time_values = np.append(time_values, next_time)
+        current_last_date = _fractional_day_to_cftime(time_values[-1])
+        
+        target_date = current_last_date + datetime.timedelta(days=1)
+        target_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        while current_last_date < target_date:
+            current_last_date += dt_delta
+            next_time = _format_cftime_fractional_day(current_last_date)
+            
+            time_values = np.append(time_values, next_time)
+            var_data = np.append(var_data, var_data[-1])
     
     # dimensions
     nt = len(time_values)
