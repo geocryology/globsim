@@ -11,7 +11,7 @@ import xarray as xr
 
 from globsim.common_utils import variables_skip
 from globsim import __version__ as globsim_version
-
+from globsim.chunking import calculate_chunks_for_interpolation_writing
 
 logger = logging.getLogger('globsim.nc_elements')
 
@@ -212,20 +212,21 @@ def new_interpolated_netcdf(ncfile_out:str, stations,
             continue
         
         # extra treatment for pressure level files
+        c_time, c_lev, c_stat = calculate_chunks_for_interpolation_writing(n_time, len(lev), len(stations))
         if len(num):
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4',('time', 'number', 'level', 'station'),
-                                             chunksizes=(n_time, 1, len(lev), 1))
+                                             chunksizes=(c_time, 1, c_lev, c_stat))
             else:
                 tmp = rootgrp.createVariable(var,'f4',('time','number', 'station'),
-                                             chunksizes=(n_time, 1, 1))
+                                             chunksizes=(c_time, 1, c_stat))
         else:
             if len(lev):
                 tmp = rootgrp.createVariable(var,'f4', ('time','level','station'),
-                                              chunksizes=(n_time, len(lev), 1))
+                                              chunksizes=(c_time, c_lev, c_stat))
             else:
                 tmp = rootgrp.createVariable(var,'f4', ('time','station'),
-                                             chunksizes=(n_time, 1))
+                                             chunksizes=(c_time, c_stat))
 
         # copy attributes
         input_var = nc_in.variables[var]

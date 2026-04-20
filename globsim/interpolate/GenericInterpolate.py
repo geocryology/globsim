@@ -7,7 +7,6 @@ import tomlkit
 import warnings
 import logging
 import sys
-import psutil
 import xarray as xr
 
 from datetime import datetime, timedelta
@@ -21,6 +20,8 @@ from globsim.decorators import check
 from globsim.interpolate.create_grid_helper import clip_grid_to_indices, clipped_grid_indices, get_buffered_slices
 from globsim.nc_elements import netcdf_base
 from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below_grid
+from globsim.memsafe import require_safe_mem_usage
+from globsim.chunking import rechunk_for_scaling
 
 logger = logging.getLogger('globsim.interpolate')
 
@@ -31,18 +32,22 @@ if logger.level < 10:  # (DEBUG)
 class GenericInterpolate:
     REANALYSIS = ''
     SAFE_MEM_LIMIT_PERCENT = 90
+    DEFAULT_NC_CACHE = 1024**3 
     PL_SKIP_VARS = {'time', 'station', 'latitude', 'longitude',
                     'level', 'height', 'station_name'}
     
     def __init__(self, ifile: str, **kwargs):
         # read parameter file
         self.ifile = ifile
+        
         with open(self.ifile) as FILE:
             config = tomlkit.parse(FILE.read())
             self.par = par = config.get('interpolate')
         self.output_dir = self.make_output_directory(par)
         self.variables = par.get('variables')
         self.skip_checks = kwargs.get('skip_checks', par.get("skip_checks", False))
+        cache = par.get('nc_chunk_cache', self.DEFAULT_NC_CACHE)
+        nc.set_chunk_cache(size=cache, nelems=5000, preemption=0.75)
         self.list_name = path.basename(path.normpath(par.get('station_list'))).split(path.extsep)[0]
         
 
@@ -58,6 +63,11 @@ class GenericInterpolate:
         # chunk size: how many time steps to interpolate at the same time?
         # A small chunk size keeps memory usage down but is slow.
         self.cs = int(par.get('chunk_size'))
+
+        chunk_mb = self.cs * 4 * self.stations.shape[0] / 1024**2
+        logger.info(f"Chunk size set to {self.cs} time steps (~{chunk_mb:.2f} MB)." \
+                    " Adjust chunk_size parameter in TOML file to change this (smaller is safer but slower)." \
+                    " Note that many stations or widely spaced stations may require smaller chunk sizes to avoid memory errors.")
 
         self._array = np.array([])  # recycled numpy array
         self._plarray = np.array([])
@@ -204,7 +214,7 @@ class GenericInterpolate:
         except KeyError:
             logger.error("Could not verify whether stations are within downloaded netcdf")
 
-    def getOutFile(self, kind):
+    def get_output_file(self, kind):
         """
         Get the output file name for the given kind of interpolation.
         """
@@ -232,11 +242,17 @@ class GenericInterpolate:
         else:
             logger.info("skipping interpolation of _pl file")
 
+        # rechunk for scaling here, as pl_sur will take advantage of single-station chunking
+        rechunk_for_scaling(self.get_output_file('sa'))
+        rechunk_for_scaling(self.get_output_file('sf'))
+        rechunk_for_scaling(self.get_output_file('pl'))
+
         if not self._skip_pl_sur:
             self.require_safe_mem_usage(logging.INFO)
             self._process_pl_sur()
         else:
             logger.info("skipping interpolation of _pl_sur file")
+        rechunk_for_scaling(self.get_output_file('pl').replace('.nc', '_surface.nc'))
 
         duration = human_readable_time(datetime.now() - t_start)
         self._finished_successfully_message(duration)
@@ -377,6 +393,7 @@ class GenericInterpolate:
             dfield = self.regrid(sfield, dfield)
         
         # clean up and GC
+        locstream.destroy()
         del sfield, locstream, ncf_in
         gc.collect()
 
@@ -473,19 +490,39 @@ class GenericInterpolate:
                              beg:int,
                              end:int,
                              pl:bool):
+        var_map = {}
+        valid_vars = []
 
-        for i, var in enumerate(variables):
+        t0 = datetime.now()
+        for var in variables:
             if variables_skip(var):
                 continue
-                        
-            else:
-                if pl:
-                    vi = dfield.data[:,i,:,:].transpose((1,2,0))
-                    ncf_out.variables[var][beg:end + 1,:,:] = vi
-                else:
-                    vi = dfield.data[:,i,:].transpose((1,0))
-                    ncf_out.variables[var][beg:end + 1,:] = vi
+            
+            v_obj = ncf_out.variables[var]
 
+            if not hasattr(v_obj, 'scale_factor'):
+                v_obj.set_auto_maskandscale(False)
+            
+            var_map[var] = v_obj
+            valid_vars.append(var)        
+            
+        for i, var in enumerate(valid_vars):
+            v_obj = var_map[var]
+            
+            # Current layout: dfield.data[station, var_idx, time, (level)]
+            data_to_write = dfield.data[:, i, ...] 
+
+            if pl:
+                # Target NetCDF: [time, level, station]
+                v_obj[beg:end + 1, :, :] = data_to_write.transpose((1, 2, 0))
+            else:
+                # Target NetCDF: [time, station] 
+                v_obj[beg:end + 1, :] = data_to_write.transpose((1, 0))
+
+        ncf_out.sync()
+        filltime = (datetime.now() - t0).total_seconds()
+        logger.debug(f"Finished writing to file in ({filltime} seconds)")
+            
     @staticmethod
     def regrid(sfield: "ESMF.Field", dfield: "ESMF.Field") -> "ESMF.Field":
         # regridding function, consider ESMF.UnmappedAction.ERROR
@@ -499,8 +536,10 @@ class GenericInterpolate:
         dfield = regrid2D(sfield, dfield)
         logger.debug("Regridding complete")
 
-        sfield.destroy()  # free memory
-
+        # free memory
+        sfield.destroy()  
+        regrid2D.destroy()
+        
         return dfield
 
     @staticmethod
@@ -624,9 +663,17 @@ class GenericInterpolate:
                 tmp.long_name = 'Air pressure'
                 tmp.units = 'hPa'
 
-    def interpolate_and_write_station(self, ncf, rootgrp, n, h,
-                                       elevation, varlist, nl, time):
-        """Interpolate all variables for one station and write to output."""
+    def interpolate_and_write_station(self, ncf: nc.Dataset, rootgrp: nc.Dataset, n: int, h: float,
+                                       elevation: np.ndarray, varlist: list, nl: int, time):
+        """Interpolate all variables for one station and write to output.
+        ncf : nc.Dataset for input file
+        rootgrp : nc.Dataset for output file
+        n : station index
+        h : station elevation
+        elevation : array of station elevations
+        varlist : list of variables to interpolate
+        nl : number of levels in input file
+        """
         elev_diff, va, vb = ele_interpolate(elevation, h, nl)
         wa, wb = calculate_weights(elev_diff, va, vb)
 
@@ -766,12 +813,7 @@ class GenericInterpolate:
             
     def require_safe_mem_usage(self, level=logging.DEBUG):
         """ Check if memory usage is safe. Kill globsim if not """
-        mem = psutil.virtual_memory()
-        logger.log(level, f"Memory usage: {mem.used / 1024**3:.2f} GB ({mem.percent}%)")
-        safe = mem.percent < self.SAFE_MEM_LIMIT_PERCENT
-        if not safe:
-            logger.critical(f"Memory use exceeds safe limit of {self.SAFE_MEM_LIMIT_PERCENT}%. Exiting safely")
-            sys.exit(1)
+        require_safe_mem_usage(self.SAFE_MEM_LIMIT_PERCENT, level=level)
 
     def file_can_be_resumed(self, file:str, fail_on_missing=False):
         ''' check if file can be resumed '''
@@ -811,7 +853,7 @@ class GenericInterpolate:
 
         if not self.file_can_be_resumed(file, fail_on_missing=fail_on_missing):
             logger.critical(f"Cannot resume interpolation from file {file}. Exiting safely.")
-            sys.exit(1)
+            sys.exit(2)
         
 
 def prefilter_mf_paths(pattern:str, beg: "datetime", end: "datetime") -> list:
@@ -882,7 +924,7 @@ def create_field(sgrid: "ESMF.Grid", variables: list, nt: int, nlev:int = 1) -> 
             field = ESMF.Field(sgrid, name='sgrid',
                                staggerloc=ESMF.StaggerLoc.CENTER,
                                ndbounds=[nvar, nt])
-    except TypeError as e:
+    except (TypeError, ValueError) as e:
         msg = "Tried to create a ESMF.Field that was too big. Try reducing the chunk_size in your configuration."
         logger.error(f"{msg} Currently there are {nt} time-steps (chunk size) {nvar} variables and {nlev} levels on a {sgrid.size[0][0]}-by-{sgrid.size[0][1]} grid (total size of {nt * nvar * nlev * sgrid.size[0][0] * sgrid.size[0][1]})")
         raise Exception(msg).with_traceback(e.__traceback__)

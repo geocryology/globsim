@@ -44,9 +44,6 @@ class JRAinterpolate(GenericInterpolate):
 
         self.input_dir = path.join(par['project_directory'], self.REANALYSIS)
 
-        # Override inherited chunk size
-        self.cs *= 200
-
         # Load MF Datasets
         p = path.join(self.input_dir, f'{self.REANALYSIS}' + '{}')
 
@@ -56,13 +53,14 @@ class JRAinterpolate(GenericInterpolate):
         self.mf_pl = xr.open_mfdataset(self.prefilter_mf_paths(p.format('_pl_*.nc')), decode_times=False)
         
         # Check dataset integrity
-        logger.info("Check data integrity (sa)")
-        self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
-        logger.info("Check data integrity (sf)")
-        self.ensure_datset_integrity(self.mf_sf['time'], self.SF_INTERVAL)
-        logger.info("Check data integrity (pl)")
-        self.ensure_datset_integrity(self.mf_pl['time'], self.PL_INTERVAL)
-        logger.info("Data integrity ok")
+        if not self.skip_checks:
+            logger.info("Check data integrity (sa)")
+            self.ensure_datset_integrity(self.mf_sa['time'], self.SA_INTERVAL)
+            logger.info("Check data integrity (sf)")
+            self.ensure_datset_integrity(self.mf_sf['time'], self.SF_INTERVAL)
+            logger.info("Check data integrity (pl)")
+            self.ensure_datset_integrity(self.mf_pl['time'], self.PL_INTERVAL)
+            logger.info("Data integrity ok")
 
     def JRA2station(self, ncf_in: "nc.MFDataset", ncfile_out, points,
                     variables=None, date=None):
@@ -108,6 +106,12 @@ class JRAinterpolate(GenericInterpolate):
         # is it a file with pressure levels?
         pl = 'level' in ncf_in.sizes.keys()
 
+        # reduce chunk size for pressure-level interpolation
+        cs = self.cs
+        if pl:
+            n_levels = ncf_in.variables[self.vn_level].shape[0]  # get actual number of levels
+            cs = max(1, cs // n_levels)
+
         # build the output of empty netCDF file
         level_var = 'level' if pl else None
 
@@ -135,8 +139,8 @@ class JRAinterpolate(GenericInterpolate):
         
         # ensure that chunk sizes cover entire period even if
         # len(time_in) is not an integer multiple of cs
-        niter = len(time_in) // self.cs
-        niter += ((len(time_in) % self.cs) > 0)
+        niter = len(time_in) // cs
+        niter += ((len(time_in) % cs) > 0)
 
         # Create source grid
         sgrid = self.create_source_grid(ncf_in)
@@ -157,7 +161,6 @@ class JRAinterpolate(GenericInterpolate):
             rootgrp.globsim_chunk_size = self.cs
             rootgrp.globsim_interpolate_success = 0
             rootgrp.globsim_last_chunk_written = -1
-            rootgrp.close()
 
         # open the output netCDF file, set it to be appendable ('a')
         with nc.Dataset(ncfile_out, 'a') as ncf_out:
@@ -174,12 +177,12 @@ class JRAinterpolate(GenericInterpolate):
                 self.require_safe_mem_usage()
 
                 # indices
-                beg = n * self.cs
+                beg = n * cs
                 # restrict last chunk to lenght of tmask plus one (to get last time)
                 if invariant:
                     end = beg
                 else:
-                    end = min(n * self.cs + self.cs, len(time_in)) - 1
+                    end = min(n * cs + cs, len(time_in)) - 1
 
                 # time to make tmask for chunk
                 beg_time = nc.num2date(time_in[beg], units=t_unit, calendar=t_cal)
@@ -209,18 +212,22 @@ class JRAinterpolate(GenericInterpolate):
                 self.write_dfield_to_file(dfield, variables, ncf_out, beg, end, pl)
                 ncf_out.globsim_last_chunk_written = n
 
+                dfield.destroy()
+                
                 del dfield, tmask_chunk
                 gc.collect()
 
             ncf_out.globsim_interpolate_success = 1
 
+        sgrid.destroy()
+        subset_grid.destroy()
         ncf_in.close()
 
     def get_elevation(self, nc_pl_interp, station_index):
         return nc_pl_interp.variables[self.GEOPOTENTIAL][:,:,station_index] # already meters (gpm)
 
     def _preprocess(self):
-        if self._skip_invariant or (self.resume and self.completed_successfully(self.getOutFile('to'))):
+        if self._skip_invariant or (self.resume and self.completed_successfully(self.get_output_file('to'))):
             logger.info("Skipping invariant interpolation")
         else:
             try:
@@ -230,46 +237,50 @@ class JRAinterpolate(GenericInterpolate):
             except OSError:
                 logger.error("Could not find invariant ('*_to') geopotential files for JRA. These were not downloaded in earlier versions of globsim. You may need to download them."
                             "  . Some scaling kernels may not work. Future versions of globsim may be less accepting of missing files.")
-
+        self.mf_to.close()
+        
     def _process_sa(self):
         # === 2D Interpolation for Surface  Data ===
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
         varlist = self.TranslateCF2short(self.dpar_sa)
-        if self.resume and self.completed_successfully(self.getOutFile('sa')):
+        if self.resume and self.completed_successfully(self.get_output_file('sa')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.JRA2station(self.mf_sa,
-                            self.getOutFile('sa'),
+                            self.get_output_file('sa'),
                             self.stations,
                             varlist, date=self.date)
+        self.mf_sa.close()
     
     def _process_sf(self):
         # 2D Interpolation for Radiation Data
         # dictionary to translate CF Standard Names into JRA55
         # pressure level variable keys.
         varlist = self.TranslateCF2short(self.dpar_sf)
-        if self.resume and self.completed_successfully(self.getOutFile('sf')):
+        if self.resume and self.completed_successfully(self.get_output_file('sf')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.JRA2station(self.mf_sf,
-                            self.getOutFile('sf'),
+                            self.get_output_file('sf'),
                             self.stations,
                             varlist,
                             date=self.date)
-    
+        self.mf_sf.close()
+
     def _process_pl(self):
         varlist = self.TranslateCF2short(self.dpar_pl).append('geopotential_height')
-        if self.resume and self.completed_successfully(self.getOutFile('pl')):
+        if self.resume and self.completed_successfully(self.get_output_file('pl')):
             logger.info("Skipping surface analysis interpolation")
         else:
             self.JRA2station(self.mf_pl,
-                            self.getOutFile('pl'),
+                            self.get_output_file('pl'),
                             self.stations,
                             varlist,
                             date=self.date)
+        self.mf_pl.close()
 
     def _process_pl_sur(self):
         # 1D Interpolation for Pressure Level Data
-        self.levels2elevation(self.getOutFile('pl'),
+        self.levels2elevation(self.get_output_file('pl'),
                               path.join(self.output_dir,f'{self.REANALYSIS}_pl_' + self.list_name + '_surface.nc'))
