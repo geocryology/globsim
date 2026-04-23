@@ -38,6 +38,11 @@ input = "SW_topo_diffuse"
 scale_factor = 1
 offset = 0
 
+[SWglobal]
+input = "SW_topo_global"
+scale_factor = 1
+offset = 0
+
 [LWin]
 input = "LW_topo"
 scale_factor = 1
