@@ -20,12 +20,22 @@ __author__ = 'Doug Schuster (schuster@ucar.edu), Riley Conroy (rpconroy@ucar.edu
 
 import sys
 import os
+import time
 import requests
 import json
 import argparse
 import logging
 
 from pathlib import Path
+
+# Timeout in seconds for establishing a connection to the server.
+CONNECT_TIMEOUT = 10
+# Timeout in seconds to wait for data between chunks during a download.
+READ_TIMEOUT = 120
+# Maximum number of per-file download attempts.
+MAX_RETRIES = 5
+# Base backoff delay in seconds between retry attempts (doubles each retry).
+RETRY_BACKOFF = 5
 
 logger = logging.getLogger(__name__)
 
@@ -262,39 +272,88 @@ class Rdams(object):
         sys.stdout.write('%.3f %s' % (percent_complete, '% Completed'))
         sys.stdout.flush()
 
-    def download_files(self, filelist, out_dir='./', retries=3, cookie_file=None):
+    def download_files(self, filelist, out_dir='./', retries=MAX_RETRIES, cookie_file=None):
         """Download files in a list.
 
         Args:
             filelist (list): List of web files to download.
             out_dir (str): directory to put downloaded files
+            retries (int): Maximum number of per-file download attempts.
 
         Returns:
             None
         """
         for _file in filelist:
-            tries = 0
-            while tries < retries:
-                tries += 1
+            for attempt in range(1, retries + 1):
                 try:
                     self._download_file(_file, out_dir)
+                    break  # success – move on to next file
                 except Exception as e:
-                    logger.error("Problem downloading file (attempt {tries}): {e}")
-            
+                    logger.error(f"Problem downloading file (attempt {attempt}/{retries}): {e}")
+                    if attempt < retries:
+                        delay = RETRY_BACKOFF * (2 ** (attempt - 1))
+                        logger.info(f"Retrying in {delay}s …")
+                        time.sleep(delay)
+                    else:
+                        logger.error(f"Giving up on {_file} after {retries} attempts.")
+
     def _download_file(self, _file, out_dir):
+        """Download a single file, skipping if already complete or resuming if partial.
+
+        Args:
+            _file (str): URL of the file to download.
+            out_dir (str): Directory to write the downloaded file.
+
+        Raises:
+            requests.HTTPError: When the server returns a non-2xx status.
+            requests.Timeout: When a connect or read timeout is exceeded.
+        """
         file_base = os.path.basename(_file)
-        out_file = out_dir + file_base
-        print('Downloading',file_base)
-        header = requests.head(_file, allow_redirects=True, stream=True)
-        filesize = int(header.headers['Content-Length'])
-        req = requests.get(_file, allow_redirects=True, stream=True)
-        with open(out_file, 'wb') as outfile:
-            chunk_size=1048576
+        out_file = os.path.join(out_dir, file_base)
+
+        # Determine remote file size via HEAD request.
+        timeout = (CONNECT_TIMEOUT, READ_TIMEOUT)
+        head = requests.head(_file, allow_redirects=True, timeout=timeout)
+        head.raise_for_status()
+        content_length = head.headers.get('Content-Length')
+        filesize = int(content_length) if content_length is not None else None
+
+        # Determine how many bytes we already have locally.
+        existing_size = int(os.stat(out_file).st_size) if os.path.exists(out_file) else 0
+
+        # Skip if file is already fully downloaded.
+        if filesize is not None and existing_size == filesize:
+            logger.info(f"Skipping already-complete file: {file_base}")
+            return
+
+        # Attempt to resume a partial download when the server supports Range.
+        headers = {}
+        open_mode = 'wb'
+        if existing_size > 0:
+            supports_range = head.headers.get('Accept-Ranges', 'none').lower() != 'none'
+            if supports_range and filesize is not None and existing_size < filesize:
+                headers['Range'] = f'bytes={existing_size}-'
+                open_mode = 'ab'
+                logger.info(f"Resuming {file_base} from byte {existing_size}")
+            else:
+                # Cannot resume; start over.
+                existing_size = 0
+
+        logger.info(f"Downloading {file_base}")
+        req = requests.get(_file, allow_redirects=True, stream=True,
+                           headers=headers, timeout=timeout)
+        req.raise_for_status()
+
+        chunk_size = 1048576
+        with open(out_file, open_mode) as outfile:
             for chunk in req.iter_content(chunk_size=chunk_size):
                 outfile.write(chunk)
-                if chunk_size < filesize:
+                if filesize is not None and chunk_size < filesize:
                     self.check_file_status(out_file, filesize)
-        self.check_file_status(out_file, filesize)
+
+        if filesize is not None:
+            self.check_file_status(out_file, filesize)
+        print()  # newline after progress output
 
     def encode_url(self, url, token):
         return url + '?token=' + token
