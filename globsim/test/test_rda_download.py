@@ -231,9 +231,6 @@ class TestDownloadFileSkipAndResume(unittest.TestCase):
         stat_result = MagicMock()
         stat_result.st_size = 500
 
-        opened_files = []
-        original_open = open
-
         mock_open = unittest.mock.mock_open()
         with patch("builtins.open", mock_open):
             with patch("os.path.exists", return_value=True):

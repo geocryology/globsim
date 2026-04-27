@@ -353,7 +353,8 @@ class Rdams(object):
 
         if filesize is not None:
             self.check_file_status(out_file, filesize)
-        print()  # newline after progress output
+            sys.stdout.write('\n')
+            sys.stdout.flush()
 
     def encode_url(self, url, token):
         return url + '?token=' + token
