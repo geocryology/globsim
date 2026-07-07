@@ -331,3 +331,38 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
                 file.write(out_df.to_csv(header=False, index=False))
 
     return files
+
+
+def time_slice_index(times_as_dates, start=None, end=None) -> slice:
+    """
+    Return a slice object that can be used to index a time series between two dates
+
+    Parameters
+    ----------
+    times_as_dates : list of datetime
+        list of datetime objects, MUST BE SORTED
+    start : str, optional
+        start date in YYYY-MM-DD format. If not provided, the first date in the list is used.
+    end : str, optional
+        end date in YYYY-MM-DD format. If not provided, the last date in the list is used.
+
+    Returns
+    -------
+    slice : slice object that can be used to index the time series
+    """
+    if start is None:
+        start_index = 0
+    else:
+        start = pd.to_datetime(start)
+        # bisect_left finds the first index where t >= start
+        start_index = bisect.bisect_left(times_as_dates, start)
+    
+    if end is None:
+        end_index = len(times_as_dates)
+    else:
+        end = pd.to_datetime(end)
+        # bisect_right finds the first index where t > end
+        end_index = bisect.bisect_right(times_as_dates, end)
+    
+    return slice(start_index, end_index)
+
