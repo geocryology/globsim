@@ -1,0 +1,27 @@
+[sw]
+input = "SW_sur"
+output_units = "W m-2"
+
+[lw]
+input = "LW_sur"
+output_units = "W m-2"
+
+[precip]
+input = "PREC_sur"
+output_units = "kg m-2 s-1"
+
+[airt]
+input = "AIRT_sur"
+output_units = "degrees_C"
+
+[sh]
+input = "SH_sur"
+output_units = "kg kg-1"
+
+[wspd]
+input = "WSPD_sur"
+output_units = "m s-1"
+
+[press]
+input = "PRESS_pl"
+output_units = "Pa"
