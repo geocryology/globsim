@@ -6,6 +6,7 @@ globsim_convert = LazyLoader("globsim.convert")
 
 export_styles = {"geotop": "globsim_to_geotop",
                  "classicmet": "globsim_to_classic_met",
+                 "svs2" : "globsim_to_svs2",
                  "classic": "globsim_to_classic",
                  "freethaw": "globsim_to_freethaw"}
 
@@ -26,6 +27,11 @@ def main(args):
 
     elif export_type == "classicmet":
         globsim_convert.globsim_to_classic_met(ncd=source_file,
+                               out_dir=dest_directory,
+                               site=site)
+        
+    elif export_type == "svs2":
+        globsim_convert.globsim_to_svs2(ncd=source_file,
                                out_dir=dest_directory,
                                site=site)
 
