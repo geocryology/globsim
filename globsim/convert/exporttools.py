@@ -15,6 +15,7 @@ import tomlkit
 import shutil
 import bisect 
 from cfunits import Units
+import bisect 
 
 from globsim.common_utils import variables_skip
 
@@ -398,6 +399,7 @@ def time_slice_index(times_as_dates, start=None, end=None) -> slice:
     -------
     slice : slice object that can be used to index the time series
     """
+    print("SLICING TIME SERIES BETWEEN {} AND {}".format(start, end))
     if start is None:
         start_index = 0
     else:
