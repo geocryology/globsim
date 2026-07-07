@@ -29,7 +29,9 @@ def main(args):
     elif export_type == "classicmet":
         globsim_convert.globsim_to_classic_met(ncd=source_file,
                                out_dir=dest_directory,
-                               site=site)
+                               site=site,
+                               start=start,
+                               end=end)
 
     elif export_type == "classic":
         globsim_convert.globsim_to_classic(ncd=source_file,

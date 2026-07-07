@@ -56,7 +56,7 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     return df
 
 
-def globsim_to_classic_met(ncd, out_dir, site=None):
+def globsim_to_classic_met(ncd, out_dir, site=None, start=None, end=None):
     """
     @args
     ncd : str
@@ -83,6 +83,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     time = nc.num2date(n['time'][:],
                        units=n['time'].units,
                        calendar=n['time'].calendar)
+    time_slice = time_slice_index(time, start=start, end=end)
     time_step = (time[1] - time[0]).seconds  # in second
 
     HH = [x.timetuple().tm_hour for x in time]
@@ -94,31 +95,31 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
 
     # get shortwave
     SW = "SW_sur"
-    SW = n[SW][:]
+    SW = n[SW][time_slice]
 
     # get longwave
     LW = "LW_sur"
-    LW = n[LW][:]
+    LW = n[LW][time_slice]
 
     # get precip
     PREC = "PREC_sur"
-    PREC = n[PREC][:]  # Defaults to mm/s (CLASSIC-compatible)
+    PREC = n[PREC][time_slice]  # Defaults to mm/s (CLASSIC-compatible)
 
     # get temp
     AIRT = "AIRT_sur"
-    AIRT = n[AIRT][:]
+    AIRT = n[AIRT][time_slice]
 
     # get specific humidity
     SH = "SH_sur"
-    SH = n[SH][:]
+    SH = n[SH][time_slice]
 
     # get wind speed
     WSPD = "WSPD_sur"
-    WSPD = n[WSPD][:]
+    WSPD = n[WSPD][time_slice]
 
     # get pressure
     PRESS = "PRESS_pl"
-    PRESS = n[PRESS][:]
+    PRESS = n[PRESS][time_slice]
 
     # get site names
     try:
@@ -135,7 +136,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
         if (site is None) or (site == i) or (site == NAMES[i]):
             # massage data into the right shape
             out_array = data[:, :, i]
-            out_array = np.concatenate((TIME, out_array), 0)
+            out_array = np.concatenate((TIME[time_slice], out_array), 0)
             out_array = np.transpose(out_array)
 
             # get station name
@@ -351,7 +352,7 @@ def time_slice_index(times_as_dates, start=None, end=None) -> slice:
     -------
     slice : slice object that can be used to index the time series
     """
-    print("SLICING TIME SERIES BETWEEN {} AND {}".format(start, end))
+
     if start is None:
         start_index = 0
     else:
