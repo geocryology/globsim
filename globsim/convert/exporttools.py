@@ -6,12 +6,14 @@ from pathlib import Path
 
 import datetime
 import logging
+from typing import Union
 import netCDF4 as nc
 import numpy as np
 import pandas as pd
 import pkg_resources
 import tomlkit
 import shutil
+from cfunits import Units
 
 from globsim.common_utils import variables_skip
 
@@ -55,7 +57,7 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     return df
 
 
-def globsim_to_classic_met(ncd, out_dir, site=None):
+def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
     """
     @args
     ncd : str
@@ -65,6 +67,9 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     site : int or str
         index of site (zero-indexed) or site name if only one site is desired.
         For all sites, leave as None
+    export_profile : str or None
+        path to a TOML export-profile file.  When *None* a default profile
+        is created / used at ``~/.globsim/classic_met_profile.toml``.
 
     Returns
     list : paths of output files
@@ -90,43 +95,44 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     YYYY = [x.timetuple().tm_year for x in time]
 
     TIME = np.stack((HH, MM, DDD, YYYY))
+    
+    # Open classic profile
+    profile = get_export_profile("classic_met", export_profile=export_profile)
+    
+    data = []
 
-    # get shortwave
-    SW = "SW_sur"
-    SW = n[SW][:]
+    for var in ["sw", "lw", "precip", "airt", "sh", "wspd", "press"]:
+        # get variable
+        var_profile = profile.get(var, {})
+        
+        if not var_profile:
+            logger.critical(f"No profile information found for variable '{var}' in export profile. Skipping.")
+            continue
+        
+        nc_var = n[var_profile.get("input")]
+        output_units = var_profile.get("output_units")
+        var_data = nc_var[:]
+        
+        if output_units:
+            var_data = Units.conform(var_data, Units(nc_var.units), Units(output_units))
+        
+        else:
+            scale_factor = var_profile.get("scale_factor", 1)
+            offset = var_profile.get("offset", 0)
+            var_data = var_data * scale_factor + offset  # apply scale factor and offset if output_units not provided
 
-    # get longwave
-    LW = "LW_sur"
-    LW = n[LW][:]
-
-    # get precip
-    PREC = "PREC_sur"
-    PREC = n[PREC][:]  # Defaults to mm/s (CLASSIC-compatible)
-
-    # get temp
-    AIRT = "AIRT_sur"
-    AIRT = n[AIRT][:]
-
-    # get specific humidity
-    SH = "SH_sur"
-    SH = n[SH][:]
-
-    # get wind speed
-    WSPD = "WSPD_sur"
-    WSPD = n[WSPD][:]
-
-    # get pressure
-    PRESS = "PRESS_pl"
-    PRESS = n[PRESS][:]
+        data.append(var_data)
 
     # get site names
     try:
-        NAMES = nc.chartostring(n['station'][:])
+        NAMES = nc.chartostring(n['station_name'][:])
     except ValueError:
-        NAMES = n['station'][:].astype('str')
+        NAMES = n['station_name'][:].astype('str') 
 
+    STN_ID  = n['station'][:].astype('str')  # integer values of station index
+    NAMES = [f"{i}_{n}" for n, i in zip(NAMES, STN_ID)]  
 
-    data = np.stack((SW, LW, PREC, AIRT, SH, WSPD, PRESS))
+    data = np.stack(data)
 
     # write output files
     files = []
@@ -153,6 +159,28 @@ def globsim_to_classic_met(ncd, out_dir, site=None):
     return files
 
 
+def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None):
+    """
+    Export a scaled globsim file to SVS2-style text files
+
+    Parameters
+    ----------
+    ncd : str or Dataset
+        netcdf dataset or path to dataset
+    site : str or int
+        site name or index
+    export_profile : str or None
+        path to a TOML export-profile file.  When *None* a default profile
+        is created / used at ``~/.globsim/svs2_profile.toml``.
+
+    Returns
+    -------
+    list : list of file paths to created files
+    """
+    profile_file = get_export_profile_file("svs2", export_profile=export_profile)
+    return globsim_to_classic_met(ncd=ncd, out_dir=out_dir, site=site, export_profile=profile_file)
+
+
 def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":
     """
     Export a scaled globsim file to a GEOtop-style text file
@@ -173,22 +201,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     list : list of file paths to created files
     """
     # Open geotop profile
-    if export_profile is None:
-
-        export_profile = Path("~/.globsim/geotop_profile.toml").expanduser()
-
-        if not Path(export_profile).is_file():
-            default = pkg_resources.resource_filename("globsim", "data/geotop_profile_default.toml")
-            
-            if not export_profile.parent.is_dir():
-                makedirs(export_profile.parent)
-            
-            shutil.copy(default, export_profile)
-            logger.warning(f"Created default geotop export profile: {export_profile}")
-
-    with open(export_profile) as p:
-        profile = tomlkit.loads(p.read())
-        logger.info(f"Loaded geotop export profile from {export_profile}")
+    profile = get_export_profile("geotop", export_profile=export_profile)
 
     # open netcdf if string provided
     if type(ncd) is str:
@@ -331,3 +344,36 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
                 file.write(out_df.to_csv(header=False, index=False))
 
     return files
+
+
+def get_export_profile_file(model, export_profile:Union[None, Path, str]=None) -> Union[None, Path, str]:
+    if export_profile is None:
+
+        export_profile = Path(f"~/.globsim/{model}_profile.toml").expanduser()
+
+        if not Path(export_profile).is_file():
+            default = pkg_resources.resource_filename("globsim", f"data/{model}_profile_default.toml")
+            
+            if not Path(default).is_file():
+                logger.critical(f"Default export profile for model '{model}' not found in package resources. This is likely a bug. Expected path: {default}")
+                raise FileNotFoundError(f"Default export profile for model '{model}' not found in package resources. This is likely a bug. Expected path: {default}")
+            
+            if not export_profile.parent.is_dir():
+                makedirs(export_profile.parent)
+            
+            shutil.copy(default, export_profile)
+            logger.warning(f"Created default {model} export profile: {export_profile}")
+    
+    return export_profile
+
+
+def get_export_profile(model, export_profile=None) -> "tomlkit.TOMLDocument":
+    
+    export_profile_file = get_export_profile_file(model, export_profile=export_profile)
+    
+    with open(export_profile_file) as p:
+        profile = tomlkit.loads(p.read())
+        logger.info(f"Loaded {model} export profile from {export_profile_file}")
+
+    return profile
+
