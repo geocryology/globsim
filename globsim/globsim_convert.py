@@ -31,6 +31,7 @@ def main(args):
         globsim_convert.globsim_to_classic_met(ncd=source_file,
                                out_dir=dest_directory,
                                site=site,
+                               export_profile=export_profile,
                                start=start,
                                end=end)
         

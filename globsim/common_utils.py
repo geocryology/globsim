@@ -192,3 +192,24 @@ def get_begin_date(par, data_folder, match_strings):
     print("Found some files in directory. Beginning download on {}".format(begin_date.strftime("%Y-%m-%d")))
     return(begin_date)
 
+
+def get_scaled_site_names(dataset: str|nc.Dataset) -> np.ndarray:
+    """
+    Get the site names from a scaled globsim netCDF file.
+    """
+    if isinstance(dataset, str):
+        dataset = nc.Dataset(dataset, "r")
+    try:
+        raw = dataset["station_name"][:]
+        try:
+            names = nc.chartostring(raw)
+        except (ValueError, TypeError):
+            names = np.array(raw).astype("str")
+    except KeyError:
+        raw = dataset["station"][:]
+        try:
+            names = nc.chartostring(raw)
+        except (ValueError, TypeError):
+            names = np.array(raw).astype("str")
+
+    return names

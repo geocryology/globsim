@@ -19,6 +19,7 @@ import shutil
 import tomlkit
 
 from globsim import __version__
+from globsim.common_utils import get_scaled_site_names
 from .exporttools import time_slice_index
 
 logger = logging.getLogger("globsim.convert")
@@ -211,18 +212,7 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None, start=None,
     sliced_time= formatted_time[time_subset_slice]
     
     # station names
-    try:
-        raw = ncd["station_name"][:]
-        try:
-            names = nc.chartostring(raw)
-        except (ValueError, TypeError):
-            names = np.array(raw).astype("str")
-    except KeyError:
-        raw = ncd["station"][:]
-        try:
-            names = nc.chartostring(raw)
-        except (ValueError, TypeError):
-            names = np.array(raw).astype("str")
+    names = get_scaled_site_names(ncd)
 
     nstn = len(names)
 
