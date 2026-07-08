@@ -59,7 +59,8 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     return df
 
 
-def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, export_profile=None, start=None, end=None):
+def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, export_profile=None, start=None, end=None,
+                           file_vars=["sw", "lw", "precip", "airt", "sh", "wspd", "press"]):
     """
     @args
     ncd : str
@@ -91,6 +92,9 @@ def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, 
     time = nc.num2date(n['time'][:],
                        units=n['time'].units,
                        calendar=n['time'].calendar)
+    if isinstance(time, datetime.datetime):
+        time = [time]
+        
     time_slice = time_slice_index(time, start=start, end=end)
     sliced_time = time[time_slice]
 
@@ -106,7 +110,7 @@ def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, 
     
     data = []
 
-    for var in ["sw", "lw", "precip", "airt", "sh", "wspd", "press"]:
+    for var in file_vars:
         # get variable
         var_profile = profile.get(var, {})
         
@@ -114,7 +118,13 @@ def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, 
             logger.critical(f"No profile information found for variable '{var}' in export profile. Skipping.")
             continue
         
-        nc_var = n[var_profile.get("input")]
+        input_var_name = var_profile.get("input")
+
+        if input_var_name not in n.variables:
+            logger.critical(f"Variable '{input_var_name}' not found in netCDF file. Skipping {var}.")
+            continue
+
+        nc_var = n[input_var_name]
         output_units = var_profile.get("output_units")
         var_data = nc_var[time_slice]
         
@@ -163,7 +173,7 @@ def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, 
     return files
 
 
-def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None):
+def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None, start=None, end=None):
     """
     Export a scaled globsim file to SVS2-style text files
 
@@ -182,7 +192,9 @@ def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None):
     list : list of file paths to created files
     """
     profile_file = get_export_profile_file("svs2", export_profile=export_profile)
-    return globsim_to_classic_met(ncd=ncd, out_dir=out_dir, site=site, export_profile=profile_file)
+    return globsim_to_classic_met(ncd=ncd, out_dir=out_dir, site=site, export_profile=profile_file,
+                                  start=start, end=end,
+                                  file_vars=["FSIN", "FLIN", "PRE", "TA", "QA", "UV", "PRES", "PRERN", "PRESNO"])
 
 
 def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":

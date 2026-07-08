@@ -42,11 +42,6 @@ def main(args):
                                start=start,
                                end=end)
         
-    elif export_type == "svs2":
-        globsim_convert.globsim_to_svs2(ncd=source_file,
-                               out_dir=dest_directory,
-                               site=site)
-
     elif export_type == "classic":
         globsim_convert.globsim_to_classic(ncd=source_file,
                            out_dir=dest_directory,
