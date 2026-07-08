@@ -316,8 +316,9 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
     time = nc.num2date(ncd['time'][:],
                        units=ncd['time'].units,
                        calendar=ncd['time'].calendar)
-
-    time = [x.strftime('%Y-%m-%d %H:%M') for x in time]  # TODO: this could be faster
+    time_slice = time_slice_index(time, start=start, end=end)
+    time = [x.strftime('%Y-%m-%d %H:%M') for x in time[time_slice]]  # TODO: this could be faster
+    
     time = pd.DataFrame(time)
 
     # write headers lines
@@ -330,10 +331,11 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
                "Format,yyyy-MM-dd HH:mm,,\n"]
 
     AIRT = "AIRT_sur"
-    AIRT = ncd[AIRT][:]
+    AIRT = ncd[AIRT][time_slice]
 
     # get site names
     NAMES = nc.chartostring(ncd['station_name'][:])
+    STN_ID  = ncd['station'][:].astype('str')
 
     # combine data variables into array
     data = AIRT
@@ -341,7 +343,7 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
     # write output files
     files = []
     for i in range(nstn):
-        if (site is None) or (site == i) or (site == NAMES[i]):
+        if (site is None) or (str(NAMES[i]) in site) or (str(STN_ID[i]) in site):
             # massage data into the right shape
             out_df = pd.DataFrame(data[:,i])
             out_df = pd.concat([time, out_df], axis=1)
@@ -349,9 +351,10 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
 
             # get station name
             st_name = NAMES[i]
+            st_id = STN_ID[i]
 
             # prepare paths
-            filename = "{}-{}_Temperature.csv".format(i, st_name)
+            filename = "{}-{}_Temperature.csv".format(st_id, st_name)
             savepath = path.join(out_dir, filename)
             files.append(savepath)
 
