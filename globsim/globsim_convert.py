@@ -25,7 +25,9 @@ def main(args):
         globsim_convert.globsim_to_geotop(ncd=source_file,
                           out_dir=dest_directory,
                           export_profile=export_profile,
-                          site=site)
+                          site=site,
+                          start=start,
+                          end=end   )
 
     elif export_type == "classicmet":
         globsim_convert.globsim_to_classic_met(ncd=source_file,

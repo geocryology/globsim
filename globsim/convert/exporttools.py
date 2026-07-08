@@ -223,7 +223,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     if type(ncd) is str:
         ncd = nc.Dataset(ncd)
 
-    logger.debug(f"Read file {ncd.filepath}")
+    logger.debug(f"Read file {ncd.filepath()}")
 
     # find number of stations
     nstn = len(ncd['station_name'][:])
@@ -232,9 +232,9 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     time = nc.num2date(ncd['time'][:],
                        units=ncd['time'].units,
                        calendar=ncd['time'].calendar)
-
+    time_slice = time_slice_index(time, start=start, end=end)
     time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
-    time = pd.DataFrame(time)
+    time = pd.DataFrame(time[time_slice])
 
     output_dict = {}
 
@@ -243,14 +243,19 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
         scale_factor = cfg.get("scale_factor", 1)
         offset = cfg.get("offset", 0)
         try:
-            arr = ((ncd["SW_topo_diffuse"][:] + ncd["SW_topo_direct"][:]) if var_name == "SW_topo" else ncd[var_name][:]) * scale_factor + offset
-            output_dict[out_var] = arr
+            if var_name == "SW_topo":
+                arr = ncd["SW_topo_diffuse"][:] + ncd["SW_topo_direct"][:]
+            else:
+                arr = ncd[var_name][:] * scale_factor + offset
+            
+            output_dict[out_var] = arr[time_slice]
         
         except IndexError:
             logger.error(f"Scaled netCDF file has no variable '{var_name}'")
 
     # get site names
     names = get_scaled_site_names(ncd)
+    STN_ID  = ncd['station'][:].astype('str')
 
     # combine data variables into array
     data = np.stack([arr for arr in output_dict.values()])
@@ -258,7 +263,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     # write output files
     files = []
     for i in range(nstn):
-        if (site is None) or (site == i) or (site == names[i]):
+        if (site is None) or (names[i] in site) or (str(STN_ID[i]) in site):
             # massage data into the right shape
             out_df = pd.DataFrame(np.transpose(data[:, :, i]))
             out_df = pd.concat([time, out_df], axis=1)
@@ -301,7 +306,7 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
     # open netcdf if string provided
     if type(ncd) is str:
         ncd = nc.Dataset(ncd)
-
+    
     logger.debug(f"Read file '{ncd.filepath()}'")
 
     # find number of stations
