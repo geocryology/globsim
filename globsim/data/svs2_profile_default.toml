@@ -1,27 +1,35 @@
-[sw]
+[FSIN]
 input = "SW_sur"
 output_units = "W m-2"
 
-[lw]
+[FLIN]
 input = "LW_sur"
 output_units = "W m-2"
 
-[precip]
+[PRE]
 input = "PREC_sur"
 output_units = "kg m-2 s-1"
 
-[airt]
+[TA]
 input = "AIRT_sur"
 output_units = "degrees_C"
 
-[sh]
+[QA]
 input = "SH_sur"
 output_units = "kg kg-1"
 
-[wspd]
+[UV]
 input = "WSPD_sur"
 output_units = "m s-1"
 
-[press]
+[PRES]
 input = "PRESS_pl"
 output_units = "Pa"
+
+[PRERN]
+input = "PREC_sur_rain"
+output_units = "kg m-2 s-1"
+
+[PRESNO]
+input = "PREC_sur_snow"
+output_units = "kg m-2 s-1"

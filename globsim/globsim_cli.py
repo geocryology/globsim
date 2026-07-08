@@ -102,6 +102,9 @@ def main():
     convert.add_argument('-s', "--site", dest='site', default=None, nargs="*", type=str,
                          help="(optional) The name of the site you want to export. If not provided, all sites will be exported")
     convert.add_argument('-p', "--profile", dest='profile', default=None, type=str, help="Path to an 'export profile' TOML file (geotop/classic) ")
+    convert.add_argument('-S', "--start", dest='start', default=None, type=str, help="First date to include in export (YYYY-MM-DD). If not provided, the first date in the file will be used.")
+    convert.add_argument('-E', "--end", dest='end', default=None, type=str, help="Last date to include in export (YYYY-MM-DD). If not provided, the last date in the file will be used.")
+
 
     view.set_defaults(func=gsview.main_args)
     view.add_argument("file", nargs="?", type=str, help="file to plot")

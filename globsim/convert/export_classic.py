@@ -9,7 +9,6 @@ and carries metadata (units, long_name, output filename, scale_factor, offset).
 """
 from os import path, makedirs
 from pathlib import Path
-from globsim import __version__
 
 import logging
 import datetime
@@ -18,6 +17,10 @@ import numpy as np
 import pkg_resources
 import shutil
 import tomlkit
+
+from globsim import __version__
+from globsim.common_utils import get_scaled_site_names
+from .exporttools import time_slice_index
 
 logger = logging.getLogger("globsim.convert")
 
@@ -152,7 +155,7 @@ def _create_classic_nc(filepath, time_values,
 # Main export routine
 # ---------------------------------------------------------------------------
 
-def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
+def globsim_to_classic(ncd, out_dir, site=None, export_profile=None, start=None, end=None):
     """Export a scaled globsim file to CLASSIC meteorological forcing netCDF
     files (one file per variable per site).
 
@@ -205,20 +208,11 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
     time_calendar = ncd["time"].calendar
     converted_time = nc.num2date(time_values, units=time_units, calendar=time_calendar)
     formatted_time = [_format_cftime_fractional_day(t) for t in converted_time]
-
+    time_subset_slice = time_slice_index(converted_time, start=start, end=end)
+    sliced_time= formatted_time[time_subset_slice]
+    
     # station names
-    try:
-        raw = ncd["station_name"][:]
-        try:
-            names = nc.chartostring(raw)
-        except (ValueError, TypeError):
-            names = np.array(raw).astype("str")
-    except KeyError:
-        raw = ncd["station"][:]
-        try:
-            names = nc.chartostring(raw)
-        except (ValueError, TypeError):
-            names = np.array(raw).astype("str")
+    names = get_scaled_site_names(ncd)
 
     nstn = len(names)
 
@@ -263,7 +257,7 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
             title = cfg.get("title", None)
 
             try:
-                data = ncd[input_name][:, i] * scale_factor + offset
+                data = ncd[input_name][time_subset_slice, i] * scale_factor + offset
             except (IndexError, KeyError):
                 logger.warning(
                     f"Variable '{input_name}' not found in scaled file – "
@@ -273,7 +267,7 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
             filepath = path.join(site_dir, output_file)
             _create_classic_nc(
                 filepath=filepath,
-                time_values=formatted_time,
+                time_values=sliced_time,
                 lat=lat,
                 lon=lon,
                 var_name=out_var,
@@ -285,3 +279,4 @@ def globsim_to_classic(ncd, out_dir, site=None, export_profile=None):
             files.append(filepath)
 
     return files
+

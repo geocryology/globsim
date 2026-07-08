@@ -18,33 +18,46 @@ def main(args):
     export_type = args.format
     site = args.site
     export_profile = args.profile
+    start = args.start
+    end = args.end
 
     if export_type == "geotop":
         globsim_convert.globsim_to_geotop(ncd=source_file,
                           out_dir=dest_directory,
                           export_profile=export_profile,
-                          site=site)
+                          site=site,
+                          start=start,
+                          end=end   )
 
     elif export_type == "classicmet":
         globsim_convert.globsim_to_classic_met(ncd=source_file,
                                out_dir=dest_directory,
-                               site=site)
+                               site=site,
+                               export_profile=export_profile,
+                               start=start,
+                               end=end)
         
     elif export_type == "svs2":
         globsim_convert.globsim_to_svs2(ncd=source_file,
                                out_dir=dest_directory,
-                               site=site)
-
+                               site=site,
+                               start=start,
+                               end=end)
+        
     elif export_type == "classic":
         globsim_convert.globsim_to_classic(ncd=source_file,
                            out_dir=dest_directory,
                            export_profile=export_profile,
-                           site=site)
-        
+                           site=site,
+                           start=start,
+                           end=end)
+
     elif export_type == "freethaw":
         globsim_convert.globsim_to_freethaw(ncd=source_file,
                             out_dir=dest_directory,
-                            site=site)
+                            site=site,
+                            start=start,
+                            end=end)
 
 
 if __name__ == "__main__":

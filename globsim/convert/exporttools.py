@@ -13,9 +13,11 @@ import pandas as pd
 import pkg_resources
 import tomlkit
 import shutil
+import bisect 
 from cfunits import Units
+import bisect 
 
-from globsim.common_utils import variables_skip
+from globsim.common_utils import variables_skip, get_scaled_site_names
 
 logger = logging.getLogger("globsim.convert")
 
@@ -57,7 +59,8 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
     return df
 
 
-def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
+def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, export_profile=None, start=None, end=None,
+                           file_vars=["sw", "lw", "precip", "airt", "sh", "wspd", "press"]):
     """
     @args
     ncd : str
@@ -74,6 +77,8 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
     Returns
     list : paths of output files
     """
+    if isinstance(site, (int, str)):
+        site = [site]  
     # open netcdf if string provided
     if type(ncd) is str:
         n = nc.Dataset(ncd)
@@ -87,12 +92,16 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
     time = nc.num2date(n['time'][:],
                        units=n['time'].units,
                        calendar=n['time'].calendar)
-    time_step = (time[1] - time[0]).seconds  # in second
+    if isinstance(time, datetime.datetime):
+        time = [time]
+        
+    time_slice = time_slice_index(time, start=start, end=end)
+    sliced_time = time[time_slice]
 
-    HH = [x.timetuple().tm_hour for x in time]
-    MM = [x.timetuple().tm_min for x in time]
-    DDD = [x.timetuple().tm_yday for x in time]
-    YYYY = [x.timetuple().tm_year for x in time]
+    HH = [x.timetuple().tm_hour for x in sliced_time]
+    MM = [x.timetuple().tm_min for x in sliced_time]
+    DDD = [x.timetuple().tm_yday for x in sliced_time]
+    YYYY = [x.timetuple().tm_year for x in sliced_time]
 
     TIME = np.stack((HH, MM, DDD, YYYY))
     
@@ -101,7 +110,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
     
     data = []
 
-    for var in ["sw", "lw", "precip", "airt", "sh", "wspd", "press"]:
+    for var in file_vars:
         # get variable
         var_profile = profile.get(var, {})
         
@@ -109,9 +118,15 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
             logger.critical(f"No profile information found for variable '{var}' in export profile. Skipping.")
             continue
         
-        nc_var = n[var_profile.get("input")]
+        input_var_name = var_profile.get("input")
+
+        if input_var_name not in n.variables:
+            logger.critical(f"Variable '{input_var_name}' not found in netCDF file. Skipping {var}.")
+            continue
+
+        nc_var = n[input_var_name]
         output_units = var_profile.get("output_units")
-        var_data = nc_var[:]
+        var_data = nc_var[time_slice]
         
         if output_units:
             var_data = Units.conform(var_data, Units(nc_var.units), Units(output_units))
@@ -124,20 +139,18 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
         data.append(var_data)
 
     # get site names
-    try:
-        NAMES = nc.chartostring(n['station_name'][:])
-    except ValueError:
-        NAMES = n['station_name'][:].astype('str') 
+    names = get_scaled_site_names(n)
 
     STN_ID  = n['station'][:].astype('str')  # integer values of station index
-    NAMES = [f"{i}_{n}" for n, i in zip(NAMES, STN_ID)]  
+    NAMES = [f"{i}_{n}" for n, i in zip(names, STN_ID)]  
 
     data = np.stack(data)
 
     # write output files
     files = []
     for i in range(nstn):
-        if (site is None) or (site == i) or (site == NAMES[i]):
+        if (site is None) or (names[i] in site) or (str(STN_ID[i]) in site):
+            print(f"Processing site {i} ({STN_ID[i]} - {names[i]})")
             # massage data into the right shape
             out_array = data[:, :, i]
             out_array = np.concatenate((TIME, out_array), 0)
@@ -146,7 +159,7 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
             # get station name
             st_name = NAMES[i]
 
-            filename = "{}_{}.MET".format(i, st_name)
+            filename = f"{st_name}.MET"
             savepath = path.join(out_dir, filename)
             files.append(savepath)
             # create file
@@ -156,10 +169,11 @@ def globsim_to_classic_met(ncd, out_dir, site=None, export_profile=None):
                             " %2u", "%8.2f", "%8.2f",
                             "%13.4E", "%8.2f", "%11.3E",
                             "%7.2f", "%11.2f"])
+            logger.info(f"Created classic MET file '{savepath}' for site '{st_name}'")
     return files
 
 
-def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None):
+def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None, start=None, end=None):
     """
     Export a scaled globsim file to SVS2-style text files
 
@@ -178,7 +192,9 @@ def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None):
     list : list of file paths to created files
     """
     profile_file = get_export_profile_file("svs2", export_profile=export_profile)
-    return globsim_to_classic_met(ncd=ncd, out_dir=out_dir, site=site, export_profile=profile_file)
+    return globsim_to_classic_met(ncd=ncd, out_dir=out_dir, site=site, export_profile=profile_file,
+                                  start=start, end=end,
+                                  file_vars=["FSIN", "FLIN", "PRE", "TA", "QA", "UV", "PRES", "PRERN", "PRESNO"])
 
 
 def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":
@@ -207,7 +223,7 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     if type(ncd) is str:
         ncd = nc.Dataset(ncd)
 
-    logger.debug(f"Read file {ncd.filepath}")
+    logger.debug(f"Read file {ncd.filepath()}")
 
     # find number of stations
     nstn = len(ncd['station_name'][:])
@@ -216,9 +232,9 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     time = nc.num2date(ncd['time'][:],
                        units=ncd['time'].units,
                        calendar=ncd['time'].calendar)
-
+    time_slice = time_slice_index(time, start=start, end=end)
     time = [x.strftime('%d/%m/%Y %H:%M') for x in time]
-    time = pd.DataFrame(time)
+    time = pd.DataFrame(time[time_slice])
 
     output_dict = {}
 
@@ -227,17 +243,19 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
         scale_factor = cfg.get("scale_factor", 1)
         offset = cfg.get("offset", 0)
         try:
-            arr = ((ncd["SW_topo_diffuse"][:] + ncd["SW_topo_direct"][:]) if var_name == "SW_topo" else ncd[var_name][:]) * scale_factor + offset
-            output_dict[out_var] = arr
+            if var_name == "SW_topo":
+                arr = ncd["SW_topo_diffuse"][:] + ncd["SW_topo_direct"][:]
+            else:
+                arr = ncd[var_name][:] * scale_factor + offset
+            
+            output_dict[out_var] = arr[time_slice]
         
         except IndexError:
             logger.error(f"Scaled netCDF file has no variable '{var_name}'")
 
     # get site names
-    try:
-        NAMES = nc.chartostring(ncd['station_name'][:])
-    except ValueError:
-        NAMES = ncd['station_name'][:].astype('str')
+    names = get_scaled_site_names(ncd)
+    STN_ID  = ncd['station'][:].astype('str')
 
     # combine data variables into array
     data = np.stack([arr for arr in output_dict.values()])
@@ -245,14 +263,14 @@ def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, 
     # write output files
     files = []
     for i in range(nstn):
-        if (site is None) or (site == i) or (site == NAMES[i]):
+        if (site is None) or (names[i] in site) or (str(STN_ID[i]) in site):
             # massage data into the right shape
             out_df = pd.DataFrame(np.transpose(data[:, :, i]))
             out_df = pd.concat([time, out_df], axis=1)
             out_df.columns = ["Date"] + [name for name in output_dict.keys()]
 
             # get station name
-            st_name = NAMES[i]
+            st_name = names[i]
 
             # prepare paths
             filename = "{}-{}_Forcing_0001.txt".format(i, st_name)
@@ -288,7 +306,7 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
     # open netcdf if string provided
     if type(ncd) is str:
         ncd = nc.Dataset(ncd)
-
+    
     logger.debug(f"Read file '{ncd.filepath()}'")
 
     # find number of stations
@@ -298,8 +316,9 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
     time = nc.num2date(ncd['time'][:],
                        units=ncd['time'].units,
                        calendar=ncd['time'].calendar)
-
-    time = [x.strftime('%Y-%m-%d %H:%M') for x in time]  # TODO: this could be faster
+    time_slice = time_slice_index(time, start=start, end=end)
+    time = [x.strftime('%Y-%m-%d %H:%M') for x in time[time_slice]]  # TODO: this could be faster
+    
     time = pd.DataFrame(time)
 
     # write headers lines
@@ -312,10 +331,11 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
                "Format,yyyy-MM-dd HH:mm,,\n"]
 
     AIRT = "AIRT_sur"
-    AIRT = ncd[AIRT][:]
+    AIRT = ncd[AIRT][time_slice]
 
     # get site names
     NAMES = nc.chartostring(ncd['station_name'][:])
+    STN_ID  = ncd['station'][:].astype('str')
 
     # combine data variables into array
     data = AIRT
@@ -323,7 +343,7 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
     # write output files
     files = []
     for i in range(nstn):
-        if (site is None) or (site == i) or (site == NAMES[i]):
+        if (site is None) or (str(NAMES[i]) in site) or (str(STN_ID[i]) in site):
             # massage data into the right shape
             out_df = pd.DataFrame(data[:,i])
             out_df = pd.concat([time, out_df], axis=1)
@@ -331,9 +351,10 @@ def globsim_to_freethaw(ncd, out_dir, site=None, export_profile=None, start=None
 
             # get station name
             st_name = NAMES[i]
+            st_id = STN_ID[i]
 
             # prepare paths
-            filename = "{}-{}_Temperature.csv".format(i, st_name)
+            filename = "{}-{}_Temperature.csv".format(st_id, st_name)
             savepath = path.join(out_dir, filename)
             files.append(savepath)
 
@@ -376,4 +397,40 @@ def get_export_profile(model, export_profile=None) -> "tomlkit.TOMLDocument":
         logger.info(f"Loaded {model} export profile from {export_profile_file}")
 
     return profile
+
+
+
+def time_slice_index(times_as_dates, start=None, end=None) -> slice:
+    """
+    Return a slice object that can be used to index a time series between two dates
+
+    Parameters
+    ----------
+    times_as_dates : list of datetime
+        list of datetime objects, MUST BE SORTED
+    start : str, optional
+        start date in YYYY-MM-DD format. If not provided, the first date in the list is used.
+    end : str, optional
+        end date in YYYY-MM-DD format. If not provided, the last date in the list is used.
+
+    Returns
+    -------
+    slice : slice object that can be used to index the time series
+    """
+
+    if start is None:
+        start_index = 0
+    else:
+        start = pd.to_datetime(start)
+        # bisect_left finds the first index where t >= start
+        start_index = bisect.bisect_left(times_as_dates, start)
+    
+    if end is None:
+        end_index = len(times_as_dates)
+    else:
+        end = pd.to_datetime(end)
+        # bisect_right finds the first index where t > end
+        end_index = bisect.bisect_right(times_as_dates, end)
+    
+    return slice(start_index, end_index)
 
