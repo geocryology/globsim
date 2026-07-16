@@ -305,8 +305,10 @@ class JRAdownload(GenericDownload):
 
                 elif ds['status'] == 'Completed':
                     logger.info(f"Request {rix} Complete")
+                    logger.info(f"Downloading request {rix}")
                     res = self.api.download(ds['request_index'], path.join(self.directory, self.JRA_VERSION))
                     
+                    logger.info(f"Download of request {rix} complete")
                     # untar / extract
                     Handler = self.FILE_HANDLER
                     handler = Handler()
@@ -314,7 +316,9 @@ class JRAdownload(GenericDownload):
                         filetype = submitted_requests.get(rix, None)
                     else:
                         filetype = None
+                    logger.info(f"Processing request {rix} with filetype {filetype}")
                     handler.make_globsim_dataset(self.directory, rix, filetype=filetype)
+                    logger.info(f"Processing of request {rix} complete")
                     done.append(rix)
                     self.api.purge_request(rix)
 
