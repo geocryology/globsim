@@ -265,6 +265,67 @@ def precip_fraction(times, temps, total_precip, method="static", **kwargs) -> pd
     return df[['liquid', 'solid']]
 
 
+def rain_fraction_jennings(T, RH):
+    """
+    Precipitation phase partitioning using the binomial logistic regression
+    method of Jennings et al. (2018).
+
+    Jennings, K.S., Winchell, T.S., Livneh, B. and Molotch, N.P., 2018.
+    Spatial variation of the rain-snow temperature threshold across the
+    Northern Hemisphere. Nature Communications, 9(1), 1148.
+    https://doi.org/10.1038/s41467-018-03629-7
+
+    Uses air temperature and relative humidity to estimate the probability
+    of precipitation falling as rain. The method captures the observation
+    that the rain-snow transition temperature is lower at low humidity.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    RH : float or array-like
+        Relative humidity [%] (0-100)
+
+    Returns
+    -------
+    rain_fraction : float or array-like
+        Fraction of precipitation that is liquid (rain) [0-1]
+    """
+    require_celsius(T)
+    T = np.atleast_1d(np.asarray(T, dtype=np.float64))
+    RH = np.atleast_1d(np.asarray(RH, dtype=np.float64))
+
+    # Coefficients from Jennings et al. (2018), Table 1 (global model)
+    a0 = -10.04
+    a1 = 1.41
+    a2 = 0.09
+
+    # Logistic regression: probability of rain
+    logit = a0 + a1 * T + a2 * RH
+    rain_frac = 1.0 / (1.0 + np.exp(-logit))
+
+    return rain_frac
+
+
+def snow_fraction_jennings(T, RH):
+    """
+    Fraction of precipitation falling as snow, complement of rain_fraction_jennings.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    RH : float or array-like
+        Relative humidity [%] (0-100)
+
+    Returns
+    -------
+    snow_fraction : float or array-like
+        Fraction of precipitation that is solid (snow) [0-1]
+    """
+    return 1.0 - rain_fraction_jennings(T, RH)
+
+
 def snowmelt(times, temps) -> pd.DataFrame:
     """
     Calculate potential snow melt

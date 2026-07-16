@@ -23,5 +23,7 @@ class ScaleNames(enum.Enum):
     lw_down_accumulated = "longwave_down_accumulated"
     precipitation_rate = "precipitation_rate"  # instantaneous precipitation rate
     precipitation_total = "total_precipitation"  # cumulative precipitation from start of forecast
+    precipitation_solid_rate = "solid_precipitation_rate"  # solid (snow) precipitation rate
+    precipitation_liquid_rate = "liquid_precipitation_rate"  # liquid (rain) precipitation rate
 
     
