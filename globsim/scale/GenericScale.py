@@ -603,6 +603,38 @@ class GenericScale:
         
         var.setncattr('snow_correction_factors', ",".join(map(str, scfs)))
 
+    def PRECIP_PHASE_sur(self):
+        """
+        Partition total precipitation into solid (SP_sur) and liquid (LP_sur)
+        rates using the Jennings et al. (2018) method based on air temperature
+        and relative humidity.
+
+        Jennings, K.S., Winchell, T.S., Livneh, B. and Molotch, N.P., 2018.
+        Spatial variation of the rain-snow temperature threshold across the
+        Northern Hemisphere. Nature Communications, 9(1), 1148.
+        https://doi.org/10.1038/s41467-018-03629-7
+        """
+        vn_sp = kt.SP_sur(self.rg, self.NAME)
+        vn_lp = kt.LP_sur(self.rg, self.NAME)
+        var_sp = self.rg.variables[vn_sp]
+        var_lp = self.rg.variables[vn_lp]
+
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            prec = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units="kg m-2 s-1")
+            airt = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", units="degree_C")
+            rh = self.get_station_values_at("sa", SN.rh, interp_ix, "sf", units="percent")
+
+            rain_frac = met.rain_fraction_jennings(airt, rh)
+            snow_frac = 1.0 - rain_frac
+
+            solid = prec * snow_frac
+            liquid = prec * rain_frac
+
+            var_sp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, solid)
+            var_lp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, liquid)
+
     def RH_per_sur(self):
         """
         Relative Humidity derived from surface data, exclusively.
