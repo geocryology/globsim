@@ -163,6 +163,34 @@ def PRECCORR_mm_sur(rg: nc.Dataset, reanalysis: str):
     return vn
 
 
+def SP_sur(rg: nc.Dataset, reanalysis: str):
+    """Solid (snow) precipitation rate."""
+    vn = 'SP_sur'
+    var = rg.createVariable(vn, 'f4', ('time', 'station'))
+    var.long_name = 'Solid precipitation rate {} surface only'.format(reanalysis)
+    var.units = 'kg m-2 s-1'
+    var.comment = ("Solid (snow) fraction of total precipitation rate, partitioned "
+                   "using the precipitation phase method configured in the control file "
+                   "(see precip_phase_method; default: Jennings et al. (2018))")
+    var.standard_name = 'solid_precipitation_flux'
+
+    return vn
+
+
+def LP_sur(rg: nc.Dataset, reanalysis: str):
+    """Liquid (rain) precipitation rate."""
+    vn = 'LP_sur'
+    var = rg.createVariable(vn, 'f4', ('time', 'station'))
+    var.long_name = 'Liquid precipitation rate {} surface only'.format(reanalysis)
+    var.units = 'kg m-2 s-1'
+    var.comment = ("Liquid (rain) fraction of total precipitation rate, partitioned "
+                   "using the precipitation phase method configured in the control file "
+                   "(see precip_phase_method; default: Jennings et al. (2018))")
+    var.standard_name = 'liquid_precipitation_flux'
+
+    return vn
+
+
 def AIRT_DReaMIT(rg: nc.Dataset):
     dreamit.add_var_z_top_inversion(rg)
     dreamit.add_var_T_lapse_grid(rg)
@@ -190,5 +218,7 @@ __all__ = ['PRESS_Pa_pl',
            'LW_Wm2_topo',
            'SW_Wm2_topo',
            'PRECCORR_mm_sur',
+           'SP_sur',
+           'LP_sur',
            'AIRT_redcapp_DeltaT',
            'AIRT_DReaMIT']
