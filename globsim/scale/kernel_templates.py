@@ -171,7 +171,7 @@ def SP_sur(rg: nc.Dataset, reanalysis: str):
     var.units = 'kg m-2 s-1'
     var.comment = ("Solid (snow) fraction of total precipitation rate, partitioned "
                    "using the precipitation phase method configured in the control file "
-                   "(see precip_phase_method; default: Jennings et al. 2018)")
+                   "(see precip_phase_method; default: Jennings et al. (2018))")
     var.standard_name = 'solid_precipitation_flux'
 
     return vn
@@ -185,7 +185,7 @@ def LP_sur(rg: nc.Dataset, reanalysis: str):
     var.units = 'kg m-2 s-1'
     var.comment = ("Liquid (rain) fraction of total precipitation rate, partitioned "
                    "using the precipitation phase method configured in the control file "
-                   "(see precip_phase_method; default: Jennings et al. 2018)")
+                   "(see precip_phase_method; default: Jennings et al. (2018))")
     var.standard_name = 'liquid_precipitation_flux'
 
     return vn

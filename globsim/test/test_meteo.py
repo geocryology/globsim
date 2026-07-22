@@ -177,6 +177,11 @@ class SnowFractionWang(unittest.TestCase):
         with self.assertRaises(ValueError):
             met.snow_fraction_wang(-5.0)  # Celsius, not Kelvin
 
+    def test_rain_fraction_requires_kelvin(self):
+        """rain_fraction_wang should also raise an error for non-Kelvin input."""
+        with self.assertRaises(ValueError):
+            met.rain_fraction_wang(-5.0)  # Celsius, not Kelvin
+
 
 class LocalAirmass(unittest.TestCase):
 
