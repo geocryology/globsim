@@ -316,6 +316,16 @@ class GenericScale:
             self._rh_function_name = rhf
             logger.debug(f"Using relative humidity approximation {rhf}")
 
+        # read precipitation phase method
+        try:
+            ppf = par['precip_phase_method']
+        except KeyError:
+            logger.warning("Missing precipitation phase method choice in control file (precip_phase_method). Reverting to default ('jennings').")
+            ppf = 'jennings'
+        finally:
+            self._precip_phase_method = ppf
+            logger.debug(f"Using precipitation phase method '{ppf}'")
+
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
@@ -487,6 +497,37 @@ class GenericScale:
     def _rh(self) -> Callable:
         rh_function = getattr(met, self._rh_function_name)
         return rh_function
+
+    def _precip_phase(self) -> Callable:
+        """
+        Return a callable that estimates the rain fraction from air temperature
+        and relative humidity.
+
+        The returned callable has the signature ``rain_fraction(T_C, RH)``
+        where ``T_C`` is air temperature [°C] and ``RH`` is relative humidity
+        [%], matching the interface used by ``PRECIP_PHASE_sur``.
+
+        The method is selected by the ``precip_phase_method`` key in the
+        control file.  Supported values:
+
+        * ``'jennings'`` (default) — Jennings et al. (2018) binomial logistic
+          regression on air temperature and relative humidity.
+        * ``'wang'`` — Wang et al. (2019) logistic model using wet-bulb
+          temperature (computed internally via the Stull 2011 approximation).
+        """
+        method = self._precip_phase_method
+        if method == 'jennings':
+            return met.rain_fraction_jennings
+        elif method == 'wang':
+            def _wang_rain_fraction(T_C, RH):
+                Tw = met.wet_bulb_temperature(T_C, RH)
+                return met.rain_fraction_wang(Tw)
+            return _wang_rain_fraction
+        else:
+            raise ValueError(
+                f"Unknown precipitation phase method '{method}'. "
+                "Supported values: 'jennings', 'wang'."
+            )
     
     def add_grid_elevation(self, ncf: "nc.Dataset", data: np.ndarray) -> None:
         """Add station elevation to the netCDF file"""
@@ -606,13 +647,11 @@ class GenericScale:
     def PRECIP_PHASE_sur(self):
         """
         Partition total precipitation into solid (SP_sur) and liquid (LP_sur)
-        rates using the Jennings et al. (2018) method based on air temperature
-        and relative humidity.
+        rates using the configured precipitation phase method.
 
-        Jennings, K.S., Winchell, T.S., Livneh, B. and Molotch, N.P., 2018.
-        Spatial variation of the rain-snow temperature threshold across the
-        Northern Hemisphere. Nature Communications, 9(1), 1148.
-        https://doi.org/10.1038/s41467-018-03629-7
+        The method is selected by the ``precip_phase_method`` key in the
+        control file (default: ``'jennings'``).  See :meth:`_precip_phase` for
+        supported options.
         """
         vn_sp = kt.SP_sur(self.rg, self.NAME)
         vn_lp = kt.LP_sur(self.rg, self.NAME)
@@ -620,13 +659,14 @@ class GenericScale:
         var_lp = self.rg.variables[vn_lp]
 
         time_in = self.input_times_in_output_units("sf").astype(np.int64)
+        rain_fraction = self._precip_phase()
 
         for siteslist_ix, interp_ix in self.iterate_stations():
             prec = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units="kg m-2 s-1")
             airt = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", units="degree_C")
             rh = self.get_station_values_at("sa", SN.rh, interp_ix, "sf", units="percent")
 
-            rain_frac = met.rain_fraction_jennings(airt, rh)
+            rain_frac = rain_fraction(airt, rh)
             snow_frac = 1.0 - rain_frac
 
             solid = prec * snow_frac
