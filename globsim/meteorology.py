@@ -265,6 +265,150 @@ def precip_fraction(times, temps, total_precip, method="static", **kwargs) -> pd
     return df[['liquid', 'solid']]
 
 
+def rain_fraction_jennings(T, RH):
+    """
+    Precipitation phase partitioning using the binomial logistic regression
+    method of Jennings et al. (2018).
+
+    Jennings, K.S., Winchell, T.S., Livneh, B. and Molotch, N.P., 2018.
+    Spatial variation of the rain-snow temperature threshold across the
+    Northern Hemisphere. Nature Communications, 9(1), 1148.
+    https://doi.org/10.1038/s41467-018-03629-7
+
+    Uses air temperature and relative humidity to estimate the probability
+    of precipitation falling as rain. The method captures the observation
+    that the rain-snow transition temperature is lower at low humidity.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    RH : float or array-like
+        Relative humidity [%] (0-100)
+
+    Returns
+    -------
+    rain_fraction : float or array-like
+        Fraction of precipitation that is liquid (rain) [0-1]
+    """
+    require_celsius(T)
+    T = np.atleast_1d(np.asarray(T, dtype=np.float64))
+    RH = np.atleast_1d(np.asarray(RH, dtype=np.float64))
+
+    # Coefficients from Jennings et al. (2018), Table 1 (global model)
+    a0 = -10.04
+    a1 = 1.41
+    a2 = 0.09
+
+    # Logistic regression: probability of rain
+    logit = a0 + a1 * T + a2 * RH
+    rain_frac = 1.0 / (1.0 + np.exp(-logit))
+
+    return rain_frac
+
+
+def snow_fraction_jennings(T, RH):
+    """
+    Fraction of precipitation falling as snow, complement of rain_fraction_jennings.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    RH : float or array-like
+        Relative humidity [%] (0-100)
+
+    Returns
+    -------
+    snow_fraction : float or array-like
+        Fraction of precipitation that is solid (snow) [0-1]
+    """
+    return 1.0 - rain_fraction_jennings(T, RH)
+
+
+def wet_bulb_temperature(T, RH):
+    """
+    Wet-bulb temperature [K] estimated from air temperature and relative humidity
+    using the empirical approximation of Stull (2011).
+
+    Stull, R., 2011. Wet-Bulb Temperature from Relative Humidity and Air
+    Temperature. Journal of Applied Meteorology and Climatology, 50(11),
+    pp.2267-2269. https://doi.org/10.1175/JAMC-D-11-0143.1
+
+    Valid for air temperatures -20 to 50 °C and relative humidity 5–100 %.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    RH : float or array-like
+        Relative humidity [%] (0-100)
+
+    Returns
+    -------
+    Tw : float or array-like
+        Wet-bulb temperature [K]
+    """
+    require_celsius(T)
+    T = np.atleast_1d(np.asarray(T, dtype=np.float64))
+    RH = np.atleast_1d(np.asarray(RH, dtype=np.float64))
+
+    Tw_C = (T * np.arctan(0.151977 * (RH + 8.313659) ** 0.5)
+            + np.arctan(T + RH)
+            - np.arctan(RH - 1.676331)
+            + 0.00391838 * RH ** 1.5 * np.arctan(0.023101 * RH)
+            - 4.686035)
+    return Tw_C + 273.15  # convert to Kelvin
+
+
+def snow_fraction_wang(Tw):
+    """
+    Solid precipitation fraction using the logistic model of Wang et al. (2019).
+
+    Wang, Y., et al., 2019. How well do existing indices measure observed
+    precipitation phase partitioning? Journal of Hydrometeorology, 20(4),
+    pp.591-606. https://doi.org/10.1175/JHM-D-18-0193.1
+
+    Parameters
+    ----------
+    Tw : float or array-like
+        Wet-bulb temperature [K]
+
+    Returns
+    -------
+    snow_fraction : float or array-like
+        Fraction of precipitation that is solid (snow) [0-1]
+    """
+    require_kelvin(Tw)
+    Tw = np.atleast_1d(np.asarray(Tw, dtype=np.float64))
+
+    # Optimized parameters from Wang et al. (2019)
+    a = 6.99e-5
+    b = 2.0   # K^-1
+    c = 3.97  # K
+
+    f_s = 1.0 / (1.0 + a * np.exp(b * (Tw - 273.15 + c)))
+    return np.clip(f_s, 0.0, 1.0)
+
+
+def rain_fraction_wang(Tw):
+    """
+    Liquid precipitation fraction using Wang et al. (2019), complement of
+    snow_fraction_wang.
+
+    Parameters
+    ----------
+    Tw : float or array-like
+        Wet-bulb temperature [K]
+
+    Returns
+    -------
+    rain_fraction : float or array-like
+        Fraction of precipitation that is liquid (rain) [0-1]
+    """
+    return 1.0 - snow_fraction_wang(Tw)
+
+
 def snowmelt(times, temps) -> pd.DataFrame:
     """
     Calculate potential snow melt
