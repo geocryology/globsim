@@ -316,6 +316,16 @@ class GenericScale:
             self._rh_function_name = rhf
             logger.debug(f"Using relative humidity approximation {rhf}")
 
+        # read precipitation phase method
+        try:
+            ppf = par['precip_phase_method']
+        except KeyError:
+            logger.warning("Missing precipitation phase method choice in control file (precip_phase_method). Reverting to default ('wang').")
+            ppf = 'wang'
+        finally:
+            self._precip_phase_method = ppf
+            logger.debug(f"Using precipitation phase method '{ppf}'")
+
     def getOutNCF(self, par, data_source_name):
         """make out file name"""
 
@@ -487,6 +497,37 @@ class GenericScale:
     def _rh(self) -> Callable:
         rh_function = getattr(met, self._rh_function_name)
         return rh_function
+
+    def _precip_phase(self) -> Callable:
+        """
+        Return a callable that estimates the rain fraction from air temperature
+        and relative humidity.
+
+        The returned callable has the signature ``rain_fraction(T_C, RH)``
+        where ``T_C`` is air temperature [°C] and ``RH`` is relative humidity
+        [%], matching the interface used by ``PRECIP_PHASE_sur``.
+
+        The method is selected by the ``precip_phase_method`` key in the
+        control file.  Supported values:
+
+        * ``'wang'`` (default) — Wang et al. (2019) logistic model using wet-bulb
+          temperature (computed internally via the Stull 2011 approximation).
+        * ``'jennings'`` — Jennings et al. (2018) binomial logistic
+          regression on air temperature and relative humidity.
+        """
+        method = self._precip_phase_method
+        if method == 'jennings':
+            return met.rain_fraction_jennings
+        elif method == 'wang':
+            def _wang_rain_fraction(T_C, RH):
+                Tw = met.wet_bulb_temperature(T_C, RH)
+                return met.rain_fraction_wang(Tw)
+            return _wang_rain_fraction
+        else:
+            raise ValueError(
+                f"Unknown precipitation phase method '{method}'. "
+                "Supported values: 'jennings', 'wang'."
+            )
     
     def add_grid_elevation(self, ncf: "nc.Dataset", data: np.ndarray) -> None:
         """Add station elevation to the netCDF file"""
@@ -602,6 +643,80 @@ class GenericScale:
             var[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, values)
         
         var.setncattr('snow_correction_factors', ",".join(map(str, scfs)))
+
+    def PRECIP_PHASE_sur(self):
+        """
+        Partition total precipitation into solid (SP_sur) and liquid (LP_sur)
+        rates using the configured precipitation phase method.
+
+        The method is selected by the ``precip_phase_method`` key in the
+        control file (default: ``'wang'``).  See :meth:`_precip_phase` for
+        supported options.
+        """
+        vn_sp = kt.SP_sur(self.rg, self.NAME)
+        vn_lp = kt.LP_sur(self.rg, self.NAME)
+        var_sp = self.rg.variables[vn_sp]
+        var_lp = self.rg.variables[vn_lp]
+
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
+        rain_fraction = self._precip_phase()
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            prec = self.get_station_values("sf", SN.precipitation_rate, interp_ix, units="kg m-2 s-1")
+            airt = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", units="degree_C")
+            rh = self.get_station_values_at("sa", SN.rh, interp_ix, "sf", units="percent")
+
+            rain_frac, snow_frac = self._compute_phase_fractions(airt, rh, rain_fraction)
+
+            var_sp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, prec * snow_frac)
+            var_lp[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, prec * rain_frac)
+
+    def PRECIP_PHASE_FRAC_sur(self):
+        """
+        Compute solid (SPF_sur) and liquid (LPF_sur) precipitation fractions
+        using the configured precipitation phase method.
+
+        Unlike :meth:`PRECIP_PHASE_sur`, this kernel writes dimensionless
+        fractions (values in [0, 1]) rather than rates.  The fractions
+        represent the portion of total precipitation that falls as snow
+        (SPF_sur) or rain (LPF_sur) at each time step.
+
+        The method is selected by the ``precip_phase_method`` key in the
+        control file (default: ``'wang'``).  See :meth:`_precip_phase` for
+        supported options.
+        """
+        vn_spf = kt.SPF_sur(self.rg, self.NAME)
+        vn_lpf = kt.LPF_sur(self.rg, self.NAME)
+        var_spf = self.rg.variables[vn_spf]
+        var_lpf = self.rg.variables[vn_lpf]
+
+        time_in = self.input_times_in_output_units("sf").astype(np.int64)
+        rain_fraction = self._precip_phase()
+
+        for siteslist_ix, interp_ix in self.iterate_stations():
+            airt = self.get_station_values_at("sa", SN.temperature, interp_ix, "sf", units="degree_C")
+            rh = self.get_station_values_at("sa", SN.rh, interp_ix, "sf", units="percent")
+
+            rain_frac, snow_frac = self._compute_phase_fractions(airt, rh, rain_fraction)
+
+            var_spf[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, snow_frac)
+            var_lpf[:, siteslist_ix] = series_interpolate(self.times_out_nc, time_in, rain_frac)
+
+    def _compute_phase_fractions(self, airt, rh, rain_fraction_fn):
+        """
+        Compute rain and snow fractions from air temperature and relative humidity.
+
+        Args:
+            airt: Air temperature [°C]
+            rh: Relative humidity [%]
+            rain_fraction_fn: Callable with signature ``(T_C, RH) -> rain_fraction``
+
+        Returns:
+            Tuple of (rain_frac, snow_frac) arrays, each in [0, 1].
+        """
+        rain_frac = rain_fraction_fn(airt, rh)
+        snow_frac = 1.0 - rain_frac
+        return rain_frac, snow_frac
 
     def RH_per_sur(self):
         """
