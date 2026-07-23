@@ -169,8 +169,9 @@ def SP_sur(rg: nc.Dataset, reanalysis: str):
     var = rg.createVariable(vn, 'f4', ('time', 'station'))
     var.long_name = 'Solid precipitation rate {} surface only'.format(reanalysis)
     var.units = 'kg m-2 s-1'
-    var.comment = ("Solid (snow) fraction of total precipitation rate, partitioned "
-                   "using the precipitation phase method configured in the control file "
+    var.comment = ("Solid (snow) precipitation rate, calculated as total precipitation rate "
+                   "multiplied by the snow fraction estimated using the precipitation phase "
+                   "method configured in the control file "
                    "(see precip_phase_method; default: Wang et al. (2019))")
     var.standard_name = 'solid_precipitation_flux'
 
@@ -183,8 +184,9 @@ def LP_sur(rg: nc.Dataset, reanalysis: str):
     var = rg.createVariable(vn, 'f4', ('time', 'station'))
     var.long_name = 'Liquid precipitation rate {} surface only'.format(reanalysis)
     var.units = 'kg m-2 s-1'
-    var.comment = ("Liquid (rain) fraction of total precipitation rate, partitioned "
-                   "using the precipitation phase method configured in the control file "
+    var.comment = ("Liquid (rain) precipitation rate, calculated as total precipitation rate "
+                   "multiplied by the rain fraction estimated using the precipitation phase "
+                   "method configured in the control file "
                    "(see precip_phase_method; default: Wang et al. (2019))")
     var.standard_name = 'liquid_precipitation_flux'
 
