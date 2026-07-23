@@ -171,7 +171,7 @@ def SP_sur(rg: nc.Dataset, reanalysis: str):
     var.units = 'kg m-2 s-1'
     var.comment = ("Solid (snow) fraction of total precipitation rate, partitioned "
                    "using the precipitation phase method configured in the control file "
-                   "(see precip_phase_method; default: Jennings et al. (2018))")
+                   "(see precip_phase_method; default: Wang et al. (2019))")
     var.standard_name = 'solid_precipitation_flux'
 
     return vn
@@ -185,8 +185,36 @@ def LP_sur(rg: nc.Dataset, reanalysis: str):
     var.units = 'kg m-2 s-1'
     var.comment = ("Liquid (rain) fraction of total precipitation rate, partitioned "
                    "using the precipitation phase method configured in the control file "
-                   "(see precip_phase_method; default: Jennings et al. (2018))")
+                   "(see precip_phase_method; default: Wang et al. (2019))")
     var.standard_name = 'liquid_precipitation_flux'
+
+    return vn
+
+
+def SPF_sur(rg: nc.Dataset, reanalysis: str):
+    """Solid (snow) precipitation fraction."""
+    vn = 'SPF_sur'
+    var = rg.createVariable(vn, 'f4', ('time', 'station'))
+    var.long_name = 'Solid precipitation fraction {} surface only'.format(reanalysis)
+    var.units = '1'
+    var.comment = ("Fraction of total precipitation falling as snow (values in [0, 1]), "
+                   "estimated using the precipitation phase method configured in the control file "
+                   "(see precip_phase_method; default: Wang et al. (2019))")
+    var.standard_name = 'solid_precipitation_fraction'
+
+    return vn
+
+
+def LPF_sur(rg: nc.Dataset, reanalysis: str):
+    """Liquid (rain) precipitation fraction."""
+    vn = 'LPF_sur'
+    var = rg.createVariable(vn, 'f4', ('time', 'station'))
+    var.long_name = 'Liquid precipitation fraction {} surface only'.format(reanalysis)
+    var.units = '1'
+    var.comment = ("Fraction of total precipitation falling as rain (values in [0, 1]), "
+                   "estimated using the precipitation phase method configured in the control file "
+                   "(see precip_phase_method; default: Wang et al. (2019))")
+    var.standard_name = 'liquid_precipitation_fraction'
 
     return vn
 
@@ -220,5 +248,7 @@ __all__ = ['PRESS_Pa_pl',
            'PRECCORR_mm_sur',
            'SP_sur',
            'LP_sur',
+           'SPF_sur',
+           'LPF_sur',
            'AIRT_redcapp_DeltaT',
            'AIRT_DReaMIT']

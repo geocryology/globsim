@@ -25,5 +25,7 @@ class ScaleNames(enum.Enum):
     precipitation_total = "total_precipitation"  # cumulative precipitation from start of forecast
     precipitation_solid_rate = "solid_precipitation_rate"  # solid (snow) precipitation rate
     precipitation_liquid_rate = "liquid_precipitation_rate"  # liquid (rain) precipitation rate
+    precipitation_solid_fraction = "solid_precipitation_fraction"  # solid (snow) precipitation fraction [0-1]
+    precipitation_liquid_fraction = "liquid_precipitation_fraction"  # liquid (rain) precipitation fraction [0-1]
 
     
