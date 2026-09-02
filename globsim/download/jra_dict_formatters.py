@@ -251,9 +251,10 @@ class J3QDictFormatter(JRAformatter):
     def get_to_dict(self, *args, **kwargs):
         temp = self.get_dict_template()
         param = self.getParam(self.to_dict, ['geopotential'])
+
         metadata = find_param(self.metadata, level_description_pattern=None, 
                               name_pattern=None, 
-                              param_pattern=f'.*-sfc-cn-{self.grid}',
+                              variable_pattern=f'.*-sfc-cn-{self.grid}',
                               names_only=False, drop_levels=False)
 
         temp['date'] = f"{metadata[0]['start_date']}/to/{metadata[0]['end_date']}"
@@ -299,23 +300,46 @@ class J3QDictFormatter(JRAformatter):
         return shortpar
 
 
-def find_param(md:dict, name_pattern:Optional[str]='wind', 
-               level_description_pattern:Optional[str]='isobaric',
-               param_pattern:Optional[str]='ll125', 
+def find_param(md:list, name_pattern:Optional[str]=None, 
+               level_description_pattern:Optional[str]=None,
+               param_pattern:Optional[str]=None, 
+               variable_pattern:Optional[str]=None,
                names_only:bool=False,
                drop_levels:bool=True) -> list:
+    """
+    name_pattern: regex pattern to match against the param_description field (e.g. 'wind')
+    level_description_pattern: regex pattern to match against the levels[0]['level_description'] field (e.g. 'isobaric')
+    param_pattern: regex pattern to match against the param field (e.g. 'll125')
+    names_only: if True, return a set of unique param values instead of the full metadata
+    """
     param = md.copy()
     if name_pattern is not None:
-        param = filter(lambda x: re.search(name_pattern, x['param_description']), md)
+        param = filter(
+            lambda x: x.get('param_description') and re.search(name_pattern, x['param_description']),
+              param
+              )
 
     if level_description_pattern is not None:
-        param = filter(lambda x: re.search(level_description_pattern, x['levels'][0]['level_description']), param)
-    
+        param = filter(
+            lambda x: x.get('levels') and x['levels'][0].get('level_description') and re.search(level_description_pattern, x['levels'][0]['level_description']), 
+            param
+            )
+
+    if variable_pattern is not None:
+        param = filter(
+                    lambda x: x.get('variable') and re.search(variable_pattern, str(x['variable'])), 
+                    param
+                )
+        
     if param_pattern is not None:
-        param = filter(lambda x: re.search(param_pattern, x['param']), param)
-    
+        param = filter(
+            lambda x: x.get('param') and re.search(param_pattern, str(x['param'])), 
+            param
+        )
+
     if names_only:
         return set([p['param'] for p in param])
+
     else:
         if drop_levels:
             param = [{k:v for k,v in p.items() if k != 'levels'} for p in param]
@@ -348,7 +372,7 @@ if __name__ =="__main__":
     a = find_param(md, 
                 level_description_pattern=None, 
                 name_pattern=None, 
-                param_pattern=f'.*-sfc-cn',
+                variable_pattern=f'.*-sfc-cn-{self.grid}',
                 names_only=False, drop_levels=False)
     print(a)
     # [print(p['param_description'], p['param']) for p in q]
