@@ -35,7 +35,8 @@ dependencies = [
     "pysolar",
     "pytz",
     "cfgrib",
-    "cfunits"
+    "cfunits",
+    "gdex-api-client"
 ]
 
 [project.urls]
