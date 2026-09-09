@@ -164,7 +164,7 @@ class J55DictFormatter(JRAformatter):
     
 
 class J3QDictFormatter(JRAformatter):
-    DATASET = 'd640000'
+    DATASET = 'ds640.0'
     REANALYSIS = 'jra3q'
 
     _pl_dict = {'air_temperature'   : ['tmp-pres-an-{grid}'],
@@ -368,7 +368,7 @@ class J3QGDictFormatter(J3QDictFormatter):
 if __name__ =="__main__":
     
     rda = Rdams(None)
-    md = rda.get_metadata('d640000')['data']['data']
+    md = rda.get_metadata('ds640.0')['data']['data']
     a = find_param(md, 
                 level_description_pattern=None, 
                 name_pattern=None, 
