@@ -14,7 +14,7 @@ class J3QD(JRAdownload):
     API = Rdams
     DICT_FORMATTER = J3QDictFormatter
     FILE_HANDLER = J3QDownloadHandler
-    dsID = 'd640000'
+    dsID = 'ds640.0'
     timeName = 'time'
     
 class J3QgD(J3QD):
@@ -23,5 +23,5 @@ class J3QgD(J3QD):
     API = Rdams
     DICT_FORMATTER = J3QGDictFormatter
     FILE_HANDLER = J3QgDownloadHandler
-    dsID = 'd640000'
+    dsID = 'ds640.0'
     timeName = 'time'
