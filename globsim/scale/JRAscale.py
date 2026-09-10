@@ -5,7 +5,7 @@ from pathlib import Path
 
 from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 
-logger = logging.getLogger('globsim.scale')
+logger = logging.getLogger(__name__)
 
 
 class JRAscale(GenericScale):

@@ -26,7 +26,7 @@ from globsim.download.GenericDownload import GenericDownload
 from globsim.download.era_helpers import make_monthly_chunks, Era5Request, Era5RequestParameters, era5_pressure_levels, cf_to_cds_pressure, cf_to_cds_single
 
 
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
     
 
 class ERA5MonthlyDownload(GenericDownload):

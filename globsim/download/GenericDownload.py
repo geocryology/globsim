@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 
 from globsim.meteorology import pressure_from_elevation
 
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
 
 
 class GenericDownload(ABC):

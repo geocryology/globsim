@@ -2,7 +2,7 @@ from globsim.interpolate.JRAinterpolate import JRAinterpolate
 
 import logging
 
-logger = logging.getLogger('globsim.interpolate')
+logger = logging.getLogger(__name__)
 
 
 class J3QI(JRAinterpolate):

@@ -13,24 +13,35 @@ globsim_interpolate = LazyLoader("globsim.globsim_interpolate")
 globsim_convert = LazyLoader("globsim.globsim_convert")
 
 def configure_logging(args: argparse.Namespace):
-    # logging.basicConfig(format='%(asctime)s  %(asctime)s ')
-    try:
-        level = args.level
-    except AttributeError:
-        level = logging.INFO
-
+    # Safely extract log level
+    level = getattr(args, "level", logging.INFO)
+    
+    # Configure the base 'globsim' logger (or root logger via logging.getLogger())
+    logger = logging.getLogger(__name__)
     logger.setLevel(level)
-    console_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt="%H:%M:%S")
-    # console_formatter = logging.Formatter('%(message)s', datefmt="%H:%M:%S")
+    
+    # Clear existing handlers to avoid duplicate output if re-configured
+    if logger.hasHandlers():
+        logger.handlers.clear()
 
+    # 1. Console Handler
+    console_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s', datefmt="%H:%M:%S")
     ch = logging.StreamHandler()
     ch.setLevel(level)
     ch.setFormatter(console_formatter)
     logger.addHandler(ch)
 
-    if getattr(args, "logfile", None):
+    # 2. File Handler
+    logfile_arg = getattr(args, "logfile", False)
+    if logfile_arg:
+        # Determine log filename
+        if isinstance(logfile_arg, str):
+            logfile = logfile_arg
+        else:
+            # Default filename if user passed -L without a path
+            logfile = "globsim.log"
+
         file_formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s', datefmt="%Y-%m-%d %H:%M:%S")
-        logfile = args.logfile  # TODO: write logfile to project directory if missing
         fh = logging.FileHandler(logfile)
         fh.setLevel(level)
         fh.setFormatter(file_formatter)
@@ -43,7 +54,7 @@ action_dict = {'download': globsim_download,
                'convert': globsim_convert}
 
 
-logger = logging.getLogger("globsim")
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -131,7 +142,7 @@ def main():
                 args.func(args)
             except Exception as e:
                 traceback.print_exc()
-                print(f"An exception occurred: {e}\nEntering post-mortem debug mode.")
+                logger.exception(f"An exception occurred: {e}\nEntering post-mortem debug mode.")
                 # This drops you into the debugger at the exact point of the crash
                 pdb.post_mortem()
  

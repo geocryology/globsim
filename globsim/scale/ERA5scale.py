@@ -11,7 +11,7 @@ from globsim.scale.GenericScale import GenericScale, _check_timestep_length
 from globsim.scale.scalenames import ScaleNames as SN
 
 urllib3.disable_warnings()
-logger = logging.getLogger('globsim.scale')
+logger = logging.getLogger(__name__)
 
 
 class ERA5scale(GenericScale):

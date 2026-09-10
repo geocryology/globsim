@@ -15,7 +15,7 @@ from globsim.nc_elements import  new_interpolated_netcdf
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
-logger = logging.getLogger('globsim.interpolate')
+logger = logging.getLogger(__name__)
 
 
 class MERRAinterpolate(GenericInterpolate):

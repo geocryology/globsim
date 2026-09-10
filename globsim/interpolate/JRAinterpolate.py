@@ -12,7 +12,7 @@ from pathlib import Path
 from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import new_interpolated_netcdf
 
-logger = logging.getLogger('globsim.interpolate')
+logger = logging.getLogger(__name__)
 
 
 class JRAinterpolate(GenericInterpolate):

@@ -2,7 +2,7 @@ import psutil
 import logging
 import sys
 
-logger = logging.getLogger('globsim.interpolate.memsafe')
+logger = logging.getLogger(__name__)
 
 
 def require_safe_mem_usage(limit_percent: float, level=logging.DEBUG):

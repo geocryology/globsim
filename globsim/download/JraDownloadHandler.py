@@ -32,7 +32,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
             'latitude': 'lat',
             'longitude': 'lon',
             'level': 'pressure_level'}
-    DATASET_ID = 'd640000'
+    DATASET_ID = 'ds640.0'
     
     def __init__(self):
         super().__init__()
@@ -91,19 +91,23 @@ class J3QDownloadHandler(NcarDownloadHandler):
 
         return list(valid_files)
     
-    def make_globsim_dataset(self, directory:str, request_id:str, filetype:Optional[str]=None):
+    def make_globsim_dataset(self, directory:str, request_id:str, filetype:Optional[str]=None, output_directory:Optional[str]=None):
         '''make a globsim dataset from JRA-3Q dataset'''
 
         # extract the downloaded tar files
         # get all variables associated with the dataset
-        # return the extracted tar files   
-        logger.debug(f"Creating {filetype if filetype is not None else '(unknown type)'} dataset from requeset {request_id}")
+        # return the extracted tar files
+        if output_directory is None:
+            output_directory = directory
+
+        logger.debug(f"Creating {filetype if filetype is not None else '(unknown type)'} dataset from request {request_id}")
         
-        extract_downloaded_tar_files(directory, request_id, (not self._keep_raw_files))
+        # extract_downloaded_tar_files(directory, request_id, (not self._keep_raw_files)) files are now downloaded one-by-one
         
         variables = get_downloaded_variable_names(directory, request_id)
         
         if len(variables) == 0:
+            import pdb;pdb.set_trace()
             raise ValueError(f"No variables found in dataset {request_id}")
         
         if filetype is None:
@@ -120,7 +124,7 @@ class J3QDownloadHandler(NcarDownloadHandler):
         Times, Lats, Lons, Levs = self.extract_dimensions(nc_template_files)
         
         beg, end = nc.num2date(Times.values[[0,-1]], units=Times.units, calendar=Times.calendar)
-        file_new = Path(directory, self.format_output_filename(beg, end, filetype))
+        file_new = Path(output_directory, self.format_output_filename(beg, end, filetype))
 
         if file_new.is_file():
             logger.warning(f"Partially completed file {file_new} already exists. ")

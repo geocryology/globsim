@@ -1,621 +1,205 @@
-#!/usr/bin/env python
-"""List dataset metadata, subset data subset requests,
-check on request status.
-
-Usage:
-```
-rdams-client.py -get_summary <dsnnn.n>
-rdams-client.py -get_metadata <dsnnn.n> <-f>
-rdams-client.py -get_param_summary <dsnnn.n> <-f>
-rdams-client.py -submit [control_file_name]
-rdams-client.py -get_status <RequestIndex> <-proc_status>
-rdams-client.py -download [RequestIndex]
-rdams-client.py -globus_download [RequestIndex]
-rdams-client.py -get_control_file_template <dsnnn.n>
-rdams-client.py -help
-```
-"""
-__version__ = '3.0.0'
-__author__ = 'Doug Schuster (schuster@ucar.edu), Riley Conroy (rpconroy@ucar.edu)'
-
-import sys
-import os
-import requests
-import json
-import argparse
-import logging
-
 from pathlib import Path
+import os
+import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
+from gdex_api_client import gdex_client as gac
 
-class Rdams(object):
-    BASE_URL = 'https://gdex.ucar.edu/api/'
-    ENVAUTHFILE = 'GLOBSIM_RDA_AUTH_FILE'
+ENVAUTHFILE = 'GLOBSIM_RDA_AUTH_FILE'
 
-    def __init__(self, auth_file):
-        self.token = None
-        if auth_file is None:
-            auth_file = self.look_for_auth_file()
-        
-        logger.info(f"Using credential file {auth_file}")
-        self.DEFAULT_AUTH_FILE = auth_file
-        
-    def look_for_auth_file(self):
-        env_auth = os.environ.get(self.ENVAUTHFILE, None)
-        if env_auth is not None:
-            return env_auth
+def lookup_auth_file(explicit_path=None):
+    """Look for an authentication file in order of precedence:
+    1. Explicit path passed to method/class
+    2. Environment variable GLOBSIM_RDA_AUTH_FILE
+    3. Default location: ~/rdams_token.txt
+    """
+    if explicit_path:
+        p = Path(explicit_path).expanduser()
+        if p.exists():
+            return str(p)
 
-        default_auth = Path("~", 'rdams_token.txt').expanduser()
-        if default_auth.exists():
-            return str(default_auth)
-        
-        else:
-            print(f"Could not find an authentication for RDAMS file. Please set the environment variable {self.ENVAUTHFILE} or create a file at {default_auth}")
-            print("See 'https://gdex.ucar.edu/accounts/profile/' to get a token.")
-            sys.exit(1)
+    env_auth = os.environ.get(ENVAUTHFILE, None)
+    if env_auth and Path(env_auth).expanduser().exists():
+        return str(Path(env_auth).expanduser())
 
-    def query(self, args=None):
-        """Perform a query based on command line like arguments.
+    default_auth = Path("~", 'rdams_token.txt').expanduser()
+    if default_auth.exists():
+        return str(default_auth)
 
-        Args:
-            args (list): argument list of querying commands.
+    return None
 
-        Returns:
-            (dict): Output of json decoded API query.
 
-        Example:
-            ```
-            >>> query(['-get_status', '123456'])
+def globsim_get_authentication(auth_file=None):
+    """Get the authentication token using the resolved auth file."""
+    resolved_file = lookup_auth_file(auth_file)
+    if not resolved_file:
+        logger.error(
+            f"No authentication file found. Please set {ENVAUTHFILE} "
+            "or place a token file at ~/rdams_token.txt."
+        )
+        sys.exit(1)
 
-            >>> query(['-get_metadata', 'ds083.2'])
-            ```
-        """
-        parser = self.get_parser()
-        if args is None or len(args) == 0:
-            parser.parse_args(['-h'])
-        args = parser.parse_args(args)
-        args_dict = args.__dict__
-        func,params = self.get_selected_function(args_dict)
-        if args_dict['outdir'] and func==self.download:
-            out_dir = args_dict['outdir']
-            return func(params, out_dir)
-        result = func(params)
-        if not args.noprint:
-            print(json.dumps(result, indent=3))
-        return result
+    return gac.read_token_file(resolved_file)
 
-    def add_ds_str(self, ds_num):
-        """Adds 'ds' to ds_num if needed.
-        Throws error if ds number isn't valid.
-        """
-        ds_num = ds_num.strip()
-        if ds_num[0:2] != 'ds':
-            ds_num = 'ds' + ds_num
-        if len(ds_num) != 7:
-            print("'" + ds_num + "' is not valid.")
-            sys.exit()
-        return ds_num
 
-    def get_userinfo(self):
-        """Get token from command line."""
-        print('Please visit https://gdex.ucar.edu/accounts/profile/ to access token.')
-        token = input("Paste that token here: ")
-        self.write_token_file(token)
-        return token
+# Patch gdex_client directly
+gac.get_authentication = globsim_get_authentication
 
-    def write_token_file(self, token, token_file):
-        """Write token to a file."""
-        with open(token_file, "w") as fo:
-            fo.write(token)
 
-    def read_token_file(self, token_file):
-        """Read user information from token file.
+import os
+import sys
+import time
+import logging
+import requests
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
-        Args:
-            token_file (str): location of token file.
+logger = logging.getLogger(__name__)
 
-        Returns:
-            (str): token
-        """
-        with open(token_file, 'r') as f:
-            token = f.read()
-        return token.strip()
+def fast_download_files(filelist, out_dir='./', cookie_file=None, max_workers=2, max_retries=3):
+    """Robust replacement for gac.download_files with connection pooling,
+    browser header spoofing, and automatic socket-reset on throttle.
+    """
+    out_path = Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
 
-    def read_control_file(self, control_file):
-        """Reads control file, and return python dict.
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+        'Accept': '*/*',
+        'Connection': 'keep-alive'
+    })
 
-        Args:
-            control_file (str): Location of control file to parse.
-                    Or control file string.
+    def download_single(url):
+        filename = url.split('/')[-1]
+        dest = out_path / filename
+        temp_dest = out_path / f"{filename}.part"
 
-        Returns:
-            (dict) python dict representing control file.
-        """
-        control_params = {}
-        if os.path.exists(control_file):
-            myfile = open(control_file, 'r')
-        else:
-            myfile = control_file.split('\n')
+        # 1. Skip if the final completed file already exists
+        if dest.exists() and dest.stat().st_size > 0:
+            logger.info(f"Skipping existing file: {filename}")
+            return
 
-        for line in myfile:
-            line = line.strip()
-            if line.startswith('#') or line == "":
-                continue
-            li = line.rstrip()
-            (key, value) = li.split('=', 2)
-            control_params[key] = value
+        for attempt in range(1, max_retries + 1):
+            try:
+                print(f"Downloading {filename} (Attempt {attempt})...")
+                
+                # Download to temporary file .part
+                with session.get(url, stream=True, timeout=(10, 15)) as r:
+                    r.raise_for_status()
+                    with open(temp_dest, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                f.write(chunk)
 
-        # Handle empty params
-        if 'param' in control_params and control_params['param'].strip() == '':
-            all_params = self.get_all_params(control_params['dataset'])
-            control_params['param'] = '/'.join(all_params)
+                # 2. Rename .part to final destination ONLY on 100% completion
+                temp_dest.replace(dest)
+                print(f"100% Completed: {filename}")
+                return
 
+            except (requests.exceptions.Timeout, requests.exceptions.RequestException) as e:
+                logger.warning(f"Connection stalled on {filename} ({e}). Cleaning up temp file...")
+                
+                # Clean up the partial .part file if download failed mid-way
+                if temp_dest.exists():
+                    temp_dest.unlink()
+                    
+                time.sleep(2)
+
+        print(f"Error: Failed to download {filename} after {max_retries} attempts.")
+
+    # Execute downloads across thread pool
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        list(executor.map(download_single, set(filelist)))
+
+
+# Patch the API package function directly
+gac.download_files = fast_download_files
+
+
+class MetaRdams(type):
+    """Metaclass allowing class-level attribute lookup delegation to gac."""
+    def __getattr__(cls, name):
         try:
-            myfile.close()
-        except:
-            pass
-        return control_params
+            return getattr(gac, name)
+        except AttributeError:
+            raise AttributeError(f"Neither 'Rdams' nor 'gdex_client' has attribute '{name}'")
 
-    def get_parser(self, ):
-        """Creates and returns parser object.
 
-        Returns:
-            (argparse.ArgumentParser): Parser object from which to parse arguments.
-        """
-        description = "Queries NCAR RDA REST API."
-        parser = argparse.ArgumentParser(prog='rdams', description=description)
-        parser.add_argument('-noprint', '-np',
-                action='store_true',
-                required=False,
-                help="Do not print result of queries.")
-        parser.add_argument('-outdir', '-od',
-                nargs='?',
-                required=False,
-                help="Change the output directory of downloaded files")
-        group = parser.add_mutually_exclusive_group(required=True)
-        group.add_argument('-get_summary', '-gsum',
-                type=str,
-                metavar='<dsid>',
-                required=False,
-                help="Get a summary of the given dataset.")
-        group.add_argument('-get_metadata', '-gm',
-                type=str,
-                metavar='<dsid>',
-                required=False,
-                help="Get metadata for a given dataset.")
-        group.add_argument('-get_param_summary', '-gpm',
-                type=str,
-                metavar='<dsid>',
-                required=False,
-                help="Get only parameters for a given dataset.")
-        group.add_argument('-submit', '-s',
-                type=str,
-                metavar='<control file>',
-                required=False,
-                help="Submit a request using a control file.")
-        group.add_argument('-get_status', '-gs',
-                type=str,
-                nargs='?',
-                const='ALL',
-                metavar='<Request Index>',
-                required=False,
-                help="Get a summary of the given dataset.")
-        group.add_argument('-download', '-d',
-                type=str,
-                required=False,
-                metavar='<Request Index>',
-                help="Download data given a request id.")
-        group.add_argument('-get_filelist', '-gf',
-                type=str,
-                required=False,
-                metavar='<Request Index>',
-                help="Query the filelist for a completed request.")
-        group.add_argument('-globus_download', '-gd',
-                type=str,
-                required=False,
-                metavar='<Request Index>',
-                help="Start a globus transfer for a give request index.")
-        group.add_argument('-get_control_file_template', '-gt',
-                type=str,
-                metavar='<dsid>',
-                required=False,
-                help="Get a template control file used for subsetting.")
-        group.add_argument('-purge', # Sorry no -p
-                type=str,
-                metavar='<Request Index>',
-                required=False,
-                help="Purge a request.")
-        return parser
+class Rdams(metaclass=MetaRdams):
+    """Thin wrapper around gdex_client (gac). 
+    Delegates all undefined class or instance attributes/methods directly to gac.
+    """
+    ENVAUTHFILE = ENVAUTHFILE
 
-    def check_status(self, ret):
-        """Checks that status of return object.
+    def __init__(self, auth_file=None):
+        self.auth_file = auth_file
+        if auth_file:
+            path = Path(auth_file).expanduser()
+            if path.exists():
+                os.environ[self.ENVAUTHFILE] = str(path)
+            else:
+                logger.warning(f"Provided auth file does not exist: {auth_file}")
 
-        Exits if a 401 status code.
+    def __getattr__(self, name):
+        """Instance-level delegation to gac."""
+        try:
+            return getattr(gac, name)
+        except AttributeError:
+            raise AttributeError(f"Neither 'Rdams' nor 'gdex_client' has attribute '{name}'")
 
-        Args:
-            ret (response.Response): Response of a request.
-            token_file (str) : password file. Will remove if auth incorrect
+def parse_rinfo(rinfo):
+    """Parse the rinfo string into a dictionary of parameters."""
+    param_dict = {}
+    for item in rinfo.split(';'):
+        key, value = item.split('=')
+        param_dict[key.strip()] = value.strip()
+    return param_dict
 
-        Returns:
-            None
-        """
-        if ret.status_code == 401: # Not Authorized
-            print(ret.content)
-            exit(1)
-
-    def check_file_status(self, filepath, filesize):
-        """Prints file download status as percent of file complete.
-
-        Args:
-            filepath (str): File being downloaded.
-            filesize (int): Expected total size of file in bytes.
-
-        Returns:
-            None
-        """
-        sys.stdout.write('\r')
-        sys.stdout.flush()
-        size = int(os.stat(filepath).st_size)
-        percent_complete = (size/filesize)*100
-        sys.stdout.write('%.3f %s' % (percent_complete, '% Completed'))
-        sys.stdout.flush()
-
-    def download_files(self, filelist, out_dir='./', retries=3, cookie_file=None):
-        """Download files in a list.
-
-        Args:
-            filelist (list): List of web files to download.
-            out_dir (str): directory to put downloaded files
-
-        Returns:
-            None
-        """
-        for _file in filelist:
-            tries = 0
-            while tries < retries:
-                tries += 1
-                try:
-                    self._download_file(_file, out_dir)
-                except Exception as e:
-                    logger.error("Problem downloading file (attempt {tries}): {e}")
-            
-    def _download_file(self, _file, out_dir):
-        file_base = os.path.basename(_file)
-        out_file = out_dir + file_base
-        print('Downloading',file_base)
-        header = requests.head(_file, allow_redirects=True, stream=True)
-        filesize = int(header.headers['Content-Length'])
-        req = requests.get(_file, allow_redirects=True, stream=True)
-        with open(out_file, 'wb') as outfile:
-            chunk_size=1048576
-            for chunk in req.iter_content(chunk_size=chunk_size):
-                outfile.write(chunk)
-                if chunk_size < filesize:
-                    self.check_file_status(out_file, filesize)
-        self.check_file_status(out_file, filesize)
-
-    def encode_url(self, url, token):
-        return url + '?token=' + token
-
-    def get_authentication(self):
-        """Attempts to get authentication.
-
-        Args:
-            token_file (str): location of password file.
-
-        Returns:
-            (tuple): token
-        """
-        token_file=self.DEFAULT_AUTH_FILE
-
-        if self.token is not None:
-            return self.token
-        
-        elif os.path.isfile(token_file) and os.path.getsize(token_file) > 0:
-            token = self.read_token_file(token_file)
-            self.token = token
-        
+def parse_rinfo_parameters(param_string):
+    """ '8!d640000:tprate1have-sfc-fc-gauss,8!d640000:dswrf1have-sfc-fc-gauss,8!d640000:dlwrf1have-sfc-fc-gauss,8!d640000:dswrfcs1have-sfc-fc-gauss,8!d640000:dlwrfcs1have-sfc-fc-gauss'
+    Parse the parameter string into a list.
+    """
+    param_list = param_string.split(',')
+    parsed_params = []
+    for param in param_list:
+        if ':' in param:
+            dataset, variable = param.split(':', 1)
+            parsed_params.append({'dataset': dataset, 'variable': variable})
         else:
-            token = self.get_userinfo()
-            self.token = token
-        
-        return token
-
-
-    def get_summary(self, ds):
-        """Returns summary of dataset.
-
-        Args:
-            ds (str): Datset id. e.g. 'ds083.2'
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        url = self.BASE_URL + 'summary/'
-        url += ds
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-    def get_metadata(self, ds):
-        """Return metadata of dataset.
-
-        Args:
-            ds (str): Datset id. e.g. 'ds083.2'
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        url = self.BASE_URL + 'metadata/'
-        url += ds
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-    def get_all_params(self, ds):
-        """Return set of parameters for a dataset.
-
-        Args:
-            ds (str): Datset id. e.g. 'ds083.2'
-
-        Returns:
-            set: All unique params in dataset.
-        """
-        res = self.get_param_summary(ds)
-        res_data = res['data']['data']
-        param_names = set()
-        for param in res_data:
-            param_names.add(param['param'])
-        return param_names
-
-
-    def get_param_summary(self, ds):
-        """Return summary of parameters for a dataset.
-
-        Args:
-            ds (str): Datset id. e.g. 'ds083.2'
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        url = self.BASE_URL + 'paramsummary/'
-        url += ds
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-
-    def submit_json(self, json_file):
-        """Submit a RDA subset or format conversion request using json file or dict.
-
-        Args:
-            json_file (str): json control file to submit.
-                    OR
-                    Python dict to submit.
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        if type(json_file) is str:
-            assert os.path.isfile(json_file)
-            with open(json_file) as fh:
-                control_dict = json.load(fh)
-        else:
-            assert type(json_file) is dict
-            control_dict = json_file
-
-        url = self.BASE_URL + 'submit/'
-
-        token = self.get_authentication()
-        ret = requests.post(self.encode_url(url,token), json=control_dict)
-
-        self.check_status(ret)
-        
-        return ret.json()
-
-    def submit(self, control_file_name):
-        """Submit a RDA subset or format conversion request.
-        Calls submit json after reading control_file
-
-        Args:
-            control_file_name (str): control file to submit.
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        _dict = self.read_control_file(control_file_name)
-        return self.submit_json(_dict)
-
-
-    def get_status(self, request_idx=None):
-        """Get status of request.
-        If request_ix not provided, get all open requests
-
-        Args:
-            request_idx (str, Optional): Request Index, typcally a 6-digit integer.
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        if request_idx is None:
-            request_idx = 'ALL'
-        url = self.BASE_URL + 'status/'
-        url += str(request_idx)
-
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-    def get_filelist(self, request_idx):
-        """Gets filelist for request
-
-        Args:
-            request_idx (str): Request Index, typically a 6-digit integer.
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        url = self.BASE_URL + 'get_req_files/'
-        url += str(request_idx)
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-
-        return ret.json()
-
-
-    def download(self, request_idx, out_dir='./'):
-        """Download files given request Index
-
-        Args:
-            request_idx (str): Request Index, typically a 6-digit integer.
-
-        Returns:
-            None
-        """
-        ret = self.get_filelist(request_idx)
-        if len(ret['data']) == 0:
-            return ret
-
-        filelist = ret['data']['web_files']
-
-        token = self.get_authentication()
-
-        web_files = list(map(lambda x: x['web_path'], filelist))
-
-        # Only download unique files.
-        self.download_files(set(web_files), out_dir)
-        return ret
-
-    def globus_download(self, request_idx):
-        """Begin a globus transfer.
-
-        Args:
-            request_ix (str): Request Index, typically a 6-digit integer.
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        url = self.BASE_URL + 'request/'
-        url += request_idx
-        url += '-globus_download'
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-    def get_control_file_template(self, ds):
-        """Write a control file for use in subset requests.
-
-        Args:
-            ds (str): datset id. e.g. 'ds083.2'
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        url = self.BASE_URL + 'control_file_template/'
-        url += ds
-
-        token = self.get_authentication()
-        ret = requests.get(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-    def write_control_file_template(self, ds, write_location='./'):
-        """Write a control file for use in subset requests.
-
-        Args:
-            ds (str): datset id. e.g. 'ds083.2'
-            write_location (str, Optional): Directory in which to write.
-                    Defaults to working directory
-
-        Returns:
-            dict: JSON decoded result of the query.
-        """
-        _json = self.get_control_file_template(ds)
-        control_str = _json['data']['template']
-
-        template_filename = write_location + self.add_ds_str(ds) + '_control.ctl'
-        if os.path.exists(template_filename):
-            print(template_filename + " already exists.\nExiting")
-            exit(1)
-        with open(template_filename, 'w') as fh:
-            fh.write(control_str)
-
-        return _json
-
-    def purge_request(self, request_idx):
-        """Write a control file for use in subset requests.
-
-        Args:
-            ds (str): datset id. e.g. 'ds083.2'
-            write_location (str, Optional): Directory in which to write.
-                    Defaults to working directory
-
-        Returns:
-            None
-        """
-        url = self.BASE_URL + 'purge/'
-        url += request_idx
-
-        token = self.get_authentication()
-        ret = requests.delete(self.encode_url(url,token))
-
-        self.check_status(ret)
-        return ret.json()
-
-    def get_selected_function(self, args_dict):
-        """Returns correct function based on options.
-        Args:
-            options (dict) : Command with options.
-
-        Returns:
-            (function): function that the options specified
-        """
-        # Maps an argument to function call
-        action_map = {
-                'get_summary' : self.get_summary,
-                'get_metadata' : self.get_metadata,
-                'get_param_summary' : self.get_param_summary,
-                'submit' : self.submit,
-                'get_status' : self.get_status,
-                'download' : self.download,
-                'get_filelist' : self.get_filelist,
-                'globus_download' : self.globus_download,
-                'get_control_file_template' : self.write_control_file_template,
-                'purge' : self.purge_request
-                }
-        for opt,value in args_dict.items():
-            if opt in action_map and value is not None:
-                return (action_map[opt], value)
-
-class RdamsWrapper(Rdams):
+            logger.warning(f"Unexpected parameter format: {param}")
+    return parsed_params
+
+def get_parsed_status():
+    status = gac.get_status()
+
+    if status['http_response'] != 200:
+        logger.error(f"Failed to get status: {status}")
+        return None
+    if status.get('data') is None:
+        logger.warning("No data in status response.")
+        return None
+
+    if len(data := status['data']) > 0:
+        for request in data:
+            rinfo = request.get('rinfo')
+            if rinfo:
+                parsed_info = parse_rinfo(rinfo)
+                parsed_info['parsed_parameters'] = parse_rinfo_parameters(parsed_info.get('parameters', ''))
+                request['parsed_rinfo'] = parsed_info
+            else:
+                logger.warning(f"No rinfo found for request: {request}")
     
-    def __init__(self, auth_file):
-        super().__init__(auth_file)
+    return status
+            
+    
 
-    # wrappers for the functions
-    def purge(self, ds):
-        self.purge_request(ds)
+if __name__ == "__main__":
+    # Example usage:
+    rdams = Rdams(auth_file=None)
+    # Delegates cleanly to gac.get_summary using globsim_get_authentication
+    summary = rdams.get_summary('ds640.0')
 
-    def download(self, directory, ds):
-        super().download(ds, directory)
+    

@@ -14,7 +14,7 @@ from globsim.interpolate.GenericInterpolate import GenericInterpolate
 from globsim.nc_elements import new_interpolated_netcdf
 import globsim.constants as const
 
-logger = logging.getLogger('globsim.interpolate')
+logger = logging.getLogger(__name__)
 
 
 urllib3.disable_warnings()

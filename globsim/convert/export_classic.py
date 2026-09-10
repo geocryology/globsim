@@ -22,7 +22,7 @@ from globsim import __version__
 from globsim.common_utils import get_scaled_site_names
 from .exporttools import time_slice_index
 
-logger = logging.getLogger("globsim.convert")
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

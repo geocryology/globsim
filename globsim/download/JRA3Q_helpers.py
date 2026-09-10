@@ -7,7 +7,7 @@ import pygrib
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
 
 # workflow ->
 

@@ -13,7 +13,7 @@ from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
 urllib3.disable_warnings()
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
 
 
 class ERA5generic(object):

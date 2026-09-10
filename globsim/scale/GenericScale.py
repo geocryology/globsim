@@ -27,7 +27,7 @@ import globsim.redcapp as redcapp
 import globsim.scale.kernel_templates as kt
 
 
-logger = logging.getLogger('globsim.scale')
+logger = logging.getLogger(__name__)
 
 
 class GenericScale:

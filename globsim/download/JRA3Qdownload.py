@@ -5,7 +5,7 @@ from globsim.download.RDA import Rdams
 from globsim.download.jra_dict_formatters import J3QDictFormatter, J3QGDictFormatter
 from globsim.download.JraDownloadHandler import J3QDownloadHandler, J3QgDownloadHandler
 
-logger = logging.getLogger('globsim.download')
+logger = logging.getLogger(__name__)
 
 
 class J3QD(JRAdownload):
@@ -14,7 +14,7 @@ class J3QD(JRAdownload):
     API = Rdams
     DICT_FORMATTER = J3QDictFormatter
     FILE_HANDLER = J3QDownloadHandler
-    dsID = 'd640000'
+    dsID = 'ds640.0'
     timeName = 'time'
     
 class J3QgD(J3QD):
@@ -23,5 +23,5 @@ class J3QgD(J3QD):
     API = Rdams
     DICT_FORMATTER = J3QGDictFormatter
     FILE_HANDLER = J3QgDownloadHandler
-    dsID = 'd640000'
+    dsID = 'ds640.0'
     timeName = 'time'

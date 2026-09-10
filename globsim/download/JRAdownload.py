@@ -11,10 +11,10 @@ from pathlib import Path
 from requests import exceptions as req_exceptions
 
 from globsim.download.GenericDownload import GenericDownload
-from globsim.download.RDA import Rdams 
+from globsim.download.RDA import Rdams, get_parsed_status
 from globsim.download.jra_dict_formatters import J55DictFormatter
 from globsim.download.JraDownloadHandler import J55DownloadHandler
-logger = logging.getLogger('globsim.download')
+logger = logging.getLogger(__name__)
 
 def get_userinfo():
     return None, None
@@ -177,6 +177,7 @@ class JRAdownload(GenericDownload):
                 ntries += 1
                 try:
                     req = self.requestSubmit(request_dict)
+                    logger.info(f"Request {req['data'].get('request_id', 'unknown')} ({filetype}) submitted (tries = {ntries})")
                 except req_exceptions.JSONDecodeError as e:
                     logger.error(f"JSONDecodeError in request {request_dict} (tries = {ntries})")
                     logger.error(e)
@@ -222,10 +223,46 @@ class JRAdownload(GenericDownload):
             dictionary of submitted requests and their file type (e.g. 'to', 'sa', 'sf', 'pl')
             for example, {'1234':'to', '1235':'sa', '1236':'sf', '1237':'pl'}
         """
+        #import pdb;pdb.set_trace()
         return self._submit_request(request_dict)  # append _test for server-free testing
+
+    def _matching_request(self, request_dict:dict) -> None | dict:
+        """check if request already exists on the server"""
+        status = get_parsed_status()
+        if not status:
+            return None
+        
+    def requests_equal(self, globsim_request:dict, rdict:dict) -> bool:
+        gsr = globsim_request
+        for p in gsr.get('param', []):
+            if p not in [d.get('variable') for d in rdict.get('parsed_parameters', [])]:
+                return False
+        if not gsr['nlat'] == rdict.get('nlat'):
+            return False
+        if not gsr['elon'] == rdict.get('elon'):
+            return False
+        if not gsr['slat'] == rdict.get('slat'):
+            return False
+        if not gsr['wlon'] == rdict.get('wlon'):
+            return False
+        if not gsr.get('dataset', '')[:5] == rdict.get('dsnum','')[:5]:  # need better matching here
+            return False
+        gs_start = gsr.get('date', '').split('/')[0]
+        gs_end = gsr.get('date', '').split('/')[1]
+        r_start = rdict.get('startdate', '').replace(' ','').replace(':','').replace('-','')
+        r_end = rdict.get('enddate', '').replace(' ','').replace(':','').replace('-','')
+        if not (gs_start == r_start and gs_end == r_end):
+            return False
+        
+        logger.info(f"Found matching request on server: {rdict.get('request_id', 'unknown')}")
+        return True
 
     def _submit_request(self, request_dict:dict) -> dict:
         """ Actual server request """
+        #exists = self._matching_request(request_dict)
+        #if exists is not None:
+        #    logger.info(f"Request already exists on server: {exists.get('request_id', 'unknown')}")
+        #    return exists
         req = self.api.submit_json(request_dict)
         return req
     
@@ -306,9 +343,11 @@ class JRAdownload(GenericDownload):
                 elif ds['status'] == 'Completed':
                     logger.info(f"Request {rix} Complete")
                     logger.info(f"Downloading request {rix}")
-                    res = self.api.download(ds['request_index'], path.join(self.directory, self.JRA_VERSION))
+                    download_directory = path.join(self.directory, self.JRA_VERSION)
+                    logger.info(f"Beginning download of request {rix} to {download_directory}")
+                    res = self.api.download(ds['request_index'], download_directory)
                     
-                    logger.info(f"Download of request {rix} complete")
+                    logger.info(f"Finished download of request {rix} to {download_directory}")
                     # untar / extract
                     Handler = self.FILE_HANDLER
                     handler = Handler()
@@ -317,7 +356,7 @@ class JRAdownload(GenericDownload):
                     else:
                         filetype = None
                     logger.info(f"Processing request {rix} with filetype {filetype}")
-                    handler.make_globsim_dataset(self.directory, rix, filetype=filetype)
+                    handler.make_globsim_dataset(download_directory, rix, filetype=filetype, output_directory=self.directory)
                     logger.info(f"Processing of request {rix} complete")
                     done.append(rix)
                     self.api.purge_request(rix)
@@ -374,7 +413,9 @@ class JRAdownload(GenericDownload):
         active_requests = self.api.get_status()['data']
 
         # first, just try clearing those that haven't finished yet
-        if len(active_requests) > N:
+        if len(active_requests) <= N:
+            return
+        else:
             logger.error(f"Found {len(active_requests)} active requests (>7). Will clear them before proceeding")
             self.requestClear(only_with_status=['Completed', 'Error'])  
         
@@ -387,10 +428,9 @@ class JRAdownload(GenericDownload):
         
         self.wait_for_purge(timeout=timeout)
         
-    def wait_for_purge(self, timeout=3600):
+    def wait_for_purge(self, timeout:int=3600, n_to_purge:int=1, delay_s:int=60):
         ''' wait until there are no requests on the server that await purging'''
-        n_to_purge = 1
-        s = 60
+        s = delay_s * 1
         while (n_to_purge > 0):
             logger.info(f"{n_to_purge} requests remain to purge on server. Waiting {int(s/60)} minutes")
             if timeout < 0:
@@ -410,7 +450,7 @@ class JRAdownload(GenericDownload):
         chunked_requests = self._prepare_requests()
         
         concurrent_chunks = 1
-        
+
         while chunked_requests:
             submitted_requests = {}
             self.ensure_requests_fewer_than(7)

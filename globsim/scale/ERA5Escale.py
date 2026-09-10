@@ -6,7 +6,7 @@ from globsim.scale.ERA5scale import ERA5scale
 
 urllib3.disable_warnings()
 
-logger = logging.getLogger('globsim.scale')
+logger = logging.getLogger(__name__)
 
 
 class ERA5Escale(ERA5scale):

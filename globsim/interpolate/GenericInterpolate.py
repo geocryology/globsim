@@ -23,7 +23,7 @@ from globsim.interp import ele_interpolate, calculate_weights, extrapolate_below
 from globsim.memsafe import require_safe_mem_usage
 from globsim.chunking import rechunk_for_scaling
 
-logger = logging.getLogger('globsim.interpolate')
+logger = logging.getLogger(__name__)
 
 import esmpy as ESMF
 if logger.level < 10:  # (DEBUG)
