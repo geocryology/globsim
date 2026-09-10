@@ -232,13 +232,6 @@ class JRAdownload(GenericDownload):
         if not status:
             return None
         
-        for r in rdicts:
-            import pdb;pdb.set_trace()
-            if self.requests_equal(r, request_dict):
-                return r
-            
-        return None
-
     def requests_equal(self, globsim_request:dict, rdict:dict) -> bool:
         gsr = globsim_request
         for p in gsr.get('param', []):
