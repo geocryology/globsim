@@ -14,7 +14,7 @@ from globsim.download.GenericDownload import GenericDownload
 from globsim.download.RDA import Rdams, get_parsed_status
 from globsim.download.jra_dict_formatters import J55DictFormatter
 from globsim.download.JraDownloadHandler import J55DownloadHandler
-logger = logging.getLogger('globsim.download')
+logger = logging.getLogger(__name__)
 
 def get_userinfo():
     return None, None

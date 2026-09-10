@@ -13,7 +13,7 @@ from globsim.common_utils import variables_skip
 from globsim import __version__ as globsim_version
 from globsim.chunking import calculate_chunks_for_interpolation_writing
 
-logger = logging.getLogger('globsim.nc_elements')
+logger = logging.getLogger(__name__)
 
 
 def nc_new_file(ncfile_out, featureType="timeSeries", fmt='NETCDF4_CLASSIC'):

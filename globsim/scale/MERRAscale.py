@@ -13,7 +13,7 @@ from globsim.scale.scalenames import ScaleNames as SN
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
-logger = logging.getLogger('globsim.scale')
+logger = logging.getLogger(__name__)
 
 
 class MERRAscale(GenericScale):

@@ -3,7 +3,7 @@ import os
 import logging
 import sys
 
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
 
 from gdex_api_client import gdex_client as gac
 

@@ -10,7 +10,7 @@ from typing import Optional
 from globsim.common_utils import variables_skip
 from globsim.download.jra_dict_formatters import lookup_param
 
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
 
 
 class NcarDownloadHandler:

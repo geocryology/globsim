@@ -17,7 +17,7 @@ def configure_logging(args: argparse.Namespace):
     level = getattr(args, "level", logging.INFO)
     
     # Configure the base 'globsim' logger (or root logger via logging.getLogger())
-    logger = logging.getLogger("globsim")
+    logger = logging.getLogger(__name__)
     logger.setLevel(level)
     
     # Clear existing handlers to avoid duplicate output if re-configured
@@ -54,7 +54,7 @@ action_dict = {'download': globsim_download,
                'convert': globsim_convert}
 
 
-logger = logging.getLogger("globsim")
+logger = logging.getLogger(__name__)
 
 
 def main():

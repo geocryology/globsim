@@ -5,7 +5,7 @@ from globsim.download.RDA import Rdams
 from globsim.download.jra_dict_formatters import J3QDictFormatter, J3QGDictFormatter
 from globsim.download.JraDownloadHandler import J3QDownloadHandler, J3QgDownloadHandler
 
-logger = logging.getLogger('globsim.download')
+logger = logging.getLogger(__name__)
 
 
 class J3QD(JRAdownload):

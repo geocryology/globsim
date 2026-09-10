@@ -19,7 +19,7 @@ from globsim.download.JRA3Q_dl import GetAccessor
 from globsim.download.jra_dict_formatters import getPressureLevels
 
 
-logger = logging.getLogger('globsim.download')
+logger = logging.getLogger(__name__)
 
 CHUNK_LAT = 4
 CHUNK_LON = 4

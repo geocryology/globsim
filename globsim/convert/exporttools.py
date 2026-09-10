@@ -19,7 +19,7 @@ import bisect
 
 from globsim.common_utils import variables_skip, get_scaled_site_names
 
-logger = logging.getLogger("globsim.convert")
+logger = logging.getLogger(__name__)
 
 
 def globsimScaled2Pandas(ncdf_in, station_nr):

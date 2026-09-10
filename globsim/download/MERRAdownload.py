@@ -19,7 +19,7 @@ from typing            import Optional
 from globsim.download.GenericDownload import GenericDownload
 from globsim.meteorology import pressure_from_elevation
 
-logger = logging.getLogger("globsim.download")
+logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", category=UserWarning, module='netCDF4')
 
