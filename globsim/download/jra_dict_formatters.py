@@ -365,14 +365,3 @@ class J3QGDictFormatter(J3QDictFormatter):
         self.set_grid('gauss')
 
 
-if __name__ =="__main__":
-    
-    rda = Rdams(None)
-    md = rda.get_metadata('ds640.0')['data']['data']
-    a = find_param(md, 
-                level_description_pattern=None, 
-                name_pattern=None, 
-                variable_pattern=f'.*-sfc-cn-{self.grid}',
-                names_only=False, drop_levels=False)
-    print(a)
-    # [print(p['param_description'], p['param']) for p in q]
