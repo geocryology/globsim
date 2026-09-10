@@ -201,9 +201,5 @@ if __name__ == "__main__":
     rdams = Rdams(auth_file=None)
     # Delegates cleanly to gac.get_summary using globsim_get_authentication
     summary = rdams.get_summary('ds640.0')
-      
-    status=rdams.get_status()
-    rinfo = status['data'][0]['rinfo']
-    import pdb; pdb.set_trace() 
-    d = get_request_dicts()
+
     
