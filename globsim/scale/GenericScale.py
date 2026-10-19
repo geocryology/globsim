@@ -523,10 +523,15 @@ class GenericScale:
                 Tw = met.wet_bulb_temperature(T_C, RH)
                 return met.rain_fraction_wang(Tw)
             return _wang_rain_fraction
+        elif method == "threshold":
+            def _threshold_rain_fraction(T_C, RH):
+                _ = RH
+                return met.rain_fraction_threshold(T_C)
+            return _threshold_rain_fraction
         else:
             raise ValueError(
                 f"Unknown precipitation phase method '{method}'. "
-                "Supported values: 'jennings', 'wang'."
+                "Supported values: 'jennings', 'wang', 'threshold'."
             )
     
     def add_grid_elevation(self, ncf: "nc.Dataset", data: np.ndarray) -> None:
