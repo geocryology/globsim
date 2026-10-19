@@ -326,6 +326,50 @@ def snow_fraction_jennings(T, RH):
     return 1.0 - rain_fraction_jennings(T, RH)
 
 
+
+def rain_fraction_threshold(T, threshold=0.0):
+    """
+    Fraction of precipitation falling as rain using a simple temperature threshold.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    threshold : float
+        Temperature threshold [degrees C] above which precipitation is considered rain
+
+    Returns
+    -------
+    rain_fraction : float or array-like
+        Fraction of precipitation that is liquid (rain) [0-1]
+    """
+    require_celsius(T)
+    T = np.atleast_1d(np.asarray(T, dtype=np.float64))
+
+    rain_frac = np.where(T >= threshold, 1.0, 0.0)
+
+    return rain_frac
+
+
+def snow_fraction_threshold(T, threshold=0.0):
+    """
+    Fraction of precipitation falling as snow using a simple temperature threshold.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Air temperature [degrees C]
+    threshold : float
+        Temperature threshold [degrees C] below which precipitation is considered snow
+
+    Returns
+    -------
+    snow_fraction : float or array-like
+        Fraction of precipitation that is solid (snow) [0-1]
+    """
+    return 1 - rain_fraction_threshold(T, threshold)
+
+
 def wet_bulb_temperature(T, RH):
     """
     Wet-bulb temperature [K] estimated from air temperature and relative humidity
