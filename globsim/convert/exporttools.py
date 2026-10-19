@@ -60,7 +60,8 @@ def globsimScaled2Pandas(ncdf_in, station_nr):
 
 
 def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, export_profile=None, start=None, end=None,
-                           file_vars=["sw", "lw", "precip", "airt", "sh", "wspd", "press"]):
+                           file_vars=["sw", "lw", "precip", "airt", "sh", "wspd", "press"],
+                           fmt=None):
     """
     @args
     ncd : str
@@ -77,6 +78,11 @@ def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, 
     Returns
     list : paths of output files
     """
+    if fmt is None:
+        fmt = [" %02u", "%02u", " %03u",
+                " %2u", "%8.2f", "%8.2f",
+                "%13.4E", "%8.2f", "%11.3E",
+                "%7.2f", "%11.2f"]
     if isinstance(site, (int, str)):
         site = [site]  
     # open netcdf if string provided
@@ -165,10 +171,7 @@ def globsim_to_classic_met(ncd, out_dir, site: int|str|list[str|int]|None=None, 
             # create file
             np.savetxt(savepath, out_array,
                        newline='\n',  # windows line endings breaks the converter
-                       fmt=[" %02u", "%02u", " %03u",
-                            " %2u", "%8.2f", "%8.2f",
-                            "%13.4E", "%8.2f", "%11.3E",
-                            "%7.2f", "%11.2f"])
+                       fmt=fmt)
             logger.info(f"Created classic MET file '{savepath}' for site '{st_name}'")
     return files
 
@@ -194,7 +197,13 @@ def globsim_to_svs2(ncd, out_dir, site=None, export_profile=None, start=None, en
     profile_file = get_export_profile_file("svs2", export_profile=export_profile)
     return globsim_to_classic_met(ncd=ncd, out_dir=out_dir, site=site, export_profile=profile_file,
                                   start=start, end=end,
-                                  file_vars=["FSIN", "FLIN", "PRE", "TA", "QA", "UV", "PRES", "PRERN", "PRESNO"])
+                                  file_vars=["FSIN", "FLIN", "PRE", "TA", "QA", "UV", "PRES", "PRERN", "PRESNO"],
+                                  fmt=[" %02u", "%02u", " %03u",
+                                       " %2u", "%8.2f", "%8.2f",
+                                       "%13.4E", "%8.2f", "%11.3E",
+                                       "%7.2f", "%11.2f",
+                                       "%13.4E","%13.4E"
+                                       ])
 
 
 def globsim_to_geotop(ncd, out_dir, site=None, export_profile=None, start=None, end=None) -> "list[str]":
