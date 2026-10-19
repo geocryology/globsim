@@ -246,7 +246,6 @@ class GenericInterpolate:
             logger.info("skipping interpolation of _pl file")
         
         # rechunk for scaling here, as pl_sur will take advantage of single-station chunking
-        import pdb; pdb.set_trace()
         rechunk_for_scaling(self.get_output_file('sa'))
         rechunk_for_scaling(self.get_output_file('sf'))
         rechunk_for_scaling(self.get_output_file('pl'))
