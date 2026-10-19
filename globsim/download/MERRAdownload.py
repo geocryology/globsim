@@ -12,7 +12,6 @@ from netCDF4           import Dataset
 from os                import path
 from pathlib           import Path
 from pydap.client      import open_url, open_dods_url
-from pydap.cas.urs     import setup_session
 from scipy.interpolate import interp1d
 from typing            import Optional
 
@@ -609,6 +608,8 @@ class MERRAdownload(GenericDownload):
         return file_number
 
     def start_session(self):
+        from pydap.cas.urs import setup_session
+
         self.session = setup_session(self.username, self.password,
                                      check_url="https://goldsmr4.gesdisc.eosdis.nasa.gov/opendap/MERRA2_MONTHLY/M2C0NXASM.5.12.4/1980/MERRA2_101.const_2d_asm_Nx.00000000.nc4")
 
