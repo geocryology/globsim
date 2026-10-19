@@ -10,7 +10,7 @@ from globsim.memsafe import require_memory_overhead
 MIN_CHK_BYTES = 1 * 1024 * 1024  # 1MB 
 INTP_CHK_BYTES = 20 * 1024 * 1024  # 20MB 
 SCL_CHK_BYTES = 10 * 1024 * 1024  # 10MB 
-
+NCCOPY_MIN_CHK_BYTES = 8192  # nccopy ignores requested chunks smaller than this (its -M default)
 
 def _already_chunked_for_scaling(ncf:nc.Dataset | str, bytes_per_element:int=4) -> bool:
     """Check if the file is chunked for scaling (all levels, one station, max time) """
@@ -20,6 +20,15 @@ def _already_chunked_for_scaling(ncf:nc.Dataset | str, bytes_per_element:int=4) 
     if isinstance(ncf, str):
         ncf = nc.Dataset(ncf)
         opened_here = True
+    
+    # if one station (all times and levels) is smaller than nccopy's minimum chunk size,
+    # nccopy can't write single-station chunks, so accept the file as it is
+    if 'time' in ncf.dimensions:
+        nt = ncf.dimensions['time'].size
+        nl = ncf.dimensions['level'].size if 'level' in ncf.dimensions else 1
+        if nt * nl * bytes_per_element < NCCOPY_MIN_CHK_BYTES:
+            logger.debug(f"File is too small to chunk")
+            return True
 
     try:
         chunking = None
