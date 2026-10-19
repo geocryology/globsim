@@ -1,6 +1,9 @@
 import netCDF4 as nc
 import subprocess
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 from globsim.memsafe import require_memory_overhead
 
@@ -34,13 +37,16 @@ def _already_chunked_for_scaling(ncf:nc.Dataset | str, bytes_per_element:int=4) 
                 break
 
         if chunking is None:
+            logger.debug("No chunking found in the file.")
             return False
         
         for dim, cksz in zip(chk_dims, chunking):
             if dim == 'station' and cksz != 1:
+                logger.debug(f"Station dimension chunk size is {cksz}, expected 1.")
                 return False
             elif dim == 'level':
                 if cksz < ncf.dimensions['level'].size:
+                    logger.debug(f"Level dimension chunk size is {cksz}, expected {ncf.dimensions['level'].size}.")
                     return False 
                 else:
                     min_elements //= cksz
@@ -116,7 +122,7 @@ def calculate_chunks_for_scaling(nt, nl, ns, bytes_per_element=4) -> tuple[int, 
 def rechunk_for_scaling(f: str):
     """Rechunk a file if it is not already chunked for scaling."""
     if _already_chunked_for_scaling(f):
-        print(f"{f} is already chunked for scaling. Skipping rechunking.")
+        logger.info(f"{f} is already chunked for scaling. Skipping rechunking.")
         return
     
     # rename, chunk, verify, delete old file
@@ -132,14 +138,14 @@ def rechunk_for_scaling(f: str):
     try:
         with nc.Dataset(output_file) as ncf:
             if not _already_chunked_for_scaling(ncf):
-                print(f"Error: Rechunked file {output_file} is not chunked for scaling as expected.")
+                logger.error(f"Error: Rechunked file {output_file} is not chunked for scaling as expected.")
                 os.rename(temp_file, f)  
             else:
-                print(f"Successfully rechunked {f} for scaling.")
+                logger.info(f"Successfully rechunked {f} for scaling.")
                 os.remove(temp_file)  
                 os.rename(output_file, f) 
     except Exception as e:
-        print(f"Error reading rechunked file {output_file}: {e}")
+        logger.critical(f"Error reading rechunked file {output_file}: {e}")
         os.rename(temp_file, f)  
         return
 
@@ -158,13 +164,13 @@ def _rechunk_netcdf_for_scaling(input_file:str, output_file:str, memory_buffer_g
         nt = ncf.dimensions['time'].size
         nl = ncf.dimensions['level'].size if 'level' in ncf.dimensions else 0
         ns = ncf.dimensions['station'].size
-        print(f"Input file dimensions: time={nt}, level={nl}, station={ns}")
+        logger.debug(f"Input file dimensions: time={nt}, level={nl}, station={ns}")
     
     chunks = find_chunking(input_file)
     c_lev = max(1, nl)
     minimum_time = MIN_CHK_BYTES // (4 * c_lev)  
     if chunks is not False: 
-        print(f"Existing chunking found: {chunks}")
+        logger.debug(f"Existing chunking found: {chunks}")
         existing_time = chunks.get('time', minimum_time)  # match time slice so nccopy doesn't run out of mem
         c_time = max(existing_time, minimum_time)  # Avoid tiny chunks if file is poorly chunked
         c_time = min(nt, c_time)  # Don't create chunks larger than the dimension size
@@ -188,15 +194,16 @@ def _rechunk_netcdf_for_scaling(input_file:str, output_file:str, memory_buffer_g
         input_file, 
         output_file
     ]
-    print(" ".join(cmd))
-    print(f"Starting rechunking: {input_file} -> {output_file}")
+    #import pdb; pdb.set_trace()
+    logger.debug(" ".join(cmd))
+    logger.info(f"Starting rechunking: {input_file} -> {output_file}")
     success = None
     try:
         subprocess.run(cmd, check=True)
-        print("Rechunking complete.")
+        logger.info("Rechunking complete.")
         success = True
     except subprocess.CalledProcessError as e:
-        print(f"Error during rechunking: {e}")
+        logger.error(f"Error during rechunking: {e}")
         success = False
 
     if success:
