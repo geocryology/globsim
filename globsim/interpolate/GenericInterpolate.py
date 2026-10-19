@@ -226,23 +226,27 @@ class GenericInterpolate:
 
         if not self._skip_sa:
             self.require_safe_mem_usage(logging.INFO)
+            logger.info("Starting interpolation of _sa file")
             self._process_sa()
         else:
             logger.info("skipping interpolation of _sa file")
 
         if not self._skip_sf:
             self.require_safe_mem_usage(logging.INFO)
+            logger.info("Starting interpolation of _sf file")
             self._process_sf()
         else:
             logger.info("skipping interpolation of _sf file")
 
         if not self._skip_pl:
             self.require_safe_mem_usage(logging.INFO)
+            logger.info("Starting interpolation of _pl file")
             self._process_pl()
         else:
             logger.info("skipping interpolation of _pl file")
-
+        
         # rechunk for scaling here, as pl_sur will take advantage of single-station chunking
+        import pdb; pdb.set_trace()
         rechunk_for_scaling(self.get_output_file('sa'))
         rechunk_for_scaling(self.get_output_file('sf'))
         rechunk_for_scaling(self.get_output_file('pl'))
@@ -460,9 +464,9 @@ class GenericInterpolate:
         
         # sg = ESMF.Grid(max_index = np.array([205,45]), num_peri_dims=1, periodic_dim=0,staggerloc=ESMF.StaggerLoc.CENTER)
 
-        template = nc.Dataset(ncsingle)
-        lat = template.variables['latitude'][:]
-        lon = template.variables['longitude'][:]
+        with nc.Dataset(ncsingle) as template:
+            lat = template.variables['latitude'][:]
+            lon = template.variables['longitude'][:]
 
         sgrid = grid_create_from_coordinates_periodic(lon, lat)
         return sgrid
